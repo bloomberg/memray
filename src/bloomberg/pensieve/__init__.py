@@ -1,7 +1,7 @@
-from ._pensieve import test
+from ._pensieve import tracker
 from ._version import __version__
 
 __all__ = [
-    "test",
+    "tracker",
     "__version__",
 ]

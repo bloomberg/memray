@@ -1,0 +1,29 @@
+#include <stdexcept>
+#include <string>
+
+#include "../_pensieve_api.h"
+#include "logging.h"
+
+namespace pensieve {
+
+static int LOGGER_INITIALIZED = false;
+
+void
+initializePythonLoggerInterface()
+{
+    import_bloomberg__pensieve___pensieve();
+    LOGGER_INITIALIZED = true;
+}
+
+void
+logWithPython(const std::string& message, int level)
+{
+    if (!LOGGER_INITIALIZED) {
+        throw std::runtime_error("Logger is not initialized");
+    }
+    if (!PyErr_Occurred()) {
+        log_with_python(message, level);
+    }
+}
+
+}  // namespace pensieve
