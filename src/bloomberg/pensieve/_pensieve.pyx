@@ -1,9 +1,11 @@
 import logging
+import threading
 from contextlib import contextmanager
 
 from libcpp.string cimport string as cppstring
 
-from _pensieve.tracking_api cimport attach_init, attach_fini
+from _pensieve.tracking_api cimport attach_init, attach_fini, install_trace_function
+from _pensieve.tracking_api cimport get_allocation_records as _get_allocation_records
 from _pensieve.logging cimport initializePythonLoggerInterface
 
 initializePythonLoggerInterface()
@@ -23,3 +25,12 @@ def tracker():
     attach_init()
     yield
     attach_fini()
+
+
+def start_thread_trace(frame, event, arg):
+    if event in {"call", "c_call"}:
+        install_trace_function()
+    return start_thread_trace
+
+def get_allocation_records():
+    return _get_allocation_records()

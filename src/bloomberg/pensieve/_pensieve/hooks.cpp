@@ -15,6 +15,7 @@ SymbolHook<decltype(&::dlclose)> dlclose("dlclose", &::dlclose);
 SymbolHook<decltype(&::mmap)> mmap("mmap", &::mmap);
 SymbolHook<decltype(&::mmap64)> mmap64("mmap64", &::mmap64);
 SymbolHook<decltype(&::munmap)> munmap("munmap", &::munmap);
+SymbolHook<decltype(&::PyGILState_Ensure)> PyGILState_Ensure("PyGILState_Ensure", &::PyGILState_Ensure);
 
 }  // namespace pensieve::hooks
 
@@ -25,7 +26,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 {
     assert(hooks::mmap);
     void* ptr = hooks::mmap(addr, length, prot, flags, fd, offset);
-    tracking_api::track_allocation(ptr, length, "mmap");
+    tracking_api::Tracker::getTracker()->trackAllocation(ptr, length, "mmap");
     return ptr;
 }
 
@@ -34,7 +35,7 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noe
 {
     assert(hooks::mmap64);
     void* ptr = hooks::mmap64(addr, length, prot, flags, fd, offset);
-    tracking_api::track_allocation(ptr, length, "mmap64");
+    tracking_api::Tracker::getTracker()->trackAllocation(ptr, length, "mmap64");
     return ptr;
 }
 
@@ -42,7 +43,7 @@ int
 munmap(void* addr, size_t length) noexcept
 {
     assert(hooks::munmap);
-    tracking_api::track_deallocation(addr, "munmap");
+    tracking_api::Tracker::getTracker()->trackDeallocation(addr, "munmap");
     return hooks::munmap(addr, length);
 }
 
@@ -52,7 +53,7 @@ malloc(size_t size) noexcept
     assert(hooks::track_allocation);
 
     void* ptr = hooks::malloc(size);
-    tracking_api::track_allocation(ptr, size, "malloc");
+    tracking_api::Tracker::getTracker()->trackAllocation(ptr, size, "malloc");
     return ptr;
 }
 
@@ -63,7 +64,7 @@ free(void* ptr) noexcept
 
     // We need to call our API before we call the real free implementation
     // to make sure that the pointer is not reused in-between.
-    tracking_api::track_deallocation(ptr, "free");
+    tracking_api::Tracker::getTracker()->trackDeallocation(ptr, "free");
 
     hooks::free(ptr);
 }
@@ -75,8 +76,8 @@ realloc(void* ptr, size_t size) noexcept
 
     void* ret = hooks::realloc(ptr, size);
     if (ret) {
-        tracking_api::track_deallocation(ptr, "realloc");
-        tracking_api::track_allocation(ret, size, "realloc");
+        tracking_api::Tracker::getTracker()->trackDeallocation(ptr, "realloc");
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "realloc");
     }
     return ret;
 }
@@ -88,7 +89,7 @@ calloc(size_t num, size_t size) noexcept
 
     void* ret = hooks::calloc(num, size);
     if (ret) {
-        tracking_api::track_allocation(ret, num * size, "calloc");
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, num * size, "calloc");
     }
     return ret;
 }
@@ -100,7 +101,7 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
 
     int ret = hooks::posix_memalign(memptr, alignment, size);
     if (!ret) {
-        tracking_api::track_allocation(*memptr, size, "posix_memalign");
+        tracking_api::Tracker::getTracker()->trackAllocation(*memptr, size, "posix_memalign");
     }
     return ret;
 }
@@ -112,7 +113,7 @@ valloc(size_t size) noexcept
 
     void* ret = hooks::valloc(size);
     if (ret) {
-        tracking_api::track_allocation(ret, size, "valloc");
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "valloc");
     }
     return ret;
 }
@@ -123,7 +124,7 @@ dlopen(const char* filename, int flag) noexcept
     assert(hooks::dlopen);
 
     void* ret = hooks::dlopen(filename, flag);
-    if (ret) tracking_api::invalidate_module_cache();
+    if (ret) tracking_api::Tracker::invalidate_module_cache();
     return ret;
 }
 
@@ -133,7 +134,15 @@ dlclose(void* handle) noexcept
     assert(hooks::dlclose);
 
     int ret = hooks::dlclose(handle);
-    if (!ret) tracking_api::invalidate_module_cache();
+    if (!ret) tracking_api::Tracker::invalidate_module_cache();
+    return ret;
+}
+
+PyGILState_STATE
+PyGILState_Ensure() noexcept
+{
+    PyGILState_STATE ret = hooks::PyGILState_Ensure();
+    tracking_api::install_trace_function();
     return ret;
 }
 

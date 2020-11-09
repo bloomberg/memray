@@ -9,6 +9,8 @@
 #include <dlfcn.h>  // dlsym
 #include <sys/mman.h>
 
+#include <Python.h>
+
 namespace pensieve::hooks {
 _Pragma("GCC diagnostic ignored \"-Wignored-attributes\"") template<typename Signature>
 struct SymbolHook
@@ -44,6 +46,7 @@ extern SymbolHook<decltype(&::dlclose)> dlclose;
 extern SymbolHook<decltype(&::mmap)> mmap;
 extern SymbolHook<decltype(&::mmap64)> mmap64;
 extern SymbolHook<decltype(&::munmap)> munmap;
+extern SymbolHook<decltype(&::PyGILState_Ensure)> PyGILState_Ensure;
 
 }  // namespace pensieve::hooks
 
@@ -80,6 +83,9 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noe
 
 int
 munmap(void* addr, size_t length) noexcept;
+
+PyGILState_STATE
+PyGILState_Ensure() noexcept;
 
 }  // namespace pensieve::intercept
 

@@ -196,6 +196,7 @@ phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noe
     patched.insert(info->dlpi_name);
 
     bool restore_original = *reinterpret_cast<bool*>(data);
+
     if (strstr(info->dlpi_name, "/ld-linux")) {
         // Avoid chaos by not overwriting the symbols in the linker.
         // TODO: Don't override the symbols in our shared library!
