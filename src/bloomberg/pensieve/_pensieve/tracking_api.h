@@ -1,5 +1,7 @@
-#ifndef _PENSIEVE_TRACKING_API_H
-#define _PENSIEVE_TRACKING_API_H
+#pragma once
+
+#include <chrono>
+#include <vector>
 
 #include <memory>
 #include <mutex>
@@ -8,6 +10,8 @@
 
 #include "Python.h"
 #include "frameobject.h"
+#include "record_writer.h"
+#include "records.h"
 
 namespace pensieve::api {
 void
@@ -20,27 +24,6 @@ attach_fini();
 namespace pensieve::tracking_api {
 
 // Trace function interface
-
-/**
- * Track record of a Python frame in the Python native stack.
- *
- * The purpose of this class is to be a lightweight reference to an element of the Python stack that we
- * can read without the GIL held. All the information that requires the GIL to be acquired in the
- * Python frame that this struct represents is already transformed into native types that can be
- * accessed directly. The lifetime of pointers and references is directly linked to the frame object
- * this record represents, so the pointers are not valid once the frame is deallocated. The trace
- * function should remove these elements from the container where they live as frames are pop-ed from
- * the stack.
- *
- **/
-struct PyFrameRecord
-{
-    const char* function_name;
-    const char* filename;
-    int lineno;
-
-    friend std::ostream& operator<<(std::ostream& os, const PyFrameRecord& frame);
-};
 
 /**
  * Trace function to be installed in all Python treads to track function calls
@@ -69,32 +52,8 @@ PyTraceFunction(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 void
 install_trace_function();
 
-// In memory record interface
-// TODO: Improve this API so is not a global free function once we have an abstraction
-// for the writer.
-
-struct Frame
-{
-    explicit Frame(PyFrameRecord& pyframe);
-    std::string function_name;
-    std::string filename;
-    int lineno;
-};
-
-struct AllocationRecord
-{
-    pid_t pid;
-    long int tid;
-    unsigned long address;
-    size_t size;
-    std::vector<Frame> stacktrace;
-    std::string allocator;
-};
-
 const std::vector<AllocationRecord>&
 get_allocation_records();
-
-// Tracker interface
 
 /**
  * Singleton managing all the global state and functionality of the tracing mechanism
@@ -130,24 +89,22 @@ class Tracker
     void activate();
     void deactivate();
 
-    // Data members
-    // TODO: Remove/Move this mutex once we have an abstraction for the writer
-    std::mutex d_allocation_mutex;
-    static std::vector<AllocationRecord> allocation_records;
+    api::InMemorySerializer& getSerializer();
+    api::RecordWriter& getRecordWriter();
 
   private:
     // Constructors
-    Tracker() = default;
+    Tracker();
 
     // Data members
     static thread_local std::vector<PyFrameRecord> d_frame_stack;
     bool d_active{false};
     static Tracker* d_instance;
+    api::InMemorySerializer d_serializer;
+    api::RecordWriter d_record_writer;
 
     // The only function that is allowed to instantiate the Tracker;
     friend void pensieve::api::attach_init();
 };
 
 }  // namespace pensieve::tracking_api
-
-#endif  //_PENSIEVE_TRACKING_API_H

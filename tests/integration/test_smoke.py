@@ -1,9 +1,16 @@
 import mmap
+import shutil
+import subprocess
+import sys
 import threading
+from pathlib import Path
 
 from bloomberg.pensieve import get_allocation_records
 from bloomberg.pensieve import start_thread_trace
 from bloomberg.pensieve import tracker
+
+HERE = Path(__file__).parent
+TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 
 
 def allocating_function():
@@ -69,3 +76,41 @@ def test_smoke_in_a_thread():
     assert "allocating_function" in {
         element["function_name"] for element in mmunmap_record["stacktrace"]
     }
+
+
+def test_multithreaded_extension(tmpdir, monkeypatch):
+    """Test tracking allocations in a native extension which spawns multiple threads,
+    each thread allocating and freeing memory."""
+    # GIVEN
+    extension_name = "multithreaded_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_MULTITHREADED_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from testext import run
+
+        with tracker():
+            run()
+
+    # THEN
+    records = get_allocation_records()
+    assert records
+
+    vallocs = [record for record in records if record["allocator"] == "valloc"]
+    assert len(vallocs) == 100 * 100  # 100 threads allocate 100 times in testext
+    vallocs_addr = {record["address"] for record in vallocs}
+    valloc_frees = [
+        record
+        for record in records
+        if record["address"] in vallocs_addr and record["allocator"] == "free"
+    ]
+
+    assert len(valloc_frees) == 100 * 100

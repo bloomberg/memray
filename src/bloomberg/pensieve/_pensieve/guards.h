@@ -1,5 +1,4 @@
-#ifndef _PENSIEVE_GUARDS_H
-#define _PENSIEVE_GUARDS_H
+#pragma once
 
 struct RecursionGuard
 {
@@ -17,6 +16,3 @@ struct RecursionGuard
     const bool wasLocked;
     static thread_local bool isActive;
 };
-
-thread_local bool RecursionGuard::isActive = false;
-#endif  //_PENSIEVE_GUARDS_H

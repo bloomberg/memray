@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <iostream>
 #include <malloc.h>
 #include <mutex>
 
@@ -7,7 +6,6 @@
 
 #include "elf_shenanigans.h"
 #include "guards.h"
-#include "logging.h"
 #include "tracking_api.h"
 
 #include <sys/syscall.h>
@@ -34,36 +32,29 @@ child_fork()
     // TODO: allow children to be tracked
     RecursionGuard::isActive = true;
 }
+
 }  // namespace
 
 namespace pensieve::tracking_api {
 
-std::ostream&
-operator<<(std::ostream& os, const PyFrameRecord& frame)
-{
-    os << frame.filename << ":" << frame.function_name << ":" << frame.lineno;
-    return os;
-}
-
-Frame::Frame(PyFrameRecord& pyframe)
-: function_name(pyframe.function_name)
-, filename(pyframe.filename)
-, lineno(pyframe.lineno)
-{
-}
-
 const std::vector<AllocationRecord>&
 get_allocation_records()
 {
-    std::scoped_lock lock(Tracker::getTracker()->d_allocation_mutex);
-    return Tracker::getTracker()->allocation_records;
+    Tracker::getTracker()->getRecordWriter().flush();
+    api::InMemorySerializer& serializer = Tracker::getTracker()->getSerializer();
+    return serializer.getRecords();
 }
 
 // Tracker interface
 
 thread_local std::vector<PyFrameRecord> Tracker::d_frame_stack = std::vector<PyFrameRecord>{};
-std::vector<AllocationRecord> Tracker::allocation_records{};
 Tracker* Tracker::d_instance = nullptr;
+
+Tracker::Tracker()
+: d_serializer(api::InMemorySerializer())
+, d_record_writer(api::RecordWriter(d_serializer))
+{
+}
 
 void
 Tracker::trackAllocation(void* ptr, size_t size, const char* func)
@@ -72,17 +63,15 @@ Tracker::trackAllocation(void* ptr, size_t size, const char* func)
         return;
     }
     RecursionGuard guard;
-    {
-        std::scoped_lock lock(this->d_allocation_mutex);
-        std::vector<Frame> frames(d_frame_stack.begin(), d_frame_stack.end());
-        allocation_records.emplace_back(AllocationRecord{
-                getpid(),
-                gettid(),
-                reinterpret_cast<unsigned long>(ptr),
-                size,
-                frames,
-                func});
-    }
+    std::vector<Frame> frames(d_frame_stack.begin(), d_frame_stack.end());
+    AllocationRecord allocation_record{
+            getpid(),
+            gettid(),
+            reinterpret_cast<unsigned long>(ptr),
+            size,
+            frames,
+            func};
+    d_record_writer.collect(allocation_record);
 }
 
 void
@@ -91,21 +80,11 @@ Tracker::trackDeallocation(void* ptr, const char* func)
     if (RecursionGuard::isActive || !this->isActive()) {
         return;
     }
-    if (ptr == nullptr) {
-        return;
-    }
-    RecursionGuard recursion_guard;
-    {
-        std::scoped_lock lock(this->d_allocation_mutex);
-        std::vector<Frame> frames(d_frame_stack.begin(), d_frame_stack.end());
-        allocation_records.emplace_back(AllocationRecord{
-                getpid(),
-                gettid(),
-                reinterpret_cast<unsigned long>(ptr),
-                0,
-                frames,
-                func});
-    }
+    RecursionGuard guard;
+    std::vector<Frame> frames(d_frame_stack.begin(), d_frame_stack.end());
+    AllocationRecord
+            allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), 0, frames, func};
+    d_record_writer.collect(allocation_record);
 }
 
 void
@@ -175,6 +154,18 @@ Tracker::getTracker()
     return d_instance;
 }
 
+api::InMemorySerializer&
+Tracker::getSerializer()
+{
+    return d_serializer;
+}
+
+api::RecordWriter&
+Tracker::getRecordWriter()
+{
+    return d_record_writer;
+}
+
 // Trace Function interface
 
 int
@@ -237,7 +228,6 @@ attach_init()
     elf::overwrite_symbols();
     tracking_api::Tracker::getTracker()->activate();
 }
-
 void
 attach_fini()
 {
@@ -248,5 +238,6 @@ attach_fini()
     RecursionGuard guard;
     tracking_api::Tracker::getTracker()->deactivate();
     elf::restore_symbols();
+    tracking_api::Tracker::getTracker()->getRecordWriter().flush();
 }
 }  // namespace pensieve::api
