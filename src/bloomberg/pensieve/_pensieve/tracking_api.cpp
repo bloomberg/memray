@@ -143,7 +143,7 @@ Tracker::deactivate()
 {
     this->d_active = false;
 }
-bool
+const std::atomic<bool>&
 Tracker::isActive() const
 {
     return this->d_active;
@@ -225,8 +225,8 @@ attach_init()
 
     RecursionGuard guard;
     tracking_api::install_trace_function();
-    elf::overwrite_symbols();
     tracking_api::Tracker::getTracker()->activate();
+    elf::overwrite_symbols();
 }
 void
 attach_fini()
