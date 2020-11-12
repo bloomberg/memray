@@ -100,11 +100,14 @@ RecordWriter::ioHandler()
 void
 RecordWriter::collect(const tracking_api::AllocationRecord& record)
 {
+    size_t elements;
     {
         std::lock_guard<std::mutex> lock(d_write_lock);
         d_record_buffer->emplace_back(record);
+        elements = d_record_buffer->size();
     }
-    if (d_record_buffer->size() >= RECORD_BUFFER_SIZE) {
+    if (elements >= RECORD_BUFFER_SIZE) {
+        std::unique_lock<std::mutex> lock(d_write_lock);
         d_flush_signal.notify_one();
     }
 }

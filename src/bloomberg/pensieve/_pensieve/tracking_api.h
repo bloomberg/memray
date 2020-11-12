@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <vector>
 
@@ -82,7 +83,7 @@ class Tracker
     static void popFrame();
 
     // Interface to activate/deactivate the tracking
-    bool isActive() const;
+    const std::atomic<bool>& isActive() const;
     void activate();
     void deactivate();
 
@@ -98,7 +99,8 @@ class Tracker
 
     // Data members
     static thread_local std::vector<PyFrameRecord> d_frame_stack;
-    bool d_active{false};
+
+    std::atomic<bool> d_active{false};
     static Tracker* d_instance;
     api::InMemorySerializer d_serializer;
     api::RecordWriter d_record_writer;
