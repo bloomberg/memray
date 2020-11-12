@@ -50,7 +50,7 @@ munmap(void* addr, size_t length) noexcept
 void*
 malloc(size_t size) noexcept
 {
-    assert(hooks::track_allocation);
+    assert(hooks::malloc);
 
     void* ptr = hooks::malloc(size);
     tracking_api::Tracker::getTracker()->trackAllocation(ptr, size, "malloc");

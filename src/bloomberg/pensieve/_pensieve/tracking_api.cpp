@@ -94,7 +94,9 @@ Tracker::frameStack()
 void
 Tracker::initializeFrameStack()
 {
-    d_frame_stack.clear();
+    if (!d_frame_stack.empty()) {
+        return;
+    }
     PyFrameObject* current_frame = PyEval_GetFrame();
     while (current_frame != nullptr) {
         const char* function = PyUnicode_AsUTF8(current_frame->f_code->co_name);

@@ -107,7 +107,7 @@ RecordWriter::collect(const tracking_api::AllocationRecord& record)
         elements = d_record_buffer->size();
     }
     if (elements >= RECORD_BUFFER_SIZE) {
-        std::unique_lock<std::mutex> lock(d_write_lock);
+        std::scoped_lock<std::mutex> lock(d_write_lock);
         d_flush_signal.notify_one();
     }
 }
@@ -129,6 +129,7 @@ RecordWriter::flush()
     RecursionGuard guard;
     std::unique_lock<std::mutex> lock(d_write_lock);
     flush(d_record_buffer);
+    flush(d_secondary_buffer);
 }
 
 }  // namespace pensieve::api
