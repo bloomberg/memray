@@ -37,14 +37,6 @@ child_fork()
 
 namespace pensieve::tracking_api {
 
-const std::vector<AllocationRecord>&
-get_allocation_records()
-{
-    Tracker::getTracker()->getRecordWriter().flush();
-    api::InMemorySerializer& serializer = Tracker::getTracker()->getSerializer();
-    return serializer.getRecords();
-}
-
 // Tracker interface
 
 thread_local std::vector<PyFrameRecord> Tracker::d_frame_stack = std::vector<PyFrameRecord>{};
@@ -164,6 +156,13 @@ api::RecordWriter&
 Tracker::getRecordWriter()
 {
     return d_record_writer;
+}
+
+const std::vector<AllocationRecord>&
+Tracker::getAllocationRecords()
+{
+    d_record_writer.flush();
+    return d_serializer.getRecords();
 }
 
 // Trace Function interface

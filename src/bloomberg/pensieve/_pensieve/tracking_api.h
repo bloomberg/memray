@@ -52,9 +52,6 @@ PyTraceFunction(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 void
 install_trace_function();
 
-const std::vector<AllocationRecord>&
-get_allocation_records();
-
 /**
  * Singleton managing all the global state and functionality of the tracing mechanism
  *
@@ -88,6 +85,9 @@ class Tracker
     bool isActive() const;
     void activate();
     void deactivate();
+
+    // Allocation records API
+    const std::vector<AllocationRecord>& getAllocationRecords();
 
     api::InMemorySerializer& getSerializer();
     api::RecordWriter& getRecordWriter();

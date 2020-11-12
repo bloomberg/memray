@@ -5,9 +5,8 @@ import sys
 import threading
 from pathlib import Path
 
-from bloomberg.pensieve import get_allocation_records
+from bloomberg.pensieve import Tracker
 from bloomberg.pensieve import start_thread_trace
-from bloomberg.pensieve import tracker
 
 HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
@@ -20,11 +19,11 @@ def allocating_function():
 
 def test_smoke():
     # GIVEN / WHEN
-    with tracker():
+    with Tracker() as tracker:
         allocating_function()
 
     # THEN
-    records = get_allocation_records()
+    records = tracker.get_allocation_records()
 
     assert len(records) >= 2
 
@@ -57,7 +56,8 @@ def test_smoke_in_a_thread():
         threading.setprofile(old_profile)
 
     # THEN
-    records = get_allocation_records()
+    tracker = Tracker()
+    records = tracker.get_allocation_records()
 
     assert len(records) >= 2
 
@@ -97,11 +97,11 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from testext import run
 
-        with tracker():
+        with Tracker() as tracker:
             run()
 
     # THEN
-    records = get_allocation_records()
+    records = tracker.get_allocation_records()
     assert records
 
     vallocs = [record for record in records if record["allocator"] == "valloc"]
