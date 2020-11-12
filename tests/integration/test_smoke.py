@@ -113,4 +113,4 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
         if record["address"] in vallocs_addr and record["allocator"] == "free"
     ]
 
-    assert len(valloc_frees) == 100 * 100
+    assert len(valloc_frees) >= 100 * 100
