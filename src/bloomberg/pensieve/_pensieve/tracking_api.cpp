@@ -167,6 +167,13 @@ Tracker::getAllocationRecords()
     return d_serializer.getRecords();
 }
 
+void
+Tracker::clearAllocationRecords()
+{
+    assert(isActive() == false);
+    d_serializer.clear();
+}
+
 // Trace Function interface
 
 int

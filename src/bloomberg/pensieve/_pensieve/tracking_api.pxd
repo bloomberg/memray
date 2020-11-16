@@ -11,6 +11,7 @@ cdef extern from "tracking_api.h" namespace "pensieve::tracking_api":
         Tracker* getTracker()
 
         const vector[AllocationRecord]& getAllocationRecords()
+        void clearAllocationRecords()
 
 
 cdef extern from "tracking_api.h" namespace "pensieve::api":

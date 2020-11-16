@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <malloc.h>
 #include <stdexcept>
 #include <string>
 
@@ -40,7 +41,9 @@ extern SymbolHook<decltype(&::free)> free;
 extern SymbolHook<decltype(&::calloc)> calloc;
 extern SymbolHook<decltype(&::realloc)> realloc;
 extern SymbolHook<decltype(&::posix_memalign)> posix_memalign;
+extern SymbolHook<decltype(&::memalign)> memalign;
 extern SymbolHook<decltype(&::valloc)> valloc;
+extern SymbolHook<decltype(&::pvalloc)> pvalloc;
 extern SymbolHook<decltype(&::dlopen)> dlopen;
 extern SymbolHook<decltype(&::dlclose)> dlclose;
 extern SymbolHook<decltype(&::mmap)> mmap;
@@ -67,7 +70,13 @@ int
 posix_memalign(void** memptr, size_t alignment, size_t size) noexcept;
 
 void*
+memalign(size_t alignment, size_t size) noexcept;
+
+void*
 valloc(size_t size) noexcept;
+
+void*
+pvalloc(size_t size) noexcept;
 
 void*
 dlopen(const char* filename, int flag) noexcept;

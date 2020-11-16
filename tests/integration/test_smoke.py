@@ -50,19 +50,24 @@ def test_smoke_in_a_thread():
     threading.setprofile(start_thread_trace)
     try:
         t = threading.Thread(target=allocating_function)
-        t.start()
-        t.join()
+        with Tracker() as tracker:
+            t.start()
+            t.join()
     finally:
         threading.setprofile(old_profile)
 
     # THEN
-    tracker = Tracker()
     records = tracker.get_allocation_records()
 
     assert len(records) >= 2
 
     mmap_record = next(
-        (record for record in records if "mmap" in record["allocator"]), None
+        (
+            record
+            for record in records
+            if "mmap" in record["allocator"] and record["size"] == 2048
+        ),
+        None,
     )
     assert mmap_record is not None
     assert "allocating_function" in {

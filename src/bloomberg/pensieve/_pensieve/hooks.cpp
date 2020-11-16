@@ -9,7 +9,9 @@ SymbolHook<decltype(&::free)> free("free", &::free);
 SymbolHook<decltype(&::calloc)> calloc("calloc", &::calloc);
 SymbolHook<decltype(&::realloc)> realloc("realloc", &::realloc);
 SymbolHook<decltype(&::posix_memalign)> posix_memalign("posix_memalign", &::posix_memalign);
+SymbolHook<decltype(&::memalign)> memalign("memalign", &::memalign);
 SymbolHook<decltype(&::valloc)> valloc("valloc", &::valloc);
+SymbolHook<decltype(&::pvalloc)> pvalloc("pvalloc", &::pvalloc);
 SymbolHook<decltype(&::dlopen)> dlopen("dlopen", &::dlopen);
 SymbolHook<decltype(&::dlclose)> dlclose("dlclose", &::dlclose);
 SymbolHook<decltype(&::mmap)> mmap("mmap", &::mmap);
@@ -107,6 +109,18 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
 }
 
 void*
+memalign(size_t alignment, size_t size) noexcept
+{
+    assert(hooks::memalign);
+
+    void* ret = hooks::memalign(alignment, size);
+    if (ret) {
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "memalign");
+    }
+    return ret;
+}
+
+void*
 valloc(size_t size) noexcept
 {
     assert(hooks::valloc);
@@ -114,6 +128,18 @@ valloc(size_t size) noexcept
     void* ret = hooks::valloc(size);
     if (ret) {
         tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "valloc");
+    }
+    return ret;
+}
+
+void*
+pvalloc(size_t size) noexcept
+{
+    assert(hooks::pvalloc);
+
+    void* ret = hooks::pvalloc(size);
+    if (ret) {
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "pvalloc");
     }
     return ret;
 }

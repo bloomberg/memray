@@ -145,7 +145,9 @@ overwrite_elf_table(
         TRY_HOOK(calloc);
         TRY_HOOK(realloc);
         TRY_HOOK(posix_memalign);
+        TRY_HOOK(memalign);
         TRY_HOOK(valloc);
+        TRY_HOOK(pvalloc);
         TRY_HOOK(dlopen);
         TRY_HOOK(dlclose);
         TRY_HOOK(mmap);

@@ -89,6 +89,7 @@ class Tracker
 
     // Allocation records API
     const std::vector<AllocationRecord>& getAllocationRecords();
+    void clearAllocationRecords();
 
     api::InMemorySerializer& getSerializer();
     api::RecordWriter& getRecordWriter();
