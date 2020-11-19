@@ -1,3 +1,5 @@
+import mmap
+
 import pytest
 
 from bloomberg.pensieve import Tracker
@@ -16,7 +18,7 @@ from bloomberg.pensieve._test import MemoryAllocator
         "realloc",
     ],
 )
-def test_allocation_tracking(allocator_func):
+def test_simple_allocation_tracking(allocator_func):
     # GIVEN
     allocator = MemoryAllocator()
 
@@ -40,6 +42,26 @@ def test_allocation_tracking(allocator_func):
         if event["address"] == alloc["address"] and event["allocator"] == "free"
     ]
     assert len(frees) >= 1
+
+
+def test_mmap_tracking():
+    # GIVEN / WHEM
+    with Tracker() as tracker:
+        with mmap.mmap(-1, length=2048, access=mmap.ACCESS_WRITE) as mmap_obj:
+            mmap_obj[0:100] = b"a" * 100
+
+    # THEN
+    records = tracker.get_allocation_records()
+    assert len(records) >= 2
+
+    mmap_records = [
+        record
+        for record in records
+        if "mmap" in record["allocator"] and record["size"] == 2048
+    ]
+    assert len(mmap_records) == 1
+    mmunmap_record = [record for record in records if "munmap" in record["allocator"]]
+    assert len(mmunmap_record) == 1
 
 
 def test_pthread_tracking():
