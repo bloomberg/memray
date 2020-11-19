@@ -40,14 +40,30 @@ namespace pensieve::tracking_api {
 // Tracker interface
 
 thread_local std::vector<PyFrameRecord> Tracker::d_frame_stack = std::vector<PyFrameRecord>{};
-Tracker* Tracker::d_instance = nullptr;
+std::atomic<Tracker*> Tracker::d_instance = nullptr;
 
-Tracker::Tracker()
-: d_serializer(api::InMemorySerializer())
-, d_record_writer(api::RecordWriter(d_serializer))
+Tracker::Tracker(std::unique_ptr<api::Serializer> serializer)
 {
-}
+    d_instance = this;
+    d_record_writer = std::make_unique<api::RecordWriter>(std::move(serializer));
 
+    static std::once_flag once;
+    call_once(once, [] { pthread_atfork(&prepare_fork, &parent_fork, &child_fork); });
+
+    RecursionGuard guard;
+    tracking_api::install_trace_function();
+    tracking_api::Tracker::getTracker()->activate();
+    elf::overwrite_symbols();
+}
+Tracker::~Tracker()
+{
+    RecursionGuard guard;
+    tracking_api::Tracker::getTracker()->deactivate();
+    elf::restore_symbols();
+    tracking_api::Tracker::getTracker()->flush();
+
+    d_instance = nullptr;
+}
 void
 Tracker::trackAllocation(void* ptr, size_t size, const char* func)
 {
@@ -63,7 +79,7 @@ Tracker::trackAllocation(void* ptr, size_t size, const char* func)
             size,
             frames,
             func};
-    d_record_writer.collect(allocation_record);
+    d_record_writer->collect(allocation_record);
 }
 
 void
@@ -76,7 +92,7 @@ Tracker::trackDeallocation(void* ptr, const char* func)
     std::vector<Frame> frames(d_frame_stack.begin(), d_frame_stack.end());
     AllocationRecord
             allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), 0, frames, func};
-    d_record_writer.collect(allocation_record);
+    d_record_writer->collect(allocation_record);
 }
 
 void
@@ -133,7 +149,8 @@ Tracker::activate()
 void
 Tracker::deactivate()
 {
-    this->d_active = false;
+    d_active = false;
+    d_record_writer->flush();
 }
 const std::atomic<bool>&
 Tracker::isActive() const
@@ -146,30 +163,10 @@ Tracker::getTracker()
     return d_instance;
 }
 
-api::InMemorySerializer&
-Tracker::getSerializer()
-{
-    return d_serializer;
-}
-
-api::RecordWriter&
-Tracker::getRecordWriter()
-{
-    return d_record_writer;
-}
-
-const std::vector<AllocationRecord>&
-Tracker::getAllocationRecords()
-{
-    d_record_writer.flush();
-    return d_serializer.getRecords();
-}
-
 void
-Tracker::clearAllocationRecords()
+Tracker::flush()
 {
-    assert(isActive() == false);
-    d_serializer.clear();
+    d_record_writer->flush();
 }
 
 // Trace Function interface
@@ -228,34 +225,3 @@ install_trace_function()
 }
 
 }  // namespace pensieve::tracking_api
-
-namespace pensieve::api {
-
-void
-attach_init()
-{
-    static std::once_flag once;
-    call_once(once, [] {
-        pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
-        tracking_api::Tracker::d_instance = new tracking_api::Tracker();
-    });
-    assert(tracking_api::Tracker::getTracker());
-
-    RecursionGuard guard;
-    tracking_api::install_trace_function();
-    tracking_api::Tracker::getTracker()->activate();
-    elf::overwrite_symbols();
-}
-void
-attach_fini()
-{
-    if (!(tracking_api::Tracker::getTracker() && tracking_api::Tracker::getTracker()->isActive())) {
-        return;
-    }
-
-    RecursionGuard guard;
-    tracking_api::Tracker::getTracker()->deactivate();
-    elf::restore_symbols();
-    tracking_api::Tracker::getTracker()->getRecordWriter().flush();
-}
-}  // namespace pensieve::api

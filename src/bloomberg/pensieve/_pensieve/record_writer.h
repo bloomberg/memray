@@ -60,7 +60,9 @@ class RecordWriter
   public:
     typedef std::vector<tracking_api::AllocationRecord> records_t;
     typedef std::unique_ptr<records_t> records_ptr_t;
-    explicit RecordWriter(Serializer& serializer);
+    typedef std::unique_ptr<Serializer> serializer_ptr_t;
+
+    explicit RecordWriter(serializer_ptr_t serializer);
     ~RecordWriter();
 
     void collect(const tracking_api::AllocationRecord& record);
@@ -71,7 +73,7 @@ class RecordWriter
     void ioHandler();
     void flush(records_ptr_t& queue);
 
-    Serializer& d_serializer;
+    serializer_ptr_t d_serializer;
     records_ptr_t d_record_buffer;
     records_ptr_t d_secondary_buffer;
     std::condition_variable d_flush_signal;

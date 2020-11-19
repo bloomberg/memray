@@ -14,14 +14,6 @@
 #include "record_writer.h"
 #include "records.h"
 
-namespace pensieve::api {
-void
-attach_init();
-
-void
-attach_fini();
-}  // namespace pensieve::api
-
 namespace pensieve::tracking_api {
 
 // Trace function interface
@@ -65,6 +57,10 @@ install_trace_function();
 class Tracker
 {
   public:
+    // Constructors
+    explicit Tracker(std::unique_ptr<api::Serializer> serializer);
+    ~Tracker();
+
     Tracker(Tracker& other) = delete;
     void operator=(const Tracker&) = delete;
 
@@ -87,27 +83,13 @@ class Tracker
     void activate();
     void deactivate();
 
-    // Allocation records API
-    const std::vector<AllocationRecord>& getAllocationRecords();
-    void clearAllocationRecords();
-
-    api::InMemorySerializer& getSerializer();
-    api::RecordWriter& getRecordWriter();
+    void flush();
 
   private:
-    // Constructors
-    Tracker();
-
-    // Data members
     static thread_local std::vector<PyFrameRecord> d_frame_stack;
-
     std::atomic<bool> d_active{false};
-    static Tracker* d_instance;
-    api::InMemorySerializer d_serializer;
-    api::RecordWriter d_record_writer;
-
-    // The only function that is allowed to instantiate the Tracker;
-    friend void pensieve::api::attach_init();
+    static std::atomic<Tracker*> d_instance;
+    std::unique_ptr<api::RecordWriter> d_record_writer;
 };
 
 }  // namespace pensieve::tracking_api

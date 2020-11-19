@@ -46,8 +46,8 @@ InMemorySerializer::getRecords()
     return d_records;
 }
 
-RecordWriter::RecordWriter(Serializer& serializer)
-: d_serializer(serializer)
+RecordWriter::RecordWriter(serializer_ptr_t serializer)
+: d_serializer(std::move(serializer))
 , d_record_buffer(std::make_unique<records_t>())
 , d_secondary_buffer(std::make_unique<records_t>())
 , d_io_thread(std::thread(&RecordWriter::ioHandler, this))
@@ -66,7 +66,10 @@ RecordWriter::stop()
 {
     RecursionGuard guard;
     d_is_stopping = true;
-    d_flush_signal.notify_one();
+    {
+        std::scoped_lock<std::mutex> lock(d_write_lock);
+        d_flush_signal.notify_one();
+    }
     d_io_thread.join();
 }
 
@@ -118,7 +121,7 @@ RecordWriter::flush(records_ptr_t& records)
     RecursionGuard guard;
     std::scoped_lock<std::mutex> flush_lock(d_flush_lock);
     for (const auto& elem : *records) {
-        d_serializer.write(elem);
+        d_serializer->write(elem);
     }
     records->clear();
 }
