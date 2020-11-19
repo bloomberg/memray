@@ -94,9 +94,7 @@ Tracker::frameStack()
 void
 Tracker::initializeFrameStack()
 {
-    if (!d_frame_stack.empty()) {
-        return;
-    }
+    d_frame_stack.clear();
     PyFrameObject* current_frame = PyEval_GetFrame();
     while (current_frame != nullptr) {
         const char* function = PyUnicode_AsUTF8(current_frame->f_code->co_name);
@@ -198,8 +196,20 @@ PyTraceFunction(
             Tracker::addFrame({function, filename, lineno});
             break;
         case PyTrace_RETURN:
-            assert(function == Tracker::frameStack().back().function_name);
-            Tracker::popFrame();
+            // At the beggining of the tracking is possible that we don't
+            // see some C functions (mainly from Cython) when pre-populating
+            // the Tracker::frameStack() vector because the Python stack does
+            // not "see" these C functions (the native stack does). This means
+            // that is possible that we see the end of a function call that
+            // was never in the vector. This is normal and the only thing we
+            // need to do is to not remove anything from our vector.
+            //
+            // Notice that any further Cython call *will* be tracked because
+            // the tracker function will be invoked with it and therefore we
+            // will add it to the vector.
+            if (function == Tracker::frameStack().back().function_name) {
+                Tracker::popFrame();
+            }
             break;
         default:
             break;

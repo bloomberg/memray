@@ -1,3 +1,4 @@
+import sys
 import logging
 
 from libcpp.string cimport string as cppstring
@@ -23,20 +24,22 @@ cdef api void log_with_python(cppstring message, int level):
 cdef class Tracker:
     cdef NativeTracker* _tracker
     cdef object _allocation_records
+    cdef object _previous_profile_func
 
     def __cinit__(self):
         self._tracker = NativeTracker.getTracker()
-        if self._tracker is NULL:
-            attach_init()
-            self._tracker = NativeTracker.getTracker()
-        assert(self._tracker != NULL)
 
     def __enter__(self):
+        self._previous_profile_func = sys.getprofile()
         attach_init()
+        if self._tracker is NULL:
+            self._tracker = NativeTracker.getTracker()
+        assert(self._tracker != NULL)
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         attach_fini()
+        sys.setprofile(self._previous_profile_func)
         self._allocation_records = self._tracker.getAllocationRecords()
         self._tracker.clearAllocationRecords()
 
