@@ -11,7 +11,6 @@
 
 #include "Python.h"
 #include "frameobject.h"
-#include "record_writer.h"
 #include "records.h"
 
 namespace pensieve::tracking_api {
@@ -58,7 +57,7 @@ class Tracker
 {
   public:
     // Constructors
-    explicit Tracker(std::unique_ptr<api::Serializer> serializer);
+    explicit Tracker(const std::string& file_name);
     ~Tracker();
 
     Tracker(Tracker& other) = delete;
@@ -68,28 +67,27 @@ class Tracker
     static Tracker* getTracker();
 
     // Allocation tracking interface
-    void trackAllocation(void* ptr, size_t size, const char* func);
-    void trackDeallocation(void* ptr, const char* func);
+    void trackAllocation(void* ptr, size_t size, const char* func) const;
+    void trackDeallocation(void* ptr, const char* func) const;
     static void invalidate_module_cache();
 
     // Frame stack interface
-    static const std::vector<PyFrameRecord>& frameStack();
     static void initializeFrameStack();
-    static void addFrame(const PyFrameRecord&& frame);
-    static void popFrame();
+    static void addFrame(const Frame& frame);
+    static void popFrame(const Frame& frame);
 
     // Interface to activate/deactivate the tracking
     const std::atomic<bool>& isActive() const;
     void activate();
     void deactivate();
 
-    void flush();
-
   private:
-    static thread_local std::vector<PyFrameRecord> d_frame_stack;
+    static thread_local frame_map_t d_frames;
     std::atomic<bool> d_active{false};
     static std::atomic<Tracker*> d_instance;
-    std::unique_ptr<api::RecordWriter> d_record_writer;
+
+    static std::mutex d_output_mutex;
+    static std::ofstream d_output;
 };
 
 }  // namespace pensieve::tracking_api

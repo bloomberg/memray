@@ -18,41 +18,8 @@ class Serializer
 {
   public:
     virtual void write(const tracking_api::AllocationRecord& record) = 0;
-};
-
-class StreamSerializer : public Serializer
-{
-  public:
-    explicit StreamSerializer(std::ostream& outputStream);
-    ~StreamSerializer() = default;
-
-    StreamSerializer(StreamSerializer&) = delete;
-    StreamSerializer& operator=(StreamSerializer&) = delete;
-
-    void write(const tracking_api::AllocationRecord& record) override;
-
-  private:
-    std::ostream& d_outStream;
-};
-
-class InMemorySerializer : public Serializer
-{
-  public:
-    typedef std::vector<tracking_api::AllocationRecord> records_t;
-
-    InMemorySerializer() = default;
-    ~InMemorySerializer() = default;
-
-    InMemorySerializer(InMemorySerializer&) = delete;
-    InMemorySerializer& operator=(InMemorySerializer&) = delete;
-
-    void write(const tracking_api::AllocationRecord& record) override;
-
-    void clear();
-    const records_t& getRecords();
-
-  private:
-    records_t d_records;
+    virtual void write(const tracking_api::frame_seq_pair_t& frame) = 0;
+    virtual void flush() = 0;
 };
 
 class RecordWriter

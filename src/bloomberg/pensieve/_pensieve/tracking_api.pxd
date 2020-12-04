@@ -1,13 +1,11 @@
-from libcpp.memory cimport unique_ptr
-
-from _pensieve.record_writer cimport Serializer
+from libcpp.string cimport string
 
 
 cdef extern from "tracking_api.h" namespace "pensieve::tracking_api":
     void install_trace_function() except*
 
     cdef cppclass Tracker:
-        Tracker(unique_ptr[Serializer])
+        Tracker(const string& file_name )
 
         @staticmethod
         Tracker* getTracker()

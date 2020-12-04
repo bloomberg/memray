@@ -39,7 +39,7 @@ def test_initial_tracking_frames_are_correctly_populated():
     allocs = [record for record in records if record["allocator"] == "valloc"]
     assert len(allocs) == 1
     (alloc,) = allocs
-    traceback = [frame["function_name"] for frame in alloc["stacktrace"]]
+    traceback = [frame["function_name"] for frame in alloc["stack_trace"]]
     assert traceback[-3:] == [
         "test_initial_tracking_frames_are_correctly_populated",
         "foo",
@@ -75,7 +75,7 @@ def test_restart_tracing_function_gets_correctly_the_frames():
     allocs = [record for record in records if record["allocator"] == "valloc"]
     assert len(allocs) == 1
     (alloc,) = allocs
-    traceback = [frame["function_name"] for frame in alloc["stacktrace"]]
+    traceback = [frame["function_name"] for frame in alloc["stack_trace"]]
     assert traceback[-4:] == [
         "test_restart_tracing_function_gets_correctly_the_frames",
         "bar",

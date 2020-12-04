@@ -1,16 +1,16 @@
+import pathlib
 import sys
 import logging
 
 from libcpp.string cimport string as cppstring
-from libcpp.utility cimport move
 from libcpp.memory cimport unique_ptr, make_unique
 
 from _pensieve.tracking_api cimport install_trace_function
 from _pensieve.tracking_api cimport Tracker as NativeTracker
-from _pensieve.record_writer cimport Serializer, InMemorySerializer
 from _pensieve.logging cimport initializePythonLoggerInterface
 from _pensieve.alloc cimport calloc, free, malloc, realloc, posix_memalign, memalign, valloc, pvalloc
 from _pensieve.pthread cimport pthread_create, pthread_join, pthread_t
+from _pensieve.record_reader cimport RecordReader
 
 initializePythonLoggerInterface()
 
@@ -26,25 +26,33 @@ cdef api void log_with_python(cppstring message, int level):
 
 cdef class Tracker:
     cdef NativeTracker* _tracker
-    #cdef object _allocation_records
     cdef object _previous_profile_func
-    cdef unique_ptr[InMemorySerializer] _serializer
+    cdef cppstring _output_path
+    cdef unique_ptr[RecordReader] _reader
+
+    def __cinit__(self, object file_name):
+        if isinstance(file_name, str):
+            file_name = pathlib.Path(file_name)
+
+        self._output_path = str(file_name)
 
     def __enter__(self):
         self._previous_profile_func = sys.getprofile()
-        self._serializer = make_unique[InMemorySerializer]()
-        self._tracker = new NativeTracker(<unique_ptr[Serializer]>(move(self._serializer)))
+        self._tracker = new NativeTracker(self._output_path)
 
         return self
+
+    def __del__(self):
+        self._reader.reset()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         del self._tracker
         sys.setprofile(self._previous_profile_func)
-        #self._allocation_records = self._tracker.getAllocationRecords()
-        #self._tracker.clearAllocationRecords()
 
-    # def get_allocation_records(self):
-    #     return self._allocation_records
+    def get_allocation_records(self):
+        self._reader = make_unique[RecordReader](self._output_path)
+        return self._reader.get().results()
+
 
 
 def start_thread_trace(frame, event, arg):

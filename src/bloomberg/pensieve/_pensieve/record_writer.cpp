@@ -8,44 +8,6 @@ namespace pensieve::api {
 
 const int RECORD_BUFFER_SIZE = 100;
 
-StreamSerializer::StreamSerializer(std::ostream& outputStream)
-: d_outStream(outputStream)
-{
-}
-
-void
-StreamSerializer::write(const tracking_api::AllocationRecord& record)
-{
-    d_outStream << "Process ID: [" << record.pid << "] "
-                << "Thread ID: [" << record.tid << "] "
-                << "Allocation size: [" << record.size << "] "
-                << "Allocation address: [" << std::hex << record.address << std::dec << "] "
-                << record.stacktrace.size() << " total frames: ";
-    for (const auto& frame : record.stacktrace) {
-        d_outStream << "File name: [" << frame.filename << "] ";
-        d_outStream << "Line number: [" << frame.lineno << "] ";
-        d_outStream << "Function: [" << frame.function_name << "] ";
-    }
-    d_outStream << std::endl;
-}
-
-void
-InMemorySerializer::write(const tracking_api::AllocationRecord& record)
-{
-    d_records.emplace_back(record);
-}
-
-void
-InMemorySerializer::clear()
-{
-    d_records.clear();
-}
-const InMemorySerializer::records_t&
-InMemorySerializer::getRecords()
-{
-    return d_records;
-}
-
 RecordWriter::RecordWriter(serializer_ptr_t serializer)
 : d_serializer(std::move(serializer))
 , d_record_buffer(std::make_unique<records_t>())
