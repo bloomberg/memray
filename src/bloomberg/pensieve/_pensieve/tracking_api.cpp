@@ -41,7 +41,7 @@ namespace pensieve::tracking_api {
 
 // Tracker interface
 
-thread_local frame_map_t Tracker::d_frames = frame_map_t();
+frame_map_t Tracker::d_frames = frame_map_t();
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 std::ofstream Tracker::d_output = std::ofstream();
 std::mutex Tracker::d_output_mutex;
@@ -50,7 +50,6 @@ Tracker::Tracker(const std::string& file_name)
 {
     d_instance = this;
     d_output.open(file_name, std::ofstream::trunc);
-    std::cout << "Opened " << file_name << " for writing" << std::endl;
 
     static std::once_flag once;
     call_once(once, [] { pthread_atfork(&prepare_fork, &parent_fork, &child_fork); });
@@ -76,21 +75,6 @@ Tracker::~Tracker()
 }
 void
 Tracker::trackAllocation(void* ptr, size_t size, const char* func) const
-{
-    if (RecursionGuard::isActive || !this->isActive()) {
-        return;
-    }
-    RecursionGuard guard;
-    AllocationRecord
-            allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), size, func};
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << allocation_record;
-    }
-}
-
-void
-Tracker::trackDeallocation(void* ptr, const char* func) const
 {
     if (RecursionGuard::isActive || !this->isActive()) {
         return;
@@ -145,29 +129,20 @@ void
 Tracker::popFrame(const Frame& frame)
 {
     frame_id_t frame_id = add_frame(d_frames, frame);
-
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << frame_seq_pair_t{frame_id, FrameAction::POP};
-    }
+    d_output << frame_seq_pair_t{frame_id, FrameAction::POP};
 }
 
 void
 Tracker::addFrame(const Frame& frame)
 {
     frame_id_t frame_id = add_frame(d_frames, frame);
-
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << frame_seq_pair_t{frame_id, FrameAction::PUSH};
-    }
+    d_output << frame_seq_pair_t{frame_id, FrameAction::PUSH};
 }
 
 void
 Tracker::activate()
 {
     this->d_active = true;
-    std::cout << "Activated" << std::endl;
 }
 
 void
@@ -178,7 +153,6 @@ Tracker::deactivate()
         std::lock_guard<std::mutex> lock(d_output_mutex);
         d_output.flush();
     }
-    std::cout << "Deactivated" << std::endl;
 }
 
 const std::atomic<bool>&
@@ -203,6 +177,10 @@ PyTraceFunction(
         [[maybe_unused]] PyObject* arg)
 {
     RecursionGuard guard;
+    if (!Tracker::getTracker()->isActive()) {
+        return 0;
+    }
+
     const char* function = PyUnicode_AsUTF8(frame->f_code->co_name);
     if (!function) {
         return -1;
@@ -217,27 +195,7 @@ PyTraceFunction(
             Tracker::addFrame(Frame{function, filename, lineno});
             break;
         case PyTrace_RETURN: {
-            // At the beggining of the tracking is possible that we don't
-            // see some C functions (mainly from Cython) when pre-populating
-            // the Tracker::frameStack() vector because the Python stack does
-            // not "see" these C functions (the native stack does). This means
-            // that is possible that we see the end of a function call that
-            // was never in the vector. This is normal and the only thing we
-            // need to do is to not remove anything from our vector.
-            //
-            // Notice that any further Cython call *will* be tracked because
-            // the tracker function will be invoked with it and therefore we
-            // will add it to the vector.
-            // get previous frame
             Tracker::popFrame({function, filename, lineno});
-            // FIXME
-            //            const auto prev_frame_it = Tracker::frames().find(Tracker::lastFrameSeen());
-            //            if (prev_frame_it != Tracker::frames().end()) {
-            //                if (prev_frame_it->second.function_name == frame->f_code->co_filename) {
-            //                    Tracker::popFrame({frame->f_code->co_name, frame->f_code->co_filename,
-            //                    lineno});
-            //                }
-            //            }
             break;
         }
         default:

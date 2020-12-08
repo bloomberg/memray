@@ -82,7 +82,7 @@ class Tracker
     void deactivate();
 
   private:
-    static thread_local frame_map_t d_frames;
+    static frame_map_t d_frames;
     std::atomic<bool> d_active{false};
     static std::atomic<Tracker*> d_instance;
 

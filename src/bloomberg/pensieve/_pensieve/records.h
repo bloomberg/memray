@@ -39,7 +39,7 @@ struct AllocationRecord
     unsigned long address;
     size_t size;
     std::string allocator;
-    std::vector<frame_id_t> stack_trace;
+    std::vector<frame_id_t> stack_trace;  // TODO remove this vector
 };
 
 struct PyAllocationRecord

@@ -11,6 +11,7 @@ struct hash<pensieve::tracking_api::Frame>
     {
         using namespace pensieve::tracking_api;
 
+        // TODO simply xor the pointers and the lineno
         std::size_t func = str_hash(frame.function_name);
         std::size_t file = str_hash(frame.filename);
         std::size_t h = 0;
@@ -47,7 +48,6 @@ add_frame(frame_map_t& frame_map, const Frame& frame)
     if (frame_map.find(id) == frame_map.end()) {
         frame_map[id] = frame;
     }
-
     return id;
 }
 
