@@ -1,4 +1,5 @@
 import mmap
+from pathlib import Path
 
 import pytest
 
@@ -18,12 +19,13 @@ from bloomberg.pensieve._test import MemoryAllocator
         "realloc",
     ],
 )
-def test_simple_allocation_tracking(allocator_func):
+def test_simple_allocation_tracking(allocator_func, tmpdir):
     # GIVEN
     allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
 
     # WHEM
-    with Tracker() as tracker:
+    with Tracker(output) as tracker:
         getattr(allocator, allocator_func)(1234)
         allocator.free()
 
@@ -44,9 +46,10 @@ def test_simple_allocation_tracking(allocator_func):
     assert len(frees) >= 1
 
 
-def test_mmap_tracking():
+def test_mmap_tracking(tmpdir):
     # GIVEN / WHEM
-    with Tracker() as tracker:
+    output = Path(tmpdir) / "test.bin"
+    with Tracker(output) as tracker:
         with mmap.mmap(-1, length=2048, access=mmap.ACCESS_WRITE) as mmap_obj:
             mmap_obj[0:100] = b"a" * 100
 
@@ -64,16 +67,17 @@ def test_mmap_tracking():
     assert len(mmunmap_record) == 1
 
 
-def test_pthread_tracking():
+def test_pthread_tracking(tmpdir):
     # GIVEN
     allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
 
     def tracking_function():
         allocator.valloc(1234)
         allocator.free()
 
     # WHEM
-    with Tracker() as tracker:
+    with Tracker(output) as tracker:
         allocator.run_in_pthread(tracking_function)
 
     allocations = tracker.get_allocation_records()

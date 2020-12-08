@@ -117,21 +117,22 @@ operator>>(std::istream& istream, std::pair<frame_id_t, PyFrame>& frame_pair)
 }
 
 std::ostream&
-operator<<(std::ostream& ostream, const frame_seq_pair_t& frame_seq)
+operator<<(std::ostream& ostream, const FrameSeqEntry& frame_seq)
 {
-    ostream << TOKEN_FRAME_INDEX << " " << frame_seq.first << " " << frame_seq.second << "\n";
+    ostream << TOKEN_FRAME_INDEX << " " << frame_seq.frame_id << " " << frame_seq.tid << " "
+            << frame_seq.action << "\n";
     return ostream;
 }
 
 std::istream&
-operator>>(std::istream& istream, frame_seq_pair_t& frame_seq)
+operator>>(std::istream& istream, FrameSeqEntry& frame_seq)
 {
     int action;
-    if (!(istream >> frame_seq.first >> action)) {
+    if (!(istream >> frame_seq.frame_id >> frame_seq.tid >> action)) {
         // TODO add logging
         throw std::runtime_error("Failed to parse frame sequence");
     }
-    frame_seq.second = static_cast<FrameAction>(action);
+    frame_seq.action = static_cast<FrameAction>(action);
     return istream;
 }
 

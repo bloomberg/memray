@@ -81,6 +81,22 @@ Tracker::trackAllocation(void* ptr, size_t size, const char* func) const
     }
     RecursionGuard guard;
     AllocationRecord
+            allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), size, func};
+
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output << allocation_record;
+    }
+}
+
+void
+Tracker::trackDeallocation(void* ptr, const char* func) const
+{
+    if (RecursionGuard::isActive || !this->isActive()) {
+        return;
+    }
+    RecursionGuard guard;
+    AllocationRecord
             allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), 0, func};
     {
         std::lock_guard<std::mutex> lock(d_output_mutex);
@@ -97,9 +113,9 @@ Tracker::invalidate_module_cache()
 void
 Tracker::initializeFrameStack()
 {
-    d_frames.clear();
     std::list<frame_id_t> frame_ids;
     PyFrameObject* current_frame = PyEval_GetFrame();
+    os_thread_id_t tid = gettid();
     while (current_frame != nullptr) {
         const char* function = PyUnicode_AsUTF8(current_frame->f_code->co_name);
         if (function == nullptr) {
@@ -120,7 +136,7 @@ Tracker::initializeFrameStack()
     {
         std::lock_guard<std::mutex> lock(d_output_mutex);
         for (const auto& frame_id : frame_ids) {
-            d_output << frame_seq_pair_t{frame_id, FrameAction::PUSH};
+            d_output << FrameSeqEntry{frame_id, tid, FrameAction::PUSH};
         }
     }
 }
@@ -129,14 +145,20 @@ void
 Tracker::popFrame(const Frame& frame)
 {
     frame_id_t frame_id = add_frame(d_frames, frame);
-    d_output << frame_seq_pair_t{frame_id, FrameAction::POP};
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output << FrameSeqEntry{frame_id, gettid(), FrameAction::POP};
+    }
 }
 
 void
 Tracker::addFrame(const Frame& frame)
 {
     frame_id_t frame_id = add_frame(d_frames, frame);
-    d_output << frame_seq_pair_t{frame_id, FrameAction::PUSH};
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output << FrameSeqEntry{frame_id, gettid(), FrameAction::PUSH};
+    }
 }
 
 void

@@ -20,7 +20,6 @@ def allocating_function():
 def test_smoke(tmpdir):
     # GIVEN / WHEN
     output = Path(tmpdir) / "test.bin"
-    print("output: ", output)
     with Tracker(output) as tracker:
         allocating_function()
 
@@ -49,7 +48,6 @@ def test_smoke(tmpdir):
 def test_smoke_in_a_thread(tmpdir):
     # GIVEN / WHEN
     output = Path(tmpdir) / "test.bin"
-    print("output: ", output)
     old_profile = threading._profile_hook
     threading.setprofile(start_thread_trace)
     try:
@@ -92,7 +90,6 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
     each thread allocating and freeing memory."""
     # GIVEN
     output = Path(tmpdir) / "test.bin"
-    print("output: ", output)
     extension_name = "multithreaded_extension"
     extension_path = tmpdir / extension_name
     shutil.copytree(TEST_MULTITHREADED_EXTENSION, extension_path)

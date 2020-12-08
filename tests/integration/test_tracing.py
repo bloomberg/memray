@@ -1,31 +1,35 @@
 import sys
+from pathlib import Path
 
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 
 
-def test_profile_function_is_restored_after_tracking():
+def test_profile_function_is_restored_after_tracking(tmpdir):
     # GIVEN
     def profilefunc(*args):
         pass
+
+    output = Path(tmpdir) / "test.bin"
 
     # WHEN
 
     sys.setprofile(profilefunc)
 
-    with Tracker():
+    with Tracker(output):
         assert sys.getprofile() != profilefunc
 
     # THEN
     assert sys.getprofile() == profilefunc
 
 
-def test_initial_tracking_frames_are_correctly_populated():
+def test_initial_tracking_frames_are_correctly_populated(tmpdir):
     # GIVEN
     allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
 
     def foo():
-        with Tracker() as tracker:
+        with Tracker(output) as tracker:
             allocator.valloc(1234)
             allocator.free()
         return tracker.get_allocation_records()
@@ -47,9 +51,10 @@ def test_initial_tracking_frames_are_correctly_populated():
     ]
 
 
-def test_restart_tracing_function_gets_correctly_the_frames():
+def test_restart_tracing_function_gets_correctly_the_frames(tmpdir):
     # GIVEN
     allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
 
     def foo():
         allocator.valloc(1234)
@@ -58,11 +63,11 @@ def test_restart_tracing_function_gets_correctly_the_frames():
     # WHEN
 
     # Do some prelininary tracing to populate the initial frames
-    with Tracker():
+    with Tracker(output):
         foo()
 
     def bar():
-        with Tracker() as tracker:
+        with Tracker(output) as tracker:
             foo()
         return tracker.get_allocation_records()
 
