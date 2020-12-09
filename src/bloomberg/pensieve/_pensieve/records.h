@@ -21,14 +21,14 @@ struct Frame
 {
     const char* function_name;
     const char* filename;
-    int lineno;
+    unsigned long lineno;
 };
 
 struct PyFrame
 {
     std::string function_name;
     std::string filename;
-    int lineno;
+    unsigned long lineno;
 };
 
 enum FrameAction { PUSH, POP };
@@ -99,25 +99,3 @@ size_t
 str_hash(const char* val);
 
 }  // namespace pensieve::tracking_api
-
-namespace {
-/**
- * Custom hash function to uniquely identify frames based on the function, file and line number.
- *
- * See https://stackoverflow.com/a/38140932.
- */
-inline void
-hash_combine([[maybe_unused]] std::size_t& seed)
-{
-}
-
-template<typename T, typename... Rest>
-inline void
-hash_combine(std::size_t& seed, const T& v, Rest... rest)
-{
-    std::hash<T> hasher;
-    seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    hash_combine(seed, rest...);
-}
-
-}  // anonymous namespace

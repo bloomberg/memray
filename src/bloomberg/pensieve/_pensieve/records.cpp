@@ -3,20 +3,40 @@
 
 #include <cstring>
 
+namespace {
+/**
+ * Custom hash function to uniquely identify frames based on the function, file and line number.
+ *
+ * See https://stackoverflow.com/a/38140932.
+ */
+inline void
+hash_combine([[maybe_unused]] std::size_t& seed)
+{
+}
+
+template<typename T, typename... Rest>
+inline void
+hash_combine(std::size_t& seed, const T& v, Rest... rest)
+{
+    std::hash<T> hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    hash_combine(seed, rest...);
+}
+
+}  // anonymous namespace
+
 namespace std {
 template<>
 struct hash<pensieve::tracking_api::Frame>
 {
     std::size_t operator()(pensieve::tracking_api::Frame const& frame) const noexcept
     {
-        using namespace pensieve::tracking_api;
-
-        // TODO simply xor the pointers and the lineno
-        std::size_t func = str_hash(frame.function_name);
-        std::size_t file = str_hash(frame.filename);
-        std::size_t h = 0;
-        hash_combine(h, func, file, frame.lineno);
-        return h;
+        // Keep this hashing fast and simple as this has a non trivial
+        // performance impact on the tracing functionality.
+        auto func = reinterpret_cast<size_t>(frame.function_name);
+        auto filename = reinterpret_cast<size_t>(frame.filename);
+        auto lineno = reinterpret_cast<size_t>(frame.lineno);
+        return func ^ filename ^ lineno;
     }
 };
 
@@ -30,9 +50,9 @@ struct hash<pensieve::tracking_api::PyFrame>
         std::hash<std::string> hasher;
         std::size_t func = hasher(frame.function_name);
         std::size_t file = hasher(frame.filename);
-        std::size_t h = 0;
-        hash_combine(h, func, file, frame.lineno);
-        return h;
+        std::size_t result = 0;
+        hash_combine(result, func, file, frame.lineno);
+        return result;
     }
 };
 
@@ -40,14 +60,11 @@ struct hash<pensieve::tracking_api::PyFrame>
 
 namespace pensieve::tracking_api {
 
-// FIXME This should be done automatically when hashing in our `std::map`
 frame_id_t
 add_frame(frame_map_t& frame_map, const Frame& frame)
 {
     frame_id_t id = std::hash<Frame>{}(frame);
-    if (frame_map.find(id) == frame_map.end()) {
-        frame_map[id] = frame;
-    }
+    frame_map[id] = frame;
     return id;
 }
 

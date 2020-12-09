@@ -49,7 +49,7 @@ RecordReader::parse()
     d_thread_frame_mapping.clear();
 
     // First pass
-    std::map<os_thread_id_t, std::deque<tracking_api::frame_id_t>> stack_traces;
+    stack_traces_t stack_traces;
     for (std::string line; std::getline(d_input, line);) {
         std::istringstream istream(line);
         if (!line.length() or line.at(0) == '#') {
@@ -58,43 +58,59 @@ RecordReader::parse()
         char token;
         istream >> token;
 
-        if (token == TOKEN_ALLOCATION) {
-            AllocationRecord record;
-            istream >> record;
-            const auto stack = stack_traces.find(record.tid);
-            PyAllocationRecord
-                    py_record{record.pid, record.tid, record.address, record.size, record.allocator};
-
-            // We don't currently keep track of native frames, so we won't fill them in the record
-            if (stack != stack_traces.end()) {
-                for (const frame_id_t& frame_id : stack->second) {
-                    PyFrame frame = d_frame_map[frame_id];
-                    py_record.stack_trace.push_back(frame);
-                }
-                std::reverse(py_record.stack_trace.begin(), py_record.stack_trace.end());
-            }
-
-            d_records.push_back(py_record);
-        } else if (token == TOKEN_FRAME_INDEX) {
-            FrameSeqEntry frame_seq_entry{};
-            istream >> frame_seq_entry;
-            os_thread_id_t tid = frame_seq_entry.tid;
-
-            // Allocate new stack for the thread in case it's the first time we see it
-            if (stack_traces.find(tid) == stack_traces.end()) {
-                stack_traces[tid] = std::deque<tracking_api::frame_id_t>();
-            }
-
-            if (frame_seq_entry.action == FrameAction::PUSH) {
-                stack_traces[tid].push_front(frame_seq_entry.frame_id);
-            } else if (frame_seq_entry.action == FrameAction::POP) {
-                frame_id_t prev_frame_id = stack_traces[tid].front();
-                if (get_frame(frame_seq_entry.frame_id) == get_frame(prev_frame_id)) {
-                    stack_traces[tid].pop_front();
-                }
-            }
+        switch (token) {
+            case TOKEN_ALLOCATION:
+                parseAllocation(stack_traces, istream);
+                break;
+            case TOKEN_FRAME_INDEX:
+                parseFrame(stack_traces, istream);
+                break;
         }
     }
+}
+
+void
+RecordReader::parseFrame(stack_traces_t& stack_traces, std::istringstream& istream) const
+{
+    FrameSeqEntry frame_seq_entry{};
+    istream >> frame_seq_entry;
+    os_thread_id_t tid = frame_seq_entry.tid;
+
+    auto isCoherentPop = [&](const auto& stack_traces, const auto& frame_entry) {
+        frame_id_t prev_frame_id = stack_traces.at(frame_entry.tid).front();
+        return getFrameKey(frame_entry.frame_id) == getFrameKey(prev_frame_id);
+    };
+
+    switch (frame_seq_entry.action) {
+        case PUSH:
+            stack_traces[tid].push_front(frame_seq_entry.frame_id);
+            break;
+        case POP:
+            if (isCoherentPop(stack_traces, frame_seq_entry)) {
+                stack_traces[tid].pop_front();
+            }
+            break;
+    }
+}
+
+void
+RecordReader::parseAllocation(stack_traces_t& stack_traces, std::istringstream& istream)
+{
+    AllocationRecord record;
+    istream >> record;
+    const auto stack = stack_traces.find(record.tid);
+    PyAllocationRecord py_record{record.pid, record.tid, record.address, record.size, record.allocator};
+
+    // We don't currently keep track of native frames, so we won't fill them in the record
+    if (stack != stack_traces.end()) {
+        std::transform(
+                stack->second.rbegin(),
+                stack->second.rend(),
+                std::back_inserter(py_record.stack_trace),
+                [&](const auto& frame_id) { return d_frame_map[frame_id]; });
+    }
+
+    d_records.emplace_back(std::move(py_record));
 }
 
 const std::vector<PyAllocationRecord>&
@@ -103,11 +119,11 @@ RecordReader::results() const
     return d_records;
 }
 std::pair<std::string, std::string>
-RecordReader::get_frame(const frame_id_t frame_id) const
+RecordReader::getFrameKey(frame_id_t frame_id) const
 {
     auto frame = d_frame_map.find(frame_id);
     if (frame == d_frame_map.end()) {
-        throw std::runtime_error("Frame mismatch");
+        throw std::runtime_error("FrameId " + std::to_string(frame_id) + "could not be located");
     }
     std::string func_name = frame->second.function_name;
     std::string file_name = frame->second.filename;

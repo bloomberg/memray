@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <list>
 #include <malloc.h>
 #include <mutex>
 
@@ -113,7 +112,7 @@ Tracker::invalidate_module_cache()
 void
 Tracker::initializeFrameStack()
 {
-    std::list<frame_id_t> frame_ids;
+    std::vector<frame_id_t> frame_ids;
     PyFrameObject* current_frame = PyEval_GetFrame();
     os_thread_id_t tid = gettid();
     while (current_frame != nullptr) {
@@ -125,19 +124,19 @@ Tracker::initializeFrameStack()
         if (filename == nullptr) {
             return;
         }
-        int lineno = PyFrame_GetLineNumber(current_frame);
+        unsigned long lineno = PyFrame_GetLineNumber(current_frame);
 
         Frame frame({function, filename, lineno});
         frame_id_t id = add_frame(d_frames, frame);
-        frame_ids.push_front(id);
+        frame_ids.push_back(id);
         current_frame = current_frame->f_back;
     }
 
     {
         std::lock_guard<std::mutex> lock(d_output_mutex);
-        for (const auto& frame_id : frame_ids) {
+        std::for_each(frame_ids.rbegin(), frame_ids.rend(), [&](auto& frame_id) {
             d_output << FrameSeqEntry{frame_id, tid, FrameAction::PUSH};
-        }
+        });
     }
 }
 
@@ -211,7 +210,7 @@ PyTraceFunction(
     if (!filename) {
         return -1;
     }
-    int lineno = PyFrame_GetLineNumber(frame);
+    unsigned long lineno = PyFrame_GetLineNumber(frame);
     switch (what) {
         case PyTrace_CALL:
             Tracker::addFrame(Frame{function, filename, lineno});
