@@ -1,50 +1,101 @@
 #pragma once
 
+#include <Python.h>
+#include <fstream>
+#include <functional>
 #include <iostream>
+#include <map>
 #include <ostream>
 #include <vector>
 
 namespace pensieve::tracking_api {
 
-/**
- * Track record of a Python frame in the Python native stack.
- *
- * The purpose of this class is to be a lightweight reference to an element of the Python stack that we
- * can read without the GIL held. All the information that requires the GIL to be acquired in the
- * Python frame that this struct represents is already transformed into native types that can be
- * accessed directly. The lifetime of pointers and references is directly linked to the frame object
- * this record represents, so the pointers are not valid once the frame is deallocated. The trace
- * function should remove these elements from the container where they live as frames are pop-ed from
- * the stack.
- *
- **/
-struct PyFrameRecord
-{
-    const char* function_name;
-    const char* filename;
-    int lineno;
+const char TOKEN_ALLOCATION = 'a';
+const char TOKEN_FRAME_INDEX = 'i';
+const char TOKEN_FRAME = 'f';
 
-    friend std::ostream& operator<<(std::ostream& os, const PyFrameRecord& frame);
-};
-
-std::ostream&
-operator<<(std::ostream& os, const PyFrameRecord& frame);
+typedef size_t frame_id_t;
+typedef long int os_thread_id_t;
 
 struct Frame
 {
-    explicit Frame(PyFrameRecord& pyframe);
+    const char* function_name;
+    const char* filename;
+    unsigned long lineno;
+};
+
+struct PyFrame
+{
     std::string function_name;
     std::string filename;
-    int lineno;
+    unsigned long lineno;
 };
+
+enum FrameAction { PUSH, POP };
+
 struct AllocationRecord
 {
     pid_t pid;
-    long int tid;
+    os_thread_id_t tid;
     unsigned long address;
     size_t size;
-    std::vector<Frame> stacktrace;
     std::string allocator;
+    std::vector<frame_id_t> stack_trace;  // TODO remove this vector
 };
+
+struct PyAllocationRecord
+{
+    pid_t pid;
+    os_thread_id_t tid;
+    unsigned long address;
+    size_t size;
+    std::string allocator;
+    std::vector<PyFrame> stack_trace;
+};
+
+struct FrameSeqEntry
+{
+    frame_id_t frame_id;
+    os_thread_id_t tid;
+    FrameAction action;
+};
+
+typedef std::pair<frame_id_t, Frame> frame_key_t;
+typedef std::unordered_map<frame_key_t::first_type, frame_key_t::second_type> frame_map_t;
+
+typedef std::pair<frame_id_t, PyFrame> pyframe_map_val_t;
+typedef std::unordered_map<pyframe_map_val_t::first_type, pyframe_map_val_t::second_type> pyframe_map_t;
+
+/**
+ * Stream operators.
+ */
+std::ostream&
+operator<<(std::ostream&, const PyFrame&);
+std::istream&
+operator>>(std::istream&, PyFrame&);
+
+std::ostream&
+operator<<(std::ostream&, const AllocationRecord&);
+std::istream&
+operator>>(std::istream&, AllocationRecord&);
+
+std::ostream&
+operator<<(std::ostream&, const FrameSeqEntry&);
+std::istream&
+operator>>(std::istream&, FrameSeqEntry&);
+
+std::ostream&
+operator<<(std::ostream&, const frame_map_t&);
+std::istream&
+operator>>(std::istream&, std::pair<frame_id_t, PyFrame>&);
+
+/**
+ * Utility functions.
+ */
+frame_id_t
+add_frame(frame_map_t& frame_map, const Frame& frame);
+
+size_t
+str_hash(const char* val);
 
 }  // namespace pensieve::tracking_api

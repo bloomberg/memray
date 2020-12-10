@@ -6,6 +6,7 @@
 
 #include "elf_shenanigans.h"
 #include "guards.h"
+#include "records.h"
 #include "tracking_api.h"
 
 #include <sys/syscall.h>
@@ -39,44 +40,67 @@ namespace pensieve::tracking_api {
 
 // Tracker interface
 
-thread_local std::vector<PyFrameRecord> Tracker::d_frame_stack = std::vector<PyFrameRecord>{};
-Tracker* Tracker::d_instance = nullptr;
+frame_map_t Tracker::d_frames = frame_map_t();
+std::atomic<Tracker*> Tracker::d_instance = nullptr;
+std::ofstream Tracker::d_output = std::ofstream();
+std::mutex Tracker::d_output_mutex;
 
-Tracker::Tracker()
-: d_serializer(api::InMemorySerializer())
-, d_record_writer(api::RecordWriter(d_serializer))
+Tracker::Tracker(const std::string& file_name)
 {
-}
+    d_instance = this;
+    d_output.open(file_name, std::ofstream::trunc);
 
+    static std::once_flag once;
+    call_once(once, [] { pthread_atfork(&prepare_fork, &parent_fork, &child_fork); });
+
+    RecursionGuard guard;
+    tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
+    tracking_api::Tracker::getTracker()->activate();
+    elf::overwrite_symbols();
+}
+Tracker::~Tracker()
+{
+    RecursionGuard guard;
+    tracking_api::Tracker::getTracker()->deactivate();
+    elf::restore_symbols();
+
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output << d_frames;
+        d_output.close();
+    }
+
+    d_instance = nullptr;
+}
 void
-Tracker::trackAllocation(void* ptr, size_t size, const char* func)
+Tracker::trackAllocation(void* ptr, size_t size, const char* func) const
 {
     if (RecursionGuard::isActive || !this->isActive()) {
         return;
     }
     RecursionGuard guard;
-    std::vector<Frame> frames(d_frame_stack.begin(), d_frame_stack.end());
-    AllocationRecord allocation_record{
-            getpid(),
-            gettid(),
-            reinterpret_cast<unsigned long>(ptr),
-            size,
-            frames,
-            func};
-    d_record_writer.collect(allocation_record);
-}
-
-void
-Tracker::trackDeallocation(void* ptr, const char* func)
-{
-    if (RecursionGuard::isActive || !this->isActive()) {
-        return;
-    }
-    RecursionGuard guard;
-    std::vector<Frame> frames(d_frame_stack.begin(), d_frame_stack.end());
     AllocationRecord
-            allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), 0, frames, func};
-    d_record_writer.collect(allocation_record);
+            allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), size, func};
+
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output << allocation_record;
+    }
+}
+
+void
+Tracker::trackDeallocation(void* ptr, const char* func) const
+{
+    if (RecursionGuard::isActive || !this->isActive()) {
+        return;
+    }
+    RecursionGuard guard;
+    AllocationRecord
+            allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), 0, func};
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output << allocation_record;
+    }
 }
 
 void
@@ -85,17 +109,12 @@ Tracker::invalidate_module_cache()
     elf::overwrite_symbols();
 }
 
-const std::vector<PyFrameRecord>&
-Tracker::frameStack()
-{
-    return d_frame_stack;
-}
-
 void
 Tracker::initializeFrameStack()
 {
-    d_frame_stack.clear();
+    std::vector<frame_id_t> frame_ids;
     PyFrameObject* current_frame = PyEval_GetFrame();
+    os_thread_id_t tid = gettid();
     while (current_frame != nullptr) {
         const char* function = PyUnicode_AsUTF8(current_frame->f_code->co_name);
         if (function == nullptr) {
@@ -105,71 +124,68 @@ Tracker::initializeFrameStack()
         if (filename == nullptr) {
             return;
         }
-        int lineno = PyFrame_GetLineNumber(current_frame);
-        d_frame_stack.emplace_back(PyFrameRecord{function, filename, lineno});
+        unsigned long lineno = PyFrame_GetLineNumber(current_frame);
+
+        Frame frame({function, filename, lineno});
+        frame_id_t id = add_frame(d_frames, frame);
+        frame_ids.push_back(id);
         current_frame = current_frame->f_back;
     }
-    std::reverse(d_frame_stack.begin(), d_frame_stack.end());
-}
 
-void
-Tracker::popFrame()
-{
-    if (!Tracker::d_frame_stack.empty()) {
-        Tracker::d_frame_stack.pop_back();
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        std::for_each(frame_ids.rbegin(), frame_ids.rend(), [&](auto& frame_id) {
+            d_output << FrameSeqEntry{frame_id, tid, FrameAction::PUSH};
+        });
     }
 }
 
 void
-Tracker::addFrame(const PyFrameRecord&& frame)
+Tracker::popFrame(const Frame& frame)
 {
-    Tracker::d_frame_stack.emplace_back(frame);
+    frame_id_t frame_id = add_frame(d_frames, frame);
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output << FrameSeqEntry{frame_id, gettid(), FrameAction::POP};
+    }
 }
+
+void
+Tracker::addFrame(const Frame& frame)
+{
+    frame_id_t frame_id = add_frame(d_frames, frame);
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output << FrameSeqEntry{frame_id, gettid(), FrameAction::PUSH};
+    }
+}
+
 void
 Tracker::activate()
 {
     this->d_active = true;
 }
+
 void
 Tracker::deactivate()
 {
-    this->d_active = false;
+    d_active = false;
+    {
+        std::lock_guard<std::mutex> lock(d_output_mutex);
+        d_output.flush();
+    }
 }
+
 const std::atomic<bool>&
 Tracker::isActive() const
 {
     return this->d_active;
 }
+
 Tracker*
 Tracker::getTracker()
 {
     return d_instance;
-}
-
-api::InMemorySerializer&
-Tracker::getSerializer()
-{
-    return d_serializer;
-}
-
-api::RecordWriter&
-Tracker::getRecordWriter()
-{
-    return d_record_writer;
-}
-
-const std::vector<AllocationRecord>&
-Tracker::getAllocationRecords()
-{
-    d_record_writer.flush();
-    return d_serializer.getRecords();
-}
-
-void
-Tracker::clearAllocationRecords()
-{
-    assert(isActive() == false);
-    d_serializer.clear();
 }
 
 // Trace Function interface
@@ -182,6 +198,10 @@ PyTraceFunction(
         [[maybe_unused]] PyObject* arg)
 {
     RecursionGuard guard;
+    if (!Tracker::getTracker()->isActive()) {
+        return 0;
+    }
+
     const char* function = PyUnicode_AsUTF8(frame->f_code->co_name);
     if (!function) {
         return -1;
@@ -190,27 +210,15 @@ PyTraceFunction(
     if (!filename) {
         return -1;
     }
-    int lineno = PyFrame_GetLineNumber(frame);
+    unsigned long lineno = PyFrame_GetLineNumber(frame);
     switch (what) {
         case PyTrace_CALL:
-            Tracker::addFrame({function, filename, lineno});
+            Tracker::addFrame(Frame{function, filename, lineno});
             break;
-        case PyTrace_RETURN:
-            // At the beggining of the tracking is possible that we don't
-            // see some C functions (mainly from Cython) when pre-populating
-            // the Tracker::frameStack() vector because the Python stack does
-            // not "see" these C functions (the native stack does). This means
-            // that is possible that we see the end of a function call that
-            // was never in the vector. This is normal and the only thing we
-            // need to do is to not remove anything from our vector.
-            //
-            // Notice that any further Cython call *will* be tracked because
-            // the tracker function will be invoked with it and therefore we
-            // will add it to the vector.
-            if (function == Tracker::frameStack().back().function_name) {
-                Tracker::popFrame();
-            }
+        case PyTrace_RETURN: {
+            Tracker::popFrame({function, filename, lineno});
             break;
+        }
         default:
             break;
     }
@@ -228,34 +236,3 @@ install_trace_function()
 }
 
 }  // namespace pensieve::tracking_api
-
-namespace pensieve::api {
-
-void
-attach_init()
-{
-    static std::once_flag once;
-    call_once(once, [] {
-        pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
-        tracking_api::Tracker::d_instance = new tracking_api::Tracker();
-    });
-    assert(tracking_api::Tracker::getTracker());
-
-    RecursionGuard guard;
-    tracking_api::install_trace_function();
-    tracking_api::Tracker::getTracker()->activate();
-    elf::overwrite_symbols();
-}
-void
-attach_fini()
-{
-    if (!(tracking_api::Tracker::getTracker() && tracking_api::Tracker::getTracker()->isActive())) {
-        return;
-    }
-
-    RecursionGuard guard;
-    tracking_api::Tracker::getTracker()->deactivate();
-    elf::restore_symbols();
-    tracking_api::Tracker::getTracker()->getRecordWriter().flush();
-}
-}  // namespace pensieve::api

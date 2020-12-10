@@ -17,9 +17,10 @@ def allocating_function():
         mmap_obj[0:100] = b"a" * 100
 
 
-def test_smoke():
+def test_smoke(tmpdir):
     # GIVEN / WHEN
-    with Tracker() as tracker:
+    output = Path(tmpdir) / "test.bin"
+    with Tracker(output) as tracker:
         allocating_function()
 
     # THEN
@@ -32,7 +33,7 @@ def test_smoke():
     )
     assert mmap_record is not None
     assert "allocating_function" in {
-        element["function_name"] for element in mmap_record["stacktrace"]
+        element["function_name"] for element in mmap_record["stack_trace"]
     }
 
     mmunmap_record = next(
@@ -40,17 +41,18 @@ def test_smoke():
     )
     assert mmunmap_record is not None
     assert "allocating_function" in {
-        element["function_name"] for element in mmunmap_record["stacktrace"]
+        element["function_name"] for element in mmunmap_record["stack_trace"]
     }
 
 
-def test_smoke_in_a_thread():
+def test_smoke_in_a_thread(tmpdir):
     # GIVEN / WHEN
+    output = Path(tmpdir) / "test.bin"
     old_profile = threading._profile_hook
     threading.setprofile(start_thread_trace)
     try:
         t = threading.Thread(target=allocating_function)
-        with Tracker() as tracker:
+        with Tracker(output) as tracker:
             t.start()
             t.join()
     finally:
@@ -71,7 +73,7 @@ def test_smoke_in_a_thread():
     )
     assert mmap_record is not None
     assert "allocating_function" in {
-        element["function_name"] for element in mmap_record["stacktrace"]
+        element["function_name"] for element in mmap_record["stack_trace"]
     }
 
     mmunmap_record = next(
@@ -79,7 +81,7 @@ def test_smoke_in_a_thread():
     )
     assert mmunmap_record is not None
     assert "allocating_function" in {
-        element["function_name"] for element in mmunmap_record["stacktrace"]
+        element["function_name"] for element in mmunmap_record["stack_trace"]
     }
 
 
@@ -87,6 +89,7 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
     """Test tracking allocations in a native extension which spawns multiple threads,
     each thread allocating and freeing memory."""
     # GIVEN
+    output = Path(tmpdir) / "test.bin"
     extension_name = "multithreaded_extension"
     extension_path = tmpdir / extension_name
     shutil.copytree(TEST_MULTITHREADED_EXTENSION, extension_path)
@@ -102,7 +105,7 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from testext import run
 
-        with Tracker() as tracker:
+        with Tracker(output) as tracker:
             run()
 
     # THEN

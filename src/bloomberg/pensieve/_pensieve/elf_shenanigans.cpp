@@ -192,12 +192,15 @@ static int
 phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noexcept
 {
     static std::set<std::string> patched;
+    bool restore_original = *reinterpret_cast<bool*>(data);
+    if (restore_original) {
+        patched.clear();
+    }
+
     if (patched.find(info->dlpi_name) != patched.end()) {
         return 0;
     }
     patched.insert(info->dlpi_name);
-
-    bool restore_original = *reinterpret_cast<bool*>(data);
 
     if (strstr(info->dlpi_name, "/ld-linux")) {
         // Avoid chaos by not overwriting the symbols in the linker.

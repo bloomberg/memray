@@ -11,16 +11,7 @@
 
 #include "Python.h"
 #include "frameobject.h"
-#include "record_writer.h"
 #include "records.h"
-
-namespace pensieve::api {
-void
-attach_init();
-
-void
-attach_fini();
-}  // namespace pensieve::api
 
 namespace pensieve::tracking_api {
 
@@ -65,6 +56,10 @@ install_trace_function();
 class Tracker
 {
   public:
+    // Constructors
+    explicit Tracker(const std::string& file_name);
+    ~Tracker();
+
     Tracker(Tracker& other) = delete;
     void operator=(const Tracker&) = delete;
 
@@ -72,42 +67,27 @@ class Tracker
     static Tracker* getTracker();
 
     // Allocation tracking interface
-    void trackAllocation(void* ptr, size_t size, const char* func);
-    void trackDeallocation(void* ptr, const char* func);
+    void trackAllocation(void* ptr, size_t size, const char* func) const;
+    void trackDeallocation(void* ptr, const char* func) const;
     static void invalidate_module_cache();
 
     // Frame stack interface
-    static const std::vector<PyFrameRecord>& frameStack();
     static void initializeFrameStack();
-    static void addFrame(const PyFrameRecord&& frame);
-    static void popFrame();
+    static void addFrame(const Frame& frame);
+    static void popFrame(const Frame& frame);
 
     // Interface to activate/deactivate the tracking
     const std::atomic<bool>& isActive() const;
     void activate();
     void deactivate();
 
-    // Allocation records API
-    const std::vector<AllocationRecord>& getAllocationRecords();
-    void clearAllocationRecords();
-
-    api::InMemorySerializer& getSerializer();
-    api::RecordWriter& getRecordWriter();
-
   private:
-    // Constructors
-    Tracker();
-
-    // Data members
-    static thread_local std::vector<PyFrameRecord> d_frame_stack;
-
+    static frame_map_t d_frames;
     std::atomic<bool> d_active{false};
-    static Tracker* d_instance;
-    api::InMemorySerializer d_serializer;
-    api::RecordWriter d_record_writer;
+    static std::atomic<Tracker*> d_instance;
 
-    // The only function that is allowed to instantiate the Tracker;
-    friend void pensieve::api::attach_init();
+    static std::mutex d_output_mutex;
+    static std::ofstream d_output;
 };
 
 }  // namespace pensieve::tracking_api
