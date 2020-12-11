@@ -112,13 +112,13 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
     records = tracker.get_allocation_records()
     assert records
 
-    vallocs = [record for record in records if record["allocator"] == "valloc"]
-    assert len(vallocs) == 100 * 100  # 100 threads allocate 100 times in testext
-    vallocs_addr = {record["address"] for record in vallocs}
-    valloc_frees = [
+    memaligns = [record for record in records if record["allocator"] == "memalign"]
+    assert len(memaligns) == 100 * 100  # 100 threads allocate 100 times in testext
+    memaligns_addr = {record["address"] for record in memaligns}
+    memalign_frees = [
         record
         for record in records
-        if record["address"] in vallocs_addr and record["allocator"] == "free"
+        if record["address"] in memaligns_addr and record["allocator"] == "free"
     ]
 
-    assert len(valloc_frees) >= 100 * 100
+    assert len(memalign_frees) >= 100 * 100

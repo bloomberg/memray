@@ -66,6 +66,8 @@ def test_restart_tracing_function_gets_correctly_the_frames(tmpdir):
     with Tracker(output):
         foo()
 
+    output.unlink()
+
     def bar():
         with Tracker(output) as tracker:
             foo()

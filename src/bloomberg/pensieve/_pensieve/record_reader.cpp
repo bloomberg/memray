@@ -19,27 +19,40 @@ read_frames(const std::string& file_name)
     ifs.open(file_name);
     tracking_api::pyframe_map_t frames;
 
-    for (std::string line; std::getline(ifs, line);) {
-        std::istringstream istream(line);
-        if (!line.length() or line.at(0) != TOKEN_FRAME) {
-            continue;
-        }
+    auto parseFrameIndex = [&]() {
+        tracking_api::pyframe_map_val_t pyframe_val;
+        ifs.read((char*)&pyframe_val.first, sizeof(pyframe_val.first));
+        std::getline(ifs, pyframe_val.second.function_name, '\0');
+        std::getline(ifs, pyframe_val.second.filename, '\0');
+        ifs.read((char*)&pyframe_val.second.lineno, sizeof(pyframe_val.second.lineno));
+        frames[pyframe_val.first] = pyframe_val.second;
+    };
 
-        char token;
-        istream >> token;
-        if (token == TOKEN_FRAME) {
-            pyframe_map_val_t pyframe_val;
-            istream >> pyframe_val;
-            frames[pyframe_val.first] = pyframe_val.second;
+    while (ifs.peek() != EOF) {
+        RecordType record_type;
+        ifs.read(reinterpret_cast<char*>(&record_type), sizeof(RecordType));
+        switch (record_type) {
+            case RecordType::ALLOCATION:
+                ifs.seekg(static_cast<int>(ifs.tellg()) + sizeof(RawAllocationRecord));
+                break;
+            case RecordType::FRAME:
+                ifs.seekg(static_cast<int>(ifs.tellg()) + sizeof(FrameSeqEntry));
+                break;
+            case RecordType::FRAME_INDEX:
+                parseFrameIndex();
+                break;
+            default:
+                throw std::runtime_error("Invalid record type");
         }
     }
+    ifs.close();
     return frames;
 }
 }  // namespace
 
 RecordReader::RecordReader(const std::string& file_name)
 {
-    d_input.open(file_name);
+    d_input.open(file_name, std::ios::binary | std::ios::in);
     d_frame_map = read_frames(file_name);  // FIXME move into parse
     parse();
 }
@@ -50,32 +63,32 @@ RecordReader::parse()
     d_records.clear();
     d_thread_frame_mapping.clear();
 
-    // First pass
     stack_traces_t stack_traces;
-    for (std::string line; std::getline(d_input, line);) {
-        std::istringstream istream(line);
-        if (!line.length() or line.at(0) == '#') {
-            continue;
-        }
-        char token;
-        istream >> token;
-
-        switch (token) {
-            case TOKEN_ALLOCATION:
-                parseAllocation(stack_traces, istream);
+    bool in_relevant_section = true;
+    while (d_input.peek() != EOF && in_relevant_section) {
+        RecordType record_type;
+        d_input.read(reinterpret_cast<char*>(&record_type), sizeof(RecordType));
+        switch (record_type) {
+            case RecordType::ALLOCATION:
+                parseAllocation(stack_traces);
                 break;
-            case TOKEN_FRAME_INDEX:
-                parseFrame(stack_traces, istream);
+            case RecordType::FRAME:
+                parseFrame(stack_traces);
                 break;
+            case RecordType::FRAME_INDEX:
+                in_relevant_section = false;
+                break;
+            default:
+                throw std::runtime_error("Invalid record type");
         }
     }
 }
 
 void
-RecordReader::parseFrame(stack_traces_t& stack_traces, std::istringstream& istream) const
+RecordReader::parseFrame(stack_traces_t& stack_traces)
 {
     FrameSeqEntry frame_seq_entry{};
-    istream >> frame_seq_entry;
+    d_input.read(reinterpret_cast<char*>(&frame_seq_entry), sizeof(FrameSeqEntry));
     thread_id_t tid = frame_seq_entry.tid;
 
     auto isCoherentPop = [&](const auto& stack_traces, const auto& frame_entry) {
@@ -96,10 +109,10 @@ RecordReader::parseFrame(stack_traces_t& stack_traces, std::istringstream& istre
 }
 
 void
-RecordReader::parseAllocation(stack_traces_t& stack_traces, std::istringstream& istream)
+RecordReader::parseAllocation(stack_traces_t& stack_traces)
 {
-    RawAllocationRecord record;
-    istream >> record;
+    RawAllocationRecord record{};
+    d_input.read(reinterpret_cast<char*>(&record), sizeof(RawAllocationRecord));
     const auto stack = stack_traces.find(record.tid);
     AllocationRecord py_record{
             record.tid,

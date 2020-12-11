@@ -13,35 +13,35 @@
 
 namespace pensieve::tracking_api {
 
-const char TOKEN_ALLOCATION = 'a';
-const char TOKEN_FRAME_INDEX = 'i';
-const char TOKEN_FRAME = 'f';
+enum class RecordType {
+    ALLOCATION = 1,
+    FRAME_INDEX = 2,
+    FRAME = 3,
+};
 
 typedef size_t frame_id_t;
 typedef long unsigned int thread_id_t;
 
-struct Frame
+struct RawFrame
 {
     const char* function_name;
     const char* filename;
     unsigned long lineno;
 };
 
-struct PyFrame
+struct Frame
 {
     std::string function_name;
     std::string filename;
     unsigned long lineno;
 };
 
-enum FrameAction { PUSH, POP };
-
 struct RawAllocationRecord
 {
     thread_id_t tid;
     unsigned long address;
     size_t size;
-    int allocator;
+    hooks::Allocator allocator;
 };
 
 struct AllocationRecord
@@ -50,8 +50,10 @@ struct AllocationRecord
     unsigned long address;
     size_t size;
     std::string allocator;
-    std::vector<PyFrame> stack_trace;
+    std::vector<Frame> stack_trace;
 };
+
+enum FrameAction { PUSH, POP };
 
 struct FrameSeqEntry
 {
@@ -60,40 +62,17 @@ struct FrameSeqEntry
     FrameAction action;
 };
 
-typedef std::pair<frame_id_t, Frame> frame_key_t;
+typedef std::pair<frame_id_t, RawFrame> frame_key_t;
 typedef std::unordered_map<frame_key_t::first_type, frame_key_t::second_type> frame_map_t;
 
-typedef std::pair<frame_id_t, PyFrame> pyframe_map_val_t;
+typedef std::pair<frame_id_t, Frame> pyframe_map_val_t;
 typedef std::unordered_map<pyframe_map_val_t::first_type, pyframe_map_val_t::second_type> pyframe_map_t;
-
-/**
- * Stream operators.
- */
-std::ostream&
-operator<<(std::ostream&, const PyFrame&);
-std::istream&
-operator>>(std::istream&, PyFrame&);
-
-std::ostream&
-operator<<(std::ostream&, const RawAllocationRecord&);
-std::istream&
-operator>>(std::istream&, RawAllocationRecord&);
-
-std::ostream&
-operator<<(std::ostream&, const FrameSeqEntry&);
-std::istream&
-operator>>(std::istream&, FrameSeqEntry&);
-
-std::ostream&
-operator<<(std::ostream&, const frame_map_t&);
-std::istream&
-operator>>(std::istream&, std::pair<frame_id_t, PyFrame>&);
 
 /**
  * Utility functions.
  */
 frame_id_t
-add_frame(frame_map_t& frame_map, const Frame& frame);
+add_frame(frame_map_t& frame_map, const RawFrame& frame);
 
 size_t
 str_hash(const char* val);

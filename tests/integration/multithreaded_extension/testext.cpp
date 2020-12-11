@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <pthread.h>
+#include <malloc.h>
 
 const int NUM_THREADS = 100;
 const int NUM_BUFFERS = 100;
@@ -13,11 +14,12 @@ worker(void*)
 {
     unsigned long* buffers[NUM_BUFFERS];
     for (int i=0; i < NUM_BUFFERS; ++i) {
-        buffers[i] = (unsigned long*) valloc(i);
+        buffers[i] = (unsigned long*) memalign(sizeof(void*), i);
     }
     for (int i=0; i < NUM_BUFFERS; ++i) {
         free(buffers[i]);
     }
+    return NULL;
 }
 
 void start_threads()

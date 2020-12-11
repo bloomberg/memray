@@ -49,13 +49,11 @@ thread_id()
 
 frame_map_t Tracker::d_frames = frame_map_t();
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
-std::ofstream Tracker::d_output = std::ofstream();
-std::mutex Tracker::d_output_mutex;
 
 Tracker::Tracker(const std::string& file_name)
 {
     d_instance = this;
-    d_output.open(file_name, std::ofstream::trunc);
+    d_writer = std::make_unique<RecordWriter>(file_name);
 
     static std::once_flag once;
     call_once(once, [] { pthread_atfork(&prepare_fork, &parent_fork, &child_fork); });
@@ -71,12 +69,13 @@ Tracker::~Tracker()
     tracking_api::Tracker::getTracker()->deactivate();
     elf::restore_symbols();
 
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << d_frames;
-        d_output.close();
+    d_writer->flush();
+    for (const auto& [id, frame] : d_frames) {
+        pyframe_map_val_t frame_index{id, Frame{frame.function_name, frame.filename, frame.lineno}};
+        d_writer->writeRecord(RecordType::FRAME_INDEX, frame_index);
     }
 
+    d_writer.reset();
     d_instance = nullptr;
 }
 void
@@ -86,16 +85,8 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func) co
         return;
     }
     RecursionGuard guard;
-    RawAllocationRecord allocation_record{
-            thread_id(),
-            reinterpret_cast<unsigned long>(ptr),
-            size,
-            static_cast<int>(func)};
-
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << allocation_record;
-    }
+    RawAllocationRecord record{thread_id(), reinterpret_cast<unsigned long>(ptr), size, func};
+    d_writer->writeRecord(RecordType::ALLOCATION, record);
 }
 
 void
@@ -105,15 +96,8 @@ Tracker::trackDeallocation(void* ptr, const hooks::Allocator func) const
         return;
     }
     RecursionGuard guard;
-    RawAllocationRecord allocation_record{
-            thread_id(),
-            reinterpret_cast<unsigned long>(ptr),
-            0,
-            static_cast<int>(func)};
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << allocation_record;
-    }
+    RawAllocationRecord record{thread_id(), reinterpret_cast<unsigned long>(ptr), 0, func};
+    d_writer->writeRecord(RecordType::ALLOCATION, record);
 }
 
 void
@@ -125,9 +109,8 @@ Tracker::invalidate_module_cache()
 void
 Tracker::initializeFrameStack()
 {
-    std::vector<frame_id_t> frame_ids;
+    std::vector<RawFrame> frames;
     PyFrameObject* current_frame = PyEval_GetFrame();
-    thread_id_t tid = thread_id();
     while (current_frame != nullptr) {
         const char* function = PyUnicode_AsUTF8(current_frame->f_code->co_name);
         if (function == nullptr) {
@@ -138,39 +121,27 @@ Tracker::initializeFrameStack()
             return;
         }
         unsigned long lineno = PyFrame_GetLineNumber(current_frame);
-
-        Frame frame({function, filename, lineno});
-        frame_id_t id = add_frame(d_frames, frame);
-        frame_ids.push_back(id);
+        frames.emplace_back(RawFrame{function, filename, lineno});
         current_frame = current_frame->f_back;
     }
 
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        std::for_each(frame_ids.rbegin(), frame_ids.rend(), [&](auto& frame_id) {
-            d_output << FrameSeqEntry{frame_id, tid, FrameAction::PUSH};
-        });
-    }
+    std::for_each(frames.rbegin(), frames.rend(), [&](auto& frame) { addFrame(frame); });
 }
 
 void
-Tracker::popFrame(const Frame& frame)
+Tracker::popFrame(const RawFrame& frame)
 {
     frame_id_t frame_id = add_frame(d_frames, frame);
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << FrameSeqEntry{frame_id, thread_id(), FrameAction::POP};
-    }
+    FrameSeqEntry entry{frame_id, thread_id(), FrameAction::POP};
+    d_writer->writeRecord(RecordType::FRAME, entry);
 }
 
 void
-Tracker::addFrame(const Frame& frame)
+Tracker::addFrame(const RawFrame& frame)
 {
     frame_id_t frame_id = add_frame(d_frames, frame);
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << FrameSeqEntry{frame_id, thread_id(), FrameAction::PUSH};
-    }
+    FrameSeqEntry entry{frame_id, thread_id(), FrameAction::PUSH};
+    d_writer->writeRecord(RecordType::FRAME, entry);
 }
 
 void
@@ -183,10 +154,6 @@ void
 Tracker::deactivate()
 {
     d_active = false;
-    {
-        std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output.flush();
-    }
 }
 
 const std::atomic<bool>&
@@ -226,10 +193,10 @@ PyTraceFunction(
     unsigned long lineno = PyFrame_GetLineNumber(frame);
     switch (what) {
         case PyTrace_CALL:
-            Tracker::addFrame(Frame{function, filename, lineno});
+            Tracker::getTracker()->addFrame(RawFrame{function, filename, lineno});
             break;
         case PyTrace_RETURN: {
-            Tracker::popFrame({function, filename, lineno});
+            Tracker::getTracker()->popFrame({function, filename, lineno});
             break;
         }
         default:
@@ -244,7 +211,7 @@ install_trace_function()
     assert(PyGILState_Check());
 
     RecursionGuard guard;
-    Tracker::initializeFrameStack();
+    Tracker::getTracker()->initializeFrameStack();
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
 }
 

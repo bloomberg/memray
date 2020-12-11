@@ -12,6 +12,7 @@
 #include "Python.h"
 #include "frameobject.h"
 #include "hooks.h"
+#include "record_writer.h"
 #include "records.h"
 
 namespace pensieve::tracking_api {
@@ -72,10 +73,10 @@ class Tracker
     void trackDeallocation(void* ptr, const hooks::Allocator func) const;
     static void invalidate_module_cache();
 
-    // Frame stack interface
-    static void initializeFrameStack();
-    static void addFrame(const Frame& frame);
-    static void popFrame(const Frame& frame);
+    // RawFrame stack interface
+    void initializeFrameStack();
+    void addFrame(const RawFrame& frame);
+    void popFrame(const RawFrame& frame);
 
     // Interface to activate/deactivate the tracking
     const std::atomic<bool>& isActive() const;
@@ -86,9 +87,7 @@ class Tracker
     static frame_map_t d_frames;
     std::atomic<bool> d_active{false};
     static std::atomic<Tracker*> d_instance;
-
-    static std::mutex d_output_mutex;
-    static std::ofstream d_output;
+    std::unique_ptr<RecordWriter> d_writer;
 };
 
 }  // namespace pensieve::tracking_api

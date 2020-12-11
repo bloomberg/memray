@@ -28,8 +28,8 @@ class RecordReader
     // Methods
     void parse();
     std::pair<std::string, std::string> getFrameKey(tracking_api::frame_id_t frame_id) const;
-    void parseAllocation(stack_traces_t& stack_traces, std::istringstream& istream);
-    void parseFrame(stack_traces_t& stack_traces, std::istringstream& istream) const;
+    void parseAllocation(stack_traces_t& stack_traces);
+    void parseFrame(stack_traces_t& stack_traces);
 };
 
 }  // namespace pensieve::api

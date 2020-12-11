@@ -34,6 +34,9 @@ cdef class Tracker:
         if isinstance(file_name, str):
             file_name = pathlib.Path(file_name)
 
+        if file_name.exists():
+            raise OSError(f"Output file {file_name} already exists")
+
         self._output_path = str(file_name)
 
     def __enter__(self):
