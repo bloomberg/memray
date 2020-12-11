@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <malloc.h>
 #include <mutex>
+#include <pthread.h>
 
 #include <Python.h>
 
@@ -10,10 +11,10 @@
 #include "tracking_api.h"
 
 #include <sys/syscall.h>
-#define gettid() syscall(SYS_gettid)
 
 namespace {
 void
+
 prepare_fork()
 {
     // Don't do any custom track_allocation handling while inside fork
@@ -37,6 +38,12 @@ child_fork()
 }  // namespace
 
 namespace pensieve::tracking_api {
+
+static inline thread_id_t
+thread_id()
+{
+    return reinterpret_cast<thread_id_t>(pthread_self());
+};
 
 // Tracker interface
 
@@ -73,14 +80,17 @@ Tracker::~Tracker()
     d_instance = nullptr;
 }
 void
-Tracker::trackAllocation(void* ptr, size_t size, const char* func) const
+Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func) const
 {
     if (RecursionGuard::isActive || !this->isActive()) {
         return;
     }
     RecursionGuard guard;
-    AllocationRecord
-            allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), size, func};
+    RawAllocationRecord allocation_record{
+            thread_id(),
+            reinterpret_cast<unsigned long>(ptr),
+            size,
+            static_cast<int>(func)};
 
     {
         std::lock_guard<std::mutex> lock(d_output_mutex);
@@ -89,14 +99,17 @@ Tracker::trackAllocation(void* ptr, size_t size, const char* func) const
 }
 
 void
-Tracker::trackDeallocation(void* ptr, const char* func) const
+Tracker::trackDeallocation(void* ptr, const hooks::Allocator func) const
 {
     if (RecursionGuard::isActive || !this->isActive()) {
         return;
     }
     RecursionGuard guard;
-    AllocationRecord
-            allocation_record{getpid(), gettid(), reinterpret_cast<unsigned long>(ptr), 0, func};
+    RawAllocationRecord allocation_record{
+            thread_id(),
+            reinterpret_cast<unsigned long>(ptr),
+            0,
+            static_cast<int>(func)};
     {
         std::lock_guard<std::mutex> lock(d_output_mutex);
         d_output << allocation_record;
@@ -114,7 +127,7 @@ Tracker::initializeFrameStack()
 {
     std::vector<frame_id_t> frame_ids;
     PyFrameObject* current_frame = PyEval_GetFrame();
-    os_thread_id_t tid = gettid();
+    thread_id_t tid = thread_id();
     while (current_frame != nullptr) {
         const char* function = PyUnicode_AsUTF8(current_frame->f_code->co_name);
         if (function == nullptr) {
@@ -146,7 +159,7 @@ Tracker::popFrame(const Frame& frame)
     frame_id_t frame_id = add_frame(d_frames, frame);
     {
         std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << FrameSeqEntry{frame_id, gettid(), FrameAction::POP};
+        d_output << FrameSeqEntry{frame_id, thread_id(), FrameAction::POP};
     }
 }
 
@@ -156,7 +169,7 @@ Tracker::addFrame(const Frame& frame)
     frame_id_t frame_id = add_frame(d_frames, frame);
     {
         std::lock_guard<std::mutex> lock(d_output_mutex);
-        d_output << FrameSeqEntry{frame_id, gettid(), FrameAction::PUSH};
+        d_output << FrameSeqEntry{frame_id, thread_id(), FrameAction::PUSH};
     }
 }
 

@@ -4,6 +4,8 @@
 #include <deque>
 #include <sstream>
 
+#include "hooks.h"
+
 namespace pensieve::api {
 
 using namespace tracking_api;
@@ -74,7 +76,7 @@ RecordReader::parseFrame(stack_traces_t& stack_traces, std::istringstream& istre
 {
     FrameSeqEntry frame_seq_entry{};
     istream >> frame_seq_entry;
-    os_thread_id_t tid = frame_seq_entry.tid;
+    thread_id_t tid = frame_seq_entry.tid;
 
     auto isCoherentPop = [&](const auto& stack_traces, const auto& frame_entry) {
         frame_id_t prev_frame_id = stack_traces.at(frame_entry.tid).front();
@@ -96,10 +98,14 @@ RecordReader::parseFrame(stack_traces_t& stack_traces, std::istringstream& istre
 void
 RecordReader::parseAllocation(stack_traces_t& stack_traces, std::istringstream& istream)
 {
-    AllocationRecord record;
+    RawAllocationRecord record;
     istream >> record;
     const auto stack = stack_traces.find(record.tid);
-    PyAllocationRecord py_record{record.pid, record.tid, record.address, record.size, record.allocator};
+    AllocationRecord py_record{
+            record.tid,
+            record.address,
+            record.size,
+            allocator_to_string(static_cast<hooks::Allocator>(record.allocator))};
 
     // We don't currently keep track of native frames, so we won't fill them in the record
     if (stack != stack_traces.end()) {
@@ -113,7 +119,7 @@ RecordReader::parseAllocation(stack_traces_t& stack_traces, std::istringstream& 
     d_records.emplace_back(std::move(py_record));
 }
 
-const std::vector<PyAllocationRecord>&
+const std::vector<AllocationRecord>&
 RecordReader::results() const
 {
     return d_records;

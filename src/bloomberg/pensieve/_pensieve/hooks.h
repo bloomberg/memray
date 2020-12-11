@@ -36,6 +36,22 @@ struct SymbolHook
     }
 };
 
+enum class Allocator {
+    MALLOC,
+    FREE,
+    CALLOC,
+    REALLOC,
+    POSIX_MEMALIGN,
+    MEMALIGN,
+    VALLOC,
+    PVALLOC,
+    MMAP,
+    MUNMAP,
+};
+
+std::string
+allocator_to_string(Allocator func);
+
 extern SymbolHook<decltype(&::malloc)> malloc;
 extern SymbolHook<decltype(&::free)> free;
 extern SymbolHook<decltype(&::calloc)> calloc;

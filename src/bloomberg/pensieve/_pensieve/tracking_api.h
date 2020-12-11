@@ -11,6 +11,7 @@
 
 #include "Python.h"
 #include "frameobject.h"
+#include "hooks.h"
 #include "records.h"
 
 namespace pensieve::tracking_api {
@@ -67,8 +68,8 @@ class Tracker
     static Tracker* getTracker();
 
     // Allocation tracking interface
-    void trackAllocation(void* ptr, size_t size, const char* func) const;
-    void trackDeallocation(void* ptr, const char* func) const;
+    void trackAllocation(void* ptr, size_t size, const hooks::Allocator func) const;
+    void trackDeallocation(void* ptr, const hooks::Allocator func) const;
     static void invalidate_module_cache();
 
     // Frame stack interface

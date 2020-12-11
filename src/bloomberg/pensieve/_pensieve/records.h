@@ -6,7 +6,10 @@
 #include <iostream>
 #include <map>
 #include <ostream>
+#include <pthread.h>
 #include <vector>
+
+#include <hooks.h>
 
 namespace pensieve::tracking_api {
 
@@ -15,7 +18,7 @@ const char TOKEN_FRAME_INDEX = 'i';
 const char TOKEN_FRAME = 'f';
 
 typedef size_t frame_id_t;
-typedef long int os_thread_id_t;
+typedef long unsigned int thread_id_t;
 
 struct Frame
 {
@@ -33,20 +36,17 @@ struct PyFrame
 
 enum FrameAction { PUSH, POP };
 
-struct AllocationRecord
+struct RawAllocationRecord
 {
-    pid_t pid;
-    os_thread_id_t tid;
+    thread_id_t tid;
     unsigned long address;
     size_t size;
-    std::string allocator;
-    std::vector<frame_id_t> stack_trace;  // TODO remove this vector
+    int allocator;
 };
 
-struct PyAllocationRecord
+struct AllocationRecord
 {
-    pid_t pid;
-    os_thread_id_t tid;
+    thread_id_t tid;
     unsigned long address;
     size_t size;
     std::string allocator;
@@ -56,7 +56,7 @@ struct PyAllocationRecord
 struct FrameSeqEntry
 {
     frame_id_t frame_id;
-    os_thread_id_t tid;
+    thread_id_t tid;
     FrameAction action;
 };
 
@@ -75,9 +75,9 @@ std::istream&
 operator>>(std::istream&, PyFrame&);
 
 std::ostream&
-operator<<(std::ostream&, const AllocationRecord&);
+operator<<(std::ostream&, const RawAllocationRecord&);
 std::istream&
-operator>>(std::istream&, AllocationRecord&);
+operator>>(std::istream&, RawAllocationRecord&);
 
 std::ostream&
 operator<<(std::ostream&, const FrameSeqEntry&);

@@ -12,16 +12,16 @@ class RecordReader
 {
   public:
     explicit RecordReader(const std::string& file_name);
-    const std::vector<tracking_api::PyAllocationRecord>& results() const;
+    const std::vector<tracking_api::AllocationRecord>& results() const;
 
   private:
     // Aliases
-    using frame_map_t = std::map<tracking_api::os_thread_id_t, tracking_api::pyframe_map_t>;
-    using stack_traces_t = std::map<tracking_api::os_thread_id_t, std::deque<tracking_api::frame_id_t>>;
+    using frame_map_t = std::map<tracking_api::thread_id_t, tracking_api::pyframe_map_t>;
+    using stack_traces_t = std::map<tracking_api::thread_id_t, std::deque<tracking_api::frame_id_t>>;
 
     // Data members
     std::ifstream d_input;
-    std::vector<tracking_api::PyAllocationRecord> d_records;
+    std::vector<tracking_api::AllocationRecord> d_records;
     frame_map_t d_thread_frame_mapping;
     tracking_api::pyframe_map_t d_frame_map;
 

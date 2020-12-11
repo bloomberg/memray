@@ -19,6 +19,34 @@ SymbolHook<decltype(&::mmap64)> mmap64("mmap64", &::mmap64);
 SymbolHook<decltype(&::munmap)> munmap("munmap", &::munmap);
 SymbolHook<decltype(&::PyGILState_Ensure)> PyGILState_Ensure("PyGILState_Ensure", &::PyGILState_Ensure);
 
+std::string
+allocator_to_string(Allocator func)
+{
+    switch (func) {
+        case Allocator::MALLOC:
+            return "malloc";
+        case Allocator::FREE:
+            return "free";
+        case Allocator::CALLOC:
+            return "calloc";
+        case Allocator::REALLOC:
+            return "realloc";
+        case Allocator::POSIX_MEMALIGN:
+            return "posix_memalign";
+        case Allocator::MEMALIGN:
+            return "memalign";
+        case Allocator::VALLOC:
+            return "valloc";
+        case Allocator::PVALLOC:
+            return "pvalloc";
+        case Allocator::MMAP:
+            return "mmap";
+        case Allocator::MUNMAP:
+            return "munmap";
+    }
+    throw std::runtime_error("Invalid Allocator");
+}
+
 }  // namespace pensieve::hooks
 
 namespace pensieve::intercept {
@@ -28,7 +56,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 {
     assert(hooks::mmap);
     void* ptr = hooks::mmap(addr, length, prot, flags, fd, offset);
-    tracking_api::Tracker::getTracker()->trackAllocation(ptr, length, "mmap");
+    tracking_api::Tracker::getTracker()->trackAllocation(ptr, length, hooks::Allocator::MMAP);
     return ptr;
 }
 
@@ -37,7 +65,7 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noe
 {
     assert(hooks::mmap64);
     void* ptr = hooks::mmap64(addr, length, prot, flags, fd, offset);
-    tracking_api::Tracker::getTracker()->trackAllocation(ptr, length, "mmap64");
+    tracking_api::Tracker::getTracker()->trackAllocation(ptr, length, hooks::Allocator::MMAP);
     return ptr;
 }
 
@@ -45,7 +73,7 @@ int
 munmap(void* addr, size_t length) noexcept
 {
     assert(hooks::munmap);
-    tracking_api::Tracker::getTracker()->trackDeallocation(addr, "munmap");
+    tracking_api::Tracker::getTracker()->trackDeallocation(addr, hooks::Allocator::MUNMAP);
     return hooks::munmap(addr, length);
 }
 
@@ -55,7 +83,7 @@ malloc(size_t size) noexcept
     assert(hooks::malloc);
 
     void* ptr = hooks::malloc(size);
-    tracking_api::Tracker::getTracker()->trackAllocation(ptr, size, "malloc");
+    tracking_api::Tracker::getTracker()->trackAllocation(ptr, size, hooks::Allocator::MALLOC);
     return ptr;
 }
 
@@ -66,7 +94,7 @@ free(void* ptr) noexcept
 
     // We need to call our API before we call the real free implementation
     // to make sure that the pointer is not reused in-between.
-    tracking_api::Tracker::getTracker()->trackDeallocation(ptr, "free");
+    tracking_api::Tracker::getTracker()->trackDeallocation(ptr, hooks::Allocator::FREE);
 
     hooks::free(ptr);
 }
@@ -78,8 +106,8 @@ realloc(void* ptr, size_t size) noexcept
 
     void* ret = hooks::realloc(ptr, size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackDeallocation(ptr, "realloc");
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "realloc");
+        tracking_api::Tracker::getTracker()->trackDeallocation(ptr, hooks::Allocator::REALLOC);
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::REALLOC);
     }
     return ret;
 }
@@ -91,7 +119,7 @@ calloc(size_t num, size_t size) noexcept
 
     void* ret = hooks::calloc(num, size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, num * size, "calloc");
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, num * size, hooks::Allocator::CALLOC);
     }
     return ret;
 }
@@ -103,7 +131,10 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
 
     int ret = hooks::posix_memalign(memptr, alignment, size);
     if (!ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(*memptr, size, "posix_memalign");
+        tracking_api::Tracker::getTracker()->trackAllocation(
+                *memptr,
+                size,
+                hooks::Allocator::POSIX_MEMALIGN);
     }
     return ret;
 }
@@ -115,7 +146,7 @@ memalign(size_t alignment, size_t size) noexcept
 
     void* ret = hooks::memalign(alignment, size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "memalign");
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::MEMALIGN);
     }
     return ret;
 }
@@ -127,7 +158,7 @@ valloc(size_t size) noexcept
 
     void* ret = hooks::valloc(size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "valloc");
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::VALLOC);
     }
     return ret;
 }
@@ -139,7 +170,7 @@ pvalloc(size_t size) noexcept
 
     void* ret = hooks::pvalloc(size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, "pvalloc");
+        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::PVALLOC);
     }
     return ret;
 }

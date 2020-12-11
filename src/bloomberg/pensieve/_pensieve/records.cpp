@@ -76,17 +76,17 @@ str_hash(const char* val)
 }
 
 std::ostream&
-operator<<(std::ostream& ostream, const AllocationRecord& record)
+operator<<(std::ostream& ostream, const RawAllocationRecord& record)
 {
-    ostream << TOKEN_ALLOCATION << " " << record.pid << " " << record.tid << " " << record.size << " "
-            << record.address << " " << record.allocator << "\n";
+    ostream << TOKEN_ALLOCATION << " " << record.tid << " " << record.size << " " << record.address
+            << " " << record.allocator << "\n";
     return ostream;
 }
 
 std::istream&
-operator>>(std::istream& istream, AllocationRecord& record)
+operator>>(std::istream& istream, RawAllocationRecord& record)
 {
-    if (!(istream >> record.pid >> record.tid >> record.size >> record.address >> record.allocator)) {
+    if (!(istream >> record.tid >> record.size >> record.address >> record.allocator)) {
         // TODO add logging
         throw std::runtime_error("Failed to parse AllocationRecord");
     }

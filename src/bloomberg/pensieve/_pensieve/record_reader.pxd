@@ -1,7 +1,7 @@
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 
-from _pensieve.records cimport PyAllocationRecord as AllocationRecord
+from _pensieve.records cimport AllocationRecord
 
 cdef extern from "record_reader.h" namespace "pensieve::api":
     cdef cppclass RecordReader:
