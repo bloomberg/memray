@@ -25,7 +25,10 @@ read_frames(const std::string& file_name)
         std::getline(ifs, pyframe_val.second.function_name, '\0');
         std::getline(ifs, pyframe_val.second.filename, '\0');
         ifs.read((char*)&pyframe_val.second.lineno, sizeof(pyframe_val.second.lineno));
-        frames[pyframe_val.first] = pyframe_val.second;
+        auto iterator = frames.insert(pyframe_val);
+        if (!iterator.second) {
+            throw std::runtime_error("Two entries with the same ID found!");
+        }
     };
 
     while (ifs.peek() != EOF) {

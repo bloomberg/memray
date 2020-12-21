@@ -22,7 +22,7 @@ class RecordWriter
     ~RecordWriter();
 
     template<typename T>
-    bool inline writeRecord(const RecordType& token, const T& item)
+    bool inline writeRecord(const RecordType& token, const T& item) noexcept
     {
         std::lock_guard<std::mutex> lock(d_mutex);
         constexpr const size_t total = sizeof(RecordType) + sizeof(T);
@@ -41,7 +41,7 @@ class RecordWriter
         return true;
     }
 
-    bool flush();
+    bool flush() noexcept;
 
   private:
     // Constants
@@ -54,25 +54,25 @@ class RecordWriter
     std::mutex d_mutex;
 
     // Methods
-    inline size_t availableSpace() const;
-    inline char* bufferNeedle() const;
-    bool _flush();
+    inline size_t availableSpace() const noexcept;
+    inline char* bufferNeedle() const noexcept;
+    bool _flush() noexcept;
 };
 
 inline size_t
-RecordWriter::availableSpace() const
+RecordWriter::availableSpace() const noexcept
 {
     return BUFFER_CAPACITY - d_used_bytes;
 }
 
 inline char*
-RecordWriter::bufferNeedle() const
+RecordWriter::bufferNeedle() const noexcept
 {
     return d_buffer.get() + d_used_bytes;
 }
 
 template<>
-bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map_val_t& item)
+bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map_val_t& item) noexcept
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     if (!_flush()) {

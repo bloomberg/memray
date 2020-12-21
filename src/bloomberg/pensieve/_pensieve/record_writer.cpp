@@ -18,14 +18,14 @@ RecordWriter::~RecordWriter()
 }
 
 bool
-RecordWriter::flush()
+RecordWriter::flush() noexcept
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     return _flush();
 }
 
 bool
-RecordWriter::_flush()
+RecordWriter::_flush() noexcept
 {
     if (!d_used_bytes) {
         return true;
