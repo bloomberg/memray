@@ -19,34 +19,6 @@ SymbolHook<decltype(&::mmap64)> mmap64("mmap64", &::mmap64);
 SymbolHook<decltype(&::munmap)> munmap("munmap", &::munmap);
 SymbolHook<decltype(&::PyGILState_Ensure)> PyGILState_Ensure("PyGILState_Ensure", &::PyGILState_Ensure);
 
-std::string
-allocator_to_string(Allocator func)
-{
-    switch (func) {
-        case Allocator::MALLOC:
-            return "malloc";
-        case Allocator::FREE:
-            return "free";
-        case Allocator::CALLOC:
-            return "calloc";
-        case Allocator::REALLOC:
-            return "realloc";
-        case Allocator::POSIX_MEMALIGN:
-            return "posix_memalign";
-        case Allocator::MEMALIGN:
-            return "memalign";
-        case Allocator::VALLOC:
-            return "valloc";
-        case Allocator::PVALLOC:
-            return "pvalloc";
-        case Allocator::MMAP:
-            return "mmap";
-        case Allocator::MUNMAP:
-            return "munmap";
-    }
-    throw std::runtime_error("Invalid Allocator");
-}
-
 }  // namespace pensieve::hooks
 
 namespace pensieve::intercept {
