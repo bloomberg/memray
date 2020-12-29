@@ -63,7 +63,9 @@ class Tracker
     ~Tracker();
 
     Tracker(Tracker& other) = delete;
+    Tracker(Tracker&& other) = delete;
     void operator=(const Tracker&) = delete;
+    void operator=(Tracker&&) = delete;
 
     // Interface to get the tracker instance
     static Tracker* getTracker();

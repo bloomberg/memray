@@ -21,6 +21,11 @@ class RecordWriter
     explicit RecordWriter(const std::string& file_name);
     ~RecordWriter();
 
+    RecordWriter(RecordWriter& other) = delete;
+    RecordWriter(RecordWriter&& other) = delete;
+    void operator=(const RecordWriter&) = delete;
+    void operator=(RecordWriter&&) = delete;
+
     template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item) noexcept
     {
