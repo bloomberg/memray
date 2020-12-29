@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 
@@ -29,25 +30,24 @@ def test_initial_tracking_frames_are_correctly_populated(tmpdir):
     output = Path(tmpdir) / "test.bin"
 
     def foo():
-        with Tracker(output) as tracker:
-            allocator.valloc(1234)
-            allocator.free()
-        return tracker.get_allocation_records()
+        allocator.valloc(1234)
+        allocator.free()
 
     # WHEN
 
-    records = foo()
+    with Tracker(output) as tracker:
+        foo()
+    records = list(tracker.get_allocation_records())
 
     # THEN
 
-    allocs = [record for record in records if record["allocator"] == "valloc"]
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     assert len(allocs) == 1
     (alloc,) = allocs
-    traceback = [frame["function_name"] for frame in alloc["stack_trace"]]
+    traceback = [frame[0] for frame in alloc.stack_trace()]
     assert traceback[-3:] == [
-        "test_initial_tracking_frames_are_correctly_populated",
-        "foo",
         "valloc",
+        "foo",
     ]
 
 
@@ -69,23 +69,22 @@ def test_restart_tracing_function_gets_correctly_the_frames(tmpdir):
     output.unlink()
 
     def bar():
-        with Tracker(output) as tracker:
-            foo()
-        return tracker.get_allocation_records()
+        foo()
 
     # Do another *independent* round of tracking. The previous frames
     # should not interfere with this tracing.
-    records = bar()
+    with Tracker(output) as tracker:
+        bar()
+    records = list(tracker.get_allocation_records())
 
     # THEN
 
-    allocs = [record for record in records if record["allocator"] == "valloc"]
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     assert len(allocs) == 1
     (alloc,) = allocs
-    traceback = [frame["function_name"] for frame in alloc["stack_trace"]]
+    traceback = [frame[0] for frame in alloc.stack_trace()]
     assert traceback[-4:] == [
-        "test_restart_tracing_function_gets_correctly_the_frames",
-        "bar",
-        "foo",
         "valloc",
+        "foo",
+        "bar",
     ]
