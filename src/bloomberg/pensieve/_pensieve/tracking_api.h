@@ -25,11 +25,10 @@ namespace pensieve::tracking_api {
  * This trace function's sole purpose is to give a thread-safe, GIL-synchronized view of the Python
  * stack. To retrieve the Python stack using the C-API forces the caller to have the GIL held. Requiring
  * the GIL in the allocator function has too much impact on performance and can deadlock extension
- *modules that have native locks that are not synchronized themselves with the GIL. For this reason we
- *need a way to record and store the Python call frame information in a way that we can read without the
- *need to use the C-API. This trace function maintains and does the bookeeping to mirror the Python stack
- *in a per-thread data structure that has the required properties and that can be accessed from the
- *allocator functions.
+ * modules that have native locks that are not synchronized themselves with the GIL. For this reason we
+ * need a way to record and store the Python call frame information in a way that we can read without the
+ * need to use the C-API. This trace function writes to disk the PUSH and POP operations so the Python
+ *stack at any point can be reconstructed later.
  *
  **/
 int
@@ -38,10 +37,8 @@ PyTraceFunction(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 /**
  * Installs the trace function in the current thread.
  *
- * This function installs the trace function in the current thread using the C-API. Before the
- * installation itself, this function will also pre-populate the data structure mirroring the Python
- * stack so all elements of Python stack that exist before the call to this function are also accounted
- * for.
+ * This function installs the trace function in the current thread using the C-API.
+ *
  * */
 void
 install_trace_function();
