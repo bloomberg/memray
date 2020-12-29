@@ -3,13 +3,12 @@
 namespace pensieve::tracking_api {
 
 RecordWriter::RecordWriter(const std::string& file_name)
-: d_buffer(new char[BUFFER_CAPACITY])
+: d_buffer(new char[BUFFER_CAPACITY]{0})
 {
     fd = ::open(file_name.c_str(), O_CREAT | O_WRONLY | O_CLOEXEC, 0644);
     if (fd < 0) {
         std::runtime_error("Could not open file for writing: " + file_name);
     }
-    memset(d_buffer.get(), 0, BUFFER_CAPACITY);
 }
 
 RecordWriter::~RecordWriter()
