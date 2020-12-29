@@ -90,19 +90,12 @@ RecordReader::parseFrame()
     d_input.read(reinterpret_cast<char*>(&frame_seq_entry), sizeof(FrameSeqEntry));
     thread_id_t tid = frame_seq_entry.tid;
 
-    auto isCoherentPop = [&](const auto& stack_traces, const auto& frame_entry) {
-        frame_id_t prev_frame_id = stack_traces.at(frame_entry.tid).front();
-        return getFrameKey(frame_entry.frame_id) == getFrameKey(prev_frame_id);
-    };
-
     switch (frame_seq_entry.action) {
         case PUSH:
-            stack_traces[tid].push_front(frame_seq_entry.frame_id);
+            d_stack_traces[tid].push_back(frame_seq_entry.frame_id);
             break;
         case POP:
-            if (isCoherentPop(stack_traces, frame_seq_entry)) {
-                stack_traces[tid].pop_front();
-            }
+            d_stack_traces[tid].pop_back();
             break;
     }
 }

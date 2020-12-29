@@ -68,13 +68,12 @@ class Tracker
     static Tracker* getTracker();
 
     // Allocation tracking interface
-    void trackAllocation(void* ptr, size_t size, const hooks::Allocator func) const;
-    void trackDeallocation(void* ptr, const hooks::Allocator func) const;
+    void trackAllocation(void* ptr, size_t size, hooks::Allocator func) const;
+    void trackDeallocation(void* ptr, hooks::Allocator func) const;
     static void invalidate_module_cache();
 
     // RawFrame stack interface
-    void initializeFrameStack();
-    void addFrame(const RawFrame& frame);
+    void pushFrame(const RawFrame& frame);
     void popFrame(const RawFrame& frame);
 
     // Interface to activate/deactivate the tracking
@@ -83,10 +82,15 @@ class Tracker
     void deactivate();
 
   private:
-    static frame_map_t d_frames;
+    // Data members
+    FrameCollection d_frames;
     std::atomic<bool> d_active{false};
     static std::atomic<Tracker*> d_instance;
     std::unique_ptr<RecordWriter> d_writer;
+    size_t d_stack_size{};
+
+    // Methods
+    frame_id_t registerFrame(const RawFrame& frame);
 };
 
 }  // namespace pensieve::tracking_api

@@ -13,3 +13,4 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
        size_t size
        string allocator
        vector[Frame] stack_trace
+
