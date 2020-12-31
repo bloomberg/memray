@@ -1,6 +1,8 @@
 #pragma once
 
 #include <fstream>
+#include <functional>
+#include <memory>
 #include <unordered_map>
 
 #include "record_reader.h"
@@ -38,6 +40,16 @@ class StackTraceTree
     std::vector<Node> d_graph{};
 };
 
+class PyUnicode_Cache
+{
+  public:
+    PyObject* getUnicodeObject(const std::string& str);
+
+  private:
+    using py_capsule_t = std::unique_ptr<PyObject, std::function<void(PyObject*)>>;
+    std::unordered_map<std::string, py_capsule_t> d_cache{};
+};
+
 class RecordReader
 {
   public:
@@ -55,6 +67,7 @@ class RecordReader
     tracking_api::pyframe_map_t d_frame_map{};
     stack_traces_t d_stack_traces{};
     StackTraceTree d_tree{};
+    mutable PyUnicode_Cache d_pystring_cache{};
 
     // Methods
     PyObject* parseAllocation();

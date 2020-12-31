@@ -35,6 +35,21 @@ StackTraceTree::getTraceIndex(const std::vector<tracking_api::frame_id_t>& stack
     return index;
 }
 
+PyObject*
+PyUnicode_Cache::getUnicodeObject(const std::string& str)
+{
+    auto it = d_cache.find(str);
+    if (it == d_cache.end()) {
+        PyObject* pystring = PyUnicode_FromString(str.c_str());
+        if (pystring == nullptr) {
+            return nullptr;
+        }
+        auto pystring_capsule = py_capsule_t(pystring, [](auto obj) { Py_DECREF(obj); });
+        it = d_cache.emplace(str, std::move(pystring_capsule)).first;
+    }
+    return it->second.get();
+}
+
 RecordReader::RecordReader(const std::string& file_name)
 {
     d_input.open(file_name, std::ios::binary | std::ios::in);
@@ -161,11 +176,15 @@ RecordReader::get_stack_frame(const StackTraceTree::index_t index, const size_t 
     while (current_index != 0 && ++stacks_obtained != max_stacks) {
         auto node = d_tree.nextNode(current_index);
         const auto& frame = d_frame_map.at(node.frame_id);
-        PyObject* tuple = Py_BuildValue(
-                "(ssi)",
-                frame.function_name.c_str(),
-                frame.filename.c_str(),
-                frame.lineno);
+        PyObject* function_name = d_pystring_cache.getUnicodeObject(frame.function_name);
+        if (function_name == nullptr) {
+            goto error;
+        }
+        PyObject* filename = d_pystring_cache.getUnicodeObject(frame.filename);
+        if (filename == nullptr) {
+            goto error;
+        }
+        PyObject* tuple = Py_BuildValue("(OOi)", function_name, filename, frame.lineno);
         if (tuple == nullptr) {
             goto error;
         }
