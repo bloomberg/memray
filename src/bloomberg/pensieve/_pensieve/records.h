@@ -31,6 +31,7 @@ struct AllocationRecord
     unsigned long address;
     size_t size;
     hooks::Allocator allocator;
+    int py_lineno;
 };
 
 enum FrameAction { PUSH, POP };
@@ -39,12 +40,12 @@ struct RawFrame
 {
     const char* function_name;
     const char* filename;
-    unsigned long lineno;
+    int parent_lineno;
 
     auto operator==(const RawFrame& other) const -> bool
     {
         return (function_name == other.function_name && filename == other.filename
-                && lineno == other.lineno);
+                && parent_lineno == other.parent_lineno);
     }
 
     struct Hash
@@ -62,8 +63,8 @@ struct RawFrame
 
             auto the_func = std::hash<const char*>{}(frame.function_name);
             auto the_filename = std::hash<const char*>{}(frame.filename);
-            auto the_lineno = std::hash<unsigned long>{}(frame.lineno);
-            return the_func ^ the_filename ^ the_lineno;
+            auto parent_lineno = std::hash<unsigned long>{}(frame.parent_lineno);
+            return the_func ^ the_filename ^ parent_lineno;
         }
     };
 };
@@ -72,7 +73,7 @@ struct Frame
 {
     std::string function_name;
     std::string filename;
-    unsigned long lineno;
+    int parent_lineno;
 };
 
 struct FrameSeqEntry

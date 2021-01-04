@@ -105,7 +105,7 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map
 
     return writeSimpleType(token) && writeSimpleType(item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
-           && writeSimpleType(item.second.lineno);
+           && writeSimpleType(item.second.parent_lineno);
 }
 
 }  // namespace pensieve::tracking_api
