@@ -67,11 +67,11 @@ cdef class AllocationRecord:
 
     @property
     def allocator(self):
-        return AllocatorType(self._tuple[3])
+        return self._tuple[3]
 
     def stack_trace(self, size_t max_stacks=0):
         if self._stack_trace is None:
-            self._stack_trace = self._reader.get().get_stack_frame(self._tuple[4], max_stacks)
+            self._stack_trace = self._reader.get().get_stack_frame(self._tuple[4], self._tuple[5], max_stacks)
         return self._stack_trace
 
     def __repr__(self):

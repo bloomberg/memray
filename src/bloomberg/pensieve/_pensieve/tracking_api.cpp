@@ -45,6 +45,7 @@ thread_id()
 // Tracker interface
 
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
+static thread_local PyFrameObject* current_frame = nullptr;
 
 Tracker::Tracker(const std::string& file_name)
 {
@@ -75,7 +76,8 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func) co
         return;
     }
     RecursionGuard guard;
-    AllocationRecord record{thread_id(), reinterpret_cast<unsigned long>(ptr), size, func};
+    int lineno = current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
+    AllocationRecord record{thread_id(), reinterpret_cast<unsigned long>(ptr), size, func, lineno};
     d_writer->writeRecord(RecordType::ALLOCATION, record);
 }
 
@@ -86,7 +88,8 @@ Tracker::trackDeallocation(void* ptr, const hooks::Allocator func) const
         return;
     }
     RecursionGuard guard;
-    AllocationRecord record{thread_id(), reinterpret_cast<unsigned long>(ptr), 0, func};
+    int lineno = current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
+    AllocationRecord record{thread_id(), reinterpret_cast<unsigned long>(ptr), 0, func, lineno};
     d_writer->writeRecord(RecordType::ALLOCATION, record);
 }
 
@@ -103,7 +106,7 @@ Tracker::registerFrame(const RawFrame& frame)
     if (is_new_frame) {
         pyframe_map_val_t frame_index{
                 frame_id,
-                Frame{frame.function_name, frame.filename, frame.lineno}};
+                Frame{frame.function_name, frame.filename, frame.parent_lineno}};
         d_writer->writeRecord(RecordType::FRAME_INDEX, frame_index);
     }
     return frame_id;
@@ -176,13 +179,16 @@ PyTraceFunction(
     if (filename == nullptr) {
         return -1;
     }
-    unsigned long lineno = PyFrame_GetLineNumber(frame);
+    int parent_lineno =
+            current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
     switch (what) {
         case PyTrace_CALL:
-            Tracker::getTracker()->pushFrame(RawFrame{function, filename, lineno});
+            current_frame = frame;
+            Tracker::getTracker()->pushFrame({function, filename, parent_lineno});
             break;
         case PyTrace_RETURN: {
-            Tracker::getTracker()->popFrame({function, filename, lineno});
+            Tracker::getTracker()->popFrame({function, filename, parent_lineno});
+            current_frame = frame->f_back;
             break;
         }
         default:

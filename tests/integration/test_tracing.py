@@ -6,6 +6,66 @@ from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 
 
+def alloc_func3(allocator):
+    x = 1
+    allocator.valloc(1234)
+    x = 2
+    allocator.free()
+    x = 3
+    return x
+
+
+def alloc_func2(allocator):
+    y = 1
+    alloc_func3(allocator)
+    y = 2
+    return y
+
+
+def alloc_func1(allocator):
+    z = 1
+    alloc_func2(allocator)
+    z = 2
+    return z
+
+
+def test_traceback(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+    records = list(tracker.get_allocation_records())
+
+    # THEN
+
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+    traceback = list(alloc.stack_trace())
+    assert traceback[-3:] == [
+        ("alloc_func3", __file__, 11),
+        ("alloc_func2", __file__, 20),
+        ("alloc_func1", __file__, 27),
+    ]
+    frees = [
+        record
+        for record in records
+        if record.allocator == AllocatorType.FREE and record.address == alloc.address
+    ]
+    assert len(frees) == 1
+    (free,) = frees
+    traceback = list(free.stack_trace())
+    assert traceback[-3:] == [
+        ("alloc_func3", __file__, 13),
+        ("alloc_func2", __file__, 20),
+        ("alloc_func1", __file__, 27),
+    ]
+
+
 def test_profile_function_is_restored_after_tracking(tmpdir):
     # GIVEN
     def profilefunc(*args):

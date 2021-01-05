@@ -26,7 +26,7 @@ class StackTraceTree
         return d_graph[index - 1];
     }
 
-    index_t getTraceIndex(const std::vector<tracking_api::frame_id_t>& stack_trace);
+    size_t getTraceIndex(const std::vector<tracking_api::frame_id_t>& stack_trace);
 
   private:
     struct NodeEdge
@@ -36,7 +36,7 @@ class StackTraceTree
         std::vector<NodeEdge> children;
     };
     NodeEdge d_root = {0, 0, {}};
-    index_t d_current_tree_index = 1;
+    size_t d_current_tree_index = 1;
     std::vector<Node> d_graph{};
 };
 
@@ -55,7 +55,7 @@ class RecordReader
   public:
     explicit RecordReader(const std::string& file_name);
     PyObject* nextAllocation();
-    PyObject* get_stack_frame(StackTraceTree::index_t index, size_t max_stacks = 0) const;
+    PyObject* get_stack_frame(StackTraceTree::index_t index, int lineno, size_t max_stacks = 0);
 
   private:
     // Aliases

@@ -10,7 +10,7 @@ namespace pensieve::api {
 
 using namespace tracking_api;
 
-StackTraceTree::index_t
+size_t
 StackTraceTree::getTraceIndex(const std::vector<tracking_api::frame_id_t>& stack_trace)
 {
     index_t index = 0;
@@ -62,7 +62,9 @@ RecordReader::parseFrameIndex()
     d_input.read(reinterpret_cast<char*>(&pyframe_val.first), sizeof(pyframe_val.first));
     std::getline(d_input, pyframe_val.second.function_name, '\0');
     std::getline(d_input, pyframe_val.second.filename, '\0');
-    d_input.read(reinterpret_cast<char*>(&pyframe_val.second.lineno), sizeof(pyframe_val.second.lineno));
+    d_input.read(
+            reinterpret_cast<char*>(&pyframe_val.second.parent_lineno),
+            sizeof(pyframe_val.second.parent_lineno));
     auto iterator = d_frame_map.insert(pyframe_val);
     if (!iterator.second) {
         throw std::runtime_error("Two entries with the same ID found!");
@@ -121,7 +123,7 @@ RecordReader::parseAllocation()
     AllocationRecord record{};
     d_input.read(reinterpret_cast<char*>(&record), sizeof(AllocationRecord));
 
-    StackTraceTree::index_t index = 0;
+    size_t index = 0;
     const auto stack = d_stack_traces.find(record.tid);
     if (stack != d_stack_traces.end()) {
         index = d_tree.getTraceIndex(stack->second);
@@ -131,7 +133,7 @@ RecordReader::parseAllocation()
     // operations speeds up the parsing moderately. Additionally, some of
     // the types we need to convert from are not supported by PyBuildValue
     // natively.
-    PyObject* tuple = PyTuple_New(5);
+    PyObject* tuple = PyTuple_New(6);
     if (tuple == nullptr) {
         return nullptr;
     }
@@ -155,16 +157,22 @@ RecordReader::parseAllocation()
     elem = PyLong_FromLong(static_cast<int>(record.allocator));
     __CHECK_ERROR(elem);
     PyTuple_SET_ITEM(tuple, 3, elem);
-    elem = PyLong_FromUnsignedLong(index);
+    elem = PyLong_FromSize_t(index);
     __CHECK_ERROR(elem);
     PyTuple_SET_ITEM(tuple, 4, elem);
+    elem = PyLong_FromLong(record.py_lineno);
+    __CHECK_ERROR(elem);
+    PyTuple_SET_ITEM(tuple, 5, elem);
 #undef __CHECK_ERROR
 
     return tuple;
 }
 
 PyObject*
-RecordReader::get_stack_frame(const StackTraceTree::index_t index, const size_t max_stacks) const
+RecordReader::get_stack_frame(
+        const StackTraceTree::index_t index,
+        const int lineno,
+        const size_t max_stacks)
 {
     size_t stacks_obtained = 0;
     StackTraceTree::index_t current_index = index;
@@ -173,6 +181,7 @@ RecordReader::get_stack_frame(const StackTraceTree::index_t index, const size_t 
         return nullptr;
     }
 
+    int parent_lineno = lineno;
     while (current_index != 0 && ++stacks_obtained != max_stacks) {
         auto node = d_tree.nextNode(current_index);
         const auto& frame = d_frame_map.at(node.frame_id);
@@ -184,15 +193,27 @@ RecordReader::get_stack_frame(const StackTraceTree::index_t index, const size_t 
         if (filename == nullptr) {
             goto error;
         }
-        PyObject* tuple = Py_BuildValue("(OOi)", function_name, filename, frame.lineno);
-        if (tuple == nullptr) {
+        PyObject* lineno = PyLong_FromLong(parent_lineno);
+        if (lineno == nullptr) {
             goto error;
         }
+        PyObject* tuple = PyTuple_New(3);
+        if (tuple == nullptr) {
+            Py_DECREF(lineno);
+            goto error;
+        }
+        Py_INCREF(function_name);
+        Py_INCREF(filename);
+        PyTuple_SET_ITEM(tuple, 0, function_name);
+        PyTuple_SET_ITEM(tuple, 1, filename);
+        PyTuple_SET_ITEM(tuple, 2, lineno);
+
         if (PyList_Append(list, tuple) != 0) {
             Py_DECREF(tuple);
             goto error;
         }
         current_index = node.parent_index;
+        parent_lineno = frame.parent_lineno;
     }
     return list;
 error:
