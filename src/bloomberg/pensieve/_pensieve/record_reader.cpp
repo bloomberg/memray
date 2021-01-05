@@ -59,10 +59,10 @@ void
 RecordReader::parseFrameIndex()
 {
     tracking_api::pyframe_map_val_t pyframe_val;
-    d_input.read((char*)&pyframe_val.first, sizeof(pyframe_val.first));
+    d_input.read(reinterpret_cast<char*>(&pyframe_val.first), sizeof(pyframe_val.first));
     std::getline(d_input, pyframe_val.second.function_name, '\0');
     std::getline(d_input, pyframe_val.second.filename, '\0');
-    d_input.read((char*)&pyframe_val.second.lineno, sizeof(pyframe_val.second.lineno));
+    d_input.read(reinterpret_cast<char*>(&pyframe_val.second.lineno), sizeof(pyframe_val.second.lineno));
     auto iterator = d_frame_map.insert(pyframe_val);
     if (!iterator.second) {
         throw std::runtime_error("Two entries with the same ID found!");

@@ -86,9 +86,6 @@ cdef class Tracker:
     cdef shared_ptr[RecordReader] _reader
 
     def __cinit__(self, object file_name):
-        if isinstance(file_name, str):
-            file_name = pathlib.Path(file_name)
-
         self._output_path = str(file_name)
 
     def __enter__(self):

@@ -27,24 +27,7 @@ class RecordWriter
     void operator=(RecordWriter&&) = delete;
 
     template<typename T>
-    bool inline writeRecord(const RecordType& token, const T& item) noexcept
-    {
-        std::lock_guard<std::mutex> lock(d_mutex);
-        constexpr const size_t total = sizeof(RecordType) + sizeof(T);
-        static_assert(
-                std::is_trivially_copyable<T>::value,
-                "Cannot writeRecord as binary records that cannot be trivially copyable");
-        static_assert(total < BUFFER_CAPACITY, "cannot writeRecord line larger than d_buffer capacity");
-
-        if (total > availableSpace() && !_flush()) {
-            return false;
-        }
-        ::memcpy(bufferNeedle(), reinterpret_cast<const void*>(&token), sizeof(RecordType));
-        d_used_bytes += sizeof(RecordType);
-        ::memcpy(bufferNeedle(), reinterpret_cast<const void*>(&item), sizeof(T));
-        d_used_bytes += sizeof(T);
-        return true;
-    }
+    bool inline writeRecord(const RecordType& token, const T& item) noexcept;
 
     bool flush() noexcept;
 
@@ -74,6 +57,26 @@ inline char*
 RecordWriter::bufferNeedle() const noexcept
 {
     return d_buffer.get() + d_used_bytes;
+}
+
+template<typename T>
+bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) noexcept
+{
+    std::lock_guard<std::mutex> lock(d_mutex);
+    constexpr const size_t total = sizeof(RecordType) + sizeof(T);
+    static_assert(
+            std::is_trivially_copyable<T>::value,
+            "Called writeRecord on binary records which cannot be trivially copied");
+    static_assert(total < BUFFER_CAPACITY, "cannot write line larger than d_buffer capacity");
+
+    if (total > availableSpace() && !_flush()) {
+        return false;
+    }
+    ::memcpy(bufferNeedle(), reinterpret_cast<const void*>(&token), sizeof(RecordType));
+    d_used_bytes += sizeof(RecordType);
+    ::memcpy(bufferNeedle(), reinterpret_cast<const void*>(&item), sizeof(T));
+    d_used_bytes += sizeof(T);
+    return true;
 }
 
 template<>
