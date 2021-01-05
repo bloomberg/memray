@@ -53,6 +53,16 @@ cdef class AllocationRecord:
         self._tuple = record
         self._stack_trace = None
 
+    def __eq__(self, other):
+        cdef AllocationRecord _other
+        if isinstance(other, AllocationRecord):
+            _other = other
+            return self._tuple == _other._tuple
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self._tuple)
+
     @property
     def tid(self):
         return self._tuple[0]
@@ -104,8 +114,7 @@ cdef class Tracker:
         sys.setprofile(self._previous_profile_func)
 
     def get_allocation_records(self):
-        if self._reader == NULL:
-            self._reader = make_shared[RecordReader](self._output_path)
+        self._reader = make_shared[RecordReader](self._output_path)
         cdef RecordReader* reader = self._reader.get()
         while True:
             alloc = AllocationRecord(reader.nextAllocation())

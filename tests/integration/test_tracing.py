@@ -66,6 +66,70 @@ def test_traceback(tmpdir):
     ]
 
 
+def test_traceback_iteration_does_not_depend_on_the_order_of_elements(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+        alloc_func1(allocator)
+
+    # THEN
+
+    records = list(tracker.get_allocation_records())
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+    alloc1, alloc2 = allocs
+    traceback1 = list(alloc1.stack_trace())
+    traceback2 = list(alloc2.stack_trace())
+
+    records = list(tracker.get_allocation_records())
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+    alloc1, alloc2 = allocs
+    assert traceback2 == list(alloc2.stack_trace())
+    assert traceback1 == list(alloc1.stack_trace())
+
+
+def test_records_can_be_retrieved_twice(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+
+    # THEN
+
+    records1 = list(tracker.get_allocation_records())
+    records2 = list(tracker.get_allocation_records())
+
+    assert records1 == records2
+
+
+def test_traceback_can_be_retrieved_twice(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+
+    # THEN
+
+    records = list(tracker.get_allocation_records())
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+    (alloc,) = allocs
+    traceback1 = list(alloc.stack_trace())
+    traceback2 = list(alloc.stack_trace())
+    assert traceback1 == traceback2
+
+
 def test_profile_function_is_restored_after_tracking(tmpdir):
     # GIVEN
     def profilefunc(*args):
