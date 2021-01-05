@@ -1,47 +1,28 @@
 #pragma once
 
-#include <Python.h>
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <iostream>
-#include <map>
 #include <ostream>
 #include <pthread.h>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
+
+#include "Python.h"
 
 #include <hooks.h>
 
 namespace pensieve::tracking_api {
 
-const char TOKEN_ALLOCATION = 'a';
-const char TOKEN_FRAME_INDEX = 'i';
-const char TOKEN_FRAME = 'f';
+using frame_id_t = size_t;
+using thread_id_t = unsigned long;
 
-typedef size_t frame_id_t;
-typedef long unsigned int thread_id_t;
-
-struct Frame
-{
-    const char* function_name;
-    const char* filename;
-    unsigned long lineno;
-};
-
-struct PyFrame
-{
-    std::string function_name;
-    std::string filename;
-    unsigned long lineno;
-};
-
-enum FrameAction { PUSH, POP };
-
-struct RawAllocationRecord
-{
-    thread_id_t tid;
-    unsigned long address;
-    size_t size;
-    int allocator;
+enum class RecordType {
+    ALLOCATION = 1,
+    FRAME_INDEX = 2,
+    FRAME = 3,
 };
 
 struct AllocationRecord
@@ -49,8 +30,49 @@ struct AllocationRecord
     thread_id_t tid;
     unsigned long address;
     size_t size;
-    std::string allocator;
-    std::vector<PyFrame> stack_trace;
+    hooks::Allocator allocator;
+};
+
+enum FrameAction { PUSH, POP };
+
+struct RawFrame
+{
+    const char* function_name;
+    const char* filename;
+    unsigned long lineno;
+
+    auto operator==(const RawFrame& other) const -> bool
+    {
+        return (function_name == other.function_name && filename == other.filename
+                && lineno == other.lineno);
+    }
+
+    struct Hash
+    {
+        auto operator()(pensieve::tracking_api::RawFrame const& frame) const noexcept -> std::size_t
+        {
+            // Keep this hashing fast and simple as this has a non trivial
+            // performance impact on the tracing functionality. We don't hash
+            // the contents of the strings because the interpreter will give us
+            // the same char* for the same code object. Of course, we can have
+            // some scenarios where two functions with the same function name have
+            // two different char* but in that case we will end registering the
+            // name twice, which is a good compromise given the speed that we
+            // gain keeping this simple.
+
+            auto the_func = std::hash<const char*>{}(frame.function_name);
+            auto the_filename = std::hash<const char*>{}(frame.filename);
+            auto the_lineno = std::hash<unsigned long>{}(frame.lineno);
+            return the_func ^ the_filename ^ the_lineno;
+        }
+    };
+};
+
+struct Frame
+{
+    std::string function_name;
+    std::string filename;
+    unsigned long lineno;
 };
 
 struct FrameSeqEntry
@@ -60,42 +82,27 @@ struct FrameSeqEntry
     FrameAction action;
 };
 
-typedef std::pair<frame_id_t, Frame> frame_key_t;
-typedef std::unordered_map<frame_key_t::first_type, frame_key_t::second_type> frame_map_t;
+class FrameCollection
+{
+  public:
+    template<typename T>
+    auto getIndex(T&& frame) -> std::pair<frame_id_t, bool>
+    {
+        auto it = d_frame_map.find(frame);
+        if (it == d_frame_map.end()) {
+            frame_id_t frame_id =
+                    d_frame_map.emplace(std::forward<T>(frame), d_current_frame_id++).first->second;
+            return std::make_pair(frame_id, true);
+        }
+        return std::make_pair(it->second, false);
+    }
 
-typedef std::pair<frame_id_t, PyFrame> pyframe_map_val_t;
-typedef std::unordered_map<pyframe_map_val_t::first_type, pyframe_map_val_t::second_type> pyframe_map_t;
+  private:
+    frame_id_t d_current_frame_id{0};
+    std::unordered_map<RawFrame, frame_id_t, RawFrame::Hash> d_frame_map{};
+};
 
-/**
- * Stream operators.
- */
-std::ostream&
-operator<<(std::ostream&, const PyFrame&);
-std::istream&
-operator>>(std::istream&, PyFrame&);
-
-std::ostream&
-operator<<(std::ostream&, const RawAllocationRecord&);
-std::istream&
-operator>>(std::istream&, RawAllocationRecord&);
-
-std::ostream&
-operator<<(std::ostream&, const FrameSeqEntry&);
-std::istream&
-operator>>(std::istream&, FrameSeqEntry&);
-
-std::ostream&
-operator<<(std::ostream&, const frame_map_t&);
-std::istream&
-operator>>(std::istream&, std::pair<frame_id_t, PyFrame>&);
-
-/**
- * Utility functions.
- */
-frame_id_t
-add_frame(frame_map_t& frame_map, const Frame& frame);
-
-size_t
-str_hash(const char* val);
+using pyframe_map_val_t = std::pair<frame_id_t, Frame>;
+using pyframe_map_t = std::unordered_map<pyframe_map_val_t::first_type, pyframe_map_val_t::second_type>;
 
 }  // namespace pensieve::tracking_api

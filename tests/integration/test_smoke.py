@@ -5,6 +5,7 @@ import sys
 import threading
 from pathlib import Path
 
+from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve import start_thread_trace
 
@@ -24,24 +25,24 @@ def test_smoke(tmpdir):
         allocating_function()
 
     # THEN
-    records = tracker.get_allocation_records()
+    records = list(tracker.get_allocation_records())
 
     assert len(records) >= 2
 
     mmap_record = next(
-        (record for record in records if "mmap" in record["allocator"]), None
+        (record for record in records if AllocatorType.MMAP == record.allocator), None
     )
     assert mmap_record is not None
     assert "allocating_function" in {
-        element["function_name"] for element in mmap_record["stack_trace"]
+        element[0] for element in mmap_record.stack_trace()
     }
 
     mmunmap_record = next(
-        (record for record in records if "munmap" in record["allocator"]), None
+        (record for record in records if AllocatorType.MUNMAP == record.allocator), None
     )
     assert mmunmap_record is not None
     assert "allocating_function" in {
-        element["function_name"] for element in mmunmap_record["stack_trace"]
+        element[0] for element in mmunmap_record.stack_trace()
     }
 
 
@@ -59,7 +60,7 @@ def test_smoke_in_a_thread(tmpdir):
         threading.setprofile(old_profile)
 
     # THEN
-    records = tracker.get_allocation_records()
+    records = list(tracker.get_allocation_records())
 
     assert len(records) >= 2
 
@@ -67,21 +68,21 @@ def test_smoke_in_a_thread(tmpdir):
         (
             record
             for record in records
-            if "mmap" in record["allocator"] and record["size"] == 2048
+            if AllocatorType.MMAP == record.allocator and record.size == 2048
         ),
         None,
     )
     assert mmap_record is not None
     assert "allocating_function" in {
-        element["function_name"] for element in mmap_record["stack_trace"]
+        element[0] for element in mmap_record.stack_trace()
     }
 
     mmunmap_record = next(
-        (record for record in records if "munmap" in record["allocator"]), None
+        (record for record in records if AllocatorType.MUNMAP == record.allocator), None
     )
     assert mmunmap_record is not None
     assert "allocating_function" in {
-        element["function_name"] for element in mmunmap_record["stack_trace"]
+        element[0] for element in mmunmap_record.stack_trace()
     }
 
 
@@ -109,16 +110,18 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
             run()
 
     # THEN
-    records = tracker.get_allocation_records()
+    records = list(tracker.get_allocation_records())
     assert records
 
-    vallocs = [record for record in records if record["allocator"] == "valloc"]
-    assert len(vallocs) == 100 * 100  # 100 threads allocate 100 times in testext
-    vallocs_addr = {record["address"] for record in vallocs}
-    valloc_frees = [
+    memaligns = [
+        record for record in records if record.allocator == AllocatorType.MEMALIGN
+    ]
+    assert len(memaligns) == 100 * 100  # 100 threads allocate 100 times in testext
+    memaligns_addr = {record.address for record in memaligns}
+    memalign_frees = [
         record
         for record in records
-        if record["address"] in vallocs_addr and record["allocator"] == "free"
+        if record.address in memaligns_addr and record.allocator == AllocatorType.FREE
     ]
 
-    assert len(valloc_frees) >= 100 * 100
+    assert len(memalign_frees) >= 100 * 100

@@ -12,6 +12,7 @@
 #include "Python.h"
 #include "frameobject.h"
 #include "hooks.h"
+#include "record_writer.h"
 #include "records.h"
 
 namespace pensieve::tracking_api {
@@ -24,11 +25,10 @@ namespace pensieve::tracking_api {
  * This trace function's sole purpose is to give a thread-safe, GIL-synchronized view of the Python
  * stack. To retrieve the Python stack using the C-API forces the caller to have the GIL held. Requiring
  * the GIL in the allocator function has too much impact on performance and can deadlock extension
- *modules that have native locks that are not synchronized themselves with the GIL. For this reason we
- *need a way to record and store the Python call frame information in a way that we can read without the
- *need to use the C-API. This trace function maintains and does the bookeeping to mirror the Python stack
- *in a per-thread data structure that has the required properties and that can be accessed from the
- *allocator functions.
+ * modules that have native locks that are not synchronized themselves with the GIL. For this reason we
+ * need a way to record and store the Python call frame information in a way that we can read without the
+ * need to use the C-API. This trace function writes to disk the PUSH and POP operations so the Python
+ *stack at any point can be reconstructed later.
  *
  **/
 int
@@ -37,10 +37,8 @@ PyTraceFunction(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 /**
  * Installs the trace function in the current thread.
  *
- * This function installs the trace function in the current thread using the C-API. Before the
- * installation itself, this function will also pre-populate the data structure mirroring the Python
- * stack so all elements of Python stack that exist before the call to this function are also accounted
- * for.
+ * This function installs the trace function in the current thread using the C-API.
+ *
  * */
 void
 install_trace_function();
@@ -62,20 +60,21 @@ class Tracker
     ~Tracker();
 
     Tracker(Tracker& other) = delete;
+    Tracker(Tracker&& other) = delete;
     void operator=(const Tracker&) = delete;
+    void operator=(Tracker&&) = delete;
 
     // Interface to get the tracker instance
     static Tracker* getTracker();
 
     // Allocation tracking interface
-    void trackAllocation(void* ptr, size_t size, const hooks::Allocator func) const;
-    void trackDeallocation(void* ptr, const hooks::Allocator func) const;
+    void trackAllocation(void* ptr, size_t size, hooks::Allocator func) const;
+    void trackDeallocation(void* ptr, hooks::Allocator func) const;
     static void invalidate_module_cache();
 
-    // Frame stack interface
-    static void initializeFrameStack();
-    static void addFrame(const Frame& frame);
-    static void popFrame(const Frame& frame);
+    // RawFrame stack interface
+    void pushFrame(const RawFrame& frame);
+    void popFrame(const RawFrame& frame);
 
     // Interface to activate/deactivate the tracking
     const std::atomic<bool>& isActive() const;
@@ -83,12 +82,15 @@ class Tracker
     void deactivate();
 
   private:
-    static frame_map_t d_frames;
+    // Data members
+    FrameCollection d_frames;
     std::atomic<bool> d_active{false};
     static std::atomic<Tracker*> d_instance;
+    std::unique_ptr<RecordWriter> d_writer;
+    size_t d_stack_size{};
 
-    static std::mutex d_output_mutex;
-    static std::ofstream d_output;
+    // Methods
+    frame_id_t registerFrame(const RawFrame& frame);
 };
 
 }  // namespace pensieve::tracking_api

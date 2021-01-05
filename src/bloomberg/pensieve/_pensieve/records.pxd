@@ -2,7 +2,7 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 cdef extern from "records.h" namespace "pensieve::tracking_api":
 
-   struct PyFrame:
+   struct Frame:
        string function_name
        string filename
        int lineno
@@ -12,4 +12,5 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
        unsigned long address
        size_t size
        string allocator
-       vector[PyFrame] stack_trace
+       vector[Frame] stack_trace
+

@@ -2,8 +2,10 @@ import pathlib
 import sys
 import logging
 
+cimport cython
+
 from libcpp.string cimport string as cppstring
-from libcpp.memory cimport unique_ptr, make_unique
+from libcpp.memory cimport shared_ptr, make_shared
 
 from _pensieve.tracking_api cimport install_trace_function
 from _pensieve.tracking_api cimport Tracker as NativeTracker
@@ -15,28 +17,80 @@ from _pensieve.record_reader cimport RecordReader
 initializePythonLoggerInterface()
 
 LOGGER = logging.getLogger(__file__)
-logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s(%(funcName)s): %(message)s",
-)
 
 cdef api void log_with_python(cppstring message, int level):
     LOGGER.log(level, message)
+
+
+cpdef enum AllocatorType:
+    MALLOC = 1
+    FREE = 2
+    CALLOC = 3
+    REALLOC = 4
+    POSIX_MEMALIGN = 5
+    MEMALIGN = 6
+    VALLOC = 7
+    PVALLOC = 8
+    MMAP = 9
+    MUNMAP = 10
+
+
+def size_fmt(num, suffix='B'):
+    for unit in ['','K','M','G','T','P','E','Z']:
+        if abs(num) < 1024.0:
+            return f"{num:5.3f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Y{suffix}"
+
+
+@cython.freelist(1024)
+cdef class AllocationRecord:
+    cdef object _tuple
+    cdef object _stack_trace
+    cdef shared_ptr[RecordReader] _reader
+
+    def __init__(self, record):
+        self._tuple = record
+        self._stack_trace = None
+
+    @property
+    def tid(self):
+        return self._tuple[0]
+
+    @property
+    def address(self):
+        return self._tuple[1]
+
+    @property
+    def size(self):
+        return self._tuple[2]
+
+    @property
+    def allocator(self):
+        return AllocatorType(self._tuple[3])
+
+    def stack_trace(self, size_t max_stacks=0):
+        if self._stack_trace is None:
+            self._stack_trace = self._reader.get().get_stack_frame(self._tuple[4], max_stacks)
+        return self._stack_trace
+
+    def __repr__(self):
+        return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
+                f"size={'N/A' if not self.size else size_fmt(self.size)} allocator={self.allocator!r}>")
 
 
 cdef class Tracker:
     cdef NativeTracker* _tracker
     cdef object _previous_profile_func
     cdef cppstring _output_path
-    cdef unique_ptr[RecordReader] _reader
+    cdef shared_ptr[RecordReader] _reader
 
     def __cinit__(self, object file_name):
-        if isinstance(file_name, str):
-            file_name = pathlib.Path(file_name)
-
         self._output_path = str(file_name)
 
     def __enter__(self):
+        if pathlib.Path(self._output_path).exists():
+            raise OSError(f"Output file {self._output_path} already exists")
         self._previous_profile_func = sys.getprofile()
         self._tracker = new NativeTracker(self._output_path)
 
@@ -50,9 +104,13 @@ cdef class Tracker:
         sys.setprofile(self._previous_profile_func)
 
     def get_allocation_records(self):
-        self._reader = make_unique[RecordReader](self._output_path)
-        return self._reader.get().results()
-
+        if self._reader == NULL:
+            self._reader = make_shared[RecordReader](self._output_path)
+        cdef RecordReader* reader = self._reader.get()
+        while True:
+            alloc = AllocationRecord(reader.nextAllocation())
+            (<AllocationRecord>alloc)._reader = self._reader
+            yield alloc
 
 
 def start_thread_trace(frame, event, arg):

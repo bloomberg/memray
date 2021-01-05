@@ -97,7 +97,8 @@ patch_symbol(
         Addr addr,
         bool restore_original)
 {
-    // Make sure that we can read and write to the page where the address that we are trying to patch;
+    // Make sure that we can read and write to the page where the address that we are trying to
+    // patch;
     if (unprotect_page(addr) < 0) {
         LOG(WARNING) << "Could not prepare the memory page for symbol " << symname << " for patching";
     }
