@@ -1,15 +1,9 @@
-import inspect
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
-
-HERE = Path(__file__).parent
-TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 
 
 def alloc_func3(allocator):
@@ -40,10 +34,6 @@ def test_traceback(tmpdir):
     allocator = MemoryAllocator()
     output = Path(tmpdir) / "test.bin"
 
-    def _get_source_line(function):
-        _, lineno = inspect.getsourcelines(function)
-        return lineno
-
     # WHEN
 
     with Tracker(output) as tracker:
@@ -57,9 +47,9 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, _get_source_line(alloc_func3) + 2),
-        ("alloc_func2", __file__, _get_source_line(alloc_func2) + 2),
-        ("alloc_func1", __file__, _get_source_line(alloc_func1) + 2),
+        ("alloc_func3", __file__, 11),
+        ("alloc_func2", __file__, 20),
+        ("alloc_func1", __file__, 27),
     ]
     frees = [
         record
@@ -70,9 +60,9 @@ def test_traceback(tmpdir):
     (free,) = frees
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, _get_source_line(alloc_func3) + 4),
-        ("alloc_func2", __file__, _get_source_line(alloc_func2) + 2),
-        ("alloc_func1", __file__, _get_source_line(alloc_func1) + 2),
+        ("alloc_func3", __file__, 13),
+        ("alloc_func2", __file__, 20),
+        ("alloc_func1", __file__, 27),
     ]
 
 
@@ -224,32 +214,16 @@ def test_restart_tracing_function_gets_correctly_the_frames(tmpdir):
     ]
 
 
-def test_traceback_of_allocations_outside_the_python_vm(tmpdir, monkeypatch):
+def test_num_records(tmpdir):
     # GIVEN
+    allocator = MemoryAllocator()
     output = Path(tmpdir) / "test.bin"
-    extension_name = "multithreaded_extension"
-    extension_path = tmpdir / extension_name
-    shutil.copytree(TEST_MULTITHREADED_EXTENSION, extension_path)
-    subprocess.run(
-        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
-        check=True,
-        cwd=extension_path,
-        capture_output=True,
-    )
 
     # WHEN
-    with monkeypatch.context() as ctx:
-        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
-        from testext import run
 
-        with Tracker(output) as tracker:
-            run()
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+        alloc_func1(allocator)
+    n_records = len(list(tracker.get_allocation_records()))
 
-    # THEN
-    records = list(tracker.get_allocation_records())
-    assert records
-
-    memaligns = [
-        record for record in records if record.allocator == AllocatorType.MEMALIGN
-    ]
-    assert all(not list(record.stack_trace()) for record in memaligns)
+    assert n_records == tracker.total_allocations

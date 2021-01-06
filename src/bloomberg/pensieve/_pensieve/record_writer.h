@@ -28,6 +28,7 @@ class RecordWriter
 
     template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item) noexcept;
+    bool writeHeader() noexcept;
 
     bool flush() noexcept;
 
@@ -37,9 +38,11 @@ class RecordWriter
 
     // Data members
     int fd{-1};
+    int d_version{1};
     unsigned d_used_bytes{0};
     std::unique_ptr<char[]> d_buffer{nullptr};
     std::mutex d_mutex;
+    TrackerStats d_stats{};
 
     // Methods
     inline size_t availableSpace() const noexcept;
@@ -72,6 +75,9 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) no
     if (total > availableSpace() && !_flush()) {
         return false;
     }
+    if (token == RecordType::ALLOCATION) {
+        d_stats.n_allocations += 1;
+    }
     ::memcpy(bufferNeedle(), reinterpret_cast<const void*>(&token), sizeof(RecordType));
     d_used_bytes += sizeof(RecordType);
     ::memcpy(bufferNeedle(), reinterpret_cast<const void*>(&item), sizeof(T));
@@ -102,7 +108,7 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map
         writeSimpleType('\0');
         return ret != 0;
     };
-
+    d_stats.n_frames += 1;
     return writeSimpleType(token) && writeSimpleType(item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
            && writeSimpleType(item.second.parent_lineno);

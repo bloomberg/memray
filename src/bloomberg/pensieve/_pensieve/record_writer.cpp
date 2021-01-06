@@ -4,6 +4,7 @@ namespace pensieve::tracking_api {
 
 RecordWriter::RecordWriter(const std::string& file_name)
 : d_buffer(new char[BUFFER_CAPACITY]{0})
+, d_stats({0, 0})
 {
     fd = ::open(file_name.c_str(), O_CREAT | O_WRONLY | O_CLOEXEC, 0644);
     if (fd < 0) {
@@ -42,6 +43,22 @@ RecordWriter::_flush() noexcept
     d_used_bytes = 0;
 
     return true;
+}
+bool
+RecordWriter::writeHeader() noexcept
+{
+    if (!_flush()) {
+        return false;
+    }
+    ::lseek(fd, 0, SEEK_SET);
+
+    HeaderRecord header{d_version, d_stats};
+
+    int ret;
+    do {
+        ret = ::write(fd, reinterpret_cast<const char*>(&header), sizeof(HeaderRecord));
+    } while (ret < 0 && errno == EINTR);
+    return ret != 0;
 }
 
 }  // namespace pensieve::tracking_api

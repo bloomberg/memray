@@ -20,9 +20,22 @@ using frame_id_t = size_t;
 using thread_id_t = unsigned long;
 
 enum class RecordType {
-    ALLOCATION = 1,
-    FRAME_INDEX = 2,
-    FRAME = 3,
+    HEADER = 1,
+    ALLOCATION = 2,
+    FRAME_INDEX = 3,
+    FRAME = 4,
+};
+
+struct TrackerStats
+{
+    size_t n_allocations{0};
+    size_t n_frames{0};
+};
+
+struct HeaderRecord
+{
+    int version{};
+    TrackerStats stats{};
 };
 
 struct AllocationRecord

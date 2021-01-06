@@ -9,3 +9,4 @@ cdef extern from "record_reader.h" namespace "pensieve::api":
         unsigned long allocations()
         object nextAllocation() except+
         object get_stack_frame(int frame_id, int lineno, size_t max_stacks)
+        size_t totalAllocations()

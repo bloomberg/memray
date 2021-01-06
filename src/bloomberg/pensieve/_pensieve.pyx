@@ -121,6 +121,12 @@ cdef class Tracker:
             (<AllocationRecord>alloc)._reader = self._reader
             yield alloc
 
+    @property
+    def total_allocations(self):
+        if self._reader == NULL:
+            self._reader = make_shared[RecordReader](self._output_path)
+        cdef RecordReader* reader = self._reader.get()
+        return reader.totalAllocations();
 
 def start_thread_trace(frame, event, arg):
     if event in {"call", "c_call"}:

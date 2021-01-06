@@ -55,6 +55,8 @@ Tracker::Tracker(const std::string& file_name)
     static std::once_flag once;
     call_once(once, [] { pthread_atfork(&prepare_fork, &parent_fork, &child_fork); });
 
+    d_writer->writeHeader();
+
     RecursionGuard guard;
     tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
     tracking_api::Tracker::getTracker()->activate();
@@ -65,7 +67,7 @@ Tracker::~Tracker()
     RecursionGuard guard;
     tracking_api::Tracker::getTracker()->deactivate();
     elf::restore_symbols();
-    d_writer->flush();
+    d_writer->writeHeader();
     d_writer.reset();
     d_instance = nullptr;
 }

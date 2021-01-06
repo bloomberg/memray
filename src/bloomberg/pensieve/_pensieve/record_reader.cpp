@@ -53,6 +53,7 @@ PyUnicode_Cache::getUnicodeObject(const std::string& str)
 RecordReader::RecordReader(const std::string& file_name)
 {
     d_input.open(file_name, std::ios::binary | std::ios::in);
+    d_input.read(reinterpret_cast<char*>(&d_header), sizeof(d_header));
 }
 
 void
@@ -219,6 +220,17 @@ RecordReader::get_stack_frame(
 error:
     Py_XDECREF(list);
     return nullptr;
+}
+size_t
+RecordReader::totalAllocations() const noexcept
+{
+    return d_header.stats.n_allocations;
+}
+
+size_t
+RecordReader::totalFrames() const noexcept
+{
+    return d_header.stats.n_frames;
 }
 
 }  // namespace pensieve::api

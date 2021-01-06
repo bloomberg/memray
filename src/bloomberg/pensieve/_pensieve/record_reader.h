@@ -57,6 +57,9 @@ class RecordReader
     PyObject* nextAllocation();
     PyObject* get_stack_frame(StackTraceTree::index_t index, int lineno, size_t max_stacks = 0);
 
+    size_t totalAllocations() const noexcept;
+    size_t totalFrames() const noexcept;
+
   private:
     // Aliases
     using stack_traces_t =
@@ -64,6 +67,7 @@ class RecordReader
 
     // Data members
     std::ifstream d_input;
+    tracking_api::HeaderRecord d_header;
     tracking_api::pyframe_map_t d_frame_map{};
     stack_traces_t d_stack_traces{};
     StackTraceTree d_tree{};
