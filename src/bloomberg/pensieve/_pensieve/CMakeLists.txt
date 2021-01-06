@@ -19,7 +19,6 @@ add_library(_pensieve STATIC
         hooks.cpp
         elf_shenanigans.cpp
         guards.cpp
-        records.h
         record_reader.cpp
         record_writer.cpp)
 set_property(TARGET _pensieve PROPERTY POSITION_INDEPENDENT_CODE ON)
