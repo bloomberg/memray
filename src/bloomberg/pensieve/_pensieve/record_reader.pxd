@@ -5,8 +5,8 @@ from _pensieve.records cimport AllocationRecord
 
 cdef extern from "record_reader.h" namespace "pensieve::api":
     cdef cppclass RecordReader:
-        RecordReader(const string& file_name) except+
+        RecordReader(const string& file_name) 
         unsigned long allocations()
         object nextAllocation() except+
-        object get_stack_frame(int frame_id, int lineno, size_t max_stacks)
+        object get_stack_frame(int frame_id, size_t max_stacks)
         size_t totalAllocations()

@@ -45,6 +45,7 @@ thread_id()
 // Tracker interface
 
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
+static thread_local size_t stack_size = 0;
 static thread_local PyFrameObject* current_frame = nullptr;
 
 Tracker::Tracker(const std::string& file_name)
@@ -117,10 +118,10 @@ Tracker::registerFrame(const RawFrame& frame)
 void
 Tracker::popFrame(const RawFrame& frame)
 {
-    if (d_stack_size == 0) {
+    if (stack_size == 0) {
         return;
     }
-    d_stack_size--;
+    stack_size--;
     const frame_id_t frame_id = registerFrame(frame);
     const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::POP};
     d_writer->writeRecord(RecordType::FRAME, entry);
@@ -129,7 +130,7 @@ Tracker::popFrame(const RawFrame& frame)
 void
 Tracker::pushFrame(const RawFrame& frame)
 {
-    d_stack_size++;
+    stack_size++;
     const frame_id_t frame_id = registerFrame(frame);
     const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::PUSH};
     d_writer->writeRecord(RecordType::FRAME, entry);
@@ -204,6 +205,7 @@ install_trace_function()
 {
     assert(PyGILState_Check());
     RecursionGuard guard;
+    stack_size = 0;
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
 }
 

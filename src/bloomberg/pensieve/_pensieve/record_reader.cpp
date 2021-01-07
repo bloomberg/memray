@@ -54,6 +54,7 @@ RecordReader::RecordReader(const std::string& file_name)
 {
     d_input.open(file_name, std::ios::binary | std::ios::in);
     d_input.read(reinterpret_cast<char*>(&d_header), sizeof(d_header));
+    d_allocation_frames = tracking_api::FrameCollection<tracking_api::Frame>(d_header.stats.n_frames);
 }
 
 void
@@ -125,8 +126,9 @@ RecordReader::parseAllocation()
     d_input.read(reinterpret_cast<char*>(&record), sizeof(AllocationRecord));
 
     size_t index = 0;
-    const auto stack = d_stack_traces.find(record.tid);
+    auto stack = d_stack_traces.find(record.tid);
     if (stack != d_stack_traces.end()) {
+        correctAllocationFrame(stack->second, record.py_lineno);
         index = d_tree.getTraceIndex(stack->second);
     }
 
@@ -134,7 +136,7 @@ RecordReader::parseAllocation()
     // operations speeds up the parsing moderately. Additionally, some of
     // the types we need to convert from are not supported by PyBuildValue
     // natively.
-    PyObject* tuple = PyTuple_New(6);
+    PyObject* tuple = PyTuple_New(5);
     if (tuple == nullptr) {
         return nullptr;
     }
@@ -161,19 +163,32 @@ RecordReader::parseAllocation()
     elem = PyLong_FromSize_t(index);
     __CHECK_ERROR(elem);
     PyTuple_SET_ITEM(tuple, 4, elem);
-    elem = PyLong_FromLong(record.py_lineno);
-    __CHECK_ERROR(elem);
-    PyTuple_SET_ITEM(tuple, 5, elem);
 #undef __CHECK_ERROR
 
     return tuple;
 }
 
+void
+RecordReader::correctAllocationFrame(stack_t& stack, int lineno)
+{
+    if (stack.empty()) {
+        return;
+    }
+    const Frame& partial_frame = d_frame_map.at(stack.back());
+    Frame allocation_frame{
+            partial_frame.function_name,
+            partial_frame.filename,
+            partial_frame.parent_lineno,
+            lineno};
+    auto [allocation_index, is_new_frame] = d_allocation_frames.getIndex(allocation_frame);
+    if (is_new_frame) {
+        d_frame_map.emplace(allocation_index, allocation_frame);
+    }
+    stack.back() = allocation_index;
+}
+
 PyObject*
-RecordReader::get_stack_frame(
-        const StackTraceTree::index_t index,
-        const int lineno,
-        const size_t max_stacks)
+RecordReader::get_stack_frame(const StackTraceTree::index_t index, const size_t max_stacks)
 {
     size_t stacks_obtained = 0;
     StackTraceTree::index_t current_index = index;
@@ -182,7 +197,7 @@ RecordReader::get_stack_frame(
         return nullptr;
     }
 
-    int parent_lineno = lineno;
+    int parent_lineno = -1;
     while (current_index != 0 && ++stacks_obtained != max_stacks) {
         auto node = d_tree.nextNode(current_index);
         const auto& frame = d_frame_map.at(node.frame_id);
@@ -194,7 +209,7 @@ RecordReader::get_stack_frame(
         if (filename == nullptr) {
             goto error;
         }
-        PyObject* lineno = PyLong_FromLong(parent_lineno);
+        PyObject* lineno = PyLong_FromLong(parent_lineno != -1 ? parent_lineno : frame.lineno);
         if (lineno == nullptr) {
             goto error;
         }

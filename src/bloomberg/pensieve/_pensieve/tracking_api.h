@@ -83,11 +83,10 @@ class Tracker
 
   private:
     // Data members
-    FrameCollection d_frames;
+    FrameCollection<RawFrame> d_frames{};
     std::atomic<bool> d_active{false};
     static std::atomic<Tracker*> d_instance;
     std::unique_ptr<RecordWriter> d_writer;
-    size_t d_stack_size{};
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);

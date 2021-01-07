@@ -226,4 +226,101 @@ def test_num_records(tmpdir):
         alloc_func1(allocator)
     n_records = len(list(tracker.get_allocation_records()))
 
+    # THEN
+
     assert n_records == tracker.total_allocations
+
+
+def test_equal_stack_traces_compare_equal(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        for _ in range(2):
+            alloc_func1(allocator)
+            alloc_func2(allocator)
+
+    # THEN
+
+    records = list(tracker.get_allocation_records())
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+
+    assert len(allocs) == 4
+    first_alloc1, first_alloc2, second_alloc1, second_alloc2 = allocs
+
+    assert first_alloc1.stack_id == second_alloc1.stack_id
+    assert first_alloc1.stack_trace() == second_alloc1.stack_trace()
+    assert first_alloc2.stack_id == second_alloc2.stack_id
+    assert first_alloc2.stack_trace() == second_alloc2.stack_trace()
+
+    assert first_alloc1.stack_id != first_alloc2.stack_id
+    assert second_alloc1.stack_id != second_alloc2.stack_id
+
+
+def test_identical_stack_traces_started_in_different_lines_in_the_root_do_not_compare_equal(
+    tmpdir,
+):  # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+        alloc_func2(allocator)
+        alloc_func1(allocator)
+        alloc_func2(allocator)
+
+    # THEN
+
+    records = list(tracker.get_allocation_records())
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+
+    assert len(allocs) == 4
+    first_alloc1, first_alloc2, second_alloc1, second_alloc2 = allocs
+
+    assert first_alloc1.stack_id != second_alloc1.stack_id
+    assert first_alloc1.stack_trace() == second_alloc1.stack_trace()
+    assert first_alloc2.stack_id != second_alloc2.stack_id
+    assert first_alloc2.stack_trace() == second_alloc2.stack_trace()
+
+    assert first_alloc1.stack_id != first_alloc2.stack_id
+    assert second_alloc1.stack_id != second_alloc2.stack_id
+
+
+def test_identical_stack_traces_started_in_different_lines_in_a_function_do_not_compare_equal(
+    tmpdir,
+):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    def foo():
+        alloc_func1(allocator)
+        alloc_func2(allocator)
+        alloc_func1(allocator)
+        alloc_func2(allocator)
+
+    with Tracker(output) as tracker:
+        foo()
+
+    # THEN
+
+    records = list(tracker.get_allocation_records())
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+
+    assert len(allocs) == 4
+    first_alloc1, first_alloc2, second_alloc1, second_alloc2 = allocs
+
+    assert first_alloc1.stack_id != second_alloc1.stack_id
+    assert first_alloc1.stack_trace() != second_alloc1.stack_trace()
+    assert first_alloc2.stack_id != second_alloc2.stack_id
+    assert first_alloc2.stack_trace() != second_alloc2.stack_trace()
+
+    assert first_alloc1.stack_id != first_alloc2.stack_id
+    assert second_alloc1.stack_id != second_alloc2.stack_id

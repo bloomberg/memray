@@ -55,20 +55,21 @@ class RecordReader
   public:
     explicit RecordReader(const std::string& file_name);
     PyObject* nextAllocation();
-    PyObject* get_stack_frame(StackTraceTree::index_t index, int lineno, size_t max_stacks = 0);
+    PyObject* get_stack_frame(StackTraceTree::index_t index, size_t max_stacks = 0);
 
     size_t totalAllocations() const noexcept;
     size_t totalFrames() const noexcept;
 
   private:
     // Aliases
-    using stack_traces_t =
-            std::unordered_map<tracking_api::thread_id_t, std::vector<tracking_api::frame_id_t>>;
+    using stack_t = std::vector<tracking_api::frame_id_t>;
+    using stack_traces_t = std::unordered_map<tracking_api::thread_id_t, stack_t>;
 
     // Data members
     std::ifstream d_input;
     tracking_api::HeaderRecord d_header;
     tracking_api::pyframe_map_t d_frame_map{};
+    tracking_api::FrameCollection<tracking_api::Frame> d_allocation_frames;
     stack_traces_t d_stack_traces{};
     StackTraceTree d_tree{};
     mutable PyUnicode_Cache d_pystring_cache{};
@@ -77,6 +78,7 @@ class RecordReader
     PyObject* parseAllocation();
     void parseFrame();
     void parseFrameIndex();
+    void correctAllocationFrame(stack_t& stack, int lineno);
 };
 
 }  // namespace pensieve::api
