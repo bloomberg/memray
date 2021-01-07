@@ -79,6 +79,10 @@ cdef class AllocationRecord:
     def allocator(self):
         return self._tuple[3]
 
+    @property
+    def stack_id(self):
+        return self._tuple[4]
+
     def stack_trace(self, size_t max_stacks=0):
         if self._stack_trace is None:
             self._stack_trace = self._reader.get().get_stack_frame(self._tuple[4], max_stacks)
