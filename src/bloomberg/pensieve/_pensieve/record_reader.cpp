@@ -1,10 +1,13 @@
-#include "record_reader.h"
-#include "records.h"
+#include <algorithm>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
 
 #include "Python.h"
 
-#include <deque>
-#include <sstream>
+#include "hooks.h"
+#include "record_reader.h"
+#include "records.h"
 
 namespace pensieve::api {
 

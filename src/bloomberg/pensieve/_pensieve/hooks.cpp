@@ -1,6 +1,8 @@
+#include <cassert>
+#include <cstdio>
+
 #include "hooks.h"
 #include "tracking_api.h"
-#include <cassert>
 
 namespace pensieve::hooks {
 

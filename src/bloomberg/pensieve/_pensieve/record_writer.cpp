@@ -1,3 +1,6 @@
+#include <fcntl.h>
+#include <stdexcept>
+
 #include "record_writer.h"
 
 namespace pensieve::tracking_api {

@@ -1,13 +1,10 @@
 #ifndef _PENSIEVE_HOOKS_H
 #define _PENSIEVE_HOOKS_H
 
-#include <cstdio>
 #include <cstdlib>
 #include <malloc.h>
-#include <stdexcept>
-#include <string>
 
-#include <dlfcn.h>  // dlsym
+#include <dlfcn.h>
 #include <sys/mman.h>
 
 #include <Python.h>

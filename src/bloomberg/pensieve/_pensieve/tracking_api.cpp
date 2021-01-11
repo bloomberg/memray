@@ -1,4 +1,4 @@
-#include <malloc.h>
+#include <cassert>
 #include <mutex>
 #include <pthread.h>
 
@@ -6,6 +6,7 @@
 
 #include "elf_shenanigans.h"
 #include "guards.h"
+#include "record_writer.h"
 #include "records.h"
 #include "tracking_api.h"
 

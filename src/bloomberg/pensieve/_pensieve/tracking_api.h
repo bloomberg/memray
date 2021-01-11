@@ -1,16 +1,12 @@
 #pragma once
 
 #include <atomic>
-#include <chrono>
-#include <vector>
-
+#include <cstddef>
 #include <memory>
-#include <mutex>
-#include <ostream>
-#include <vector>
+#include <string>
 
-#include "Python.h"
 #include "frameobject.h"
+
 #include "hooks.h"
 #include "record_writer.h"
 #include "records.h"

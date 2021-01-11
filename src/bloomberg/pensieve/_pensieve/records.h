@@ -1,18 +1,14 @@
 #pragma once
 
-#include <algorithm>
 #include <fstream>
-#include <functional>
-#include <iostream>
-#include <ostream>
-#include <pthread.h>
+#include <stddef.h>
+#include <string>
 #include <unordered_map>
-#include <unordered_set>
-#include <vector>
+#include <utility>
 
 #include "Python.h"
 
-#include <hooks.h>
+#include "hooks.h"
 
 namespace pensieve::tracking_api {
 

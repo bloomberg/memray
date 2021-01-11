@@ -1,9 +1,15 @@
 #pragma once
 
+#include <assert.h>
 #include <fstream>
 #include <functional>
-#include <memory>
+#include <stddef.h>
+#include <stdint.h>
+#include <string>
 #include <unordered_map>
+#include <vector>
+
+#include "Python.h"
 
 #include "record_reader.h"
 #include "records.h"
