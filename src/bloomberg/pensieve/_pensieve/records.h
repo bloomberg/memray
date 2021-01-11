@@ -9,6 +9,7 @@
 #include "Python.h"
 
 #include "hooks.h"
+#include "python_helpers.h"
 
 namespace pensieve::tracking_api {
 
@@ -16,10 +17,9 @@ using frame_id_t = size_t;
 using thread_id_t = unsigned long;
 
 enum class RecordType {
-    HEADER = 1,
-    ALLOCATION = 2,
-    FRAME_INDEX = 3,
-    FRAME = 4,
+    ALLOCATION = 1,
+    FRAME_INDEX = 2,
+    FRAME = 3,
 };
 
 struct TrackerStats
@@ -41,6 +41,15 @@ struct AllocationRecord
     size_t size;
     hooks::Allocator allocator;
     int py_lineno;
+};
+
+struct Allocation
+{
+    tracking_api::AllocationRecord record;
+    size_t frame_index{0};
+    size_t n_allocactions{1};
+
+    PyObject* toPythonObject() const;
 };
 
 enum FrameAction { PUSH, POP };
@@ -84,6 +93,8 @@ struct Frame
     std::string filename;
     int parent_lineno{0};
     int lineno{0};
+
+    PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache, int the_lineno) const;
 
     auto operator==(const Frame& other) const -> bool
     {
