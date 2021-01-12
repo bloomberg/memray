@@ -80,7 +80,7 @@ realloc(void* ptr, size_t size) noexcept
 
     void* ret = hooks::realloc(ptr, size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ptr, 0, hooks::Allocator::REALLOC);
+        tracking_api::Tracker::getTracker()->trackAllocation(ptr, 0, hooks::Allocator::FREE);
         tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::REALLOC);
     }
     return ret;
