@@ -65,7 +65,6 @@ class Tracker
 
     // Allocation tracking interface
     void trackAllocation(void* ptr, size_t size, hooks::Allocator func) const;
-    void trackDeallocation(void* ptr, hooks::Allocator func) const;
     static void invalidate_module_cache();
 
     // RawFrame stack interface

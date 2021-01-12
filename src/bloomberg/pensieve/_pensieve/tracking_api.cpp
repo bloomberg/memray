@@ -86,18 +86,6 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func) co
 }
 
 void
-Tracker::trackDeallocation(void* ptr, const hooks::Allocator func) const
-{
-    if (RecursionGuard::isActive || !this->isActive()) {
-        return;
-    }
-    RecursionGuard guard;
-    int lineno = current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
-    AllocationRecord record{thread_id(), reinterpret_cast<unsigned long>(ptr), 0, func, lineno};
-    d_writer->writeRecord(RecordType::ALLOCATION, record);
-}
-
-void
 Tracker::invalidate_module_cache()
 {
     elf::overwrite_symbols();
