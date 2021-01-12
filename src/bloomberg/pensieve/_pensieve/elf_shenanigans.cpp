@@ -154,6 +154,7 @@ overwrite_elf_table(
         TRY_HOOK(mmap);
         TRY_HOOK(mmap64);
         TRY_HOOK(munmap);
+        TRY_HOOK(PyGILState_Ensure);
     }
 #undef TRY_HOOK
 }
