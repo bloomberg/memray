@@ -90,7 +90,7 @@ cdef class AllocationRecord:
 
     def __repr__(self):
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
-                f"size={'N/A' if not self.size else size_fmt(self.size)} allocator={self.allocator!r}>")
+                f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}>")
 
 
 cdef class Tracker:
