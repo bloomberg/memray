@@ -50,6 +50,7 @@ RecordWriter::_flush() noexcept
 bool
 RecordWriter::writeHeader() noexcept
 {
+    std::lock_guard<std::mutex> lock(d_mutex);
     if (!_flush()) {
         return false;
     }
