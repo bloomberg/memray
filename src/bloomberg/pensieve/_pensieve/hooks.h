@@ -46,6 +46,16 @@ enum class Allocator {
     MUNMAP = 10,
 };
 
+enum class AllocatorKind {
+    SIMPLE_ALLOCATOR = 1,
+    SIMPLE_DEALLOCATOR = 2,
+    RANGED_ALLOCATOR = 3,
+    RANGED_DEALLOCATOR = 4,
+};
+
+AllocatorKind
+allocatorKind(const Allocator& allocator);
+
 extern SymbolHook<decltype(&::malloc)> malloc;
 extern SymbolHook<decltype(&::free)> free;
 extern SymbolHook<decltype(&::calloc)> calloc;

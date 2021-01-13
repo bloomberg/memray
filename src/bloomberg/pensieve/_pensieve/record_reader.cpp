@@ -31,23 +31,17 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
     std::unordered_map<unsigned long, size_t> ptr_to_allocation{};
     const auto snapshot_limit = records.cbegin() + snapshot_index;
     for (auto record_it = records.cbegin(); record_it <= snapshot_limit; record_it++) {
-        switch (record_it->record.allocator) {
-            case hooks::Allocator::FREE:
-            case hooks::Allocator::MUNMAP: {
+        switch (hooks::allocatorKind(record_it->record.allocator)) {
+            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR:
+            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
                 auto it = ptr_to_allocation.find(record_it->record.address);
                 if (it != ptr_to_allocation.end()) {
                     ptr_to_allocation.erase(it);
                 }
                 break;
             }
-            case hooks::Allocator::CALLOC:
-            case hooks::Allocator::MALLOC:
-            case hooks::Allocator::MEMALIGN:
-            case hooks::Allocator::MMAP:
-            case hooks::Allocator::POSIX_MEMALIGN:
-            case hooks::Allocator::PVALLOC:
-            case hooks::Allocator::REALLOC:
-            case hooks::Allocator::VALLOC: {
+            case hooks::AllocatorKind::SIMPLE_ALLOCATOR:
+            case hooks::AllocatorKind::RANGED_ALLOCATOR: {
                 ptr_to_allocation[record_it->record.address] = record_it - records.begin();
                 break;
             }
@@ -77,10 +71,9 @@ getHighWatermarkIndex(const allocations_t& records)
     std::unordered_map<unsigned long, size_t> ptr_to_allocation{};
 
     for (auto records_it = records.cbegin(); records_it != records.cend(); records_it++) {
-        switch (records_it->record.allocator) {
-            // TODO: Add the rest of allocators (also let's talk first about REALLOC).
-            case hooks::Allocator::FREE:
-            case hooks::Allocator::MUNMAP: {
+        switch (hooks::allocatorKind(records_it->record.allocator)) {
+            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR:
+            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
                 auto it = ptr_to_allocation.find(records_it->record.address);
                 if (it != ptr_to_allocation.end()) {
                     current_memory -= records[it->second].record.size;
@@ -88,14 +81,8 @@ getHighWatermarkIndex(const allocations_t& records)
                 }
                 break;
             }
-            case hooks::Allocator::CALLOC:
-            case hooks::Allocator::MALLOC:
-            case hooks::Allocator::MEMALIGN:
-            case hooks::Allocator::MMAP:
-            case hooks::Allocator::POSIX_MEMALIGN:
-            case hooks::Allocator::PVALLOC:
-            case hooks::Allocator::REALLOC:
-            case hooks::Allocator::VALLOC: {
+            case hooks::AllocatorKind::SIMPLE_ALLOCATOR:
+            case hooks::AllocatorKind::RANGED_ALLOCATOR: {
                 current_memory += records_it->record.size;
                 if (current_memory >= max_memory) {
                     high_water_mark_index = records_it - records.cbegin();
