@@ -163,3 +163,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Asv stuff
+.asv
