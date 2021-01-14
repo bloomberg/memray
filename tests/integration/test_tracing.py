@@ -66,6 +66,30 @@ def test_traceback(tmpdir):
     ]
 
 
+def test_traceback_for_high_watermark(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+    records = list(tracker.get_high_watermark_allocation_records())
+
+    # THEN
+
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+    traceback = list(alloc.stack_trace())
+    assert traceback[-3:] == [
+        ("alloc_func3", __file__, 11),
+        ("alloc_func2", __file__, 20),
+        ("alloc_func1", __file__, 27),
+    ]
+
+
 def test_traceback_iteration_does_not_depend_on_the_order_of_elements(tmpdir):
     # GIVEN
     allocator = MemoryAllocator()

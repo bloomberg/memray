@@ -83,14 +83,19 @@ cdef class AllocationRecord:
     def stack_id(self):
         return self._tuple[4]
 
+    @property
+    def n_allocations(self):
+        return self._tuple[5]
+
     def stack_trace(self, size_t max_stacks=0):
         if self._stack_trace is None:
-            self._stack_trace = self._reader.get().get_stack_frame(self._tuple[4], max_stacks)
+            self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4], max_stacks)
         return self._stack_trace
 
     def __repr__(self):
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
-                f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}>")
+                f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}, "
+                f"allocations={self.n_allocations}>")
 
 
 cdef class Tracker:
@@ -117,11 +122,19 @@ cdef class Tracker:
         del self._tracker
         sys.setprofile(self._previous_profile_func)
 
+    def get_high_watermark_allocation_records(self):
+        self._reader = make_shared[RecordReader](self._output_path)
+        cdef RecordReader* reader = self._reader.get()
+        for elem in reader.Py_HighWatermarkAllocationRecords():
+            alloc = AllocationRecord(elem);
+            (<AllocationRecord>alloc)._reader = self._reader
+            yield alloc
+
     def get_allocation_records(self):
         self._reader = make_shared[RecordReader](self._output_path)
         cdef RecordReader* reader = self._reader.get()
         while True:
-            alloc = AllocationRecord(reader.nextAllocation())
+            alloc = AllocationRecord(reader.Py_NextAllocationRecord())
             (<AllocationRecord>alloc)._reader = self._reader
             yield alloc
 

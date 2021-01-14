@@ -11,10 +11,12 @@
 
 #include "Python.h"
 
-#include "record_reader.h"
+#include "python_helpers.h"
 #include "records.h"
 
 namespace pensieve::api {
+
+using namespace tracking_api;
 
 class StackTraceTree
 {
@@ -22,7 +24,7 @@ class StackTraceTree
     using index_t = uint32_t;
     struct Node
     {
-        tracking_api::frame_id_t frame_id;
+        frame_id_t frame_id;
         index_t parent_index;
     };
 
@@ -32,12 +34,12 @@ class StackTraceTree
         return d_graph[index - 1];
     }
 
-    size_t getTraceIndex(const std::vector<tracking_api::frame_id_t>& stack_trace);
+    size_t getTraceIndex(const std::vector<frame_id_t>& stack_trace);
 
   private:
     struct NodeEdge
     {
-        tracking_api::frame_id_t frame_id;
+        frame_id_t frame_id;
         index_t index;
         std::vector<NodeEdge> children;
     };
@@ -46,45 +48,42 @@ class StackTraceTree
     std::vector<Node> d_graph{};
 };
 
-class PyUnicode_Cache
-{
-  public:
-    PyObject* getUnicodeObject(const std::string& str);
-
-  private:
-    using py_capsule_t = std::unique_ptr<PyObject, std::function<void(PyObject*)>>;
-    std::unordered_map<std::string, py_capsule_t> d_cache{};
-};
+using reduced_snapshot_map_t = std::unordered_map<StackTraceTree::index_t, Allocation>;
+using allocations_t = std::vector<Allocation>;
 
 class RecordReader
 {
   public:
     explicit RecordReader(const std::string& file_name);
-    PyObject* nextAllocation();
-    PyObject* get_stack_frame(StackTraceTree::index_t index, size_t max_stacks = 0);
+    PyObject* Py_NextAllocationRecord();
+    PyObject* Py_GetStackFrame(StackTraceTree::index_t index, size_t max_stacks = 0);
+    PyObject* Py_HighWatermarkAllocationRecords();
 
     size_t totalAllocations() const noexcept;
     size_t totalFrames() const noexcept;
 
   private:
     // Aliases
-    using stack_t = std::vector<tracking_api::frame_id_t>;
-    using stack_traces_t = std::unordered_map<tracking_api::thread_id_t, stack_t>;
+    using stack_t = std::vector<frame_id_t>;
+    using stack_traces_t = std::unordered_map<thread_id_t, stack_t>;
+    using allocations_t = std::vector<Allocation>;
 
     // Data members
     std::ifstream d_input;
-    tracking_api::HeaderRecord d_header;
-    tracking_api::pyframe_map_t d_frame_map{};
-    tracking_api::FrameCollection<tracking_api::Frame> d_allocation_frames;
+    HeaderRecord d_header;
+    pyframe_map_t d_frame_map{};
+    FrameCollection<Frame> d_allocation_frames;
     stack_traces_t d_stack_traces{};
     StackTraceTree d_tree{};
-    mutable PyUnicode_Cache d_pystring_cache{};
+    mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
 
     // Methods
-    PyObject* parseAllocation();
     void parseFrame();
     void parseFrameIndex();
+    AllocationRecord parseAllocationRecord();
+    allocations_t parseAllocations();
     void correctAllocationFrame(stack_t& stack, int lineno);
+    size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
 
 }  // namespace pensieve::api

@@ -6,6 +6,32 @@
 
 namespace pensieve::hooks {
 
+AllocatorKind
+allocatorKind(const Allocator& allocator)
+{
+    switch (allocator) {
+        case Allocator::CALLOC:
+        case Allocator::MALLOC:
+        case Allocator::MEMALIGN:
+        case Allocator::POSIX_MEMALIGN:
+        case Allocator::PVALLOC:
+        case Allocator::REALLOC:
+        case Allocator::VALLOC: {
+            return AllocatorKind::SIMPLE_ALLOCATOR;
+        }
+        case Allocator::FREE: {
+            return AllocatorKind::SIMPLE_DEALLOCATOR;
+        }
+        case Allocator::MMAP: {
+            return AllocatorKind::RANGED_ALLOCATOR;
+        }
+        case Allocator::MUNMAP: {
+            return AllocatorKind::RANGED_DEALLOCATOR;
+        }
+    }
+    __builtin_unreachable();
+}
+
 SymbolHook<decltype(&::malloc)> malloc("malloc", &::malloc);
 SymbolHook<decltype(&::free)> free("free", &::free);
 SymbolHook<decltype(&::calloc)> calloc("calloc", &::calloc);
