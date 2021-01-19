@@ -13,6 +13,7 @@ namespace pensieve::api {
 
 using namespace tracking_api;
 
+using reduced_snapshot_map_t = std::unordered_map<FrameTree::index_t, Allocation>;
 /**
  * Produce an aggregated snapshot from a vector of allocations and a index in that vector
  *
@@ -48,7 +49,7 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
         }
     }
 
-    std::unordered_map<StackTraceTree::index_t, Allocation> stack_to_allocation{};
+    std::unordered_map<FrameTree::index_t, Allocation> stack_to_allocation{};
     for (const auto& it : ptr_to_allocation) {
         const auto& record = records[it.second];
         auto alloc_it = stack_to_allocation.find(record.frame_index);
@@ -94,31 +95,6 @@ getHighWatermarkIndex(const allocations_t& records)
         }
     }
     return high_water_mark_index;
-}
-
-size_t
-StackTraceTree::getTraceIndex(const std::vector<tracking_api::frame_id_t>& stack_trace)
-{
-    index_t index = 0;
-    NodeEdge* parent = &d_root;
-    for (auto frame_it = stack_trace.cbegin(); frame_it < stack_trace.cend(); ++frame_it) {
-        auto frame = *frame_it;
-        auto it = std::lower_bound(
-                parent->children.begin(),
-                parent->children.end(),
-                frame,
-                [](const NodeEdge& edge, const tracking_api::frame_id_t frame_id) {
-                    return edge.frame_id < frame_id;
-                });
-        if (it == parent->children.end() || it->frame_id != frame) {
-            index_t new_index = d_current_tree_index++;
-            it = parent->children.insert(it, {frame, new_index, {}});
-            d_graph.push_back({frame, parent->index});
-        }
-        index = it->index;
-        parent = &(*it);
-    }
-    return index;
 }
 
 RecordReader::RecordReader(const std::string& file_name)
@@ -307,7 +283,7 @@ PyObject*
 RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
 {
     size_t stacks_obtained = 0;
-    StackTraceTree::index_t current_index = index;
+    FrameTree::index_t current_index = index;
     PyObject* list = PyList_New(0);
     if (list == nullptr) {
         return nullptr;
