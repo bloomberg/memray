@@ -18,11 +18,17 @@ ALLOCATORS = [
 
 
 def filter_relevant_allocations(records):
-    return [
+    relevant_records = [
         record
         for record in records
         if record.allocator in {AllocatorType.VALLOC, AllocatorType.FREE}
     ]
+    alloc_addresses = {
+        record.address
+        for record in relevant_records
+        if record.allocator == AllocatorType.VALLOC
+    }
+    return [record for record in relevant_records if record.address in alloc_addresses]
 
 
 def test_no_allocations_while_tracking(tmp_path):
