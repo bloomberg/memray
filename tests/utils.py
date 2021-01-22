@@ -1,5 +1,21 @@
 """Utilities / Helpers for writing tests."""
 
+from bloomberg.pensieve import AllocatorType
+
+
+def filter_relevant_allocations(records):
+    relevant_records = [
+        record
+        for record in records
+        if record.allocator in {AllocatorType.VALLOC, AllocatorType.FREE}
+    ]
+    alloc_addresses = {
+        record.address
+        for record in relevant_records
+        if record.allocator == AllocatorType.VALLOC
+    }
+    return [record for record in relevant_records if record.address in alloc_addresses]
+
 
 class MockAllocationRecord:
     """Mimics :py:class:`bloomberg.pensieve._pensieve.AllocationRecord`."""

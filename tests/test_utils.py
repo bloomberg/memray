@@ -3,6 +3,32 @@
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve._pensieve import AllocationRecord
 from tests.utils import MockAllocationRecord
+from tests.utils import filter_relevant_allocations
+
+
+class TestFilterRelevantAllocations:
+    def test_filters_for_valloc_and_free(self):
+        records = [
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.MALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+        ]
+        assert filter_relevant_allocations(records) == [
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+        ]
+
+    def test_filters_based_on_addresses(self):
+        records = [
+            MockAllocationRecord(1, 0x2000000, 1024, AllocatorType.MALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x2000000, 0, AllocatorType.FREE, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+        ]
+        assert filter_relevant_allocations(records) == [
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+        ]
 
 
 class TestMockAllocationRecord:

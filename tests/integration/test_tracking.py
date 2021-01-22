@@ -5,6 +5,7 @@ import pytest
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
+from tests.utils import filter_relevant_allocations
 
 ALLOCATORS = [
     ("malloc", AllocatorType.MALLOC),
@@ -15,20 +16,6 @@ ALLOCATORS = [
     ("posix_memalign", AllocatorType.POSIX_MEMALIGN),
     ("realloc", AllocatorType.REALLOC),
 ]
-
-
-def filter_relevant_allocations(records):
-    relevant_records = [
-        record
-        for record in records
-        if record.allocator in {AllocatorType.VALLOC, AllocatorType.FREE}
-    ]
-    alloc_addresses = {
-        record.address
-        for record in relevant_records
-        if record.allocator == AllocatorType.VALLOC
-    }
-    return [record for record in relevant_records if record.address in alloc_addresses]
 
 
 def test_no_allocations_while_tracking(tmp_path):
