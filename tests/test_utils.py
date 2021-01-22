@@ -49,3 +49,20 @@ class TestMockAllocationRecord:
         assert mock_record.allocator == record.allocator == allocator
         assert mock_record.stack_id == record.stack_id == stack_id
         assert mock_record.n_allocations == record.n_allocations == n_allocations
+
+    def test_equality(self):
+        one = MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, [])
+        two = MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, [])
+        three = MockAllocationRecord(2, 0x1000000, 0, AllocatorType.FREE, 0, 0, [])
+
+        assert one == one
+        assert one == two
+        assert one != three
+
+        assert two == one
+        assert two == two
+        assert two != three
+
+        assert three != one
+        assert three != two
+        assert three == three

@@ -20,3 +20,16 @@ class MockAllocationRecord:
             return self._stack
         else:
             return self._stack[:max_stacks]
+
+    def __eq__(self, other):
+        if not isinstance(other, MockAllocationRecord):
+            return NotImplemented
+
+        return (
+            self.tid == other.tid
+            and self.address == other.address
+            and self.size == other.size
+            and self.allocator == other.allocator
+            and self.stack_id == other.stack_id
+            and self.n_allocations == other.n_allocations
+        )
