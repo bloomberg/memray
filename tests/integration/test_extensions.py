@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
@@ -12,6 +14,7 @@ TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_MISBEHAVING_EXTENSION = HERE / "misbehaving_extension"
 
 
+@pytest.mark.valgrind
 def test_multithreaded_extension(tmpdir, monkeypatch):
     """Test tracking allocations in a native extension which spawns multiple threads,
     each thread allocating and freeing memory."""
@@ -102,7 +105,7 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "allocating_function"
     assert filename.endswith(__file__)
-    assert line == 77
+    assert line == 80
 
     frees = [
         event

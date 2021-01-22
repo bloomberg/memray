@@ -2,6 +2,8 @@ import mmap
 import threading
 from pathlib import Path
 
+import pytest
+
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve import start_thread_trace
@@ -12,6 +14,7 @@ def allocating_function():
         mmap_obj[0:100] = b"a" * 100
 
 
+@pytest.mark.valgrind
 def test_smoke(tmpdir):
     # GIVEN / WHEN
     output = Path(tmpdir) / "test.bin"
@@ -40,6 +43,7 @@ def test_smoke(tmpdir):
     }
 
 
+@pytest.mark.valgrind
 def test_smoke_in_a_thread(tmpdir):
     # GIVEN / WHEN
     output = Path(tmpdir) / "test.bin"
