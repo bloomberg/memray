@@ -8,6 +8,7 @@ from typing import cast
 
 from typing_extensions import Protocol
 
+from . import flamegraph
 from . import run
 
 
@@ -21,6 +22,7 @@ class Command(Protocol):
 
 _COMMANDS: List[Command] = [
     run.RunCommand(),
+    flamegraph.FlamegraphCommand(),
 ]
 
 

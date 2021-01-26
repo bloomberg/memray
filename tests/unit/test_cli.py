@@ -1,8 +1,10 @@
+import argparse
 from unittest.mock import patch
 
 import pytest
 
 from bloomberg.pensieve.__main__ import main
+from bloomberg.pensieve.commands import flamegraph
 
 
 def test_no_args_passed(capsys):
@@ -39,3 +41,84 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with("my_output")
+
+
+class TestFlamegraphSubCommand:
+    @staticmethod
+    def get_prepared_parser():
+        parser = argparse.ArgumentParser()
+        command = flamegraph.FlamegraphCommand()
+        command.prepare_parser(parser)
+
+        return command, parser
+
+    def test_parser_rejects_no_arguments(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args([])
+
+    def test_parser_rejects_when_no_results_provided(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--output", "output.html"])
+
+    def test_parser_accepts_single_argument(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "pensieve-flamegraph.html"
+
+    def test_parser_accepts_short_form_output_1(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "-o", "output.html"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+
+    def test_parser_accepts_short_form_output_2(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["-o", "output.html", "results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+
+    def test_parser_accepts_long_form_output_1(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "--output", "output.html"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+
+    def test_parser_accepts_long_form_output_2(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["--output", "output.html", "results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
