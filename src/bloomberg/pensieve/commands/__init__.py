@@ -6,10 +6,23 @@ from typing import List
 from typing import Optional
 from typing import cast
 
+from typing_extensions import Protocol
+
+from . import flamegraph
 from . import run
 
-_COMMANDS = [
+
+class Command(Protocol):
+    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
+        ...
+
+    def main(self, args: argparse.Namespace) -> int:
+        ...
+
+
+_COMMANDS: List[Command] = [
     run.RunCommand(),
+    flamegraph.FlamegraphCommand(),
 ]
 
 
