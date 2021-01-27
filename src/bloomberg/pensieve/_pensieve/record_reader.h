@@ -25,9 +25,9 @@ class RecordReader
 {
   public:
     explicit RecordReader(const std::string& file_name);
-    PyObject* Py_NextAllocationRecord();
     PyObject* Py_GetStackFrame(FrameTree::index_t index, size_t max_stacks = 0);
-    PyObject* Py_HighWatermarkAllocationRecords();
+
+    bool nextAllocationRecord(Allocation* allocation);
 
     size_t totalAllocations() const noexcept;
     size_t totalFrames() const noexcept;
@@ -51,9 +51,11 @@ class RecordReader
     void parseFrame();
     void parseFrameIndex();
     AllocationRecord parseAllocationRecord();
-    allocations_t parseAllocations();
     void correctAllocationFrame(stack_t& stack, int lineno);
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
+
+PyObject*
+Py_HighWatermarkAllocationRecords(const allocations_t& all_records);
 
 }  // namespace pensieve::api

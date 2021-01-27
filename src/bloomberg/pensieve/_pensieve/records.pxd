@@ -14,3 +14,9 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
        string allocator
        vector[Frame] stack_trace
 
+   cdef cppclass Allocation:
+       AllocationRecord record
+       size_t frame_index
+       size_t n_allocactions
+       object toPythonObject()
+

@@ -145,33 +145,6 @@ RecordReader::parseAllocationRecord()
     return record;
 }
 
-RecordReader::allocations_t
-RecordReader::parseAllocations()
-{
-    RecordReader::allocations_t records;
-    while (d_input.peek() != EOF) {
-        RecordType record_type;
-        d_input.read(reinterpret_cast<char*>(&record_type), sizeof(RecordType));
-        switch (record_type) {
-            case RecordType::ALLOCATION: {
-                AllocationRecord record = parseAllocationRecord();
-                size_t f_index = getAllocationFrameIndex(record);
-                records.emplace_back(Allocation{record, f_index});
-                break;
-            }
-            case RecordType::FRAME:
-                parseFrame();
-                break;
-            case RecordType::FRAME_INDEX:
-                parseFrameIndex();
-                break;
-            default:
-                throw std::runtime_error("Invalid record type");
-        }
-    }
-    return records;
-}
-
 size_t
 RecordReader::getAllocationFrameIndex(const AllocationRecord& record)
 {
@@ -204,12 +177,11 @@ RecordReader::correctAllocationFrame(stack_t& stack, int lineno)
 
 // Python public APIs
 
-PyObject*
-RecordReader::Py_NextAllocationRecord()
+bool
+RecordReader::nextAllocationRecord(Allocation* allocation)
 {
     if (d_input.peek() == EOF) {
-        PyErr_SetString(PyExc_StopIteration, "No more data to read");
-        return nullptr;
+        return false;
     }
 
     while (d_input.peek() != EOF) {
@@ -219,7 +191,8 @@ RecordReader::Py_NextAllocationRecord()
             case RecordType::ALLOCATION: {
                 AllocationRecord record = parseAllocationRecord();
                 size_t f_index = getAllocationFrameIndex(record);
-                return Allocation{record, f_index}.toPythonObject();
+                *allocation = Allocation{record, f_index};
+                return true;
             }
             case RecordType::FRAME:
                 parseFrame();
@@ -232,51 +205,7 @@ RecordReader::Py_NextAllocationRecord()
         }
     }
 
-    PyErr_SetString(PyExc_StopIteration, "No more data to read");
-    return nullptr;
-}
-
-PyObject*
-RecordReader::Py_HighWatermarkAllocationRecords()
-{
-    if (d_input.peek() == EOF) {
-        PyErr_SetString(PyExc_StopIteration, "No more data to read");
-        return nullptr;
-    }
-
-    LOG(DEBUG) << "Parsing file";
-
-    auto all_records = parseAllocations();
-
-    if (all_records.empty()) {
-        return PyList_New(0);
-    }
-
-    LOG(DEBUG) << "Computing high watermark index";
-
-    auto high_watermark_index = getHighWatermarkIndex(all_records);
-
-    LOG(DEBUG) << "Preparing snapshot for high watermark index";
-
-    const auto stack_to_allocation = reduceSnapshotAllocations(all_records, high_watermark_index);
-
-    LOG(DEBUG) << "Converting data to Python objects";
-
-    PyObject* list = PyList_New(stack_to_allocation.size());
-    if (list == nullptr) {
-        return nullptr;
-    }
-    size_t list_index = 0;
-    for (const auto& it : stack_to_allocation) {
-        const auto& record = it.second;
-        PyObject* pyrecord = record.toPythonObject();
-        if (pyrecord == nullptr) {
-            Py_DECREF(list);
-            return nullptr;
-        }
-        PyList_SET_ITEM(list, list_index++, pyrecord);
-    }
-    return list;
+    return false;
 }
 
 PyObject*
@@ -319,6 +248,40 @@ size_t
 RecordReader::totalFrames() const noexcept
 {
     return d_header.stats.n_frames;
+}
+
+PyObject*
+Py_HighWatermarkAllocationRecords(const allocations_t& all_records)
+{
+    if (all_records.empty()) {
+        return PyList_New(0);
+    }
+
+    LOG(INFO) << "Computing high watermark index";
+
+    auto high_watermark_index = getHighWatermarkIndex(all_records);
+
+    LOG(INFO) << "Preparing snapshot for high watermark index";
+
+    const auto stack_to_allocation = reduceSnapshotAllocations(all_records, high_watermark_index);
+
+    LOG(INFO) << "Converting data to Python objects";
+
+    PyObject* list = PyList_New(stack_to_allocation.size());
+    if (list == nullptr) {
+        return nullptr;
+    }
+    size_t list_index = 0;
+    for (const auto& it : stack_to_allocation) {
+        const auto& record = it.second;
+        PyObject* pyrecord = record.toPythonObject();
+        if (pyrecord == nullptr) {
+            Py_DECREF(list);
+            return nullptr;
+        }
+        PyList_SET_ITEM(list, list_index++, pyrecord);
+    }
+    return list;
 }
 
 }  // namespace pensieve::api

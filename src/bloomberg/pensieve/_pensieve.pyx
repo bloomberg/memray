@@ -4,8 +4,11 @@ import logging
 
 cimport cython
 
-from libcpp.string cimport string as cppstring
+from libcpp cimport bool
 from libcpp.memory cimport shared_ptr, make_shared
+from libcpp.string cimport string as cppstring
+from libcpp.utility cimport move
+from libcpp.vector cimport vector
 
 from _pensieve.tracking_api cimport install_trace_function
 from _pensieve.tracking_api cimport Tracker as NativeTracker
@@ -13,6 +16,8 @@ from _pensieve.logging cimport initializePythonLoggerInterface
 from _pensieve.alloc cimport calloc, free, malloc, realloc, posix_memalign, memalign, valloc, pvalloc
 from _pensieve.pthread cimport pthread_create, pthread_join, pthread_t
 from _pensieve.record_reader cimport RecordReader
+from _pensieve.record_reader cimport Py_HighWatermarkAllocationRecords
+from _pensieve.records cimport Allocation as NativeAllocation
 
 initializePythonLoggerInterface()
 
@@ -125,7 +130,15 @@ cdef class Tracker:
     def get_high_watermark_allocation_records(self):
         self._reader = make_shared[RecordReader](self._output_path)
         cdef RecordReader* reader = self._reader.get()
-        for elem in reader.Py_HighWatermarkAllocationRecords():
+        cdef bool res
+        cdef NativeAllocation native_allocation
+        cdef vector[NativeAllocation] all_allocations
+        all_allocations.reserve(self.total_allocations)
+
+        while reader.nextAllocationRecord(&native_allocation):
+            all_allocations.push_back(move(native_allocation))
+
+        for elem in Py_HighWatermarkAllocationRecords(all_allocations):
             alloc = AllocationRecord(elem);
             (<AllocationRecord>alloc)._reader = self._reader
             yield alloc
@@ -133,8 +146,11 @@ cdef class Tracker:
     def get_allocation_records(self):
         self._reader = make_shared[RecordReader](self._output_path)
         cdef RecordReader* reader = self._reader.get()
-        while True:
-            alloc = AllocationRecord(reader.Py_NextAllocationRecord())
+        cdef bool res
+        cdef NativeAllocation native_allocation
+
+        while reader.nextAllocationRecord(&native_allocation):
+            alloc = AllocationRecord(native_allocation.toPythonObject())
             (<AllocationRecord>alloc)._reader = self._reader
             yield alloc
 
