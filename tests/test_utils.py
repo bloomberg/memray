@@ -13,7 +13,7 @@ class TestFilterRelevantAllocations:
             MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
             MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
         ]
-        assert filter_relevant_allocations(records) == [
+        assert list(filter_relevant_allocations(records)) == [
             MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
             MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
         ]
@@ -25,7 +25,35 @@ class TestFilterRelevantAllocations:
             MockAllocationRecord(1, 0x2000000, 0, AllocatorType.FREE, 0, 0, []),
             MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
         ]
-        assert filter_relevant_allocations(records) == [
+        assert list(filter_relevant_allocations(records)) == [
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+        ]
+
+    def test_free_records_with_valid_addresses_that_dont_match_do_not_appear(self):
+        records = [
+            MockAllocationRecord(1, 0x2000000, 0, AllocatorType.FREE, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+            MockAllocationRecord(1, 0x2000000, 1024, AllocatorType.MALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x2000000, 0, AllocatorType.FREE, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+        ]
+        assert list(filter_relevant_allocations(records)) == [
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+        ]
+
+    def test_free_records_with_unmatched_addresses_do_not_appear(self):
+        records = [
+            MockAllocationRecord(1, 0x6000000, 0, AllocatorType.FREE, 0, 0, []),
+            MockAllocationRecord(1, 0x7000000, 0, AllocatorType.FREE, 0, 0, []),
+            MockAllocationRecord(1, 0x2000000, 1024, AllocatorType.MALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
+            MockAllocationRecord(1, 0x2000000, 0, AllocatorType.FREE, 0, 0, []),
+            MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
+        ]
+        assert list(filter_relevant_allocations(records)) == [
             MockAllocationRecord(1, 0x1000000, 1024, AllocatorType.VALLOC, 0, 0, []),
             MockAllocationRecord(1, 0x1000000, 0, AllocatorType.FREE, 0, 0, []),
         ]
