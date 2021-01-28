@@ -7,3 +7,4 @@ sphinx
 sphinx-rtd-theme
 bump2version
 towncrier
+check-manifest
