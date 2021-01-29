@@ -58,9 +58,18 @@ class FlameGraphReporter:
 
     def render(self, outfile: TextIO) -> None:
         package = "bloomberg.pensieve.reporters"
-        resource = "flamegraph.template.html"
-        with importlib.resources.open_text(package, resource) as fp:
-            print(
-                fp.read().replace("{{ flamegraph_data }}", json.dumps(self.data)),
-                file=outfile,
-            )
+        css_code = importlib.resources.read_text(package, "flamegraph.css")
+        js_code = importlib.resources.read_text(package, "flamegraph.js")
+        template = importlib.resources.read_text(package, "flamegraph.template.html")
+
+        # Make the replacements to generate the final HTML output
+        replacements = [
+            ("{{ css }}", css_code),
+            ("{{ js }}", js_code),
+            ("{{ flamegraph_data }}", json.dumps(self.data)),
+        ]
+        html_code = template
+        for original, replacement in replacements:
+            html_code = html_code.replace(original, replacement)
+
+        print(html_code, file=outfile)
