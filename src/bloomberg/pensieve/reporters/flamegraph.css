@@ -1,25 +1,50 @@
-/* Space out content a bit */
-body {
-  padding-top: 20px;
-  padding-bottom: 20px;
+#details {
+  height: 2rem;
 }
 
-/* Custom page header */
-.header {
-  padding-bottom: 20px;
-  padding-right: 15px;
-  padding-left: 15px;
-  border-bottom: 1px solid #e5e5e5;
+/* Blocks */
+.d3-flame-graph rect {
+  fill-opacity: 0.8;
+}
+.d3-flame-graph .frame:hover rect {
+  stroke: #1118;
+  stroke-width: 1px;
+  cursor: pointer;
 }
 
-/* Make the masthead heading the same height as the navigation */
-.header h3 {
-  margin-top: 0;
-  margin-bottom: 0;
-  line-height: 40px;
+.d3-flame-graph-label {
+  color: black;
+  pointer-events: none;
+
+  font-size: 13px;
+  line-height: 1.5;
+
+  text-align: left;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+
+  padding: 0;
+  margin-left: 4px;
+  margin-right: 4px;
 }
 
-/* Customize container */
-.container {
-  max-width: 990px;
+/* Bacckground stuff */
+.d3-flame-graph .fade {
+  opacity: 0.6 !important;
+}
+
+/* Tooltip */
+.d3-flame-graph-tip {
+  z-index: 10;
+
+  background: black;
+  border: none;
+  color: white;
+
+  text-align: left;
+
+  min-width: 250px;
+  border-radius: 2px;
+  padding: 2px 4px;
 }

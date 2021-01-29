@@ -1,3 +1,4 @@
+import html
 import importlib.resources
 import json
 from typing import Any
@@ -20,13 +21,14 @@ def create_framegraph_node_from_stack_flame(
     stack_frame: Tuple[str, str, int]
 ) -> Dict[str, Any]:
     function, filename, lineno = stack_frame
+
+    name = f"{filename}:{lineno}"
+    tooltip = html.escape(f"File {filename}, line {lineno} in {function}")
     return {
-        "name": f"{filename}:{lineno}",
+        "name": name,
+        "tooltip": tooltip,
         "value": 0,
         "children": {},
-        "function": function,
-        "filename": filename,
-        "lineno": lineno,
     }
 
 
@@ -40,11 +42,10 @@ class FlameGraphReporter:
         cls, allocations: Iterator[AllocationRecord]
     ) -> "FlameGraphReporter":
         data: Dict[str, Any] = {
-            "name": "root",
+            "name": "<root>",
+            "tooltip": "The overall context that <b>pensieve</b> is run in.",
             "value": 0,
             "children": {},
-            "filename": "<root>",
-            "lineno": 0,
         }
 
         for record in allocations:
