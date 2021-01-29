@@ -1,6 +1,7 @@
 import html
 import importlib.resources
 import json
+import linecache
 from typing import Any
 from typing import Dict
 from typing import Iterator
@@ -22,7 +23,7 @@ def create_framegraph_node_from_stack_flame(
 ) -> Dict[str, Any]:
     function, filename, lineno = stack_frame
 
-    name = f"{filename}:{lineno}"
+    name = linecache.getline(filename, lineno) or f"{filename}:{lineno}"
     tooltip = html.escape(f"File {filename}, line {lineno} in {function}")
     return {
         "name": name,
