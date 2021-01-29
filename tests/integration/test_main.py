@@ -6,7 +6,15 @@ import sys
 class TestRunSubcommand:
     def test_run(self, tmp_path):
         proc = subprocess.run(
-            [sys.executable, "-m", "bloomberg.pensieve", "run", "json.tool", "-h"],
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "-m",
+                "json.tool",
+                "-h",
+            ],
             check=True,
             capture_output=True,
             text=True,
@@ -27,6 +35,7 @@ class TestRunSubcommand:
                 "run",
                 "--output",
                 str(out_file),
+                "-m",
                 "json.tool",
                 "-h",
             ],
@@ -51,6 +60,7 @@ class TestFlamegraphSubCommand:
                 "run",
                 "--output",
                 str(results_file),
+                "-m",
                 "json.tool",
                 "-h",
             ],
