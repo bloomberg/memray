@@ -4,6 +4,7 @@ from typing import Any
 from typing import Dict
 from typing import Iterator
 from typing import TextIO
+from typing import Tuple
 
 from bloomberg.pensieve._pensieve import AllocationRecord
 
@@ -13,6 +14,20 @@ def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
         with_converted_children_dict(child) for child in node["children"].values()
     ]
     return node
+
+
+def create_framegraph_node_from_stack_flame(
+    stack_frame: Tuple[str, str, int]
+) -> Dict[str, Any]:
+    function, filename, lineno = stack_frame
+    return {
+        "name": f"{filename}:{lineno}",
+        "value": 0,
+        "children": {},
+        "function": function,
+        "filename": filename,
+        "lineno": lineno,
+    }
 
 
 class FlameGraphReporter:
@@ -40,15 +55,8 @@ class FlameGraphReporter:
             current_frame = data
             for stack_frame in reversed(record.stack_trace()):
                 if stack_frame not in current_frame["children"]:
-                    function, filename, lineno = stack_frame
-                    current_frame["children"][stack_frame] = {
-                        "name": f"{filename}:{lineno}",
-                        "value": 0,
-                        "children": {},
-                        "function": function,
-                        "filename": filename,
-                        "lineno": lineno,
-                    }
+                    node = create_framegraph_node_from_stack_flame(stack_frame)
+                    current_frame["children"][stack_frame] = node
 
                 current_frame = current_frame["children"][stack_frame]
                 current_frame["value"] += size
