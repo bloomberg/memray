@@ -136,11 +136,13 @@ class TestHighWatermark:
                 allocator.valloc(1024)
                 allocator.free()
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 4
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
         record = peak_allocations[0]
@@ -159,11 +161,13 @@ class TestHighWatermark:
             allocator2.valloc(2048)
             allocator2.free()
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 4
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -182,11 +186,13 @@ class TestHighWatermark:
             allocator1.valloc(1024)
             allocator1.free()
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 4
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -207,11 +213,13 @@ class TestHighWatermark:
             for allocator in allocators:
                 allocator.free()
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 4
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -230,11 +238,13 @@ class TestHighWatermark:
             allocator1.free()
             allocator2.free()
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 4
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 2
         assert sum(record.size for record in peak_allocations) == 1024 + 2048
@@ -250,11 +260,13 @@ class TestHighWatermark:
             allocator1.free()
             allocator2.free()
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 4
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 2
         assert sum(record.size for record in peak_allocations) == 1024 + 2048
@@ -270,11 +282,13 @@ class TestHighWatermark:
             allocator2.valloc(2048)
         allocator2.free()
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 3
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -308,12 +322,14 @@ class TestHighWatermark:
         with Tracker(tmp_path / "test.bin") as tracker:
             recursive(10, 1024)
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 20
         assert sum(record.size for record in all_allocations) == 56320
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert all(record.n_allocations == 1 for record in peak_allocations)
 
@@ -330,11 +346,13 @@ class TestHighWatermark:
             allocator.valloc(1024)
         allocator.free()
 
-        all_allocations = filter_relevant_allocations(tracker.get_allocation_records())
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
         assert len(all_allocations) == 3
 
-        peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+        peak_allocations = list(
+            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 

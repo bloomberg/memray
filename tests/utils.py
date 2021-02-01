@@ -8,17 +8,15 @@ from bloomberg.pensieve import AllocatorType
 
 
 def filter_relevant_allocations(records):
-    relevant_records = [
-        record
-        for record in records
-        if record.allocator in {AllocatorType.VALLOC, AllocatorType.FREE}
-    ]
-    alloc_addresses = {
-        record.address
-        for record in relevant_records
-        if record.allocator == AllocatorType.VALLOC
-    }
-    return [record for record in relevant_records if record.address in alloc_addresses]
+    addresses = set()
+    for record in records:
+        if record.allocator == AllocatorType.VALLOC:
+            yield record
+            addresses.add(record.address)
+        elif record.allocator == AllocatorType.FREE:
+            if record.address in addresses:
+                yield record
+            addresses.discard(record.address)
 
 
 @dataclass
