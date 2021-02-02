@@ -1,6 +1,9 @@
 #include <cassert>
+#include <limits.h>
+#include <link.h>
 #include <mutex>
 #include <pthread.h>
+#include <unistd.h>
 
 #include <Python.h>
 
@@ -33,6 +36,24 @@ child_fork()
     RecursionGuard::isActive = true;
 }
 
+std::string
+getexecname()
+{
+    char buff[PATH_MAX];
+    ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
+    if (len != -1) {
+        buff[len] = '\0';
+        return std::string(buff);
+    }
+    throw std::runtime_error("Could not determine executable name");
+}
+
+static bool
+starts_with(const std::string& haystack, const std::string_view& needle)
+{
+    return haystack.compare(0, needle.size(), needle) == 0;
+}
+
 }  // namespace
 
 namespace pensieve::tracking_api {
@@ -49,15 +70,21 @@ std::atomic<Tracker*> Tracker::d_instance = nullptr;
 static thread_local size_t stack_size = 0;
 static thread_local PyFrameObject* current_frame = nullptr;
 
-Tracker::Tracker(const std::string& file_name)
+Tracker::Tracker(const std::string& file_name, bool native_frames)
+: d_unwind_native_frames(native_frames)
 {
     d_instance = this;
     d_writer = std::make_unique<RecordWriter>(file_name);
 
     static std::once_flag once;
-    call_once(once, [] { pthread_atfork(&prepare_fork, &parent_fork, &child_fork); });
+    call_once(once, [] {
+        pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
+        NativeTrace::setup();
+    });
 
     d_writer->writeHeader();
+
+    updateModuleCache();
 
     RecursionGuard guard;
     tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
@@ -74,14 +101,47 @@ Tracker::~Tracker()
     d_instance = nullptr;
 }
 void
-Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func) const
+Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 {
     if (RecursionGuard::isActive || !this->isActive()) {
         return;
     }
     RecursionGuard guard;
     int lineno = current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
-    AllocationRecord record{thread_id(), reinterpret_cast<unsigned long>(ptr), size, func, lineno};
+
+    size_t native_index = 0;
+    if (d_unwind_native_frames) {
+        NativeTrace trace;
+        // Skip the internal frames so we don't need to filter them later. In debug mode there will be
+        // no inlining so we need to filter 4 frames: 2 for the internals of trace.fill(), one for
+        // this function and the last one for the hook that is calling us. In non-debug mode,
+        // trace.fill() is always inlined so we just need to filter this function and our caller.
+#ifdef Py_DEBUG
+        trace.fill(4);
+#else
+        trace.fill(2);
+#endif
+        native_index = d_native_trace_tree.getTraceIndex(trace, [&](frame_id_t ip, uint32_t index) {
+            return d_writer->writeRecord(
+                    RecordType::NATIVE_TRACE_INDEX,
+                    UnresolvedNativeFrame{ip, index});
+        });
+    }
+
+    AllocationRecord
+            record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, native_index};
+    d_writer->writeRecord(RecordType::ALLOCATION, record);
+}
+
+void
+Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
+{
+    if (RecursionGuard::isActive || !this->isActive()) {
+        return;
+    }
+    RecursionGuard guard;
+    int lineno = current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
+    AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, 0};
     d_writer->writeRecord(RecordType::ALLOCATION, record);
 }
 
@@ -89,6 +149,54 @@ void
 Tracker::invalidate_module_cache()
 {
     elf::overwrite_symbols();
+    updateModuleCache();
+}
+
+static int
+dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size, void* data)
+{
+    auto writer = reinterpret_cast<RecordWriter*>(data);
+    const char* filename = info->dlpi_name;
+    std::string executable;
+    assert(filename != nullptr);
+    if (!filename[0]) {
+        executable = getexecname();
+        filename = executable.c_str();
+    }
+    if (::starts_with(filename, "linux-vdso.so")) {
+        // This cannot be resolved to anything, so don't write it to the file
+        return 0;
+    }
+
+    std::vector<Segment> segments;
+    for (int i = 0; i < info->dlpi_phnum; i++) {
+        const auto& phdr = info->dlpi_phdr[i];
+        if (phdr.p_type == PT_LOAD) {
+            segments.emplace_back(Segment{phdr.p_vaddr, phdr.p_memsz});
+        }
+    }
+
+    if (!writer->writeRecord(
+                RecordType::SEGMENT_HEADER,
+                SegmentHeader{filename, segments.size(), info->dlpi_addr}))
+    {
+        return 1;
+    }
+
+    for (const auto& segment : segments) {
+        if (!writer->writeRecord(RecordType::SEGMENT, segment)) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+void
+Tracker::updateModuleCache()
+{
+    d_writer->writeSimpleType(RecordType::MEMORY_MAP_START);
+    dl_iterate_phdr(&dl_iterate_phdr_callback, d_writer.get());
 }
 
 frame_id_t

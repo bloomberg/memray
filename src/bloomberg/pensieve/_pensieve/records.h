@@ -20,6 +20,10 @@ enum class RecordType {
     ALLOCATION = 1,
     FRAME_INDEX = 2,
     FRAME = 3,
+    NATIVE_TRACE_INDEX = 4,
+    MEMORY_MAP_START = 5,
+    SEGMENT_HEADER = 6,
+    SEGMENT = 7,
 };
 
 struct TrackerStats
@@ -37,22 +41,38 @@ struct HeaderRecord
 struct AllocationRecord
 {
     thread_id_t tid;
-    unsigned long address;
+    uintptr_t address;
     size_t size;
     hooks::Allocator allocator;
     int py_lineno;
+    frame_id_t native_frame_id{0};
 };
 
 struct Allocation
 {
     tracking_api::AllocationRecord record;
     size_t frame_index{0};
+    size_t native_frame_index{0};
+    size_t native_segment_generation{0};
     size_t n_allocactions{1};
 
     PyObject* toPythonObject() const;
 };
 
 enum FrameAction { PUSH, POP };
+
+struct SegmentHeader
+{
+    const char* filename;
+    size_t num_segments;
+    uintptr_t addr;
+};
+
+struct Segment
+{
+    uintptr_t vaddr;
+    uintptr_t memsz;
+};
 
 struct RawFrame
 {
@@ -129,6 +149,12 @@ struct FrameSeqEntry
     frame_id_t frame_id;
     thread_id_t tid;
     FrameAction action;
+};
+
+struct UnresolvedNativeFrame
+{
+    uintptr_t ip;
+    uint32_t index;
 };
 
 template<typename FrameType>

@@ -105,18 +105,20 @@ cdef class AllocationRecord:
 
 cdef class Tracker:
     cdef NativeTracker* _tracker
+    cdef bool _native_traces
     cdef object _previous_profile_func
     cdef cppstring _output_path
     cdef shared_ptr[RecordReader] _reader
 
-    def __cinit__(self, object file_name):
+    def __cinit__(self, object file_name, *, bool native_traces=False):
         self._output_path = str(file_name)
+        self._native_traces = native_traces
 
     def __enter__(self):
         if pathlib.Path(self._output_path).exists():
             raise OSError(f"Output file {self._output_path} already exists")
         self._previous_profile_func = sys.getprofile()
-        self._tracker = new NativeTracker(self._output_path)
+        self._tracker = new NativeTracker(self._output_path, self._native_traces)
 
         return self
 

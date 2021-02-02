@@ -120,4 +120,16 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map
            && writeSimpleType(item.second.parent_lineno);
 }
 
+template<>
+bool inline RecordWriter::writeRecord(const RecordType& token, const SegmentHeader& item) noexcept
+{
+    std::lock_guard<std::mutex> lock(d_mutex);
+    if (!_flush()) {
+        return false;
+    }
+
+    return writeSimpleType(token) && writeString(item.filename) && writeSimpleType(item.num_segments)
+           && writeSimpleType(item.addr);
+}
+
 }  // namespace pensieve::tracking_api
