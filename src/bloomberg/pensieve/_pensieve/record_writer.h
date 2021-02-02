@@ -25,6 +25,9 @@ class RecordWriter
     void operator=(RecordWriter&&) = delete;
 
     template<typename T>
+    bool inline writeSimpleType(T&& item) noexcept;
+    bool inline writeString(const char* the_string) noexcept;
+    template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item) noexcept;
     bool writeHeader() noexcept;
 
@@ -61,6 +64,26 @@ RecordWriter::bufferNeedle() const noexcept
 }
 
 template<typename T>
+bool inline RecordWriter::writeSimpleType(T&& item) noexcept
+{
+    int ret;
+    do {
+        ret = ::write(fd, reinterpret_cast<const char*>(&item), sizeof(item));
+    } while (ret < 0 && errno == EINTR);
+    return ret != 0;
+};
+
+bool inline RecordWriter::writeString(const char* the_string) noexcept
+{
+    int ret;
+    do {
+        ret = ::write(fd, the_string, strlen(the_string));
+    } while (ret < 0 && errno == EINTR);
+    writeSimpleType('\0');
+    return ret != 0;
+}
+
+template<typename T>
 bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) noexcept
 {
     std::lock_guard<std::mutex> lock(d_mutex);
@@ -68,7 +91,7 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) no
     static_assert(
             std::is_trivially_copyable<T>::value,
             "Called writeRecord on binary records which cannot be trivially copied");
-    static_assert(total < BUFFER_CAPACITY, "cannot write line larger than d_buffer capacity");
+    static_assert(total < BUFFER_CAPACITY, "cannot write lineno larger than d_buffer capacity");
 
     if (total > availableSpace() && !_flush()) {
         return false;
@@ -90,25 +113,10 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map
     if (!_flush()) {
         return false;
     }
-    auto writeSimpleType = [&](auto&& item) {
-        int ret;
-        do {
-            ret = ::write(fd, reinterpret_cast<const char*>(&item), sizeof(item));
-        } while (ret < 0 && errno == EINTR);
-        return ret != 0;
-    };
 
-    auto writeString = [&](const std::string& the_string) {
-        int ret;
-        do {
-            ret = ::write(fd, the_string.c_str(), the_string.size());
-        } while (ret < 0 && errno == EINTR);
-        writeSimpleType('\0');
-        return ret != 0;
-    };
     d_stats.n_frames += 1;
     return writeSimpleType(token) && writeSimpleType(item.first)
-           && writeString(item.second.function_name) && writeString(item.second.filename)
+           && writeString(item.second.function_name.c_str()) && writeString(item.second.filename.c_str())
            && writeSimpleType(item.second.parent_lineno);
 }
 
