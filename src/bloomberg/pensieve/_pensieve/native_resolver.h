@@ -130,7 +130,6 @@ class SymbolResolver
   private:
     resolved_frames_t resolveFromSegments(uintptr_t ip, size_t generation);
     std::unordered_map<size_t, std::vector<MemorySegment>> d_segments;
-    ssize_t d_current_segment_generation{-1};
     bool d_are_segments_dirty = false;
     std::unordered_map<std::string, backtrace_state*> d_backtrace_states;
     std::unordered_map<uintptr_t, size_t> d_found_ips;

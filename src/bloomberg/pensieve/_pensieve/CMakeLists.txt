@@ -12,7 +12,6 @@ IF(NOT PYTHONLIBS_FOUND OR NOT PYTHON_EXECUTABLE)
 ENDIF(NOT PYTHONLIBS_FOUND OR NOT PYTHON_EXECUTABLE)
 
 include_directories(.)
-include_directories(SYSTEM /opt/bb/include)
 
 add_library(_pensieve STATIC
         elf_shenanigans.cpp

@@ -29,7 +29,7 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
 {
     assert(snapshot_index < records.size());
 
-    std::unordered_map<unsigned long, size_t> ptr_to_allocation{};
+    std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
     const auto snapshot_limit = records.cbegin() + snapshot_index;
     for (auto record_it = records.cbegin(); record_it <= snapshot_limit; record_it++) {
         switch (hooks::allocatorKind(record_it->record.allocator)) {
@@ -69,7 +69,7 @@ getHighWatermarkIndex(const allocations_t& records)
     size_t current_memory = 0;
     size_t max_memory = 0;
     size_t high_water_mark_index = 0;
-    std::unordered_map<unsigned long, size_t> ptr_to_allocation{};
+    std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
 
     for (auto records_it = records.cbegin(); records_it != records.cend(); records_it++) {
         switch (hooks::allocatorKind(records_it->record.allocator)) {
@@ -137,12 +137,48 @@ RecordReader::parseFrameIndex()
     }
 }
 
+void
+RecordReader::parseNativeFrameIndex()
+{
+    UnresolvedNativeFrame frame{};
+    d_input.read(reinterpret_cast<char*>(&frame), sizeof(UnresolvedNativeFrame));
+    d_native_frames.emplace_back(frame);
+}
+
 AllocationRecord
 RecordReader::parseAllocationRecord()
 {
     AllocationRecord record{};
     d_input.read(reinterpret_cast<char*>(&record), sizeof(AllocationRecord));
     return record;
+}
+
+void
+RecordReader::parseSegmentHeader()
+{
+    std::string filename;
+    uintptr_t addr;
+    size_t num_segments;
+    std::getline(d_input, filename, '\0');
+    d_input.read(reinterpret_cast<char*>(&num_segments), sizeof(num_segments));
+    d_input.read(reinterpret_cast<char*>(&addr), sizeof(addr));
+
+    std::vector<Segment> segments(num_segments);
+    for (size_t i = 0; i < num_segments; i++) {
+        segments.emplace_back(parseSegment());
+    }
+    d_symbol_resolver.addSegments(filename, addr, segments);
+}
+
+Segment
+RecordReader::parseSegment()
+{
+    RecordType record_type;
+    d_input.read(reinterpret_cast<char*>(&record_type), sizeof(record_type));
+    assert(record_type == RecordType::SEGMENT);
+    Segment segment{};
+    d_input.read(reinterpret_cast<char*>(&segment), sizeof(Segment));
+    return segment;
 }
 
 size_t
@@ -191,7 +227,10 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
             case RecordType::ALLOCATION: {
                 AllocationRecord record = parseAllocationRecord();
                 size_t f_index = getAllocationFrameIndex(record);
-                *allocation = Allocation{record, f_index};
+                *allocation = Allocation{
+                        .record = record,
+                        .frame_index = f_index,
+                        .native_segment_generation = d_symbol_resolver.currentSegmentGeneration()};
                 return true;
             }
             case RecordType::FRAME:
@@ -199,6 +238,15 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
                 break;
             case RecordType::FRAME_INDEX:
                 parseFrameIndex();
+                break;
+            case RecordType::NATIVE_TRACE_INDEX:
+                parseNativeFrameIndex();
+                break;
+            case RecordType::MEMORY_MAP_START:
+                d_symbol_resolver.clearSegments();
+                break;
+            case RecordType::SEGMENT_HEADER:
+                parseSegmentHeader();
                 break;
             default:
                 throw std::runtime_error("Invalid record type");
@@ -219,12 +267,12 @@ RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
     }
 
     int current_lineno = -1;
-    while (current_index != 0 && ++stacks_obtained != max_stacks) {
+    while (current_index != 0 && stacks_obtained++ != max_stacks) {
         auto node = d_tree.nextNode(current_index);
         const auto& frame = d_frame_map.at(node.frame_id);
         PyObject* pyframe = frame.toPythonObject(d_pystring_cache, current_lineno);
         if (pyframe == nullptr) {
-            return nullptr;
+            goto error;
         }
         if (PyList_Append(list, pyframe) != 0) {
             Py_DECREF(pyframe);
@@ -238,6 +286,41 @@ error:
     Py_XDECREF(list);
     return nullptr;
 }
+
+PyObject*
+RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation, size_t max_stacks)
+{
+    size_t stacks_obtained = 0;
+    FrameTree::index_t current_index = index;
+    PyObject* list = PyList_New(0);
+    if (list == nullptr) {
+        return nullptr;
+    }
+
+    while (current_index != 0 && stacks_obtained++ != max_stacks) {
+        auto frame = d_native_frames[current_index - 1];
+        current_index = frame.index;
+        auto resolved_frames = d_symbol_resolver.resolve(frame.ip, generation);
+        if (!resolved_frames) {
+            continue;
+        }
+        for (auto& native_frame : resolved_frames->frames()) {
+            PyObject* pyframe = native_frame.toPythonObject(d_pystring_cache);
+            if (pyframe == nullptr) {
+                return nullptr;
+            }
+            if (PyList_Append(list, pyframe) != 0) {
+                Py_DECREF(pyframe);
+                goto error;
+            }
+        }
+    }
+    return list;
+error:
+    Py_XDECREF(list);
+    return nullptr;
+}
+
 size_t
 RecordReader::totalAllocations() const noexcept
 {

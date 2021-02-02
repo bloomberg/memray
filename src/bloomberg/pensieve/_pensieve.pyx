@@ -52,6 +52,7 @@ def size_fmt(num, suffix='B'):
 cdef class AllocationRecord:
     cdef object _tuple
     cdef object _stack_trace
+    cdef object _native_stack_trace
     cdef shared_ptr[RecordReader] _reader
 
     def __init__(self, record):
@@ -92,10 +93,23 @@ cdef class AllocationRecord:
     def n_allocations(self):
         return self._tuple[5]
 
-    def stack_trace(self, size_t max_stacks=0):
+    def stack_trace(self, max_stacks=None):
         if self._stack_trace is None:
-            self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4], max_stacks)
+            if max_stacks is None:
+                self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4])
+            else:
+                self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4], max_stacks)
         return self._stack_trace
+
+    def native_stack_trace(self, max_stacks=None):
+        if self._native_stack_trace is None:
+            if max_stacks is None:
+                self._native_stack_trace = self._reader.get().Py_GetNativeStackFrame(
+                        self._tuple[6], self._tuple[7])
+            else:
+                self._native_stack_trace = self._reader.get().Py_GetNativeStackFrame(
+                        self._tuple[6], self._tuple[7], max_stacks)
+        return self._native_stack_trace
 
     def __repr__(self):
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "

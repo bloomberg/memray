@@ -137,9 +137,7 @@ MemorySegment::ExpandedFrame
 MemorySegment::resolveIp(uintptr_t address) const
 {
     ExpandedFrame expanded_frame{};
-    if (!d_state) {
-        return expanded_frame;
-    }
+    assert(d_state != nullptr);
     // libbacktrace expects a program counter that is 1 byte less than the one produced by
     // libunwind (and any other unwinder that I tested). This is because libbacktrace's native
     // unwinder does indeed produce program counters with one byte less for some reason and
@@ -265,7 +263,6 @@ ResolvedFrames::frames() const
 SymbolResolver::SymbolResolver()
 {
     // TODO: get this numbers from the file header
-    currentSegments().reserve(256);
     d_backtrace_states.reserve(64);
     d_found_ips.reserve(32768);
 }
@@ -366,16 +363,13 @@ SymbolResolver::clearSegments()
 {
     if (d_are_segments_dirty) {
         // Sort the segments so the binary search in resolve() works
-        assert(d_current_segment_generation >= 0);
         sort(currentSegments().begin(), currentSegments().end());
     }
-    d_current_segment_generation++;
-    if (d_current_segment_generation == 0) {
-        currentSegments().reserve(256);
-    } else {
-        const auto& previous_segments = d_segments[d_current_segment_generation - 1];
-        currentSegments().reserve(previous_segments.size());
+    size_t reserve_size = 256;
+    if (currentSegmentGeneration() > 0) {
+        reserve_size = currentSegments().size();
     }
+    d_segments[currentSegmentGeneration() + 1].reserve(reserve_size);
 }
 
 backtrace_state*
@@ -435,13 +429,13 @@ SymbolResolver::findBacktraceState(const char* fileName, uintptr_t addressStart)
 std::vector<MemorySegment>&
 SymbolResolver::currentSegments()
 {
-    return d_segments[d_current_segment_generation];
+    return d_segments.at(d_segments.size());
 }
 
 size_t
 SymbolResolver::currentSegmentGeneration() const
 {
-    return d_current_segment_generation;
+    return d_segments.size();
 }
 
 }  // namespace pensieve::native_resolver
