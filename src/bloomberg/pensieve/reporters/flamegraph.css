@@ -5,6 +5,8 @@
 /* Blocks */
 .d3-flame-graph rect {
   fill-opacity: 0.8;
+  stroke: #1111;
+  stroke-width: 1px;
 }
 .d3-flame-graph .frame:hover rect {
   stroke: #1118;

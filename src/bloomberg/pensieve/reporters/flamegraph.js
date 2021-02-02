@@ -67,8 +67,12 @@ function decimalHash(string) {
 }
 
 function pensieveColorMapper(d, originalColor) {
-  // Highlights are blue-ish
+  // Root node
+  if (d.data.name == "<root>") return d3.interpolateYlGn(0.6);
+  // Highlighted nodes
   if (d.highlight) return "orange";
+  // "builtin" / nodes where we don't have information to present
+  if (!d.data.name || d.data.name[0] == "<") return "#EEE";
   // Fallback to the "yellow-green" colors
   return d3.interpolateYlGn(0.1 + decimalHash(d.data.name) / 2);
 }
