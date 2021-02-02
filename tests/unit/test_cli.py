@@ -42,6 +42,16 @@ class TestRunSubCommand:
         )
         tracker_mock.assert_called_with("my_output")
 
+    def test_run_module(self, getpid_mock, runpy_mock, tracker_mock):
+        assert 0 == main(["run", "-m", "foobar"])
+        runpy_mock.run_module.assert_called_with(
+            "foobar", run_name="__main__", alter_sys=True
+        )
+
+    def test_run_file(self, getpid_mock, runpy_mock, tracker_mock):
+        assert 0 == main(["run", "foobar.py", "arg1", "arg2"])
+        runpy_mock.run_path.assert_called_with("foobar.py", run_name="__main__")
+
 
 class TestFlamegraphSubCommand:
     @staticmethod
