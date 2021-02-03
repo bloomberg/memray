@@ -126,9 +126,7 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
                     RecordType::NATIVE_TRACE_INDEX,
                     UnresolvedNativeFrame{ip, index});
         });
-
     }
-
 
     AllocationRecord
             record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, native_index};
