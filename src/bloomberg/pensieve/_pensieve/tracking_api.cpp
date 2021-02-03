@@ -37,15 +37,16 @@ child_fork()
 }
 
 std::string
-getexecname()
+get_executable()
 {
-    char buff[PATH_MAX];
-    ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
-    if (len != -1) {
-        buff[len] = '\0';
-        return std::string(buff);
+    char buff[PATH_MAX + 1];
+    ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff));
+    if (len > PATH_MAX) {
+        throw std::runtime_error("Path to executable is more than PATH_MAX bytes");
+    } else if (len == -1) {
+        throw std::runtime_error("Could not determine executable path");
     }
-    throw std::runtime_error("Could not determine executable name");
+    return std::string(buff, len);
 }
 
 static bool
@@ -160,7 +161,7 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
     std::string executable;
     assert(filename != nullptr);
     if (!filename[0]) {
-        executable = getexecname();
+        executable = get_executable();
         filename = executable.c_str();
     }
     if (::starts_with(filename, "linux-vdso.so")) {
