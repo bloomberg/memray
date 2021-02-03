@@ -25,22 +25,32 @@ class TestRunSubCommand:
             main(["run"])
 
         captured = capsys.readouterr()
-        assert "error: the following arguments are required: module" in captured.err
+        assert "usage: pensieve run [-m module | file] [args]" in captured.err
 
     def test_run_default_output(self, getpid_mock, runpy_mock, tracker_mock):
         getpid_mock.return_value = 0
-        assert 0 == main(["run", "foobar"])
+        assert 0 == main(["run", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with("foobar.0.out")
 
     def test_run_override_output(self, getpid_mock, runpy_mock, tracker_mock):
-        assert 0 == main(["run", "--output", "my_output", "foobar"])
+        assert 0 == main(["run", "--output", "my_output", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with("my_output")
+
+    def test_run_module(self, getpid_mock, runpy_mock, tracker_mock):
+        assert 0 == main(["run", "-m", "foobar"])
+        runpy_mock.run_module.assert_called_with(
+            "foobar", run_name="__main__", alter_sys=True
+        )
+
+    def test_run_file(self, getpid_mock, runpy_mock, tracker_mock):
+        assert 0 == main(["run", "foobar.py", "arg1", "arg2"])
+        runpy_mock.run_path.assert_called_with("foobar.py", run_name="__main__")
 
 
 class TestFlamegraphSubCommand:

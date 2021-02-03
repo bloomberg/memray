@@ -1,12 +1,21 @@
 import re
 import subprocess
 import sys
+import textwrap
 
 
 class TestRunSubcommand:
     def test_run(self, tmp_path):
         proc = subprocess.run(
-            [sys.executable, "-m", "bloomberg.pensieve", "run", "json.tool", "-h"],
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "-m",
+                "json.tool",
+                "-h",
+            ],
             check=True,
             capture_output=True,
             text=True,
@@ -27,6 +36,7 @@ class TestRunSubcommand:
                 "run",
                 "--output",
                 str(out_file),
+                "-m",
                 "json.tool",
                 "-h",
             ],
@@ -36,6 +46,40 @@ class TestRunSubcommand:
         )
         assert "usage: python -m json.tool" in proc.stdout
         assert proc.returncode == 0
+        assert out_file.exists()
+
+    def test_run_file_with_args(self, tmp_path):
+        """Execute a Python script and make sure the arguments in the script
+        are correctly forwarded."""
+        out_file = tmp_path / "result.out"
+        target_file = tmp_path / "test.py"
+        target_file.write_text(
+            textwrap.dedent(
+                """\
+        import sys
+        print(f"Command: {sys.argv[0]}")
+        print(f"Arg: {sys.argv[1]}")
+        """
+            )
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "--output",
+                str(out_file),
+                str(target_file),
+                "arg1",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0
+        assert re.search(r"Command: (.*)test\.py", proc.stdout)
+        assert "Arg: arg1" in proc.stdout
         assert out_file.exists()
 
 
@@ -51,6 +95,7 @@ class TestFlamegraphSubCommand:
                 "run",
                 "--output",
                 str(results_file),
+                "-m",
                 "json.tool",
                 "-h",
             ],
