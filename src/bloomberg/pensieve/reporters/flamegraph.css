@@ -1,0 +1,52 @@
+#details {
+  height: 2rem;
+}
+
+/* Blocks */
+.d3-flame-graph rect {
+  fill-opacity: 0.8;
+  stroke: #1111;
+  stroke-width: 1px;
+}
+.d3-flame-graph .frame:hover rect {
+  stroke: #1118;
+  stroke-width: 1px;
+  cursor: pointer;
+}
+
+.d3-flame-graph-label {
+  color: black;
+  pointer-events: none;
+
+  font-size: 13px;
+  line-height: 1.5;
+
+  text-align: left;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+
+  padding: 0;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+/* Bacckground stuff */
+.d3-flame-graph .fade {
+  opacity: 0.6 !important;
+}
+
+/* Tooltip */
+.d3-flame-graph-tip {
+  z-index: 10;
+
+  background: black;
+  border: none;
+  color: white;
+
+  text-align: left;
+
+  min-width: 250px;
+  border-radius: 2px;
+  padding: 2px 4px;
+}

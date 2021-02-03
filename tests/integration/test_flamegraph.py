@@ -9,7 +9,7 @@ from tests.utils import filter_relevant_allocations
 class TestFlameGraphReporter:
     def test_works_with_no_allocations(self):
         reporter = FlameGraphReporter.from_snapshot([])
-        assert reporter.data["name"] == "root"
+        assert reporter.data["name"] == "<root>"
         assert reporter.data["value"] == 0
         assert reporter.data["children"] == []
 
@@ -31,38 +31,31 @@ class TestFlameGraphReporter:
         ]
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
         assert reporter.data == {
-            "name": "root",
+            "name": "<root>",
+            "tooltip": "The overall context that <b>pensieve</b> is run in.",
             "value": 1024,
             "children": [
                 {
                     "name": "fun.py:4",
+                    "tooltip": "File fun.py, line 4 in grandparent",
                     "value": 1024,
                     "children": [
                         {
                             "name": "fun.py:8",
+                            "tooltip": "File fun.py, line 8 in parent",
                             "value": 1024,
                             "children": [
                                 {
                                     "name": "fun.py:12",
+                                    "tooltip": "File fun.py, line 12 in me",
                                     "value": 1024,
                                     "children": [],
-                                    "function": "me",
-                                    "filename": "fun.py",
-                                    "lineno": 12,
                                 }
                             ],
-                            "function": "parent",
-                            "filename": "fun.py",
-                            "lineno": 8,
                         }
                     ],
-                    "function": "grandparent",
-                    "filename": "fun.py",
-                    "lineno": 4,
                 }
             ],
-            "filename": "<root>",
-            "lineno": 0,
         }
 
     def test_works_with_multiple_stacks_from_same_caller(self):
@@ -96,46 +89,37 @@ class TestFlameGraphReporter:
         ]
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
         assert reporter.data == {
-            "name": "root",
+            "name": "<root>",
+            "tooltip": "The overall context that <b>pensieve</b> is run in.",
             "value": 2048,
             "children": [
                 {
                     "name": "fun.py:4",
+                    "tooltip": "File fun.py, line 4 in grandparent",
                     "value": 2048,
                     "children": [
                         {
                             "name": "fun.py:8",
+                            "tooltip": "File fun.py, line 8 in parent",
                             "value": 2048,
                             "children": [
                                 {
                                     "name": "fun.py:12",
+                                    "tooltip": "File fun.py, line 12 in me",
                                     "value": 1024,
                                     "children": [],
-                                    "function": "me",
-                                    "filename": "fun.py",
-                                    "lineno": 12,
                                 },
                                 {
                                     "name": "fun.py:16",
+                                    "tooltip": "File fun.py, line 16 in sibling",
                                     "value": 1024,
                                     "children": [],
-                                    "function": "sibling",
-                                    "filename": "fun.py",
-                                    "lineno": 16,
                                 },
                             ],
-                            "function": "parent",
-                            "filename": "fun.py",
-                            "lineno": 8,
                         }
                     ],
-                    "function": "grandparent",
-                    "filename": "fun.py",
-                    "lineno": 4,
                 }
             ],
-            "filename": "<root>",
-            "lineno": 0,
         }
 
     def test_sanity_check_with_real_allocations(self, tmp_path):
@@ -150,14 +134,14 @@ class TestFlameGraphReporter:
 
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
 
-        assert reporter.data["name"] == "root"
+        assert reporter.data["name"] == "<root>"
         assert reporter.data["value"] == 1024
 
         assert isinstance(reporter.data["children"], list)
         assert len(reporter.data["children"]) == 1
 
         child = reporter.data["children"][0]
-        assert child["function"] == "valloc"
+        assert child["name"] == "    def valloc(self, size_t size):\n"
 
     def test_works_with_multiple_stacks_from_same_caller_two_frames_above(self):
         peak_allocations = [
@@ -190,55 +174,44 @@ class TestFlameGraphReporter:
         ]
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
         assert reporter.data == {
-            "name": "root",
+            "name": "<root>",
+            "tooltip": "The overall context that <b>pensieve</b> is run in.",
             "value": 2048,
             "children": [
                 {
                     "name": "fun.py:4",
+                    "tooltip": "File fun.py, line 4 in grandparent",
                     "value": 2048,
                     "children": [
                         {
                             "name": "fun.py:8",
+                            "tooltip": "File fun.py, line 8 in parent_one",
                             "value": 1024,
                             "children": [
                                 {
                                     "name": "fun.py:12",
+                                    "tooltip": "File fun.py, line 12 in me",
                                     "value": 1024,
                                     "children": [],
-                                    "function": "me",
-                                    "filename": "fun.py",
-                                    "lineno": 12,
                                 }
                             ],
-                            "function": "parent_one",
-                            "filename": "fun.py",
-                            "lineno": 8,
                         },
                         {
                             "name": "fun.py:10",
+                            "tooltip": "File fun.py, line 10 in parent_two",
                             "value": 1024,
                             "children": [
                                 {
                                     "name": "fun.py:16",
+                                    "tooltip": "File fun.py, line 16 in sibling",
                                     "value": 1024,
                                     "children": [],
-                                    "function": "sibling",
-                                    "filename": "fun.py",
-                                    "lineno": 16,
                                 }
                             ],
-                            "function": "parent_two",
-                            "filename": "fun.py",
-                            "lineno": 10,
                         },
                     ],
-                    "function": "grandparent",
-                    "filename": "fun.py",
-                    "lineno": 4,
                 }
             ],
-            "filename": "<root>",
-            "lineno": 0,
         }
 
     def test_works_with_recursive_calls(self):
@@ -263,74 +236,59 @@ class TestFlameGraphReporter:
         ]
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
         assert reporter.data == {
-            "name": "root",
+            "name": "<root>",
+            "tooltip": "The overall context that <b>pensieve</b> is run in.",
             "value": 1024,
             "children": [
                 {
                     "name": "recursive.py:5",
+                    "tooltip": "File recursive.py, line 5 in main",
                     "value": 1024,
                     "children": [
                         {
                             "name": "recursive.py:20",
+                            "tooltip": "File recursive.py, line 20 in two",
                             "value": 1024,
                             "children": [
                                 {
                                     "name": "recursive.py:10",
+                                    "tooltip": "File recursive.py, line 10 in one",
                                     "value": 1024,
                                     "children": [
                                         {
                                             "name": "recursive.py:20",
+                                            "tooltip": "File recursive.py, line 20 in two",
                                             "value": 1024,
                                             "children": [
                                                 {
                                                     "name": "recursive.py:10",
+                                                    "tooltip": "File recursive.py, line 10 in one",  # noqa
                                                     "value": 1024,
                                                     "children": [
                                                         {
                                                             "name": "recursive.py:20",
+                                                            "tooltip": "File recursive.py, line 20 in two",  # noqa
                                                             "value": 1024,
                                                             "children": [
                                                                 {
                                                                     "name": "recursive.py:9",
+                                                                    "tooltip": "File recursive.py, line 9 in one",  # noqa
                                                                     "value": 1024,
                                                                     "children": [],
-                                                                    "function": "one",
-                                                                    "filename": "recursive.py",
-                                                                    "lineno": 9,
                                                                 }
                                                             ],
-                                                            "function": "two",
-                                                            "filename": "recursive.py",
-                                                            "lineno": 20,
                                                         }
                                                     ],
-                                                    "function": "one",
-                                                    "filename": "recursive.py",
-                                                    "lineno": 10,
                                                 }
                                             ],
-                                            "function": "two",
-                                            "filename": "recursive.py",
-                                            "lineno": 20,
                                         }
                                     ],
-                                    "function": "one",
-                                    "filename": "recursive.py",
-                                    "lineno": 10,
                                 }
                             ],
-                            "function": "two",
-                            "filename": "recursive.py",
-                            "lineno": 20,
                         }
                     ],
-                    "function": "main",
-                    "filename": "recursive.py",
-                    "lineno": 5,
                 }
             ],
-            "filename": "<root>",
-            "lineno": 0,
         }
 
     def test_works_with_multiple_top_level_nodes(self):
@@ -364,62 +322,49 @@ class TestFlameGraphReporter:
         ]
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
         assert reporter.data == {
-            "name": "root",
+            "name": "<root>",
+            "tooltip": "The overall context that <b>pensieve</b> is run in.",
             "value": 2048,
             "children": [
                 {
                     "name": "/src/lel.py:12",
+                    "tooltip": "File /src/lel.py, line 12 in foo2",
                     "value": 1024,
                     "children": [
                         {
                             "name": "/src/lel.py:15",
+                            "tooltip": "File /src/lel.py, line 15 in bar2",
                             "value": 1024,
                             "children": [
                                 {
                                     "name": "/src/lel.py:18",
+                                    "tooltip": "File /src/lel.py, line 18 in baz2",
                                     "value": 1024,
                                     "children": [],
-                                    "function": "baz2",
-                                    "filename": "/src/lel.py",
-                                    "lineno": 18,
                                 }
                             ],
-                            "function": "bar2",
-                            "filename": "/src/lel.py",
-                            "lineno": 15,
                         }
                     ],
-                    "function": "foo2",
-                    "filename": "/src/lel.py",
-                    "lineno": 12,
                 },
                 {
                     "name": "/src/lel.py:2",
+                    "tooltip": "File /src/lel.py, line 2 in foo1",
                     "value": 1024,
                     "children": [
                         {
                             "name": "/src/lel.py:5",
+                            "tooltip": "File /src/lel.py, line 5 in bar1",
                             "value": 1024,
                             "children": [
                                 {
                                     "name": "/src/lel.py:8",
+                                    "tooltip": "File /src/lel.py, line 8 in baz1",
                                     "value": 1024,
                                     "children": [],
-                                    "function": "baz1",
-                                    "filename": "/src/lel.py",
-                                    "lineno": 8,
                                 }
                             ],
-                            "function": "bar1",
-                            "filename": "/src/lel.py",
-                            "lineno": 5,
                         }
                     ],
-                    "function": "foo1",
-                    "filename": "/src/lel.py",
-                    "lineno": 2,
                 },
             ],
-            "filename": "<root>",
-            "lineno": 0,
         }
