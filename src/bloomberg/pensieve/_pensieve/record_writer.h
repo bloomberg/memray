@@ -77,9 +77,8 @@ bool inline RecordWriter::writeString(const char* the_string) noexcept
 {
     int ret;
     do {
-        ret = ::write(fd, the_string, strlen(the_string));
+        ret = ::write(fd, the_string, strlen(the_string) + 1);
     } while (ret < 0 && errno == EINTR);
-    writeSimpleType('\0');
     return ret != 0;
 }
 
