@@ -46,6 +46,7 @@ class RecordWriter
     TrackerStats d_stats{};
 
     // Methods
+    bool inline writeAll(const char* buffer, size_t length);
     inline size_t availableSpace() const noexcept;
     inline char* bufferNeedle() const noexcept;
     bool _flush() noexcept;
@@ -63,23 +64,29 @@ RecordWriter::bufferNeedle() const noexcept
     return d_buffer.get() + d_used_bytes;
 }
 
+bool inline RecordWriter::writeAll(const char* data, size_t length)
+{
+    while (length) {
+        int ret = write(fd, data, length);
+        if (ret < 0 && errno != EINTR) {
+            return false;
+        } else if (ret >= 0) {
+            data += ret;
+            length -= ret;
+        }
+    }
+    return true;
+}
+
 template<typename T>
 bool inline RecordWriter::writeSimpleType(T&& item) noexcept
 {
-    int ret;
-    do {
-        ret = ::write(fd, reinterpret_cast<const char*>(&item), sizeof(item));
-    } while (ret < 0 && errno == EINTR);
-    return ret != 0;
+    return writeAll(reinterpret_cast<const char*>(&item), sizeof(item));
 };
 
 bool inline RecordWriter::writeString(const char* the_string) noexcept
 {
-    int ret;
-    do {
-        ret = ::write(fd, the_string, strlen(the_string) + 1);
-    } while (ret < 0 && errno == EINTR);
-    return ret != 0;
+    return writeAll(the_string, strlen(the_string) + 1);
 }
 
 template<typename T>
