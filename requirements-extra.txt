@@ -4,6 +4,7 @@ isort
 mypy
 recommonmark
 sphinx
+sphinx-autobuild
 sphinx-rtd-theme
 bump2version
 towncrier
