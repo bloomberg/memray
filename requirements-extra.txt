@@ -2,10 +2,10 @@ black
 flake8
 isort
 mypy
-recommonmark
 sphinx
 sphinx-autobuild
 sphinx-rtd-theme
 bump2version
 towncrier
 check-manifest
+myst-parser
