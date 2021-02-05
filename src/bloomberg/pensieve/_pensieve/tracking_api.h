@@ -4,9 +4,14 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <unwind.h>
 
 #include "frameobject.h"
 
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+
+#include "frame_tree.h"
 #include "hooks.h"
 #include "record_writer.h"
 #include "records.h"
@@ -39,6 +44,62 @@ PyTraceFunction(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 void
 install_trace_function();
 
+class NativeTrace
+{
+  public:
+    using ip_t = frame_id_t;
+    const ip_t* begin() const
+    {
+        return d_data + d_skip;
+    }
+    const ip_t* end() const
+    {
+        return begin() + d_size;
+    }
+    ip_t operator[](size_t i) const
+    {
+        return d_data[d_skip + i];
+    }
+    int size() const
+    {
+        return d_size;
+    }
+    bool fill(int skip)
+    {
+        int size = unwind(d_data);
+        d_size = size > skip ? size - skip : 0;
+        d_skip = skip;
+        return d_size > 0;
+    }
+    static void setup()
+    {
+        // configure libunwind for better speed
+        if (unw_set_caching_policy(unw_local_addr_space, UNW_CACHE_PER_THREAD)) {
+            fprintf(stderr, "WARNING: Failed to enable per-thread libunwind caching.\n");
+        }
+        if (unw_set_cache_size(unw_local_addr_space, 1024, 0)) {
+            fprintf(stderr, "WARNING: Failed to set libunwind cache size.\n");
+        }
+    }
+
+    static inline void flushCache()
+    {
+        unw_flush_cache(unw_local_addr_space, 0, 0);
+    }
+
+  private:
+    static const size_t MAX_SIZE = 64;
+    static int unwind(frame_id_t* data)
+    {
+        return unw_backtrace((void**)data, MAX_SIZE);
+    }
+
+  private:
+    int d_size = 0;
+    int d_skip = 0;
+    ip_t d_data[MAX_SIZE];
+};
+
 /**
  * Singleton managing all the global state and functionality of the tracing mechanism
  *
@@ -52,7 +113,7 @@ class Tracker
 {
   public:
     // Constructors
-    explicit Tracker(const std::string& file_name);
+    explicit Tracker(const std::string& file_name, bool native_frames);
     ~Tracker();
 
     Tracker(Tracker& other) = delete;
@@ -64,8 +125,10 @@ class Tracker
     static Tracker* getTracker();
 
     // Allocation tracking interface
-    void trackAllocation(void* ptr, size_t size, hooks::Allocator func) const;
-    static void invalidate_module_cache();
+    void trackAllocation(void* ptr, size_t size, hooks::Allocator func);
+    void trackDeallocation(void* ptr, size_t size, hooks::Allocator func);
+    void invalidate_module_cache();
+    void updateModuleCache();
 
     // RawFrame stack interface
     void pushFrame(const RawFrame& frame);
@@ -82,6 +145,8 @@ class Tracker
     std::atomic<bool> d_active{false};
     static std::atomic<Tracker*> d_instance;
     std::unique_ptr<RecordWriter> d_writer;
+    FrameTree d_native_trace_tree;
+    bool d_unwind_native_frames;
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);

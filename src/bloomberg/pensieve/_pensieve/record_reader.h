@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <fstream>
 #include <functional>
+#include <limits>
 #include <stddef.h>
 #include <stdint.h>
 #include <string>
@@ -12,6 +13,7 @@
 #include "Python.h"
 
 #include "frame_tree.h"
+#include "native_resolver.h"
 #include "python_helpers.h"
 #include "records.h"
 
@@ -19,13 +21,19 @@ namespace pensieve::api {
 
 using namespace tracking_api;
 
+using reduced_snapshot_map_t = std::unordered_map<FrameTree::index_t, Allocation>;
 using allocations_t = std::vector<Allocation>;
 
 class RecordReader
 {
   public:
     explicit RecordReader(const std::string& file_name);
-    PyObject* Py_GetStackFrame(FrameTree::index_t index, size_t max_stacks = 0);
+    PyObject*
+    Py_GetStackFrame(FrameTree::index_t index, size_t max_stacks = std::numeric_limits<size_t>::max());
+    PyObject* Py_GetNativeStackFrame(
+            FrameTree::index_t index,
+            size_t generation,
+            size_t max_stacks = std::numeric_limits<size_t>::max());
 
     bool nextAllocationRecord(Allocation* allocation);
 
@@ -46,11 +54,17 @@ class RecordReader
     stack_traces_t d_stack_traces{};
     FrameTree d_tree{};
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
+    native_resolver::SymbolResolver d_symbol_resolver;
+    std::vector<UnresolvedNativeFrame> d_native_frames{};
 
     // Methods
     void parseFrame();
     void parseFrameIndex();
+    void parseNativeFrameIndex();
     AllocationRecord parseAllocationRecord();
+    void parseSegmentHeader();
+    Segment parseSegment();
+
     void correctAllocationFrame(stack_t& stack, int lineno);
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };

@@ -1,3 +1,4 @@
+from libc.stdint cimport uintptr_t
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 cdef extern from "records.h" namespace "pensieve::tracking_api":
@@ -9,7 +10,7 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
 
    struct AllocationRecord:
        long int tid
-       unsigned long address
+       uintptr_t address
        size_t size
        string allocator
        vector[Frame] stack_trace

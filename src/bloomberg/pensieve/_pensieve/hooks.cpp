@@ -73,7 +73,7 @@ int
 munmap(void* addr, size_t length) noexcept
 {
     assert(hooks::munmap);
-    tracking_api::Tracker::getTracker()->trackAllocation(addr, length, hooks::Allocator::MUNMAP);
+    tracking_api::Tracker::getTracker()->trackDeallocation(addr, length, hooks::Allocator::MUNMAP);
     return hooks::munmap(addr, length);
 }
 
@@ -94,7 +94,7 @@ free(void* ptr) noexcept
 
     // We need to call our API before we call the real free implementation
     // to make sure that the pointer is not reused in-between.
-    tracking_api::Tracker::getTracker()->trackAllocation(ptr, 0, hooks::Allocator::FREE);
+    tracking_api::Tracker::getTracker()->trackDeallocation(ptr, 0, hooks::Allocator::FREE);
 
     hooks::free(ptr);
 }
@@ -106,7 +106,7 @@ realloc(void* ptr, size_t size) noexcept
 
     void* ret = hooks::realloc(ptr, size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ptr, 0, hooks::Allocator::FREE);
+        tracking_api::Tracker::getTracker()->trackDeallocation(ptr, 0, hooks::Allocator::FREE);
         tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::REALLOC);
     }
     return ret;
@@ -181,7 +181,7 @@ dlopen(const char* filename, int flag) noexcept
     assert(hooks::dlopen);
 
     void* ret = hooks::dlopen(filename, flag);
-    if (ret) tracking_api::Tracker::invalidate_module_cache();
+    if (ret) tracking_api::Tracker::getTracker()->invalidate_module_cache();
     return ret;
 }
 
@@ -191,7 +191,8 @@ dlclose(void* handle) noexcept
     assert(hooks::dlclose);
 
     int ret = hooks::dlclose(handle);
-    if (!ret) tracking_api::Tracker::invalidate_module_cache();
+    tracking_api::NativeTrace::flushCache();
+    if (!ret) tracking_api::Tracker::getTracker()->invalidate_module_cache();
     return ret;
 }
 

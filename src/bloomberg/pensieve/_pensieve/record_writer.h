@@ -25,6 +25,9 @@ class RecordWriter
     void operator=(RecordWriter&&) = delete;
 
     template<typename T>
+    bool inline writeSimpleType(T&& item) noexcept;
+    bool inline writeString(const char* the_string) noexcept;
+    template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item) noexcept;
     bool writeHeader() noexcept;
 
@@ -43,6 +46,7 @@ class RecordWriter
     TrackerStats d_stats{};
 
     // Methods
+    bool inline writeAll(const char* buffer, size_t length);
     inline size_t availableSpace() const noexcept;
     inline char* bufferNeedle() const noexcept;
     bool _flush() noexcept;
@@ -60,6 +64,31 @@ RecordWriter::bufferNeedle() const noexcept
     return d_buffer.get() + d_used_bytes;
 }
 
+bool inline RecordWriter::writeAll(const char* data, size_t length)
+{
+    while (length) {
+        int ret = write(fd, data, length);
+        if (ret < 0 && errno != EINTR) {
+            return false;
+        } else if (ret >= 0) {
+            data += ret;
+            length -= ret;
+        }
+    }
+    return true;
+}
+
+template<typename T>
+bool inline RecordWriter::writeSimpleType(T&& item) noexcept
+{
+    return writeAll(reinterpret_cast<const char*>(&item), sizeof(item));
+};
+
+bool inline RecordWriter::writeString(const char* the_string) noexcept
+{
+    return writeAll(the_string, strlen(the_string) + 1);
+}
+
 template<typename T>
 bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) noexcept
 {
@@ -68,7 +97,7 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) no
     static_assert(
             std::is_trivially_copyable<T>::value,
             "Called writeRecord on binary records which cannot be trivially copied");
-    static_assert(total < BUFFER_CAPACITY, "cannot write line larger than d_buffer capacity");
+    static_assert(total < BUFFER_CAPACITY, "cannot write lineno larger than d_buffer capacity");
 
     if (total > availableSpace() && !_flush()) {
         return false;
@@ -90,26 +119,23 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map
     if (!_flush()) {
         return false;
     }
-    auto writeSimpleType = [&](auto&& item) {
-        int ret;
-        do {
-            ret = ::write(fd, reinterpret_cast<const char*>(&item), sizeof(item));
-        } while (ret < 0 && errno == EINTR);
-        return ret != 0;
-    };
 
-    auto writeString = [&](const std::string& the_string) {
-        int ret;
-        do {
-            ret = ::write(fd, the_string.c_str(), the_string.size());
-        } while (ret < 0 && errno == EINTR);
-        writeSimpleType('\0');
-        return ret != 0;
-    };
     d_stats.n_frames += 1;
     return writeSimpleType(token) && writeSimpleType(item.first)
-           && writeString(item.second.function_name) && writeString(item.second.filename)
+           && writeString(item.second.function_name.c_str()) && writeString(item.second.filename.c_str())
            && writeSimpleType(item.second.parent_lineno);
+}
+
+template<>
+bool inline RecordWriter::writeRecord(const RecordType& token, const SegmentHeader& item) noexcept
+{
+    std::lock_guard<std::mutex> lock(d_mutex);
+    if (!_flush()) {
+        return false;
+    }
+
+    return writeSimpleType(token) && writeString(item.filename) && writeSimpleType(item.num_segments)
+           && writeSimpleType(item.addr);
 }
 
 }  // namespace pensieve::tracking_api

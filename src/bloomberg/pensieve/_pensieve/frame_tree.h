@@ -1,4 +1,6 @@
 #pragma once
+#include <iostream>
+#include <mutex>
 #include <vector>
 
 #include "records.h"
@@ -16,6 +18,7 @@ class FrameTree
 
     inline const FrameNode& nextNode(index_t index) const
     {
+        std::lock_guard<std::mutex> lock(d_mutex);
         assert(1 <= index && index <= d_graph.size());
         return d_graph[index - 1];
     }
@@ -31,6 +34,7 @@ class FrameTree
     template<typename T>
     size_t getTraceIndex(const T& stack_trace, const tracecallback_t& callback)
     {
+        std::lock_guard<std::mutex> lock(d_mutex);
         index_t index = 0;
         FrameEdge* parent = &d_root;
         for (auto frame_it = stack_trace.begin(); frame_it < stack_trace.end(); ++frame_it) {
@@ -65,6 +69,7 @@ class FrameTree
     };
     FrameEdge d_root = {0, 0, {}};
     size_t d_current_tree_index = 1;
+    mutable std::mutex d_mutex;
     std::vector<FrameNode> d_graph{};
 };
 }  // namespace pensieve::tracking_api

@@ -14,7 +14,6 @@ ENDIF(NOT PYTHONLIBS_FOUND OR NOT PYTHON_EXECUTABLE)
 include_directories(.)
 
 add_library(_pensieve STATIC
-        ../_pensieve.cpp
         elf_shenanigans.cpp
         guards.cpp
         hooks.cpp
@@ -24,6 +23,6 @@ add_library(_pensieve STATIC
         record_writer.cpp
         records.cpp
         tracking_api.cpp
-)
+        native_resolver.cpp)
 set_property(TARGET _pensieve PROPERTY POSITION_INDEPENDENT_CODE ON)
 include_directories("." ${PYTHON_INCLUDE_DIRS})
