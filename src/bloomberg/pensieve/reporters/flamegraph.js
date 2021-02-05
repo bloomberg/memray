@@ -4,10 +4,10 @@ function onClick(d) {
 }
 
 function handleFragments() {
-  var id = parseInt(location.hash.substring(1), 10);
+  const id = parseInt(location.hash.substring(1), 10);
   if (!id) return;
 
-  var elem = chart.findById(id);
+  const elem = chart.findById(id);
   if (!elem) return;
 
   chart.zoomTo(elem);
@@ -24,14 +24,14 @@ function onSearchEvent(e) {
   if (e.submitter.innerText == "Clear") {
     e.target[0].value = "";
   }
-  var term = e.target[0].value;
+  const term = e.target[0].value;
   chart.search(term);
 }
 
 // For determining values for the graph
 function getChartWidth() {
   // Figure out the width from window size
-  var rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
   return window.innerWidth - 2 * rem;
 }
 function humanFileSize(bytes, dp = 1) {
@@ -56,11 +56,11 @@ function getTooltip() {
     .tip()
     .attr("class", "d3-flame-graph-tip")
     .html((d) => {
-      let totalSize = humanFileSize(d.data.value);
+      const totalSize = humanFileSize(d.data.value);
       return `${d.data.tooltip}<br>${totalSize} total`;
     })
     .direction((d) => {
-      let midpoint = (d.x1 + d.x0) / 2;
+      const midpoint = (d.x1 + d.x0) / 2;
       // If the midpoint is in a reasonable location, put it below the element.
       if (0.25 < midpoint && midpoint < 0.75) {
         return "s";
