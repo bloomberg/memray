@@ -52,10 +52,32 @@ function humanFileSize(bytes, dp = 1) {
 }
 
 function getTooltip() {
-  return flamegraph.tooltip.defaultFlamegraphTooltip().html((d) => {
-    let totalSize = humanFileSize(d.data.value);
-    return `${d.data.tooltip}<br>${totalSize} total`;
-  });
+  let tip = d3
+    .tip()
+    .attr("class", "d3-flame-graph-tip")
+    .html((d) => {
+      let totalSize = humanFileSize(d.data.value);
+      return `${d.data.tooltip}<br>${totalSize} total`;
+    })
+    .direction((d) => {
+      let midpoint = (d.x1 + d.x0) / 2;
+      // If the midpoint is in a reasonable location, put it below the element.
+      if (0.25 < midpoint && midpoint < 0.75) {
+        return "s";
+      }
+      // We're far from the right
+      if (d.x1 < 0.75) {
+        return "e";
+      }
+      // We're far from the left
+      if (d.x0 > 0.25) {
+        return "w";
+      }
+      // This shouldn't happen reasonably? If it does, just put it above and
+      // we'll deal with it later. :)
+      return "n";
+    });
+  return tip;
 }
 
 // Our custom color mapping logic
