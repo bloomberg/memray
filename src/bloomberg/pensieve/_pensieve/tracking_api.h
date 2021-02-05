@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <unwind.h>
@@ -48,17 +49,18 @@ class NativeTrace
 {
   public:
     using ip_t = frame_id_t;
-    const ip_t* begin() const
+
+    auto begin() const
     {
-        return d_data + d_skip;
+        return std::reverse_iterator(d_data + d_skip + d_size);
     }
-    const ip_t* end() const
+    auto end() const
     {
-        return begin() + d_size;
+        return std::reverse_iterator(d_data + d_skip);
     }
     ip_t operator[](size_t i) const
     {
-        return d_data[d_skip + i];
+        return d_data[d_skip + d_size - 1 - i];
     }
     int size() const
     {
