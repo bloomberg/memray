@@ -21,6 +21,9 @@ function onInvert() {
 
 // For search
 function onSearchEvent(e) {
+  // Avoid the page reload upon submit
+  e.preventDefault();
+
   if (e.submitter.innerText == "Clear") {
     e.target[0].value = "";
   }
