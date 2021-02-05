@@ -37,8 +37,7 @@ class FrameTree
         std::lock_guard<std::mutex> lock(d_mutex);
         index_t index = 0;
         FrameEdge* parent = &d_root;
-        for (auto frame_it = stack_trace.begin(); frame_it < stack_trace.end(); ++frame_it) {
-            auto frame = *frame_it;
+        for (const auto& frame : stack_trace) {
             auto it = std::lower_bound(
                     parent->children.begin(),
                     parent->children.end(),

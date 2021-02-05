@@ -45,9 +45,9 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
 
     assert len(memaligns) == 100 * 100  # 100 threads allocate 100 times in testext
     assert all(len(memalign.stack_trace()) == 0 for memalign in memaligns)
-    expected_symbols = ["start_thread", "worker(void*)"]
+    expected_symbols = ["worker(void*)", "start_thread"]
     assert all(
-        expected_symbols == [stack[0] for stack in record.native_stack_trace()][1:]
+        expected_symbols == [stack[0] for stack in record.native_stack_trace()][:2]
         for record in memaligns
     )
 
@@ -97,8 +97,8 @@ def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
     (valloc,) = vallocs
 
     assert len(valloc.stack_trace()) == 0
-    expected_symbols = ["foo", "bar", "baz"]
-    assert expected_symbols == [stack[0] for stack in valloc.native_stack_trace()[-3:]]
+    expected_symbols = ["baz", "bar", "foo"]
+    assert expected_symbols == [stack[0] for stack in valloc.native_stack_trace()[:3]]
 
 
 def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
@@ -134,5 +134,5 @@ def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
     (valloc,) = vallocs
 
     assert len(valloc.stack_trace()) == 0
-    expected_symbols = ["foo_inline", "bar_inline", "baz_inline"]
-    assert expected_symbols == [stack[0] for stack in valloc.native_stack_trace()[-3:]]
+    expected_symbols = ["baz_inline", "bar_inline", "foo_inline"]
+    assert expected_symbols == [stack[0] for stack in valloc.native_stack_trace()[:3]]

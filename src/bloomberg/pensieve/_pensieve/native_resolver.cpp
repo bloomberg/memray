@@ -311,8 +311,8 @@ SymbolResolver::resolveFromSegments(uintptr_t ip, size_t generation)
     }
     auto segment_index = segment->filenameIndex();
     std::transform(
-            expanded_frame.rbegin(),
-            expanded_frame.rend(),
+            expanded_frame.begin(),
+            expanded_frame.end(),
             std::back_inserter(frames),
             [this](const auto& frame) {
                 return ResolvedFrame{frame, d_string_storage};
