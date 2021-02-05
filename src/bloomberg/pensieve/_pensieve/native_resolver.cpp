@@ -94,11 +94,9 @@ MemorySegment::resolveFromSymbolTable(uintptr_t address, MemorySegment::Expanded
 
     auto callback = [](void* data, uintptr_t, const char* symbol, uintptr_t, uintptr_t) {
         const std::string the_symbol = demangle(symbol);
-        if (the_symbol.empty()) {
-            return;
-        }
         auto the_data = reinterpret_cast<CallbackData*>(data);
-        the_data->expanded_frame->push_back(Frame{the_symbol, "<unknown>", 0});
+        the_data->expanded_frame->push_back(
+                Frame{the_symbol.empty() ? "<unknown>" : the_symbol, "<unknown>", 0});
     };
     auto error_callback = [](void* _data, const char* msg, int errnum) {
         auto* data = reinterpret_cast<const CallbackData*>(_data);
@@ -262,9 +260,8 @@ ResolvedFrames::frames() const
 
 SymbolResolver::SymbolResolver()
 {
-    // TODO: get this numbers from the file header
-    d_backtrace_states.reserve(64);
-    d_found_ips.reserve(32768);
+    d_backtrace_states.reserve(PREALLOCATED_BACKTRACE_STATES);
+    d_resolved_ips_cache.reserve(PREALLOCATED_IPS_CACHE_ITEMS);
 }
 
 template<typename T>
@@ -325,13 +322,14 @@ SymbolResolver::resolveFromSegments(uintptr_t ip, size_t generation)
 
 void
 SymbolResolver::addSegment(
-        const std::string& fileName,
-        backtrace_state* backtraceState,
+        const std::string& filename,
+        backtrace_state* backtrace_state,
         const size_t filename_index,
         const uintptr_t address_start,
         const uintptr_t address_end)
 {
-    currentSegments().emplace_back(fileName, address_start, address_end, backtraceState, filename_index);
+    currentSegments()
+            .emplace_back(filename, address_start, address_end, backtrace_state, filename_index);
     d_are_segments_dirty = true;
 }
 
@@ -373,9 +371,12 @@ SymbolResolver::clearSegments()
 }
 
 backtrace_state*
-SymbolResolver::findBacktraceState(const char* fileName, uintptr_t addressStart)
+SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start)
 {
-    auto it = d_backtrace_states.find(fileName);
+    // We hash into "d_backtrace_states" using a char* as it's safe on the condition that every
+    // const char* used as a key in the map is one that was returned by "d_string_storage",
+    // and it's safe because no pointer that's returned by "d_string_storage" is ever invalidated.
+    auto it = d_backtrace_states.find(filename);
     if (it != d_backtrace_states.end()) {
         return it->second;
     }
@@ -384,7 +385,7 @@ SymbolResolver::findBacktraceState(const char* fileName, uintptr_t addressStart)
     {
         const char* fileName;
     };
-    CallbackData data = {fileName};
+    CallbackData data = {filename};
 
     auto errorHandler = [](void* rawData, const char* msg, int errnum) {
         auto data = reinterpret_cast<const CallbackData*>(rawData);
@@ -409,7 +410,7 @@ SymbolResolver::findBacktraceState(const char* fileName, uintptr_t addressStart)
                         descriptor,
                         nullptr,
                         0,
-                        addressStart,
+                        address_start,
                         errorHandler,
                         &data,
                         &state->fileline_fn,
@@ -422,7 +423,7 @@ SymbolResolver::findBacktraceState(const char* fileName, uintptr_t addressStart)
                         0);
         state->syminfo_fn = (ret && foundSym) ? &elf_syminfo : &elf_nosyms;
     }
-    d_backtrace_states.insert(it, {fileName, state});
+    d_backtrace_states.insert(it, {filename, state});
     return state;
 }
 
