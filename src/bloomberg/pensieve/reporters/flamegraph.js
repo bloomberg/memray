@@ -20,15 +20,16 @@ function onInvert() {
 }
 
 // For search
-function onSearchEvent(e) {
-  // Avoid the page reload upon submit
-  e.preventDefault();
-
-  if (e.submitter.innerText == "Clear") {
-    e.target[0].value = "";
-  }
-  const term = e.target[0].value;
-  chart.search(term);
+function onSearch() {
+  const termElement = document.getElementById("searchTerm");
+  chart.search(termElement.value);
+}
+// For clear
+function onClear() {
+  const termElement = document.getElementById("searchTerm");
+  // Clear the values
+  termElement.value = "";
+  chart.search("");
 }
 
 // For determining values for the graph
@@ -127,7 +128,11 @@ function main() {
 
   // Setup event handlers
   document.getElementById("invertButton").onclick = onInvert;
-  document.getElementById("searchForm").onsubmit = onSearchEvent;
+  document.getElementById("searchButton").onclick = onSearch;
+  document.getElementById("clearButton").onclick = onClear;
+  document.getElementById("searchTerm").addEventListener("keyup", (event) => {
+    if (event.key === "Enter") onSearch();
+  });
 }
 
 var chart = null;
