@@ -4,7 +4,7 @@ isort
 mypy
 sphinx
 sphinx-autobuild
-sphinx-rtd-theme
+furo
 bump2version
 towncrier
 check-manifest
