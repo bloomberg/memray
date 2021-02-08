@@ -6,7 +6,6 @@ import pytest
 
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
-from bloomberg.pensieve import start_thread_trace
 
 
 def allocating_function():
@@ -47,17 +46,18 @@ def test_smoke(tmpdir):
 def test_smoke_in_a_thread(tmpdir):
     # GIVEN / WHEN
     output = Path(tmpdir) / "test.bin"
-    old_profile = threading._profile_hook
-    threading.setprofile(start_thread_trace)
-    try:
-        t = threading.Thread(target=allocating_function)
-        with Tracker(output) as tracker:
-            t.start()
-            t.join()
-    finally:
-        threading.setprofile(old_profile)
+
+    def custom_trace_fn():
+        pass
+
+    threading.setprofile(custom_trace_fn)
+    t = threading.Thread(target=allocating_function)
+    with Tracker(output) as tracker:
+        t.start()
+        t.join()
 
     # THEN
+    assert threading._profile_hook == custom_trace_fn
     records = list(tracker.get_allocation_records())
 
     assert len(records) >= 2

@@ -3,6 +3,7 @@ import sys
 import logging
 
 cimport cython
+import threading
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr, make_shared
@@ -121,6 +122,7 @@ cdef class Tracker:
     cdef NativeTracker* _tracker
     cdef bool _native_traces
     cdef object _previous_profile_func
+    cdef object _previous_thread_profile_func
     cdef cppstring _output_path
     cdef shared_ptr[RecordReader] _reader
 
@@ -131,9 +133,12 @@ cdef class Tracker:
     def __enter__(self):
         if pathlib.Path(self._output_path).exists():
             raise OSError(f"Output file {self._output_path} already exists")
-        self._previous_profile_func = sys.getprofile()
-        self._tracker = new NativeTracker(self._output_path, self._native_traces)
 
+        self._previous_profile_func = sys.getprofile()
+        self._previous_thread_profile_func = threading._profile_hook
+        threading.setprofile(start_thread_trace)
+
+        self._tracker = new NativeTracker(self._output_path, self._native_traces)
         return self
 
     def __del__(self):
@@ -142,6 +147,7 @@ cdef class Tracker:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         del self._tracker
         sys.setprofile(self._previous_profile_func)
+        threading.setprofile(self._previous_thread_profile_func)
 
     def get_high_watermark_allocation_records(self):
         self._reader = make_shared[RecordReader](self._output_path)
