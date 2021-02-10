@@ -63,40 +63,6 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
     return stack_to_allocation;
 }
 
-static size_t
-getHighWatermarkIndex(const allocations_t& records)
-{
-    size_t current_memory = 0;
-    size_t max_memory = 0;
-    size_t high_water_mark_index = 0;
-    std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
-
-    for (auto records_it = records.cbegin(); records_it != records.cend(); records_it++) {
-        switch (hooks::allocatorKind(records_it->record.allocator)) {
-            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR:
-            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
-                auto it = ptr_to_allocation.find(records_it->record.address);
-                if (it != ptr_to_allocation.end()) {
-                    current_memory -= records[it->second].record.size;
-                    ptr_to_allocation.erase(it);
-                }
-                break;
-            }
-            case hooks::AllocatorKind::SIMPLE_ALLOCATOR:
-            case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-                current_memory += records_it->record.size;
-                if (current_memory >= max_memory) {
-                    high_water_mark_index = records_it - records.cbegin();
-                    max_memory = current_memory;
-                }
-                ptr_to_allocation[records_it->record.address] = records_it - records.begin();
-                break;
-            }
-        }
-    }
-    return high_water_mark_index;
-}
-
 RecordReader::RecordReader(const std::string& file_name)
 {
     d_input.open(file_name, std::ios::binary | std::ios::in);
@@ -333,22 +299,48 @@ RecordReader::totalFrames() const noexcept
     return d_header.stats.n_frames;
 }
 
+size_t
+getHighWatermarkIndex(const allocations_t& records)
+{
+    size_t current_memory = 0;
+    size_t max_memory = 0;
+    size_t high_water_mark_index = 0;
+    std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
+
+    for (auto records_it = records.cbegin(); records_it != records.cend(); records_it++) {
+        switch (hooks::allocatorKind(records_it->record.allocator)) {
+            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR:
+            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+                auto it = ptr_to_allocation.find(records_it->record.address);
+                if (it != ptr_to_allocation.end()) {
+                    current_memory -= records[it->second].record.size;
+                    ptr_to_allocation.erase(it);
+                }
+                break;
+            }
+            case hooks::AllocatorKind::SIMPLE_ALLOCATOR:
+            case hooks::AllocatorKind::RANGED_ALLOCATOR: {
+                current_memory += records_it->record.size;
+                if (current_memory >= max_memory) {
+                    high_water_mark_index = records_it - records.cbegin();
+                    max_memory = current_memory;
+                }
+                ptr_to_allocation[records_it->record.address] = records_it - records.begin();
+                break;
+            }
+        }
+    }
+    return high_water_mark_index;
+}
+
 PyObject*
-Py_HighWatermarkAllocationRecords(const allocations_t& all_records)
+Py_GetSnapshotAllocationRecords(const allocations_t& all_records, size_t record_index)
 {
     if (all_records.empty()) {
         return PyList_New(0);
     }
 
-    LOG(INFO) << "Computing high watermark index";
-
-    auto high_watermark_index = getHighWatermarkIndex(all_records);
-
-    LOG(INFO) << "Preparing snapshot for high watermark index";
-
-    const auto stack_to_allocation = reduceSnapshotAllocations(all_records, high_watermark_index);
-
-    LOG(INFO) << "Converting data to Python objects";
+    const auto stack_to_allocation = reduceSnapshotAllocations(all_records, record_index);
 
     PyObject* list = PyList_New(stack_to_allocation.size());
     if (list == nullptr) {

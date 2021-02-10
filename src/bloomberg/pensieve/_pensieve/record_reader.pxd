@@ -14,4 +14,5 @@ cdef extern from "record_reader.h" namespace "pensieve::api":
         object Py_GetNativeStackFrame(int frame_id, size_t generation, size_t max_stacks) except+
         size_t totalAllocations()
 
-    object Py_HighWatermarkAllocationRecords(vector[Allocation]& all_records) except+
+    size_t getHighWatermarkIndex(const vector[Allocation]& records) except+
+    object Py_GetSnapshotAllocationRecords(const vector[Allocation]& all_records, size_t record_index) except+
