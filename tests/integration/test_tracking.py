@@ -360,3 +360,138 @@ class TestHighWatermark:
         assert record.n_allocations == 1
         assert record.allocator == AllocatorType.VALLOC
         assert record.size == 2048
+
+
+class TestLeaks:
+    def test_leaks_allocations_are_detected(self, tmp_path):
+        allocator = MemoryAllocator()
+
+        with Tracker(tmp_path / "test.bin") as tracker:
+            allocator.valloc(1024)
+        allocator.free()
+
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
+        assert len(all_allocations) == 1
+
+        leaked_allocations = list(
+            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+        )
+        assert len(leaked_allocations) == 1
+
+        record = leaked_allocations[0]
+        assert record.n_allocations == 1
+        assert record.allocator == AllocatorType.VALLOC
+        assert record.size == 1024
+
+    def test_allocations_that_are_freed_do_not_appear_as_leaks(self, tmp_path):
+        allocator = MemoryAllocator()
+
+        with Tracker(tmp_path / "test.bin") as tracker:
+            allocator.valloc(1024)
+            allocator.free()
+            allocator.valloc(1024)
+            allocator.free()
+            allocator.valloc(1024)
+            allocator.free()
+
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
+        assert len(all_allocations) == 6
+
+        leaked_allocations = list(
+            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+        )
+        assert not leaked_allocations
+
+    def test_leak_that_happens_in_the_middle_is_detected(self, tmp_path):
+        allocator = MemoryAllocator()
+        leak_allocator = MemoryAllocator()
+
+        with Tracker(tmp_path / "test.bin") as tracker:
+            allocator.valloc(1024)
+            allocator.free()
+            allocator.valloc(1024)
+            leak_allocator.valloc(2048)
+            allocator.free()
+            allocator.valloc(1024)
+            allocator.free()
+        leak_allocator.free()
+
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
+        assert len(all_allocations) == 7
+
+        leaked_allocations = list(
+            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+        )
+
+        assert len(leaked_allocations) == 1
+
+        record = leaked_allocations[0]
+        assert record.n_allocations == 1
+        assert record.allocator == AllocatorType.VALLOC
+        assert record.size == 2048
+
+    def test_leaks_that_happens_in_different_lines(self, tmp_path):
+
+        allocator1 = MemoryAllocator()
+        allocator2 = MemoryAllocator()
+        with Tracker(tmp_path / "test.bin") as tracker:
+            allocator1.valloc(1024)
+            allocator2.valloc(2048)
+
+        allocator1.free()
+        allocator2.free()
+
+        leaked_allocations = list(
+            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+        )
+        assert len(leaked_allocations) == 2
+        assert sum(record.size for record in leaked_allocations) == 1024 + 2048
+        assert all(record.n_allocations == 1 for record in leaked_allocations)
+
+    def test_leaks_that_happen_in_the_same_function_are_aggregated(self, tmp_path):
+
+        allocators = []
+
+        def foo():
+            allocator = MemoryAllocator()
+            allocator.valloc(1024)
+            allocators.append(allocator)
+
+        with Tracker(tmp_path / "test.bin") as tracker:
+            for _ in range(10):
+                foo()
+
+        for allocator in allocators:
+            allocator.free()
+
+        all_allocations = list(
+            filter_relevant_allocations(tracker.get_allocation_records())
+        )
+        assert len(all_allocations) == 10
+
+        leaked_allocations = list(
+            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+        )
+        assert len(leaked_allocations) == 1
+        (allocation,) = leaked_allocations
+        assert allocation.size == 1024 * 10
+        assert allocation.n_allocations == 10
+
+    def test_unmatched_deallocations_are_not_reported(self, tmp_path):
+
+        allocator = MemoryAllocator()
+        allocator.valloc(1234)
+        with Tracker(tmp_path / "test.bin") as tracker:
+            allocator.free()
+
+        all_allocations = list(tracker.get_allocation_records())
+        assert len(all_allocations) >= 1
+        assert not list(
+            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+        )

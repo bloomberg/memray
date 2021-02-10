@@ -69,7 +69,9 @@ class RecordReader
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
 
+size_t
+getHighWatermarkIndex(const allocations_t& records);
 PyObject*
-Py_HighWatermarkAllocationRecords(const allocations_t& all_records);
+Py_GetSnapshotAllocationRecords(const allocations_t& all_records, size_t record_index);
 
 }  // namespace pensieve::api

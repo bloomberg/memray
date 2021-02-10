@@ -17,7 +17,8 @@ from _pensieve.logging cimport initializePythonLoggerInterface
 from _pensieve.alloc cimport calloc, free, malloc, realloc, posix_memalign, memalign, valloc, pvalloc
 from _pensieve.pthread cimport pthread_create, pthread_join, pthread_t
 from _pensieve.record_reader cimport RecordReader
-from _pensieve.record_reader cimport Py_HighWatermarkAllocationRecords
+from _pensieve.record_reader cimport getHighWatermarkIndex
+from _pensieve.record_reader cimport Py_GetSnapshotAllocationRecords
 from _pensieve.records cimport Allocation as NativeAllocation
 
 initializePythonLoggerInterface()
@@ -125,6 +126,7 @@ cdef class Tracker:
     cdef object _previous_thread_profile_func
     cdef cppstring _output_path
     cdef shared_ptr[RecordReader] _reader
+    cdef vector[NativeAllocation] _native_allocations
 
     def __cinit__(self, object file_name, *, bool native_traces=False):
         self._output_path = str(file_name)
@@ -149,26 +151,40 @@ cdef class Tracker:
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
 
-    def get_high_watermark_allocation_records(self):
-        self._reader = make_shared[RecordReader](self._output_path)
-        cdef RecordReader* reader = self._reader.get()
-        cdef bool res
+    cdef inline void _get_allocations(self, RecordReader* reader):
+        if self._native_allocations.size() != 0:
+            return
+
         cdef NativeAllocation native_allocation
-        cdef vector[NativeAllocation] all_allocations
-        all_allocations.reserve(self.total_allocations)
-
+        self._native_allocations.reserve(self.total_allocations)
         while reader.nextAllocationRecord(&native_allocation):
-            all_allocations.push_back(move(native_allocation))
+            self._native_allocations.push_back(move(native_allocation))
 
-        for elem in Py_HighWatermarkAllocationRecords(all_allocations):
+    def _yield_allocations(self, size_t index):
+        assert(self._reader.get() != NULL)
+        for elem in Py_GetSnapshotAllocationRecords(self._native_allocations, index):
             alloc = AllocationRecord(elem);
             (<AllocationRecord>alloc)._reader = self._reader
             yield alloc
 
+    def get_high_watermark_allocation_records(self):
+        self._reader = make_shared[RecordReader](self._output_path)
+        cdef RecordReader* reader = self._reader.get()
+        self._get_allocations(reader)
+        cdef size_t high_watermark_index = getHighWatermarkIndex(self._native_allocations)
+        yield from self._yield_allocations(high_watermark_index)
+
+    def get_leaked_allocation_records(self):
+        self._reader = make_shared[RecordReader](self._output_path)
+        cdef RecordReader* reader = self._reader.get()
+        self._get_allocations(reader)
+
+        cdef size_t snapshot_index = self._native_allocations.size() - 1
+        yield from self._yield_allocations(snapshot_index)
+
     def get_allocation_records(self):
         self._reader = make_shared[RecordReader](self._output_path)
         cdef RecordReader* reader = self._reader.get()
-        cdef bool res
         cdef NativeAllocation native_allocation
 
         while reader.nextAllocationRecord(&native_allocation):
