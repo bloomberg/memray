@@ -40,6 +40,8 @@ def get_argument_parser() -> argparse.ArgumentParser:
             """
         ),
     )
+    parser.add_argument("-v", "--verbose", action="count", default=0)
+
     subparsers = parser.add_subparsers(
         help="Mode of operation",
         dest="command",
@@ -54,8 +56,6 @@ def get_argument_parser() -> argparse.ArgumentParser:
         # Add the subcommand
         command_parser = subparsers.add_parser(name, help=command.__doc__)
         command_parser.set_defaults(entrypoint=command.main)
-
-        command_parser.add_argument("-v", "--verbose", action="count", default=0)
         command.prepare_parser(command_parser)
 
     return parser
