@@ -11,6 +11,15 @@ from typing_extensions import Protocol
 from . import flamegraph
 from . import run
 
+_EPILOG = textwrap.dedent(
+    """\
+    This is *EXPERIMENTAL* software.
+
+    Please submit feedback, ideas and bugs by filing a new issue at
+    https://bbgithub.dev.bloomberg.com/python/bloomberg-pensieve/issues
+    """
+)
+
 
 class Command(Protocol):
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
@@ -31,15 +40,16 @@ def get_argument_parser() -> argparse.ArgumentParser:
         description="Memory profiler for Python applications",
         prog="pensieve",
         formatter_class=argparse.RawTextHelpFormatter,
-        epilog=textwrap.dedent(
-            """\
-            This is *EXPERIMENTAL* software.
-
-            Please submit feedback, ideas and bugs by filing a new issue at
-            https://bbgithub.dev.bloomberg.com/python/bloomberg-pensieve/issues
-            """
-        ),
+        epilog=_EPILOG,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity. Option is additive, can be specified up to 3 times.",
+    )
+
     subparsers = parser.add_subparsers(
         help="Mode of operation",
         dest="command",
@@ -52,10 +62,10 @@ def get_argument_parser() -> argparse.ArgumentParser:
         name = command.__class__.__name__[: -len("Command")].lower()
 
         # Add the subcommand
-        command_parser = subparsers.add_parser(name, help=command.__doc__)
+        command_parser = subparsers.add_parser(
+            name, help=command.__doc__, epilog=_EPILOG
+        )
         command_parser.set_defaults(entrypoint=command.main)
-
-        command_parser.add_argument("-v", "--verbose", action="count", default=0)
         command.prepare_parser(command_parser)
 
     return parser
