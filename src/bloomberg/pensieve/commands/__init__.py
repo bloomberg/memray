@@ -42,7 +42,13 @@ def get_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=_EPILOG,
     )
-    parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity. Option is additive, can be specified up to 3 times.",
+    )
 
     subparsers = parser.add_subparsers(
         help="Mode of operation",
