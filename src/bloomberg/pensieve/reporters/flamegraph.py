@@ -18,7 +18,7 @@ def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
     return node
 
 
-def create_framegraph_node_from_stack_flame(
+def create_framegraph_node_from_stack_frame(
     stack_frame: Tuple[str, str, int]
 ) -> Dict[str, Any]:
     function, filename, lineno = stack_frame
@@ -67,7 +67,7 @@ class FlameGraphReporter:
             current_frame = data
             for stack_frame in reversed(record.stack_trace()):
                 if stack_frame not in current_frame["children"]:
-                    node = create_framegraph_node_from_stack_flame(stack_frame)
+                    node = create_framegraph_node_from_stack_frame(stack_frame)
                     current_frame["children"][stack_frame] = node
 
                 current_frame = current_frame["children"][stack_frame]
