@@ -67,9 +67,18 @@ thread_id()
 
 // Tracker interface
 
+static const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
+
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
-static thread_local size_t stack_size = 0;
-static thread_local PyFrameObject* current_frame = nullptr;
+static thread_local PyFrameObject* top_frame = nullptr;
+static thread_local std::vector<PyFrameObject*> python_stack{};
+
+static inline int
+getCurrentPythonLineNumber()
+{
+    const PyFrameObject* the_python_stack = python_stack.empty() ? top_frame : python_stack.back();
+    return the_python_stack ? PyCode_Addr2Line(the_python_stack->f_code, the_python_stack->f_lasti) : 0;
+}
 
 Tracker::Tracker(const std::string& file_name, bool native_frames)
 : d_unwind_native_frames(native_frames)
@@ -81,6 +90,7 @@ Tracker::Tracker(const std::string& file_name, bool native_frames)
     call_once(once, [] {
         pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
         NativeTrace::setup();
+        python_stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
     });
 
     d_writer->writeHeader();
@@ -88,8 +98,8 @@ Tracker::Tracker(const std::string& file_name, bool native_frames)
     updateModuleCache();
 
     RecursionGuard guard;
-    tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
     tracking_api::Tracker::getTracker()->activate();
+    tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
     elf::overwrite_symbols();
 }
 Tracker::~Tracker()
@@ -108,7 +118,7 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
-    int lineno = current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
+    int lineno = getCurrentPythonLineNumber();
 
     size_t native_index = 0;
     if (d_unwind_native_frames) {
@@ -141,7 +151,7 @@ Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
-    int lineno = current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
+    int lineno = getCurrentPythonLineNumber();
     AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, 0};
     d_writer->writeRecord(RecordType::ALLOCATION, record);
 }
@@ -216,10 +226,6 @@ Tracker::registerFrame(const RawFrame& frame)
 void
 Tracker::popFrame(const RawFrame& frame)
 {
-    if (stack_size == 0) {
-        return;
-    }
-    stack_size--;
     const frame_id_t frame_id = registerFrame(frame);
     const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::POP};
     d_writer->writeRecord(RecordType::FRAME, entry);
@@ -228,7 +234,6 @@ Tracker::popFrame(const RawFrame& frame)
 void
 Tracker::pushFrame(const RawFrame& frame)
 {
-    stack_size++;
     const frame_id_t frame_id = registerFrame(frame);
     const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::PUSH};
     d_writer->writeRecord(RecordType::FRAME, entry);
@@ -280,16 +285,17 @@ PyTraceFunction(
     if (filename == nullptr) {
         return -1;
     }
-    int parent_lineno =
-            current_frame ? PyCode_Addr2Line(current_frame->f_code, current_frame->f_lasti) : 0;
+    int parent_lineno = getCurrentPythonLineNumber();
     switch (what) {
         case PyTrace_CALL:
-            current_frame = frame;
+            python_stack.push_back(frame);
             Tracker::getTracker()->pushFrame({function, filename, parent_lineno});
             break;
         case PyTrace_RETURN: {
-            Tracker::getTracker()->popFrame({function, filename, parent_lineno});
-            current_frame = frame->f_back;
+            if (!python_stack.empty()) {
+                Tracker::getTracker()->popFrame({function, filename, parent_lineno});
+                python_stack.pop_back();
+            }
             break;
         }
         default:
@@ -303,7 +309,8 @@ install_trace_function()
 {
     assert(PyGILState_Check());
     RecursionGuard guard;
-    stack_size = 0;
+    python_stack.clear();
+    top_frame = PyEval_GetFrame();
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
 }
 

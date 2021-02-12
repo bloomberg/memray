@@ -1,9 +1,11 @@
 import sys
 from pathlib import Path
+from unittest.mock import ANY
 
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
+from bloomberg.pensieve._test import _cython_nested_allocation
 
 
 def alloc_func3(allocator):
@@ -47,9 +49,9 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 11),
-        ("alloc_func2", __file__, 20),
-        ("alloc_func1", __file__, 27),
+        ("alloc_func3", __file__, 13),
+        ("alloc_func2", __file__, 22),
+        ("alloc_func1", __file__, 29),
     ]
     frees = [
         record
@@ -60,9 +62,9 @@ def test_traceback(tmpdir):
     (free,) = frees
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 13),
-        ("alloc_func2", __file__, 20),
-        ("alloc_func1", __file__, 27),
+        ("alloc_func3", __file__, 15),
+        ("alloc_func2", __file__, 22),
+        ("alloc_func1", __file__, 29),
     ]
 
 
@@ -84,9 +86,9 @@ def test_traceback_for_high_watermark(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 11),
-        ("alloc_func2", __file__, 20),
-        ("alloc_func1", __file__, 27),
+        ("alloc_func3", __file__, 13),
+        ("alloc_func2", __file__, 22),
+        ("alloc_func1", __file__, 29),
     ]
 
 
@@ -114,6 +116,48 @@ def test_traceback_iteration_does_not_depend_on_the_order_of_elements(tmpdir):
     alloc1, alloc2 = allocs
     assert traceback2 == list(alloc2.stack_trace())
     assert traceback1 == list(alloc1.stack_trace())
+
+
+def test_cython_traceback(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        _cython_nested_allocation(allocator.valloc, 1234)
+    allocator.free()
+    records = list(tracker.get_allocation_records())
+
+    # THEN
+
+    allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+    assert len(allocs) == 2
+    alloc1, alloc2 = allocs
+
+    traceback = list(alloc1.stack_trace())
+    assert traceback[-3:] == [
+        ("valloc", ANY, 238),
+        ("_cython_nested_allocation", ANY, 253),
+    ]
+
+    traceback = list(alloc2.stack_trace())
+    assert traceback[-3:] == [
+        ("_cython_nested_allocation", ANY, 253),
+    ]
+
+    frees = [
+        record
+        for record in records
+        if record.allocator == AllocatorType.FREE and record.address == alloc2.address
+    ]
+    assert len(frees) == 1
+    (free,) = frees
+    traceback = list(free.stack_trace())
+    assert traceback[-3:] == [
+        ("_cython_nested_allocation", ANY, 253),
+    ]
 
 
 def test_records_can_be_retrieved_twice(tmpdir):
