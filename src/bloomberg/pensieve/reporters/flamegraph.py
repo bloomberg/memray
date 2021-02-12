@@ -24,10 +24,10 @@ def create_framegraph_node_from_stack_frame(
     function, filename, lineno = stack_frame
 
     name = linecache.getline(filename, lineno) or f"{filename}:{lineno}"
-    tooltip = html.escape(f"File {filename}, line {lineno} in {function}")
+    location = html.escape(f"File {filename}, line {lineno} in {function}")
     return {
         "name": name,
-        "tooltip": tooltip,
+        "location": location,
         "value": 0,
         "children": {},
         "n_allocations": 0,
@@ -46,7 +46,7 @@ class FlameGraphReporter:
     ) -> "FlameGraphReporter":
         data: Dict[str, Any] = {
             "name": "<root>",
-            "tooltip": "The overall context that <b>pensieve</b> is run in.",
+            "location": "The overall context that <b>pensieve</b> is run in.",
             "value": 0,
             "children": {},
             "n_allocations": 0,
