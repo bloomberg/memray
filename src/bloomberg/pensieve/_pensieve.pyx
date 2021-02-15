@@ -205,6 +205,8 @@ def start_thread_trace(frame, event, arg):
     return start_thread_trace
 
 
+# Testing utilities
+
 cdef class MemoryAllocator:
     cdef void* ptr
 
@@ -246,6 +248,12 @@ cdef class MemoryAllocator:
             raise RuntimeError("Failed to create thread")
         with nogil:
             pthread_join(thread, NULL)
+
+
+def _cython_nested_allocation(allocator_fn, size):
+    allocator_fn(size)
+    cdef void* p = valloc(size);
+    free(p)
 
 
 cdef void* _pthread_worker(void* arg) with gil:
