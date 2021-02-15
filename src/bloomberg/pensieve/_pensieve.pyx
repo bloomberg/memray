@@ -153,9 +153,13 @@ cdef class Tracker:
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
 
+    cdef inline RecordReader* _get_new_reader(self):
+        self._reader = make_shared[RecordReader](self._output_path)
+        return self._reader.get()
+
     cdef inline void _get_allocations(self, RecordReader* reader):
         if self._native_allocations.size() != 0:
-            return
+            self._native_allocations.clear()
 
         cdef NativeAllocation native_allocation
         self._native_allocations.reserve(self.total_allocations)
@@ -168,17 +172,16 @@ cdef class Tracker:
             alloc = AllocationRecord(elem);
             (<AllocationRecord>alloc)._reader = self._reader
             yield alloc
+        self._native_allocations.clear()
 
     def get_high_watermark_allocation_records(self):
-        self._reader = make_shared[RecordReader](self._output_path)
-        cdef RecordReader* reader = self._reader.get()
+        cdef RecordReader* reader = self._get_new_reader()
         self._get_allocations(reader)
         cdef size_t high_watermark_index = getHighWatermarkIndex(self._native_allocations)
         yield from self._yield_allocations(high_watermark_index)
 
     def get_leaked_allocation_records(self):
-        self._reader = make_shared[RecordReader](self._output_path)
-        cdef RecordReader* reader = self._reader.get()
+        cdef RecordReader* reader = self._get_new_reader()
         self._get_allocations(reader)
 
         cdef size_t snapshot_index = self._native_allocations.size() - 1

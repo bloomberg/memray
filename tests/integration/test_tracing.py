@@ -138,13 +138,13 @@ def test_cython_traceback(tmpdir):
 
     traceback = list(alloc1.stack_trace())
     assert traceback[-3:] == [
-        ("valloc", ANY, 240),
-        ("_cython_nested_allocation", ANY, 255),
+        ("valloc", ANY, 243),
+        ("_cython_nested_allocation", ANY, 258),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 255),
+        ("_cython_nested_allocation", ANY, 258),
     ]
 
     frees = [
@@ -156,7 +156,7 @@ def test_cython_traceback(tmpdir):
     (free,) = frees
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 255),
+        ("_cython_nested_allocation", ANY, 258),
     ]
 
 
@@ -178,6 +178,24 @@ def test_records_can_be_retrieved_twice(tmpdir):
     assert records1 == records2
 
 
+def test_high_watermark_records_can_be_retrieved_twice(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+
+    # THEN
+
+    records1 = list(tracker.get_high_watermark_allocation_records())
+    records2 = list(tracker.get_high_watermark_allocation_records())
+
+    assert records1 == records2
+
+
 def test_traceback_can_be_retrieved_twice(tmpdir):
     # GIVEN
     allocator = MemoryAllocator()
@@ -195,6 +213,28 @@ def test_traceback_can_be_retrieved_twice(tmpdir):
     (alloc,) = allocs
     traceback1 = list(alloc.stack_trace())
     traceback2 = list(alloc.stack_trace())
+    assert traceback1 == traceback2
+
+
+def test_traceback_for_high_watermark_records_can_be_retrieved_twice(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output) as tracker:
+        alloc_func1(allocator)
+
+    # THEN
+
+    records = list(tracker.get_high_watermark_allocation_records())
+    (alloc,) = records
+    traceback1 = list(alloc.stack_trace())
+    records = list(tracker.get_high_watermark_allocation_records())
+    (alloc,) = records
+    traceback2 = list(alloc.stack_trace())
+
     assert traceback1 == traceback2
 
 
