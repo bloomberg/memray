@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pensieve</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
+    integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+  <style>{{ css }}</style>
+
+</head>
+
+<body>
+  <!-- Header -->
+  <nav class="navbar sticky-top navbar-dark bg-dark">
+    <a class="navbar-brand" href="#">
+      <span class="navbar-brand mb-0 mr-2 h1">pensieve</span>table
+    </a>
+
+    <div class="navbar-center">
+    </div>
+
+    <div class="form-inline">
+      <input id="searchTerm" class="form-control" type="search" placeholder="Search Frame">
+      <button id="searchButton" class="btn btn-outline-light my-2 ml-1" type="submit">Search</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="container-fluid">
+    <div class="row">
+      <div class="col bg-light py-3">
+        <div class="chart-container">
+          <table class="table table-striped" id="the_table">
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Javascript -->
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
+  <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/dataTables.bootstrap4.min.js"></script>
+  <script type="text/javascript">
+    const table_data = {{ table_data }}
+    {{ js }}
+  </script>
+</body>
+
+</html>
