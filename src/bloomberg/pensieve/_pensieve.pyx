@@ -6,7 +6,7 @@ cimport cython
 import threading
 
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr, make_shared
+from libcpp.memory cimport shared_ptr, make_shared, unique_ptr
 from libcpp.string cimport string as cppstring
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -24,6 +24,8 @@ from _pensieve.records cimport Allocation as NativeAllocation
 initializePythonLoggerInterface()
 
 LOGGER = logging.getLogger(__file__)
+
+cdef unique_ptr[NativeTracker] _TRACKER
 
 cdef api void log_with_python(cppstring message, int level):
     LOGGER.log(level, message)
@@ -118,9 +120,7 @@ cdef class AllocationRecord:
                 f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}, "
                 f"allocations={self.n_allocations}>")
 
-
 cdef class Tracker:
-    cdef NativeTracker* _tracker
     cdef bool _native_traces
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
@@ -135,19 +135,21 @@ cdef class Tracker:
     def __enter__(self):
         if pathlib.Path(self._output_path).exists():
             raise OSError(f"Output file {self._output_path} already exists")
+        if _TRACKER.get() != NULL:
+            raise RuntimeError("No more than one Tracker instance can be active at the same time")
 
         self._previous_profile_func = sys.getprofile()
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
-        self._tracker = new NativeTracker(self._output_path, self._native_traces)
+        _TRACKER.reset(new NativeTracker(self._output_path, self._native_traces))
         return self
 
     def __del__(self):
         self._reader.reset()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        del self._tracker
+        _TRACKER.reset(NULL)
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
 
