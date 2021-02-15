@@ -19,19 +19,6 @@ function onInvert() {
   chart.resetZoom();
 }
 
-// For search
-function onSearch() {
-  const termElement = document.getElementById("searchTerm");
-  chart.search(termElement.value);
-}
-// For clear
-function onClear() {
-  const termElement = document.getElementById("searchTerm");
-  // Clear the values
-  termElement.value = "";
-  chart.search("");
-}
-
 // For determining values for the graph
 function getChartWidth() {
   // Figure out the width from window size
@@ -128,10 +115,9 @@ function main() {
 
   // Setup event handlers
   document.getElementById("invertButton").onclick = onInvert;
-  document.getElementById("searchButton").onclick = onSearch;
-  document.getElementById("clearButton").onclick = onClear;
-  document.getElementById("searchTerm").addEventListener("keyup", (event) => {
-    if (event.key === "Enter") onSearch();
+  document.getElementById("searchTerm").addEventListener("input", () => {
+    const termElement = document.getElementById("searchTerm");
+    chart.search(termElement.value);
   });
 }
 
