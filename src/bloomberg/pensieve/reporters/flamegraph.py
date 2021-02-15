@@ -18,18 +18,20 @@ def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
     return node
 
 
-def create_framegraph_node_from_stack_flame(
+def create_framegraph_node_from_stack_frame(
     stack_frame: Tuple[str, str, int]
 ) -> Dict[str, Any]:
     function, filename, lineno = stack_frame
 
     name = linecache.getline(filename, lineno) or f"{filename}:{lineno}"
-    tooltip = html.escape(f"File {filename}, line {lineno} in {function}")
+    location = html.escape(f"File {filename}, line {lineno} in {function}")
     return {
         "name": name,
-        "tooltip": tooltip,
+        "location": location,
         "value": 0,
         "children": {},
+        "n_allocations": 0,
+        "allocations_label": "",
     }
 
 
@@ -44,24 +46,38 @@ class FlameGraphReporter:
     ) -> "FlameGraphReporter":
         data: Dict[str, Any] = {
             "name": "<root>",
-            "tooltip": "The overall context that <b>pensieve</b> is run in.",
+            "location": "The overall context that <b>pensieve</b> is run in.",
             "value": 0,
             "children": {},
+            "n_allocations": 0,
+            "allocations_label": "",
         }
+
+        def gen_allocations_label(n_allocations: int) -> str:
+            return html.escape(
+                f"{n_allocations} allocation{'s' if n_allocations > 1 else ''}"
+            )
 
         for record in allocations:
             size = record.size
 
             data["value"] += size
+            data["n_allocations"] += record.n_allocations
 
             current_frame = data
             for stack_frame in reversed(record.stack_trace()):
                 if stack_frame not in current_frame["children"]:
-                    node = create_framegraph_node_from_stack_flame(stack_frame)
+                    node = create_framegraph_node_from_stack_frame(stack_frame)
                     current_frame["children"][stack_frame] = node
 
                 current_frame = current_frame["children"][stack_frame]
                 current_frame["value"] += size
+                current_frame["n_allocations"] += record.n_allocations
+                current_frame["allocations_label"] = gen_allocations_label(
+                    current_frame["n_allocations"]
+                )
+
+        data["allocations_label"] = gen_allocations_label(data["n_allocations"])
 
         transformed_data = with_converted_children_dict(data)
         return cls(transformed_data)
