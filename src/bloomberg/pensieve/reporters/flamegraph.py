@@ -84,7 +84,7 @@ class FlameGraphReporter:
 
     def render(self, outfile: TextIO) -> None:
         package = "bloomberg.pensieve.reporters"
-        css_code = importlib.resources.read_text(package, "flamegraph.css")
+        css_code = importlib.resources.read_text(package, "pensieve.css")
         js_code = importlib.resources.read_text(package, "flamegraph.js")
         common_js_code = importlib.resources.read_text(package, "common.js")
         template = importlib.resources.read_text(package, "flamegraph.template.html")
