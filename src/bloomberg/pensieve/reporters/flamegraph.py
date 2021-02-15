@@ -86,11 +86,13 @@ class FlameGraphReporter:
         package = "bloomberg.pensieve.reporters"
         css_code = importlib.resources.read_text(package, "flamegraph.css")
         js_code = importlib.resources.read_text(package, "flamegraph.js")
+        common_js_code = importlib.resources.read_text(package, "common.js")
         template = importlib.resources.read_text(package, "flamegraph.template.html")
 
         # Make the replacements to generate the final HTML output
         replacements = [
             ("{{ css }}", css_code),
+            ("{{ common_js }}", common_js_code),
             ("{{ js }}", js_code),
             ("{{ flamegraph_data }}", json.dumps(self.data)),
         ]

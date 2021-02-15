@@ -44,11 +44,13 @@ class TableReporter:
     def render(self, outfile: TextIO) -> None:
         package = "bloomberg.pensieve.reporters"
         css_code = importlib.resources.read_text(package, "flamegraph.css")
+        common_js_code = importlib.resources.read_text(package, "common.js")
         js_code = importlib.resources.read_text(package, "table.js")
         template = importlib.resources.read_text(package, "table.template.html")
 
         replacements = [
             ("{{ css }}", css_code),
+            ("{{ common_js }}", common_js_code),
             ("{{ js }}", js_code),
             ("{{ table_data }}", json.dumps(self.data)),
         ]
