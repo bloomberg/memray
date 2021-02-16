@@ -10,6 +10,7 @@ from typing_extensions import Protocol
 
 from . import flamegraph
 from . import run
+from . import table
 
 _EPILOG = textwrap.dedent(
     """\
@@ -32,6 +33,7 @@ class Command(Protocol):
 _COMMANDS: List[Command] = [
     run.RunCommand(),
     flamegraph.FlamegraphCommand(),
+    table.TableCommand(),
 ]
 
 
