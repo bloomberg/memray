@@ -5,13 +5,6 @@ function main() {
       data: "tid",
     },
     {
-      title: "Address",
-      data: "address",
-      render: function (data, type, row, meta) {
-        return "0x" + data.toString(16);
-      },
-    },
-    {
       title: "Size",
       data: "size",
       render: function (data, type, row, meta) {

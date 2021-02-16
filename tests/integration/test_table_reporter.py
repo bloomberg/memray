@@ -26,7 +26,6 @@ class TestTableReporter:
         assert table.data == [
             {
                 "tid": 1,
-                "address": 16777216,
                 "size": 1024,
                 "allocator": "malloc",
                 "n_allocations": 1,
@@ -63,7 +62,6 @@ class TestTableReporter:
         assert table.data == [
             {
                 "tid": 1,
-                "address": 16777216,
                 "size": 1024,
                 "allocator": "malloc",
                 "n_allocations": 1,
@@ -71,7 +69,6 @@ class TestTableReporter:
             },
             {
                 "tid": 1,
-                "address": 17825792,
                 "size": 2048,
                 "allocator": "valloc",
                 "n_allocations": 10,
@@ -95,7 +92,6 @@ class TestTableReporter:
         assert table.data == [
             {
                 "tid": 1,
-                "address": 16777216,
                 "size": 1024,
                 "allocator": "malloc",
                 "n_allocations": 1,
