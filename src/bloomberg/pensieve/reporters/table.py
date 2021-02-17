@@ -31,7 +31,6 @@ class TableReporter:
             result.append(
                 dict(
                     tid=record.tid,
-                    address=record.address,
                     size=record.size,
                     allocator=allocator.name.lower(),
                     n_allocations=record.n_allocations,
