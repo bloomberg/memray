@@ -25,4 +25,5 @@ class TableCommand:
         with open(args.output, "w") as f:
             reporter.render(f)
 
+        print(f"Wrote {args.output}")
         return 0
