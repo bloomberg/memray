@@ -16,11 +16,12 @@ def allocating_function(allocator, event):
 
 
 def test_thread_allocations_after_tracker_is_deactivated(tmpdir):
-    # GIVEN / WHEN
+    # GIVEN
     output = Path(tmpdir) / "test.bin"
     event = threading.Event()
     allocator = MemoryAllocator()
 
+    # WHEN
     with Tracker(output) as tracker:
         t = threading.Thread(target=allocating_function, args=(allocator, event))
         t.start()

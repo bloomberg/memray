@@ -14,6 +14,7 @@ class TestFlameGraphReporter:
         assert reporter.data["children"] == []
 
     def test_works_with_single_call(self):
+        # GIVEN
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -29,7 +30,11 @@ class TestFlameGraphReporter:
                 ],
             ),
         ]
+
+        # WHEN
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+
+        # THEN
         assert reporter.data == {
             "name": "<root>",
             "location": "The overall context that <b>pensieve</b> is run in.",
@@ -67,6 +72,7 @@ class TestFlameGraphReporter:
         }
 
     def test_works_with_multiple_stacks_from_same_caller(self):
+        # GIVEN
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -95,7 +101,11 @@ class TestFlameGraphReporter:
                 ],
             ),
         ]
+
+        # WHEN
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+
+        # THEN
         assert reporter.data == {
             "name": "<root>",
             "location": "The overall context that <b>pensieve</b> is run in.",
@@ -141,6 +151,7 @@ class TestFlameGraphReporter:
         }
 
     def test_sanity_check_with_real_allocations(self, tmp_path):
+        # GIVEN
         allocator = MemoryAllocator()
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator.valloc(1024)
@@ -150,8 +161,10 @@ class TestFlameGraphReporter:
             tracker.get_high_watermark_allocation_records()
         )
 
+        # WHEN
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
 
+        # THEN
         assert reporter.data["name"] == "<root>"
         assert reporter.data["value"] == 1024
 
@@ -162,6 +175,7 @@ class TestFlameGraphReporter:
         assert child["name"] == "    def valloc(self, size_t size):\n"
 
     def test_works_with_multiple_stacks_from_same_caller_two_frames_above(self):
+        # GIVEN
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -190,7 +204,11 @@ class TestFlameGraphReporter:
                 ],
             ),
         ]
+
+        # WHEN
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+
+        # THEN
         assert reporter.data == {
             "name": "<root>",
             "location": "The overall context that <b>pensieve</b> is run in.",
@@ -245,6 +263,7 @@ class TestFlameGraphReporter:
         }
 
     def test_works_with_recursive_calls(self):
+        # GIVEN
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -264,7 +283,11 @@ class TestFlameGraphReporter:
                 ],
             ),
         ]
+
+        # WHEN
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+
+        # THEN
         assert reporter.data == {
             "name": "<root>",
             "location": "The overall context that <b>pensieve</b> is run in.",
@@ -338,6 +361,7 @@ class TestFlameGraphReporter:
         }
 
     def test_works_with_multiple_top_level_nodes(self):
+        # GIVEN
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -366,7 +390,11 @@ class TestFlameGraphReporter:
                 ],
             ),
         ]
+
+        # WHEN
         reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+
+        # THEN
         assert reporter.data == {
             "name": "<root>",
             "location": "The overall context that <b>pensieve</b> is run in.",

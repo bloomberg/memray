@@ -6,6 +6,7 @@ import textwrap
 
 class TestRunSubcommand:
     def test_run(self, tmp_path):
+        # GIVEN / WHEN
         proc = subprocess.run(
             [
                 sys.executable,
@@ -21,13 +22,18 @@ class TestRunSubcommand:
             text=True,
             cwd=str(tmp_path),
         )
+
+        # THEN
         assert "usage: python -m json.tool" in proc.stdout
         assert proc.returncode == 0
         out_file = re.search("Writing profile results into (.*)", proc.stdout).group(1)
         assert (tmp_path / out_file).exists()
 
     def test_run_override_output(self, tmp_path):
+        # GIVEN
         out_file = tmp_path / "result.out"
+
+        # WHEN
         proc = subprocess.run(
             [
                 sys.executable,
@@ -44,6 +50,8 @@ class TestRunSubcommand:
             capture_output=True,
             text=True,
         )
+
+        # THEN
         assert "usage: python -m json.tool" in proc.stdout
         assert proc.returncode == 0
         assert out_file.exists()
@@ -51,6 +59,8 @@ class TestRunSubcommand:
     def test_run_file_with_args(self, tmp_path):
         """Execute a Python script and make sure the arguments in the script
         are correctly forwarded."""
+
+        # GIVEN
         out_file = tmp_path / "result.out"
         target_file = tmp_path / "test.py"
         target_file.write_text(
@@ -62,6 +72,8 @@ class TestRunSubcommand:
         """
             )
         )
+
+        # WHEN
         proc = subprocess.run(
             [
                 sys.executable,
@@ -77,6 +89,8 @@ class TestRunSubcommand:
             capture_output=True,
             text=True,
         )
+
+        # THEN
         assert proc.returncode == 0
         assert re.search(r"Command: (.*)test\.py", proc.stdout)
         assert "Arg: arg1" in proc.stdout

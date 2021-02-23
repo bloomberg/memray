@@ -5,10 +5,14 @@ from tests.utils import MockAllocationRecord
 
 class TestTableReporter:
     def test_empty_report(self):
+        # GIVEN / WHEN
         table = TableReporter.from_snapshot([])
+
+        # THEN
         assert table.data == []
 
     def test_single_allocation(self):
+        # GIVEN
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -22,7 +26,11 @@ class TestTableReporter:
                 ],
             ),
         ]
+
+        # WHEN
         table = TableReporter.from_snapshot(peak_allocations)
+
+        # THEN
         assert table.data == [
             {
                 "tid": 1,
@@ -34,6 +42,7 @@ class TestTableReporter:
         ]
 
     def test_multiple_allocations(self):
+        # GIVEN
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -58,7 +67,11 @@ class TestTableReporter:
                 ],
             ),
         ]
+
+        # WHEN
         table = TableReporter.from_snapshot(peak_allocations)
+
+        # THEN
         assert table.data == [
             {
                 "tid": 1,
@@ -77,6 +90,7 @@ class TestTableReporter:
         ]
 
     def test_empty_stack_trace(self):
+        # GIVEN
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -88,7 +102,11 @@ class TestTableReporter:
                 _stack=[],
             ),
         ]
+
+        # WHEN
         table = TableReporter.from_snapshot(peak_allocations)
+
+        # THEN
         assert table.data == [
             {
                 "tid": 1,

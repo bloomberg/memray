@@ -35,6 +35,7 @@ def test_simple_allocation_tracking(allocator_func, allocator_type, tmp_path):
         getattr(allocator, allocator_func)(1234)
         allocator.free()
 
+    # THEN
     allocations = list(tracker.get_allocation_records())
     allocs = [
         event
@@ -86,6 +87,7 @@ def test_pthread_tracking(tmp_path):
     with Tracker(tmp_path / "test.bin") as tracker:
         allocator.run_in_pthread(tracking_function)
 
+    # THEN
     allocations = list(tracker.get_allocation_records())
     allocs = [
         event
@@ -105,19 +107,24 @@ def test_pthread_tracking(tmp_path):
 
 class TestHighWatermark:
     def test_no_allocations_while_tracking(self, tmp_path):
+        # GIVEN / WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             pass
 
+        # THEN
         assert list(tracker.get_high_watermark_allocation_records()) == []
 
     @pytest.mark.parametrize(["allocator_func", "allocator_type"], ALLOCATORS)
     def test_simple_allocation_tracking(self, tmp_path, allocator_func, allocator_type):
+        # GIVEN
         allocator = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             getattr(allocator, allocator_func)(1234)
             allocator.free()
 
+        # THEN
         peak_allocations_unfiltered = tracker.get_high_watermark_allocation_records()
         peak_allocations = [
             record for record in peak_allocations_unfiltered if record.size == 1234
@@ -129,13 +136,16 @@ class TestHighWatermark:
         assert record.n_allocations == 1
 
     def test_multiple_high_watermark(self, tmp_path):
+        # GIVEN
         allocator = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             for _ in range(2):
                 allocator.valloc(1024)
                 allocator.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -152,15 +162,18 @@ class TestHighWatermark:
         assert record.n_allocations == 1
 
     def test_freed_before_high_watermark_do_not_appear(self, tmp_path):
+        # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator1.valloc(1024)
             allocator1.free()
             allocator2.valloc(2048)
             allocator2.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -177,15 +190,18 @@ class TestHighWatermark:
         assert record.n_allocations == 1
 
     def test_freed_after_high_watermark_do_not_appear(self, tmp_path):
+        # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator2.valloc(2048)
             allocator2.free()
             allocator1.valloc(1024)
             allocator1.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -202,7 +218,10 @@ class TestHighWatermark:
         assert record.n_allocations == 1
 
     def test_allocations_aggregation_on_same_line(self, tmp_path):
+        # GIVEN
         allocators = []
+
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             for _ in range(2):
                 allocator = MemoryAllocator()
@@ -213,6 +232,7 @@ class TestHighWatermark:
             for allocator in allocators:
                 allocator.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -229,15 +249,18 @@ class TestHighWatermark:
         assert record.n_allocations == 2
 
     def test_allocations_aggregation_on_different_lines(self, tmp_path):
+        # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator1.valloc(1024)
             allocator2.valloc(2048)
             allocator1.free()
             allocator2.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -251,15 +274,18 @@ class TestHighWatermark:
         assert all(record.n_allocations == 1 for record in peak_allocations)
 
     def test_non_freed_allocations_are_accounted_for(self, tmp_path):
+        # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator1.valloc(1024)
             allocator2.valloc(2048)
             allocator1.free()
             allocator2.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -273,15 +299,18 @@ class TestHighWatermark:
         assert all(record.n_allocations == 1 for record in peak_allocations)
 
     def test_final_allocation_is_peak(self, tmp_path):
+        # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator1.valloc(1024)
             allocator1.free()
             allocator2.valloc(2048)
         allocator2.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -300,6 +329,7 @@ class TestHighWatermark:
     def test_spiky_generally_increasing_to_final_peak(self, tmp_path):
         """Checks multiple aspects with an interesting toy function."""
 
+        # GIVEN
         def recursive(n, chunk_size):
             """Mimics generally-increasing but spiky usage"""
             if not n:
@@ -319,9 +349,11 @@ class TestHighWatermark:
                 allocator.free()
                 print(f"-{n:>2} kB")
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             recursive(10, 1024)
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -338,14 +370,17 @@ class TestHighWatermark:
         assert {record.size / 1024 for record in peak_allocations} == expected
 
     def test_allocations_after_high_watermark_is_freed_do_not_appear(self, tmp_path):
+        # GIVEN
         allocator = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator.valloc(2048)
             allocator.free()
             allocator.valloc(1024)
         allocator.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -364,12 +399,15 @@ class TestHighWatermark:
 
 class TestLeaks:
     def test_leaks_allocations_are_detected(self, tmp_path):
+        # GIVEN
         allocator = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator.valloc(1024)
         allocator.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -386,8 +424,10 @@ class TestLeaks:
         assert record.size == 1024
 
     def test_allocations_that_are_freed_do_not_appear_as_leaks(self, tmp_path):
+        # GIVEN
         allocator = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator.valloc(1024)
             allocator.free()
@@ -396,6 +436,7 @@ class TestLeaks:
             allocator.valloc(1024)
             allocator.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -407,9 +448,11 @@ class TestLeaks:
         assert not leaked_allocations
 
     def test_leak_that_happens_in_the_middle_is_detected(self, tmp_path):
+        # GIVEN
         allocator = MemoryAllocator()
         leak_allocator = MemoryAllocator()
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator.valloc(1024)
             allocator.free()
@@ -420,6 +463,7 @@ class TestLeaks:
             allocator.free()
         leak_allocator.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -437,9 +481,11 @@ class TestLeaks:
         assert record.size == 2048
 
     def test_leaks_that_happens_in_different_lines(self, tmp_path):
-
+        # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
+
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator1.valloc(1024)
             allocator2.valloc(2048)
@@ -447,6 +493,7 @@ class TestLeaks:
         allocator1.free()
         allocator2.free()
 
+        # THEN
         leaked_allocations = list(
             filter_relevant_allocations(tracker.get_leaked_allocation_records())
         )
@@ -456,6 +503,7 @@ class TestLeaks:
 
     def test_leaks_that_happen_in_the_same_function_are_aggregated(self, tmp_path):
 
+        # GIVEN
         allocators = []
 
         def foo():
@@ -463,6 +511,7 @@ class TestLeaks:
             allocator.valloc(1024)
             allocators.append(allocator)
 
+        # WHEN
         with Tracker(tmp_path / "test.bin") as tracker:
             for _ in range(10):
                 foo()
@@ -470,6 +519,7 @@ class TestLeaks:
         for allocator in allocators:
             allocator.free()
 
+        # THEN
         all_allocations = list(
             filter_relevant_allocations(tracker.get_allocation_records())
         )
@@ -484,12 +534,15 @@ class TestLeaks:
         assert allocation.n_allocations == 10
 
     def test_unmatched_deallocations_are_not_reported(self, tmp_path):
-
+        # GIVEN
         allocator = MemoryAllocator()
+
+        # WHEN
         allocator.valloc(1234)
         with Tracker(tmp_path / "test.bin") as tracker:
             allocator.free()
 
+        # THEN
         all_allocations = list(tracker.get_allocation_records())
         assert len(all_allocations) >= 1
         assert not list(
