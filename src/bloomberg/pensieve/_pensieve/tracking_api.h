@@ -137,14 +137,14 @@ class Tracker
     void popFrame(const RawFrame& frame);
 
     // Interface to activate/deactivate the tracking
-    const std::atomic<bool>& isActive() const;
-    void activate();
-    void deactivate();
+    static const std::atomic<bool>& isActive();
+    static void activate();
+    static void deactivate();
 
   private:
     // Data members
     FrameCollection<RawFrame> d_frames{};
-    std::atomic<bool> d_active{false};
+    static std::atomic<bool> d_active;
     static std::atomic<Tracker*> d_instance;
     std::unique_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
