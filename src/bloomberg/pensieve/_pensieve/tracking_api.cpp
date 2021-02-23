@@ -69,6 +69,7 @@ thread_id()
 
 static const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
 
+std::atomic<bool> Tracker::d_active = false;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 static thread_local PyFrameObject* top_frame = nullptr;
 static thread_local std::vector<PyFrameObject*> python_stack{};
@@ -98,14 +99,14 @@ Tracker::Tracker(const std::string& file_name, bool native_frames)
     updateModuleCache();
 
     RecursionGuard guard;
-    tracking_api::Tracker::getTracker()->activate();
+    tracking_api::Tracker::activate();
     tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
     elf::overwrite_symbols();
 }
 Tracker::~Tracker()
 {
     RecursionGuard guard;
-    tracking_api::Tracker::getTracker()->deactivate();
+    tracking_api::Tracker::deactivate();
     elf::restore_symbols();
     d_writer->writeHeader();
     d_writer.reset();
@@ -114,7 +115,7 @@ Tracker::~Tracker()
 void
 Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 {
-    if (RecursionGuard::isActive || !this->isActive()) {
+    if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
     }
     RecursionGuard guard;
@@ -147,7 +148,7 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 void
 Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
 {
-    if (RecursionGuard::isActive || !this->isActive()) {
+    if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
     }
     RecursionGuard guard;
@@ -242,7 +243,7 @@ Tracker::pushFrame(const RawFrame& frame)
 void
 Tracker::activate()
 {
-    this->d_active = true;
+    d_active = true;
 }
 
 void
@@ -252,9 +253,9 @@ Tracker::deactivate()
 }
 
 const std::atomic<bool>&
-Tracker::isActive() const
+Tracker::isActive()
 {
-    return this->d_active;
+    return Tracker::d_active;
 }
 
 Tracker*
@@ -273,7 +274,7 @@ PyTraceFunction(
         [[maybe_unused]] PyObject* arg)
 {
     RecursionGuard guard;
-    if (!Tracker::getTracker()->isActive()) {
+    if (!Tracker::isActive()) {
         return 0;
     }
 
