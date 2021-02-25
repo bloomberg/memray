@@ -8,7 +8,7 @@ from bloomberg.pensieve import Tracker
 
 
 class RunCommand:
-    """"Run the specified application and track memory usage"""
+    """Run the specified application and track memory usage"""
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         def custom_error(message: str) -> NoReturn:

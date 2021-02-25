@@ -5,7 +5,7 @@ from bloomberg.pensieve.reporters.table import TableReporter
 
 
 class TableCommand:
-    """"Generate an HTML table with all records in the peak memory usage."""
+    """Generate an HTML table with all records in the peak memory usage."""
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(

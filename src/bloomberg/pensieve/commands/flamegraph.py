@@ -5,7 +5,7 @@ from bloomberg.pensieve.reporters.flamegraph import FlameGraphReporter
 
 
 class FlamegraphCommand:
-    """"Generate an HTML-based flamegraph for peak memory usage."""
+    """Generate an HTML-based flamegraph for peak memory usage."""
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
