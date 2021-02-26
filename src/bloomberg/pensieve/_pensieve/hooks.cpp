@@ -6,6 +6,41 @@
 
 namespace pensieve::hooks {
 
+int
+phdr_symfind_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noexcept
+{
+    auto result = reinterpret_cast<symbol_query*>(data);
+
+    // From all maps without name, we only want to visit the executable (first map)
+    if (result->maps_visited++ != 0 && !info->dlpi_name[0]) {
+        return 0;
+    }
+
+    if (strstr(info->dlpi_name, "linux-vdso.so.1")) {
+        // This is an evil place that don't have symbols
+        return 0;
+    }
+
+    for (auto phdr = info->dlpi_phdr, end = phdr + info->dlpi_phnum; phdr != end; ++phdr) {
+        if (phdr->p_type != PT_DYNAMIC) {
+            continue;
+        }
+
+        const auto* dyn = reinterpret_cast<const Dyn*>(phdr->p_vaddr + info->dlpi_addr);
+        SymbolTable symbols(info->dlpi_addr, dyn);
+
+        const auto offset = symbols.getSymbolAddress(result->symbol_name);
+        if (offset == 0) {
+            continue;
+        }
+
+        result->address = reinterpret_cast<void*>(offset);
+        return 1;
+    }
+
+    return 0;
+}
+
 AllocatorKind
 allocatorKind(const Allocator& allocator)
 {
@@ -46,6 +81,25 @@ SymbolHook<decltype(&::mmap)> mmap("mmap", &::mmap);
 SymbolHook<decltype(&::mmap64)> mmap64("mmap64", &::mmap64);
 SymbolHook<decltype(&::munmap)> munmap("munmap", &::munmap);
 SymbolHook<decltype(&::PyGILState_Ensure)> PyGILState_Ensure("PyGILState_Ensure", &::PyGILState_Ensure);
+
+void
+ensureAllHooksAreValid()
+{
+    malloc.ensureValidOriginalSymbol();
+    free.ensureValidOriginalSymbol();
+    calloc.ensureValidOriginalSymbol();
+    realloc.ensureValidOriginalSymbol();
+    posix_memalign.ensureValidOriginalSymbol();
+    memalign.ensureValidOriginalSymbol();
+    valloc.ensureValidOriginalSymbol();
+    pvalloc.ensureValidOriginalSymbol();
+    dlopen.ensureValidOriginalSymbol();
+    dlclose.ensureValidOriginalSymbol();
+    mmap.ensureValidOriginalSymbol();
+    mmap64.ensureValidOriginalSymbol();
+    munmap.ensureValidOriginalSymbol();
+    PyGILState_Ensure.ensureValidOriginalSymbol();
+}
 
 }  // namespace pensieve::hooks
 

@@ -9,6 +9,7 @@
 
 #include "elf_shenanigans.h"
 #include "guards.h"
+#include "hooks.h"
 #include "record_writer.h"
 #include "records.h"
 #include "tracking_api.h"
@@ -89,6 +90,7 @@ Tracker::Tracker(const std::string& file_name, bool native_frames)
 
     static std::once_flag once;
     call_once(once, [] {
+        hooks::ensureAllHooksAreValid();
         pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
         NativeTrace::setup();
         python_stack.reserve(INITIAL_PYTHON_STACK_FRAMES);

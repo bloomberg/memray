@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "elf_shenanigans.h"
+#include "elf_utils.h"
 #include "hooks.h"
 #include "logging.h"
 
@@ -17,66 +18,6 @@
 #endif
 
 namespace pensieve::elf {
-
-/* Utility classes and definitons */
-
-// We use these macros as instructed in the linker header to refer to ELF types independent
-// of the native wordsize. In this way, `ElfW(TYPE)' is used in place of `Elf32_TYPE' or `Elf64_TYPE'.
-using Addr = ElfW(Addr);
-using Dyn = ElfW(Dyn);
-using Rel = ElfW(Rel);
-using Rela = ElfW(Rela);
-using Sym = ElfW(Sym);
-using Sxword = ElfW(Sxword);
-using Xword = ElfW(Xword);
-
-template<typename T, Sxword AddrTag, Sxword SizeTag>
-struct DynamicInfoTable
-{
-    T* table = nullptr;
-    elf::Xword size = {};
-
-    explicit DynamicInfoTable(const Dyn* dynamic_section)
-    {
-        // Obtain the table address and the size from the tags in the dynamic section
-        for (; dynamic_section->d_tag != DT_NULL; ++dynamic_section) {
-            if (dynamic_section->d_tag == AddrTag) {
-                table = reinterpret_cast<T*>(dynamic_section->d_un.d_ptr);
-            } else if (dynamic_section->d_tag == SizeTag) {
-                size = dynamic_section->d_un.d_val;
-            }
-        }
-    }
-
-    T* begin() const noexcept
-    {
-        return table;
-    }
-
-    T* end() const noexcept
-    {
-        return table + size / sizeof(T);
-    }
-};
-
-using RelTable = DynamicInfoTable<elf::Rel, DT_REL, DT_RELSZ>;
-using RelaTable = DynamicInfoTable<elf::Rela, DT_RELA, DT_RELASZ>;
-using JmprelTable = DynamicInfoTable<elf::Rela, DT_JMPREL, DT_PLTRELSZ>;
-
-struct SymbolTable
-{
-    DynamicInfoTable<const char, DT_STRTAB, DT_STRSZ> string_table;
-    DynamicInfoTable<elf::Sym, DT_SYMTAB, DT_SYMENT> symbol_table;
-
-    explicit SymbolTable(const Dyn* dynamic_section)
-    : string_table(dynamic_section)
-    , symbol_table(dynamic_section){};
-
-    const char* get_symbol(size_t index) const
-    {
-        return string_table.table + symbol_table.table[index].st_name;
-    }
-};
 
 /* Patching functions */
 
@@ -106,7 +47,7 @@ patch_symbol(
     // Patch the address with the new function or the original one depending on the value of
     // *restore_original*.
     auto typedAddr = reinterpret_cast<typename Hook::signature_t*>(addr);
-    *typedAddr = restore_original ? hook.original : intercept;
+    *typedAddr = restore_original ? hook.d_original : intercept;
 
     LOG(DEBUG) << symname << " intercepted!";
 }
@@ -134,10 +75,10 @@ overwrite_elf_table(
          * table) we can resolve the symbol name.
          */
         const auto index = ELF_R_SYM(relocation.r_info);
-        const char* symname = symbols.get_symbol(index);
+        const char* symname = symbols.getSymbolNameByIndex(index);
         auto symbol_addr = relocation.r_offset + base_addr;
 #define TRY_HOOK(hookname)                                                                              \
-    if (strcmp(hooks::hookname.symbol, symname) == 0) {                                                 \
+    if (strcmp(hooks::hookname.d_symbol, symname) == 0) {                                               \
         patch_symbol(hooks::hookname, &intercept::hookname, symname, symbol_addr, restore_original);    \
         continue;                                                                                       \
     }
@@ -162,7 +103,7 @@ overwrite_elf_table(
 static void
 patch_symbols(const Dyn* dyn_info_struct, const Addr base, bool restore_original) noexcept
 {
-    SymbolTable symbols(dyn_info_struct);
+    SymbolTable symbols(base, dyn_info_struct);
 
     /* There are three collections of symbols we want to override:
      *
@@ -204,7 +145,7 @@ phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noe
         patched.insert(info->dlpi_name);
     }
 
-    if (strstr(info->dlpi_name, "/ld-linux")) {
+    if (strstr(info->dlpi_name, "/ld-linux") || strstr(info->dlpi_name, "linux-vdso.so.1")) {
         // Avoid chaos by not overwriting the symbols in the linker.
         // TODO: Don't override the symbols in our shared library!
         return 0;
