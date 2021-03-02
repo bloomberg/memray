@@ -2,36 +2,71 @@
 #define _PENSIEVE_HOOKS_H
 
 #include <cstdlib>
+#include <iostream>
 #include <malloc.h>
 
+#include "elf_utils.h"
 #include <dlfcn.h>
 #include <sys/mman.h>
 
 #include <Python.h>
 
+#include "logging.h"
+
 namespace pensieve::hooks {
+
+struct symbol_query
+{
+    size_t maps_visited;
+    const char* symbol_name;
+    void* address;
+};
+
+int
+phdr_symfind_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noexcept;
+
 _Pragma("GCC diagnostic ignored \"-Wignored-attributes\"") template<typename Signature>
 struct SymbolHook
 {
-    const char* symbol;
     using signature_t = Signature;
-    signature_t original = nullptr;
+    const char* d_symbol;
+    signature_t d_original = nullptr;
 
     explicit SymbolHook(const char* symbol, signature_t original)
-    : symbol(symbol)
-    , original(original){};
+    : d_symbol(symbol)
+    , d_original(original)
+    {
+    }
+
+    void ensureValidOriginalSymbol()
+    {
+        symbol_query query{0, d_symbol, nullptr};
+        dl_iterate_phdr(&phdr_symfind_callback, (void*)&query);
+        auto symbol_addr = reinterpret_cast<signature_t>(query.address);
+        if (symbol_addr != nullptr) {
+            if (symbol_addr != d_original) {
+                LOG(WARNING) << "Correcting symbol for " << d_symbol << " from " << std::hex
+                             << reinterpret_cast<void*>(d_original) << " to "
+                             << reinterpret_cast<void*>(symbol_addr);
+            }
+            this->d_original = symbol_addr;
+        }
+    }
 
     template<typename... Args>
-    auto operator()(Args... args) const noexcept -> decltype(original(args...))
+    auto operator()(Args... args) const noexcept -> decltype(d_original(args...))
     {
-        return this->original(args...);
+        return this->d_original(args...);
     }
 
     explicit operator bool() const noexcept
     {
-        return this->original;
+        return this->d_original;
     }
 };
+
+void
+ensureAllHooksAreValid();
 
 enum class Allocator {
     MALLOC = 1,
