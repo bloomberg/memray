@@ -36,7 +36,7 @@ class RunCommand:
             metavar="module",
         )
 
-    def main(self, args: argparse.Namespace) -> int:
+    def run(self, args: argparse.Namespace) -> int:
         results_file = (
             args.output
             if args.output is not None

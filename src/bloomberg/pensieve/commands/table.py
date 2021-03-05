@@ -16,7 +16,7 @@ class TableCommand:
         )
         parser.add_argument("results", help="Results of the tracker run")
 
-    def main(self, args: argparse.Namespace) -> int:
+    def run(self, args: argparse.Namespace) -> int:
         tracker = Tracker(args.results)
 
         snapshot = tracker.get_high_watermark_allocation_records()

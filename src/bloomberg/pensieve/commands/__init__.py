@@ -29,7 +29,7 @@ class Command(Protocol):
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         ...
 
-    def main(self, args: argparse.Namespace) -> int:
+    def run(self, args: argparse.Namespace) -> int:
         ...
 
 
@@ -70,7 +70,7 @@ def get_argument_parser() -> argparse.ArgumentParser:
         command_parser = subparsers.add_parser(
             name, help=command.__doc__, epilog=_EPILOG
         )
-        command_parser.set_defaults(entrypoint=command.main)
+        command_parser.set_defaults(entrypoint=command.run)
         command.prepare_parser(command_parser)
 
     return parser
