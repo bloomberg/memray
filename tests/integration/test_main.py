@@ -3,6 +3,8 @@ import subprocess
 import sys
 import textwrap
 
+import pytest
+
 
 class TestRunSubcommand:
     def test_run(self, tmp_path):
@@ -168,3 +170,22 @@ class TestFlamegraphSubCommand:
         # THEN
         assert output_file.exists()
         assert "json/tool.py" in output_file.read_text()
+
+    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    def test_report_detects_missing_input(self, report):
+        # GIVEN / WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                report,
+                "nosuchfile",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 1
+        assert "No such file: nosuchfile" in proc.stderr

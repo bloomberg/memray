@@ -1,4 +1,6 @@
 import argparse
+import sys
+from pathlib import Path
 
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve.reporters.table import TableReporter
@@ -17,6 +19,9 @@ class TableCommand:
         parser.add_argument("results", help="Results of the tracker run")
 
     def run(self, args: argparse.Namespace) -> int:
+        if not Path(args.results).exists():
+            print(f"No such file: {args.results}", file=sys.stderr)
+            return 1
         tracker = Tracker(args.results)
 
         snapshot = tracker.get_high_watermark_allocation_records()
