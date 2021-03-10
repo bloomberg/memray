@@ -82,6 +82,8 @@ function main() {
     // smooth transitions
     .transitionDuration(500)
     .transitionEase(d3.easeCubic)
+    // invert the graph by default
+    .inverted(true)
     // make each row a little taller
     .cellHeight(20)
     // don't show elements that are less than 5px wide
