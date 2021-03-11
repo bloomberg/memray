@@ -26,7 +26,14 @@ class FlamegraphCommand:
         tracker = Tracker(args.results)
 
         snapshot = tracker.get_high_watermark_allocation_records()
-        reporter = FlameGraphReporter.from_snapshot(snapshot)
+        try:
+            reporter = FlameGraphReporter.from_snapshot(snapshot)
+        except OSError:
+            print(
+                f"Failed to parse allocation records in {args.results}",
+                file=sys.stderr,
+            )
+            return 1
 
         with open(args.output, "w") as f:
             reporter.render(f)

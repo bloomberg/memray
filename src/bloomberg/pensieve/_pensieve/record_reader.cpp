@@ -67,6 +67,9 @@ RecordReader::RecordReader(const std::string& file_name)
 {
     d_input.open(file_name, std::ios::binary | std::ios::in);
     d_input.read(reinterpret_cast<char*>(&d_header), sizeof(d_header));
+    if (memcmp(d_header.magic, MAGIC, sizeof(MAGIC)) != 0) {
+        throw std::ios_base::failure("Invalid input file: " + file_name);
+    }
     d_allocation_frames = tracking_api::FrameCollection<tracking_api::Frame>(d_header.stats.n_frames);
 }
 

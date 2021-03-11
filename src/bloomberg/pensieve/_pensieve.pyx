@@ -153,11 +153,11 @@ cdef class Tracker:
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
 
-    cdef inline RecordReader* _get_new_reader(self):
+    cdef inline RecordReader* _get_new_reader(self) except NULL:
         self._reader = make_shared[RecordReader](self._output_path)
         return self._reader.get()
 
-    cdef inline void _get_allocations(self, RecordReader* reader):
+    cdef inline void _get_allocations(self, RecordReader* reader) except+:
         if self._native_allocations.size() != 0:
             self._native_allocations.clear()
 
@@ -167,7 +167,7 @@ cdef class Tracker:
             self._native_allocations.push_back(move(native_allocation))
 
     def _yield_allocations(self, size_t index):
-        assert(self._reader.get() != NULL)
+        assert (self._reader.get() != NULL)
         for elem in Py_GetSnapshotAllocationRecords(self._native_allocations, index):
             alloc = AllocationRecord(elem);
             (<AllocationRecord>alloc)._reader = self._reader
@@ -201,8 +201,9 @@ cdef class Tracker:
     def total_allocations(self):
         if self._reader == NULL:
             self._reader = make_shared[RecordReader](self._output_path)
+
         cdef RecordReader* reader = self._reader.get()
-        return reader.totalAllocations();
+        return reader.totalAllocations()
 
 def start_thread_trace(frame, event, arg):
     if event in {"call", "c_call"}:

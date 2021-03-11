@@ -13,6 +13,8 @@
 
 namespace pensieve::tracking_api {
 
+const char MAGIC[] = "pensieve";
+
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
 
@@ -34,6 +36,7 @@ struct TrackerStats
 
 struct HeaderRecord
 {
+    char magic[sizeof(MAGIC)];
     int version{};
     TrackerStats stats{};
 };

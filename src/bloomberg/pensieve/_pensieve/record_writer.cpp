@@ -56,7 +56,8 @@ RecordWriter::writeHeader() noexcept
     }
     ::lseek(fd, 0, SEEK_SET);
 
-    HeaderRecord header{d_version, d_stats};
+    HeaderRecord header{"", d_version, d_stats};
+    strncpy(header.magic, MAGIC, sizeof(MAGIC));
 
     int ret;
     do {

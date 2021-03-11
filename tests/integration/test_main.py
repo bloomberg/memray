@@ -2,6 +2,7 @@ import re
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 import pytest
 
@@ -189,3 +190,28 @@ class TestFlamegraphSubCommand:
         # THEN
         assert proc.returncode == 1
         assert "No such file: nosuchfile" in proc.stderr
+
+    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    def test_report_detects_corrupt_input(self, tmp_path, report):
+        # GIVEN
+        bad_file = Path(tmp_path) / "badfile.out"
+        bad_file.write_text("This is some garbage")
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                report,
+                str(bad_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 1
+        assert re.match(
+            r"Failed to parse allocation records in .*badfile\.out$", proc.stderr
+        )
