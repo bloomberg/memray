@@ -105,6 +105,9 @@ function main() {
     const termElement = document.getElementById("searchTerm");
     chart.search(termElement.value);
   });
+  window.onhashchange = () => {
+    chart.resetZoom();
+  };
 }
 
 var chart = null;
