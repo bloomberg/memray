@@ -19,11 +19,10 @@
     <a class="navbar-brand" href="#">
       <span class="navbar-brand mb-0 mr-2 h1">pensieve</span>table
     </a>
-
-    <div class="navbar-center">
-    </div>
-
     <div class="form-inline">
+      <div class="btn-toolbar">
+        <button type="button" class="btn btn-outline-light mr-3" data-toggle="modal" data-target="#helpModal">Help </button>
+      </div>
       <input id="searchTerm" class="form-control" type="search" placeholder="Search Frame">
     </div>
   </nav>
@@ -40,10 +39,38 @@
     </div>
   </main>
 
+  <!-- Help Modal -->
+  <div class="modal fade" id="helpModal" tabindex="-1" role="dialog" aria-labelledby="helpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="helpModalLabel">How to interpret table reports</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>
+            The table reporter provides a simple tabular representation of memory allocations in the target at the
+            time <b>when the memory usage was at its peak</b>.
+          </p>
+          <p>
+            You can find more information in the <a target="_blank"  href="https://bbgithub.dev.bloomberg.com/pages/python/bloomberg-pensieve/table.html">Documentation</a>.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Javascript -->
-  <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
   <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
   <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/dataTables.bootstrap4.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/js/dist/modal.js"></script>
   <script type="text/javascript">
     const table_data = {{ table_data }}
     {{ common_js }}
