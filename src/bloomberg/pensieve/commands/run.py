@@ -20,7 +20,7 @@ class RunCommand:
         parser.add_argument(
             "-o",
             "--output",
-            help="Output file name (default: <process_name>.<pid>.out)",
+            help="Output file name (default: <process_name>.<pid>.bin)",
         )
         parser.add_argument(
             "-m",
@@ -40,7 +40,7 @@ class RunCommand:
         results_file = (
             args.output
             if args.output is not None
-            else f"{args.script}.{os.getpid()}.out"
+            else f"{args.script}.{os.getpid()}.bin"
         )
 
         print(f"Writing profile results into {results_file}")

@@ -34,7 +34,7 @@ class TestRunSubcommand:
 
     def test_run_override_output(self, tmp_path):
         # GIVEN
-        out_file = tmp_path / "result.out"
+        out_file = tmp_path / "result.bin"
 
         # WHEN
         proc = subprocess.run(
@@ -64,7 +64,7 @@ class TestRunSubcommand:
         are correctly forwarded."""
 
         # GIVEN
-        out_file = tmp_path / "result.out"
+        out_file = tmp_path / "result.bin"
         target_file = tmp_path / "test.py"
         target_file.write_text(
             textwrap.dedent(
@@ -103,7 +103,7 @@ class TestRunSubcommand:
 class TestFlamegraphSubCommand:
     @staticmethod
     def generate_sample_results(tmp_path):
-        results_file = tmp_path / "result.out"
+        results_file = tmp_path / "result.bin"
         subprocess.run(
             [
                 sys.executable,
@@ -194,7 +194,7 @@ class TestFlamegraphSubCommand:
     @pytest.mark.parametrize("report", ["flamegraph", "table"])
     def test_report_detects_corrupt_input(self, tmp_path, report):
         # GIVEN
-        bad_file = Path(tmp_path) / "badfile.out"
+        bad_file = Path(tmp_path) / "badfile.bin"
         bad_file.write_text("This is some garbage")
 
         # WHEN
@@ -213,5 +213,5 @@ class TestFlamegraphSubCommand:
         # THEN
         assert proc.returncode == 1
         assert re.match(
-            r"Failed to parse allocation records in .*badfile\.out$", proc.stderr
+            r"Failed to parse allocation records in .*badfile\.bin$", proc.stderr
         )
