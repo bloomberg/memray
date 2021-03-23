@@ -24,6 +24,20 @@ _EPILOG = textwrap.dedent(
     """
 )
 
+_DESCRIPTION = textwrap.dedent(
+    """\
+    Memory profiler for Python applications
+
+    Run `pensieve run` to generate a memory profile report, then use a reporter command
+    such as `pensive flamegraph` or `pensieve table` to convert the results into HTML.
+
+    Example:
+
+        $ python3 -m bloomberg.pensieve run my_script.py -o output.bin
+        $ python3 -m bloomberg.pensieve flamegraph output.bin
+    """
+)
+
 
 class Command(Protocol):
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
@@ -42,7 +56,7 @@ _COMMANDS: List[Command] = [
 
 def get_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Memory profiler for Python applications",
+        description=_DESCRIPTION,
         prog="pensieve",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=_EPILOG,
