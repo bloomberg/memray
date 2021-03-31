@@ -1,6 +1,4 @@
 import html
-import importlib.resources
-import json
 import linecache
 from typing import Any
 from typing import Dict
@@ -9,6 +7,7 @@ from typing import TextIO
 from typing import Tuple
 
 from bloomberg.pensieve._pensieve import AllocationRecord
+from bloomberg.pensieve.reporters.templates import render_report
 
 
 def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
@@ -83,21 +82,5 @@ class FlameGraphReporter:
         return cls(transformed_data)
 
     def render(self, outfile: TextIO) -> None:
-        package = "bloomberg.pensieve.reporters"
-        css_code = importlib.resources.read_text(package, "pensieve.css")
-        js_code = importlib.resources.read_text(package, "flamegraph.js")
-        common_js_code = importlib.resources.read_text(package, "common.js")
-        template = importlib.resources.read_text(package, "flamegraph.template.html")
-
-        # Make the replacements to generate the final HTML output
-        replacements = [
-            ("{{ css }}", css_code),
-            ("{{ common_js }}", common_js_code),
-            ("{{ js }}", js_code),
-            ("{{ flamegraph_data }}", json.dumps(self.data)),
-        ]
-        html_code = template
-        for original, replacement in replacements:
-            html_code = html_code.replace(original, replacement)
-
+        html_code = render_report(kind="flamegraph", data=self.data)
         print(html_code, file=outfile)

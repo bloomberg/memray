@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block topbar_buttons %}
+<button id="invertButton" class="btn btn-outline-light mr-3">Invert</button>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col bg-light py-3">
+    <div class="chart-container">
+      <div id="chart"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block help %}
+<p>
+  The flame graph displays a snapshot of memory used across stack frames at the time <b>when the memory usage was at its peak</b>.
+</p>
+<p>
+  The vertical ordering of the stack frames corresponds to the order of function calls, from parent to children.
+  The horizontal ordering does not represent the passage of time in the application: they simply represent child frames in arbitrary order.
+</p>
+<p>
+  On the flame graph, each bar represents a stack frame and shows the code which triggered the memory allocation.
+  Hovering over the frame you can also see the overall memory allocated in the given frame and its children and the number of times allocations have occurred.
+</p>
+<p>
+  You can find more information in the <a target="_blank"  href="https://bbgithub.dev.bloomberg.com/pages/python/bloomberg-pensieve/flamegraph.html">documentation</a>.
+</p>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>{% include "assets/flamegraph.css" %}</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://d3js.org/d3.v4.min.js" charset="utf-8"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-tip@0.9.1/dist/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@4.0.6/dist/d3-flamegraph.min.js"></script>
+<script type="text/javascript">
+  {%- include "assets/flamegraph.js" -%}
+</script>
+{% endblock %}

@@ -5,38 +5,41 @@
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>pensieve</title>
+  <title>pensieve - {{ title }}</title>
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
-    integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
-  <style>{{ css }}</style>
-
+  {%- block styles -%}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+  <style>{% include "assets/skeleton.css" %}</style>
+  {%- endblock styles -%}
 </head>
 
 <body>
   <!-- Header -->
   <nav class="navbar sticky-top navbar-dark bg-dark">
     <a class="navbar-brand" href="#">
-      <span class="navbar-brand mb-0 mr-2 h1">pensieve</span>table
+      <span class="navbar-brand mb-0 mr-2 h1">pensieve</span> {{ kind }}
     </a>
     <div class="form-inline">
       <div class="btn-toolbar">
-        <button type="button" class="btn btn-outline-light mr-3" data-toggle="modal" data-target="#helpModal">Help </button>
+        {% block topbar_buttons %}
+        {% endblock topbar_buttons %}
+        <button type="button" class="btn btn-outline-light mr-3" data-toggle="modal" data-target="#helpModal">Help</button>
       </div>
-      <input id="searchTerm" class="form-control" type="search" placeholder="Search Frame">
+      {% block topbar_search %}
+      <input id="searchTerm" class="form-control" type="search" placeholder="Search">
+      {% endblock topbar_search %}
     </div>
   </nav>
 
   <!-- Main Content -->
   <main class="container-fluid">
+    {% block content %}
     <div class="row">
-      <div class="col bg-light py-3">
-        <div class="chart-container">
-          <table class="table table-striped" id="the_table">
-          </table>
-        </div>
+      <div class="col">
+        [penseive debug] Please place your content here.
       </div>
     </div>
+    {% endblock content %}
   </main>
 
   <!-- Help Modal -->
@@ -50,13 +53,9 @@
           </button>
         </div>
         <div class="modal-body">
-          <p>
-            The table reporter provides a simple tabular representation of memory allocations in the target at the
-            time <b>when the memory usage was at its peak</b>.
-          </p>
-          <p>
-            You can find more information in the <a target="_blank"  href="https://bbgithub.dev.bloomberg.com/pages/python/bloomberg-pensieve/table.html">Documentation</a>.
-          </p>
+          {% block help %}
+          [pensieve debug] Place your help here.
+          {% endblock help %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
@@ -65,17 +64,14 @@
     </div>
   </div>
 
-  <!-- Javascript -->
+  {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
-  <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
-  <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/dataTables.bootstrap4.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/js/dist/modal.js"></script>
   <script type="text/javascript">
-    const table_data = {{ table_data }}
-    {{ common_js }}
-    {{ js }}
+    {%- include "assets/skeleton.js" -%}
   </script>
+  <script type="text/javascript">var data = {{ data }};</script>
+  {% endblock scripts %}
 </body>
 
 </html>

@@ -94,7 +94,7 @@ function main() {
     .tooltip(getTooltip());
 
   // Render the chart
-  d3.select("#chart").datum(flamegraph_data).call(chart);
+  d3.select("#chart").datum(data).call(chart);
 
   // zoom to correct element, if available
   handleFragments();

@@ -30,7 +30,7 @@ function main() {
   ];
 
   var table = $("#the_table").DataTable({
-    data: table_data,
+    data: data,
     columns: columns,
     order: [[2, "desc"]],
     pageLength: 100,
