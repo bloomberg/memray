@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+  <div class="col bg-light py-3">
+    <div class="chart-container">
+      <table class="table table-striped" id="the_table">
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block help %}
+<p>
+  The table reporter provides a simple tabular representation of memory
+  allocations in the target <b>when the memory usage was at its peak</b>.
+</p>
+<p>
+  You can find more information in the <a target="_blank" href="https://bbgithub.dev.bloomberg.com/pages/python/bloomberg-pensieve/table.html">documentation</a>.
+</p>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>{% include "assets/table.css" %}</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.23/js/dataTables.bootstrap4.min.js"></script>
+<script type="text/javascript">
+  {%- include "assets/table.js" -%}
+</script>
+{% endblock %}
