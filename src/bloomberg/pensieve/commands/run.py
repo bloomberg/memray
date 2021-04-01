@@ -40,7 +40,7 @@ class RunCommand:
         results_file = (
             args.output
             if args.output is not None
-            else f"{args.script}.{os.getpid()}.bin"
+            else f"pensieve-{args.script}.{os.getpid()}.bin"
         )
 
         print(f"Writing profile results into {results_file}")
