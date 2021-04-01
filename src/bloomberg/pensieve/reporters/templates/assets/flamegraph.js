@@ -1,21 +1,35 @@
 // For navigable #[integer] fragments
+function getCurrentId() {
+  if (location.hash) {
+    return parseInt(location.hash.substring(1), 10);
+  } else {
+    return 0;
+  }
+}
+
 function onClick(d) {
-  history.pushState({ id: d.id }, d.data.name, `#${d.id}`);
+  if (d.id == getCurrentId()) {
+    console.log(`Push to history skipped: ${d.id} (already current)`);
+  } else {
+    console.log(`Push to history: ${d.id}`);
+    history.pushState({ id: d.id }, d.data.name, `#${d.id}`);
+  }
 }
 
 function handleFragments() {
-  const id = parseInt(location.hash.substring(1), 10);
-  if (!id) return;
-
+  const id = getCurrentId();
   const elem = chart.findById(id);
   if (!elem) return;
 
+  console.log(`Zoom to: ${id}`);
   chart.zoomTo(elem);
 }
 
 // For the invert button
 function onInvert() {
+  console.log("Invert chart");
   chart.inverted(!chart.inverted());
+  console.log("Reset zoom");
   chart.resetZoom();
 }
 
@@ -96,8 +110,13 @@ function main() {
   // Render the chart
   d3.select("#chart").datum(data).call(chart);
 
-  // zoom to correct element, if available
-  handleFragments();
+  // Set zoom to the root element.
+  if (!location.hash) {
+    console.log("hello!");
+  } else {
+    // zoom to correct element, if available
+    handleFragments();
+  }
 
   // Setup event handlers
   document.getElementById("invertButton").onclick = onInvert;
@@ -106,9 +125,7 @@ function main() {
     chart.search(termElement.value);
   });
 
-  window.addEventListener("popstate", (event) => {
-    chart.resetZoom();
-  });
+  window.addEventListener("popstate", handleFragments);
 }
 
 var chart = null;
