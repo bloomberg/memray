@@ -7,13 +7,15 @@ function getCurrentId() {
   }
 }
 
+function updateZoomButtom() {
+  document.getElementById("resetZoomButton").disabled = getCurrentId() == 0;
+}
+
 function onClick(d) {
-  if (d.id == getCurrentId()) {
-    console.log(`Push to history skipped: ${d.id} (already current)`);
-  } else {
-    console.log(`Push to history: ${d.id}`);
-    history.pushState({ id: d.id }, d.data.name, `#${d.id}`);
-  }
+  if (d.id == getCurrentId()) return;
+
+  history.pushState({ id: d.id }, d.data.name, `#${d.id}`);
+  updateZoomButtom();
 }
 
 function handleFragments() {
@@ -21,16 +23,18 @@ function handleFragments() {
   const elem = chart.findById(id);
   if (!elem) return;
 
-  console.log(`Zoom to: ${id}`);
   chart.zoomTo(elem);
+  updateZoomButtom();
 }
 
 // For the invert button
 function onInvert() {
-  console.log("Invert chart");
   chart.inverted(!chart.inverted());
-  console.log("Reset zoom");
-  chart.resetZoom();
+  chart.resetZoom(); // calls onClick
+}
+
+function onResetZoom() {
+  chart.resetZoom(); // calls onClick
 }
 
 // For determining values for the graph
@@ -110,16 +114,20 @@ function main() {
   // Render the chart
   d3.select("#chart").datum(data).call(chart);
 
-  // Set zoom to the root element.
-  if (!location.hash) {
-    console.log("hello!");
-  } else {
-    // zoom to correct element, if available
+  // Set zoom to correct element
+  if (location.hash) {
     handleFragments();
   }
 
   // Setup event handlers
   document.getElementById("invertButton").onclick = onInvert;
+  document.getElementById("resetZoomButton").onclick = onResetZoom;
+
+  document.onkeyup = (event) => {
+    if (event.code == "Escape") {
+      onResetZoom();
+    }
+  };
   document.getElementById("searchTerm").addEventListener("input", () => {
     const termElement = document.getElementById("searchTerm");
     chart.search(termElement.value);
