@@ -166,3 +166,6 @@ cython_debug/
 
 # Asv stuff
 .asv
+
+# pensieve stuff
+pensieve-*

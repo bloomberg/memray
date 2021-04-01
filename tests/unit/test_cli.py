@@ -33,7 +33,7 @@ class TestRunSubCommand:
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
-        tracker_mock.assert_called_with("foobar.0.bin")
+        tracker_mock.assert_called_with("pensieve-foobar.0.bin")
 
     def test_run_override_output(self, getpid_mock, runpy_mock, tracker_mock):
         assert 0 == main(["run", "--output", "my_output", "-m", "foobar"])
