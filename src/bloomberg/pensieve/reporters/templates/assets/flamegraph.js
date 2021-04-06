@@ -1,22 +1,40 @@
 // For navigable #[integer] fragments
+function getCurrentId() {
+  if (location.hash) {
+    return parseInt(location.hash.substring(1), 10);
+  } else {
+    return 0;
+  }
+}
+
+function updateZoomButtom() {
+  document.getElementById("resetZoomButton").disabled = getCurrentId() == 0;
+}
+
 function onClick(d) {
+  if (d.id == getCurrentId()) return;
+
   history.pushState({ id: d.id }, d.data.name, `#${d.id}`);
+  updateZoomButtom();
 }
 
 function handleFragments() {
-  const id = parseInt(location.hash.substring(1), 10);
-  if (!id) return;
-
+  const id = getCurrentId();
   const elem = chart.findById(id);
   if (!elem) return;
 
   chart.zoomTo(elem);
+  updateZoomButtom();
 }
 
 // For the invert button
 function onInvert() {
   chart.inverted(!chart.inverted());
-  chart.resetZoom();
+  chart.resetZoom(); // calls onClick
+}
+
+function onResetZoom() {
+  chart.resetZoom(); // calls onClick
 }
 
 // For determining values for the graph
@@ -96,19 +114,26 @@ function main() {
   // Render the chart
   d3.select("#chart").datum(data).call(chart);
 
-  // zoom to correct element, if available
-  handleFragments();
+  // Set zoom to correct element
+  if (location.hash) {
+    handleFragments();
+  }
 
   // Setup event handlers
   document.getElementById("invertButton").onclick = onInvert;
+  document.getElementById("resetZoomButton").onclick = onResetZoom;
+
+  document.onkeyup = (event) => {
+    if (event.code == "Escape") {
+      onResetZoom();
+    }
+  };
   document.getElementById("searchTerm").addEventListener("input", () => {
     const termElement = document.getElementById("searchTerm");
     chart.search(termElement.value);
   });
 
-  window.addEventListener("popstate", (event) => {
-    chart.resetZoom();
-  });
+  window.addEventListener("popstate", handleFragments);
 }
 
 var chart = null;
