@@ -33,13 +33,13 @@
 
   <!-- Main Content -->
   <main class="container-fluid">
-    {% block content %}
     <div class="row">
-      <div class="col">
+      <div class="col bg-light py-3">
+        {% block content %}
         [penseive debug] Please place your content here.
+        {% endblock content %}
       </div>
     </div>
-    {% endblock content %}
   </main>
 
   <!-- Help Modal -->
