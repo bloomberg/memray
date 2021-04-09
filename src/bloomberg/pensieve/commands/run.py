@@ -37,11 +37,11 @@ class RunCommand:
         )
 
     def run(self, args: argparse.Namespace) -> int:
-        results_file = (
-            args.output
-            if args.output is not None
-            else f"pensieve-{args.script}.{os.getpid()}.bin"
-        )
+        if args.output is None:
+            filename = f"pensieve-{os.path.basename(args.script)}.{os.getpid()}.bin"
+            results_file = os.path.join(os.path.dirname(args.script), filename)
+        else:
+            results_file = args.output
 
         print(f"Writing profile results into {results_file}")
         with Tracker(results_file):

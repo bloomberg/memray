@@ -52,6 +52,15 @@ class TestRunSubCommand:
         assert 0 == main(["run", "foobar.py", "arg1", "arg2"])
         runpy_mock.run_path.assert_called_with("foobar.py", run_name="__main__")
 
+    def test_run_relative_file(self, getpid_mock, runpy_mock, tracker_mock):
+        getpid_mock.return_value = 0
+        assert 0 == main(["run", "./directory/foobar.py", "arg1", "arg2"])
+        runpy_mock.run_path.assert_called_with(
+            "./directory/foobar.py",
+            run_name="__main__",
+        )
+        tracker_mock.assert_called_with("./directory/pensieve-foobar.py.0.bin")
+
 
 class TestFlamegraphSubCommand:
     @staticmethod
