@@ -124,6 +124,7 @@ cdef class Tracker:
     cdef bool _native_traces
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
+    cdef object _command_line
     cdef cppstring _output_path
     cdef shared_ptr[RecordReader] _reader
     cdef vector[NativeAllocation] _native_allocations
@@ -138,11 +139,12 @@ cdef class Tracker:
         if _TRACKER.get() != NULL:
             raise RuntimeError("No more than one Tracker instance can be active at the same time")
 
+        self._command_line = " ".join(sys.argv)
         self._previous_profile_func = sys.getprofile()
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
-        _TRACKER.reset(new NativeTracker(self._output_path, self._native_traces))
+        _TRACKER.reset(new NativeTracker(self._output_path, self._native_traces, self._command_line))
         return self
 
     def __del__(self):
@@ -162,7 +164,8 @@ cdef class Tracker:
             self._native_allocations.clear()
 
         cdef NativeAllocation native_allocation
-        self._native_allocations.reserve(self.total_allocations)
+        total_allocations = self.header["stats"]["n_allocations"]
+        self._native_allocations.reserve(total_allocations)
         while reader.nextAllocationRecord(&native_allocation):
             self._native_allocations.push_back(move(native_allocation))
 
@@ -198,12 +201,13 @@ cdef class Tracker:
             yield alloc
 
     @property
-    def total_allocations(self):
+    def header(self):
         if self._reader == NULL:
             self._reader = make_shared[RecordReader](self._output_path)
 
         cdef RecordReader* reader = self._reader.get()
-        return reader.totalAllocations()
+        return reader.getHeader()
+
 
 def start_thread_trace(frame, event, arg):
     if event in {"call", "c_call"}:

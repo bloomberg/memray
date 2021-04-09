@@ -1,4 +1,5 @@
 from libc.stdint cimport uintptr_t
+from libc.time cimport time_t
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 cdef extern from "records.h" namespace "pensieve::tracking_api":
@@ -14,6 +15,17 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
        size_t size
        string allocator
        vector[Frame] stack_trace
+
+   struct TrackerStats:
+       size_t n_allocations
+       size_t n_frames
+       time_t start_time
+       time_t end_time
+
+   struct HeaderRecord:
+       int version
+       TrackerStats stats
+       string command_line
 
    cdef cppclass Allocation:
        AllocationRecord record

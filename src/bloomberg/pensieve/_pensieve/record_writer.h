@@ -16,7 +16,7 @@ namespace pensieve::tracking_api {
 class RecordWriter
 {
   public:
-    explicit RecordWriter(const std::string& file_name);
+    explicit RecordWriter(const std::string& file_name, const std::string& command_line);
     ~RecordWriter();
 
     RecordWriter(RecordWriter& other) = delete;
@@ -29,6 +29,7 @@ class RecordWriter
     bool inline writeString(const char* the_string) noexcept;
     template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item) noexcept;
+    [[nodiscard]] bool reserveHeader() const noexcept;
     bool writeHeader() noexcept;
 
     bool flush() noexcept;
@@ -43,6 +44,8 @@ class RecordWriter
     unsigned d_used_bytes{0};
     std::unique_ptr<char[]> d_buffer{nullptr};
     std::mutex d_mutex;
+    HeaderRecord d_header{};
+    const std::string& d_command_line;
     TrackerStats d_stats{};
 
     // Methods

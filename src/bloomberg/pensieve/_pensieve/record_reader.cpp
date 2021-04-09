@@ -63,13 +63,23 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
     return stack_to_allocation;
 }
 
+static void
+readHeader(std::istream& input, HeaderRecord& header)
+{
+    input.read(header.magic, sizeof(MAGIC));
+    if (memcmp(header.magic, MAGIC, sizeof(MAGIC)) != 0) {
+        throw std::ios_base::failure("Invalid input file");
+    }
+    input.read(reinterpret_cast<char*>(&header.version), sizeof(header.version));
+    input.read(reinterpret_cast<char*>(&header.stats), sizeof(header.stats));
+    header.command_line.reserve(4096);
+    std::getline(input, header.command_line, '\0');
+}
+
 RecordReader::RecordReader(const std::string& file_name)
 {
     d_input.open(file_name, std::ios::binary | std::ios::in);
-    d_input.read(reinterpret_cast<char*>(&d_header), sizeof(d_header));
-    if (memcmp(d_header.magic, MAGIC, sizeof(MAGIC)) != 0) {
-        throw std::ios_base::failure("Invalid input file: " + file_name);
-    }
+    readHeader(d_input, d_header);
     d_allocation_frames = tracking_api::FrameCollection<tracking_api::Frame>(d_header.stats.n_frames);
 }
 
@@ -290,16 +300,10 @@ error:
     return nullptr;
 }
 
-size_t
-RecordReader::totalAllocations() const noexcept
+HeaderRecord
+RecordReader::getHeader() const noexcept
 {
-    return d_header.stats.n_allocations;
-}
-
-size_t
-RecordReader::totalFrames() const noexcept
-{
-    return d_header.stats.n_frames;
+    return d_header;
 }
 
 size_t

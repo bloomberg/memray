@@ -32,6 +32,8 @@ struct TrackerStats
 {
     size_t n_allocations{0};
     size_t n_frames{0};
+    time_t start_time{};
+    time_t end_time{};
 };
 
 struct HeaderRecord
@@ -39,6 +41,7 @@ struct HeaderRecord
     char magic[sizeof(MAGIC)];
     int version{};
     TrackerStats stats{};
+    std::string command_line;
 };
 
 struct AllocationRecord

@@ -36,9 +36,7 @@ class RecordReader
             size_t max_stacks = std::numeric_limits<size_t>::max());
 
     bool nextAllocationRecord(Allocation* allocation);
-
-    size_t totalAllocations() const noexcept;
-    size_t totalFrames() const noexcept;
+    HeaderRecord getHeader() const noexcept;
 
   private:
     // Aliases

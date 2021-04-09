@@ -1,4 +1,8 @@
 import mmap
+import sys
+import time
+from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -548,3 +552,34 @@ class TestLeaks:
         assert not list(
             filter_relevant_allocations(tracker.get_leaked_allocation_records())
         )
+
+
+def test_get_header(monkeypatch, tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
+    start_time = time.time()
+    with Tracker(output) as tracker:
+        for _ in range(100):
+            allocator.valloc(1024)
+    end_time = time.time()
+
+    header = tracker.header
+    n_records = len(list(tracker.get_allocation_records()))
+
+    # THEN
+
+    assert header == {
+        "stats": {
+            "start_time": pytest.approx(start_time, rel=0.01),
+            "end_time": pytest.approx(end_time, rel=0.01),
+            "n_allocations": n_records,
+            "n_frames": mock.ANY,
+        },
+        "command_line": "python -m pytest",
+        "version": 1,
+    }
