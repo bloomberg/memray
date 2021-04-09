@@ -32,7 +32,7 @@ def test_thread_allocations_after_tracker_is_deactivated(tmpdir):
 
     # THEN
     relevant_records = list(
-        filter_relevant_allocations(tracker.get_allocation_records())
+        filter_relevant_allocations(tracker.reader.get_allocation_records())
     )
     assert len(relevant_records) == 2
 

@@ -39,7 +39,7 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
             run()
 
     # THEN
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     assert records
 
     memaligns = [
@@ -89,7 +89,7 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
             call_fn(allocating_function)
 
     # THEN
-    allocations = list(tracker.get_allocation_records())
+    allocations = list(tracker.reader.get_allocation_records())
     allocs = [
         event
         for event in allocations
