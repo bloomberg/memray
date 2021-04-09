@@ -22,7 +22,12 @@ def create_framegraph_node_from_stack_frame(
 ) -> Dict[str, Any]:
     function, filename, lineno = stack_frame
 
-    name = linecache.getline(filename, lineno) or f"{filename}:{lineno}"
+    name = (
+        # Use the source file line.
+        linecache.getline(filename, lineno)
+        # Or just describe where it is from
+        or f"{function} at {filename}:{lineno}"
+    )
     location = html.escape(f"File {filename}, line {lineno} in {function}")
     return {
         "name": name,
