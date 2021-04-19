@@ -127,7 +127,6 @@ cdef class Tracker:
     cdef object _command_line
     cdef cppstring _output_path
     cdef shared_ptr[RecordReader] _reader
-    cdef vector[NativeAllocation] _native_allocations
 
     def __cinit__(self, object file_name, *, bool native_traces=False):
         self._output_path = str(file_name)
@@ -155,11 +154,35 @@ cdef class Tracker:
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
 
+    @property
+    def reader(self):
+        return FileReader(self._output_path)
+
+
+def start_thread_trace(frame, event, arg):
+    if event in {"call", "c_call"}:
+        install_trace_function()
+    return start_thread_trace
+
+
+cdef class FileReader:
+    cdef cppstring _path
+    cdef shared_ptr[RecordReader] _reader
+    cdef vector[NativeAllocation] _native_allocations
+
+    def __init__(self, object file_name):
+        self._path = str(file_name)
+        if not pathlib.Path(self._path).exists():
+            raise IOError(f"No such file: {self._path}")
+
+    def __del__(self):
+        self._reader.reset()
+
     cdef inline RecordReader* _get_new_reader(self) except NULL:
-        self._reader = make_shared[RecordReader](self._output_path)
+        self._reader = make_shared[RecordReader](self._path)
         return self._reader.get()
 
-    cdef inline void _get_allocations(self, RecordReader* reader) except+:
+    cdef inline void _get_allocations(self, RecordReader*reader) except+:
         if self._native_allocations.size() != 0:
             self._native_allocations.clear()
 
@@ -173,47 +196,39 @@ cdef class Tracker:
         assert (self._reader.get() != NULL)
         for elem in Py_GetSnapshotAllocationRecords(self._native_allocations, index):
             alloc = AllocationRecord(elem);
-            (<AllocationRecord>alloc)._reader = self._reader
+            (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
         self._native_allocations.clear()
 
     def get_high_watermark_allocation_records(self):
-        cdef RecordReader* reader = self._get_new_reader()
+        cdef RecordReader*reader = self._get_new_reader()
         self._get_allocations(reader)
         cdef size_t high_watermark_index = getHighWatermarkIndex(self._native_allocations)
         yield from self._yield_allocations(high_watermark_index)
 
     def get_leaked_allocation_records(self):
-        cdef RecordReader* reader = self._get_new_reader()
+        cdef RecordReader*reader = self._get_new_reader()
         self._get_allocations(reader)
 
         cdef size_t snapshot_index = self._native_allocations.size() - 1
         yield from self._yield_allocations(snapshot_index)
 
     def get_allocation_records(self):
-        self._reader = make_shared[RecordReader](self._output_path)
-        cdef RecordReader* reader = self._reader.get()
+        self._reader = make_shared[RecordReader](self._path)
+        cdef RecordReader*reader = self._reader.get()
         cdef NativeAllocation native_allocation
 
         while reader.nextAllocationRecord(&native_allocation):
             alloc = AllocationRecord(native_allocation.toPythonObject())
-            (<AllocationRecord>alloc)._reader = self._reader
+            (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
     @property
     def header(self):
         if self._reader == NULL:
-            self._reader = make_shared[RecordReader](self._output_path)
-
+            self._reader = make_shared[RecordReader](self._path)
         cdef RecordReader* reader = self._reader.get()
         return reader.getHeader()
-
-
-def start_thread_trace(frame, event, arg):
-    if event in {"call", "c_call"}:
-        install_trace_function()
-    return start_thread_trace
-
 
 # Testing utilities
 

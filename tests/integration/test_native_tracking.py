@@ -38,7 +38,7 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
             run()
 
     # THEN
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     memaligns = [
         record for record in records if record.allocator == AllocatorType.MEMALIGN
     ]
@@ -86,7 +86,7 @@ def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
             run_simple()
 
     # THEN
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -123,7 +123,7 @@ def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
             run_inline()
 
     # THEN
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)

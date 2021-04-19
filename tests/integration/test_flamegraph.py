@@ -158,7 +158,7 @@ class TestFlameGraphReporter:
             allocator.free()
 
         peak_allocations = filter_relevant_allocations(
-            tracker.get_high_watermark_allocation_records()
+            tracker.reader.get_high_watermark_allocation_records()
         )
 
         # WHEN

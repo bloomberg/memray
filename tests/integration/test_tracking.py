@@ -26,7 +26,7 @@ def test_no_allocations_while_tracking(tmp_path):
     with Tracker(tmp_path / "test.bin") as tracker:
         pass
 
-    assert list(tracker.get_allocation_records()) == []
+    assert list(tracker.reader.get_allocation_records()) == []
 
 
 @pytest.mark.parametrize(["allocator_func", "allocator_type"], ALLOCATORS)
@@ -40,7 +40,7 @@ def test_simple_allocation_tracking(allocator_func, allocator_type, tmp_path):
         allocator.free()
 
     # THEN
-    allocations = list(tracker.get_allocation_records())
+    allocations = list(tracker.reader.get_allocation_records())
     allocs = [
         event
         for event in allocations
@@ -64,7 +64,7 @@ def test_mmap_tracking(tmp_path):
             mmap_obj[0:100] = b"a" * 100
 
     # THEN
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     assert len(records) >= 2
 
     mmap_records = [
@@ -92,7 +92,7 @@ def test_pthread_tracking(tmp_path):
         allocator.run_in_pthread(tracking_function)
 
     # THEN
-    allocations = list(tracker.get_allocation_records())
+    allocations = list(tracker.reader.get_allocation_records())
     allocs = [
         event
         for event in allocations
@@ -116,7 +116,7 @@ class TestHighWatermark:
             pass
 
         # THEN
-        assert list(tracker.get_high_watermark_allocation_records()) == []
+        assert list(tracker.reader.get_high_watermark_allocation_records()) == []
 
     @pytest.mark.parametrize(["allocator_func", "allocator_type"], ALLOCATORS)
     def test_simple_allocation_tracking(self, tmp_path, allocator_func, allocator_type):
@@ -129,7 +129,9 @@ class TestHighWatermark:
             allocator.free()
 
         # THEN
-        peak_allocations_unfiltered = tracker.get_high_watermark_allocation_records()
+        peak_allocations_unfiltered = (
+            tracker.reader.get_high_watermark_allocation_records()
+        )
         peak_allocations = [
             record for record in peak_allocations_unfiltered if record.size == 1234
         ]
@@ -150,13 +152,14 @@ class TestHighWatermark:
                 allocator.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 4
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
         record = peak_allocations[0]
@@ -178,13 +181,14 @@ class TestHighWatermark:
             allocator2.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 4
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -206,13 +210,14 @@ class TestHighWatermark:
             allocator1.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 4
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -237,13 +242,14 @@ class TestHighWatermark:
                 allocator.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 4
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -265,13 +271,14 @@ class TestHighWatermark:
             allocator2.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 4
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 2
         assert sum(record.size for record in peak_allocations) == 1024 + 2048
@@ -290,13 +297,14 @@ class TestHighWatermark:
             allocator2.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 4
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 2
         assert sum(record.size for record in peak_allocations) == 1024 + 2048
@@ -315,13 +323,14 @@ class TestHighWatermark:
         allocator2.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 3
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -358,14 +367,15 @@ class TestHighWatermark:
             recursive(10, 1024)
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 20
         assert sum(record.size for record in all_allocations) == 56320
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert all(record.n_allocations == 1 for record in peak_allocations)
 
@@ -385,13 +395,14 @@ class TestHighWatermark:
         allocator.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 3
 
         peak_allocations = list(
-            filter_relevant_allocations(tracker.get_high_watermark_allocation_records())
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 1
 
@@ -412,13 +423,14 @@ class TestLeaks:
         allocator.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 1
 
         leaked_allocations = list(
-            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+            filter_relevant_allocations(reader.get_leaked_allocation_records())
         )
         assert len(leaked_allocations) == 1
 
@@ -441,13 +453,14 @@ class TestLeaks:
             allocator.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 6
 
         leaked_allocations = list(
-            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+            filter_relevant_allocations(reader.get_leaked_allocation_records())
         )
         assert not leaked_allocations
 
@@ -468,13 +481,14 @@ class TestLeaks:
         leak_allocator.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 7
 
         leaked_allocations = list(
-            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+            filter_relevant_allocations(reader.get_leaked_allocation_records())
         )
 
         assert len(leaked_allocations) == 1
@@ -499,7 +513,7 @@ class TestLeaks:
 
         # THEN
         leaked_allocations = list(
-            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+            filter_relevant_allocations(tracker.reader.get_leaked_allocation_records())
         )
         assert len(leaked_allocations) == 2
         assert sum(record.size for record in leaked_allocations) == 1024 + 2048
@@ -524,13 +538,14 @@ class TestLeaks:
             allocator.free()
 
         # THEN
+        reader = tracker.reader
         all_allocations = list(
-            filter_relevant_allocations(tracker.get_allocation_records())
+            filter_relevant_allocations(reader.get_allocation_records())
         )
         assert len(all_allocations) == 10
 
         leaked_allocations = list(
-            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+            filter_relevant_allocations(reader.get_leaked_allocation_records())
         )
         assert len(leaked_allocations) == 1
         (allocation,) = leaked_allocations
@@ -547,10 +562,11 @@ class TestLeaks:
             allocator.free()
 
         # THEN
-        all_allocations = list(tracker.get_allocation_records())
+        reader = tracker.reader
+        all_allocations = list(reader.get_allocation_records())
         assert len(all_allocations) >= 1
         assert not list(
-            filter_relevant_allocations(tracker.get_leaked_allocation_records())
+            filter_relevant_allocations(reader.get_leaked_allocation_records())
         )
 
 
@@ -568,8 +584,8 @@ def test_get_header(monkeypatch, tmpdir):
             allocator.valloc(1024)
     end_time = time.time()
 
-    header = tracker.header
-    n_records = len(list(tracker.get_allocation_records()))
+    header = tracker.reader.header
+    n_records = len(list(tracker.reader.get_allocation_records()))
 
     # THEN
 

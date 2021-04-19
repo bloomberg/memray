@@ -40,7 +40,7 @@ def test_traceback(tmpdir):
 
     with Tracker(output) as tracker:
         alloc_func1(allocator)
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
 
     # THEN
 
@@ -77,7 +77,7 @@ def test_traceback_for_high_watermark(tmpdir):
 
     with Tracker(output) as tracker:
         alloc_func1(allocator)
-    records = list(tracker.get_high_watermark_allocation_records())
+    records = list(tracker.reader.get_high_watermark_allocation_records())
 
     # THEN
 
@@ -105,13 +105,13 @@ def test_traceback_iteration_does_not_depend_on_the_order_of_elements(tmpdir):
 
     # THEN
 
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     alloc1, alloc2 = allocs
     traceback1 = list(alloc1.stack_trace())
     traceback2 = list(alloc2.stack_trace())
 
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     alloc1, alloc2 = allocs
     assert traceback2 == list(alloc2.stack_trace())
@@ -128,7 +128,7 @@ def test_cython_traceback(tmpdir):
     with Tracker(output) as tracker:
         _cython_nested_allocation(allocator.valloc, 1234)
     allocator.free()
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
 
     # THEN
 
@@ -138,13 +138,13 @@ def test_cython_traceback(tmpdir):
 
     traceback = list(alloc1.stack_trace())
     assert traceback[-3:] == [
-        ("valloc", ANY, 248),
-        ("_cython_nested_allocation", ANY, 263),
+        ("valloc", ANY, 263),
+        ("_cython_nested_allocation", ANY, 278),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 263),
+        ("_cython_nested_allocation", ANY, 278),
     ]
 
     frees = [
@@ -156,7 +156,7 @@ def test_cython_traceback(tmpdir):
     (free,) = frees
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 263),
+        ("_cython_nested_allocation", ANY, 278),
     ]
 
 
@@ -172,8 +172,9 @@ def test_records_can_be_retrieved_twice(tmpdir):
 
     # THEN
 
-    records1 = list(tracker.get_allocation_records())
-    records2 = list(tracker.get_allocation_records())
+    reader = tracker.reader
+    records1 = list(reader.get_allocation_records())
+    records2 = list(reader.get_allocation_records())
 
     assert records1 == records2
 
@@ -190,8 +191,9 @@ def test_high_watermark_records_can_be_retrieved_twice(tmpdir):
 
     # THEN
 
-    records1 = list(tracker.get_high_watermark_allocation_records())
-    records2 = list(tracker.get_high_watermark_allocation_records())
+    reader = tracker.reader
+    records1 = list(reader.get_high_watermark_allocation_records())
+    records2 = list(reader.get_high_watermark_allocation_records())
 
     assert records1 == records2
 
@@ -208,7 +210,7 @@ def test_traceback_can_be_retrieved_twice(tmpdir):
 
     # THEN
 
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     (alloc,) = allocs
     traceback1 = list(alloc.stack_trace())
@@ -228,10 +230,11 @@ def test_traceback_for_high_watermark_records_can_be_retrieved_twice(tmpdir):
 
     # THEN
 
-    records = list(tracker.get_high_watermark_allocation_records())
+    reader = tracker.reader
+    records = list(reader.get_high_watermark_allocation_records())
     (alloc,) = records
     traceback1 = list(alloc.stack_trace())
-    records = list(tracker.get_high_watermark_allocation_records())
+    records = list(reader.get_high_watermark_allocation_records())
     (alloc,) = records
     traceback2 = list(alloc.stack_trace())
 
@@ -269,7 +272,7 @@ def test_initial_tracking_frames_are_correctly_populated(tmpdir):
 
     with Tracker(output) as tracker:
         foo()
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
 
     # THEN
 
@@ -307,7 +310,7 @@ def test_restart_tracing_function_gets_correctly_the_frames(tmpdir):
     # should not interfere with this tracing.
     with Tracker(output) as tracker:
         bar()
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
 
     # THEN
 
@@ -332,11 +335,11 @@ def test_num_records(tmpdir):
     with Tracker(output) as tracker:
         alloc_func1(allocator)
         alloc_func1(allocator)
-    n_records = len(list(tracker.get_allocation_records()))
+    n_records = len(list(tracker.reader.get_allocation_records()))
 
     # THEN
 
-    assert n_records == tracker.header["stats"]["n_allocations"]
+    assert n_records == tracker.reader.header["stats"]["n_allocations"]
 
 
 def test_equal_stack_traces_compare_equal(tmpdir):
@@ -353,7 +356,7 @@ def test_equal_stack_traces_compare_equal(tmpdir):
 
     # THEN
 
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
 
     assert len(allocs) == 4
@@ -384,7 +387,7 @@ def test_identical_stack_traces_started_in_different_lines_in_the_root_do_not_co
 
     # THEN
 
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
 
     assert len(allocs) == 4
@@ -419,7 +422,7 @@ def test_identical_stack_traces_started_in_different_lines_in_a_function_do_not_
 
     # THEN
 
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
 
     assert len(allocs) == 4

@@ -21,7 +21,7 @@ def test_smoke(tmpdir):
         allocating_function()
 
     # THEN
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
 
     assert len(records) >= 2
 
@@ -58,7 +58,7 @@ def test_smoke_in_a_thread(tmpdir):
 
     # THEN
     assert threading._profile_hook == custom_trace_fn
-    records = list(tracker.get_allocation_records())
+    records = list(tracker.reader.get_allocation_records())
 
     assert len(records) >= 2
 
