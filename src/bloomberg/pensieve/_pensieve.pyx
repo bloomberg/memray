@@ -5,6 +5,7 @@ import logging
 cimport cython
 import threading
 
+from datetime import datetime
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr, make_shared, unique_ptr
 from libcpp.string cimport string as cppstring
@@ -20,6 +21,7 @@ from _pensieve.record_reader cimport RecordReader
 from _pensieve.record_reader cimport getHighWatermarkIndex
 from _pensieve.record_reader cimport Py_GetSnapshotAllocationRecords
 from _pensieve.records cimport Allocation as NativeAllocation
+from bloomberg.pensieve._metadata import Metadata
 
 initializePythonLoggerInterface()
 
@@ -187,7 +189,7 @@ cdef class FileReader:
             self._native_allocations.clear()
 
         cdef NativeAllocation native_allocation
-        total_allocations = self.header["stats"]["n_allocations"]
+        total_allocations = self.metadata.total_allocations
         self._native_allocations.reserve(total_allocations)
         while reader.nextAllocationRecord(&native_allocation):
             self._native_allocations.push_back(move(native_allocation))
@@ -224,11 +226,17 @@ cdef class FileReader:
             yield alloc
 
     @property
-    def header(self):
+    def metadata(self):
         if self._reader == NULL:
             self._reader = make_shared[RecordReader](self._path)
         cdef RecordReader* reader = self._reader.get()
-        return reader.getHeader()
+        header: dict = reader.getHeader()
+        stats = header["stats"]
+        return Metadata(start_time=datetime.utcfromtimestamp(stats["start_time"]),
+                        end_time=datetime.utcfromtimestamp(stats["end_time"]),
+                        total_allocations=stats["n_allocations"],
+                        total_frames=stats["n_frames"],
+                        command_line=header["command_line"])
 
 # Testing utilities
 

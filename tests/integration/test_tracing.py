@@ -339,7 +339,7 @@ def test_num_records(tmpdir):
 
     # THEN
 
-    assert n_records == tracker.reader.header["stats"]["n_allocations"]
+    assert n_records == tracker.reader.metadata.total_allocations
 
 
 def test_equal_stack_traces_compare_equal(tmpdir):
