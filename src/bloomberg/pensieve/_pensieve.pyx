@@ -21,7 +21,7 @@ from _pensieve.record_reader cimport RecordReader
 from _pensieve.record_reader cimport getHighWatermarkIndex
 from _pensieve.record_reader cimport Py_GetSnapshotAllocationRecords
 from _pensieve.records cimport Allocation as NativeAllocation
-from bloomberg.pensieve._metadata import Metadata
+from ._metadata import Metadata
 
 initializePythonLoggerInterface()
 
@@ -227,13 +227,18 @@ cdef class FileReader:
 
     @property
     def metadata(self):
+        def millis_to_dt(millis) -> datetime:
+            return datetime.fromtimestamp(millis // 1000).replace(
+                microsecond=millis % 1000 * 1000)
+
         if self._reader == NULL:
             self._reader = make_shared[RecordReader](self._path)
         cdef RecordReader* reader = self._reader.get()
+
         header: dict = reader.getHeader()
         stats = header["stats"]
-        return Metadata(start_time=datetime.utcfromtimestamp(stats["start_time"]),
-                        end_time=datetime.utcfromtimestamp(stats["end_time"]),
+        return Metadata(start_time=millis_to_dt(stats["start_time"]),
+                        end_time=millis_to_dt(stats["end_time"]),
                         total_allocations=stats["n_allocations"],
                         total_frames=stats["n_frames"],
                         command_line=header["command_line"])

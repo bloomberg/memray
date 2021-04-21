@@ -17,6 +17,7 @@ const char MAGIC[] = "pensieve";
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
+using millis_t = long long;
 
 enum class RecordType {
     ALLOCATION = 1,
@@ -32,8 +33,8 @@ struct TrackerStats
 {
     size_t n_allocations{0};
     size_t n_frames{0};
-    time_t start_time{};
-    time_t end_time{};
+    millis_t start_time{};
+    millis_t end_time{};
 };
 
 struct HeaderRecord

@@ -1,5 +1,4 @@
 from libc.stdint cimport uintptr_t
-from libc.time cimport time_t
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 cdef extern from "records.h" namespace "pensieve::tracking_api":
@@ -19,8 +18,8 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
    struct TrackerStats:
        size_t n_allocations
        size_t n_frames
-       time_t start_time
-       time_t end_time
+       long long start_time
+       long long end_time
 
    struct HeaderRecord:
        int version

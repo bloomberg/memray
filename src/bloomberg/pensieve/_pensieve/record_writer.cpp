@@ -11,7 +11,7 @@ using namespace std::chrono;
 RecordWriter::RecordWriter(const std::string& file_name, const std::string& command_line)
 : d_buffer(new char[BUFFER_CAPACITY]{0})
 , d_command_line(command_line)
-, d_stats({0, 0, system_clock::to_time_t(system_clock::now())})
+, d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
     d_header = HeaderRecord{"", d_version, d_stats, d_command_line};
     strncpy(d_header.magic, MAGIC, sizeof(MAGIC));
@@ -77,7 +77,7 @@ RecordWriter::writeHeader() noexcept
     }
     ::lseek(fd, 0, SEEK_SET);
 
-    d_stats.end_time = system_clock::to_time_t(system_clock::now());
+    d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     d_header.stats = d_stats;
     writeSimpleType(d_header.magic);
     writeSimpleType(d_header.version);
