@@ -29,6 +29,62 @@ LOGGER = logging.getLogger(__file__)
 
 cdef unique_ptr[NativeTracker] _TRACKER
 
+# Testing utilities
+# This code is at the top so that tests which rely on line numbers don't have to
+# be updated every time a line change is introduced in the core pensieve code.
+
+cdef class MemoryAllocator:
+    cdef void* ptr
+
+    def __cinit__(self):
+        self.ptr = NULL
+
+    def free(self):
+        if self.ptr == NULL:
+            raise RuntimeError("Pointer cannot be NULL")
+        free(self.ptr)
+        self.ptr = NULL
+
+    def malloc(self, size_t size):
+        self.ptr = malloc(size)
+
+    def calloc(self, size_t size):
+        self.ptr = calloc(1, size)
+
+    def realloc(self, size_t size):
+        self.ptr = malloc(1)
+        self.ptr = realloc(self.ptr, size)
+
+    def posix_memalign(self, size_t size):
+        posix_memalign(&self.ptr, sizeof(void*), size)
+
+    def memalign(self, size_t size):
+        self.ptr = memalign(sizeof(void*), size)
+
+    def valloc(self, size_t size):
+        self.ptr = valloc(size)
+
+    def pvalloc(self, size_t size):
+        self.ptr = pvalloc(size)
+
+    def run_in_pthread(self, callback):
+        cdef pthread_t thread
+        cdef int ret = pthread_create(&thread, NULL, &_pthread_worker, <void*>callback)
+        if ret != 0:
+            raise RuntimeError("Failed to create thread")
+        with nogil:
+            pthread_join(thread, NULL)
+
+
+def _cython_nested_allocation(allocator_fn, size):
+    allocator_fn(size)
+    cdef void* p = valloc(size);
+    free(p)
+
+
+cdef void* _pthread_worker(void* arg) with gil:
+    (<object> arg)()
+
 cdef api void log_with_python(cppstring message, int level):
     LOGGER.log(level, message)
 
@@ -53,6 +109,7 @@ def size_fmt(num, suffix='B'):
         num /= 1024.0
     return f"{num:.1f}Y{suffix}"
 
+# Pensieve core
 
 @cython.freelist(1024)
 cdef class AllocationRecord:
@@ -243,56 +300,3 @@ cdef class FileReader:
                         total_frames=stats["n_frames"],
                         command_line=header["command_line"])
 
-# Testing utilities
-
-cdef class MemoryAllocator:
-    cdef void* ptr
-
-    def __cinit__(self):
-        self.ptr = NULL
-
-    def free(self):
-        if self.ptr == NULL:
-            raise RuntimeError("Pointer cannot be NULL")
-        free(self.ptr)
-        self.ptr = NULL
-
-    def malloc(self, size_t size):
-        self.ptr = malloc(size)
-
-    def calloc(self, size_t size):
-        self.ptr = calloc(1, size)
-
-    def realloc(self, size_t size):
-        self.ptr = malloc(1)
-        self.ptr = realloc(self.ptr, size)
-
-    def posix_memalign(self, size_t size):
-        posix_memalign(&self.ptr, sizeof(void*), size)
-
-    def memalign(self, size_t size):
-        self.ptr = memalign(sizeof(void*), size)
-
-    def valloc(self, size_t size):
-        self.ptr = valloc(size)
-
-    def pvalloc(self, size_t size):
-        self.ptr = pvalloc(size)
-
-    def run_in_pthread(self, callback):
-        cdef pthread_t thread
-        cdef int ret = pthread_create(&thread, NULL, &_pthread_worker, <void*>callback)
-        if ret != 0:
-            raise RuntimeError("Failed to create thread")
-        with nogil:
-            pthread_join(thread, NULL)
-
-
-def _cython_nested_allocation(allocator_fn, size):
-    allocator_fn(size)
-    cdef void* p = valloc(size);
-    free(p)
-
-
-cdef void* _pthread_worker(void* arg) with gil:
-    (<object> arg)()
