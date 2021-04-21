@@ -5,6 +5,7 @@ from typing import Iterator
 from typing import List
 from typing import TextIO
 
+from bloomberg.pensieve import Metadata
 from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve._pensieve import AllocatorType
 from bloomberg.pensieve.reporters.templates import render_report
@@ -39,6 +40,6 @@ class TableReporter:
 
         return cls(result)
 
-    def render(self, outfile: TextIO) -> None:
-        html_code = render_report(kind="table", data=self.data)
+    def render(self, outfile: TextIO, metadata: Metadata) -> None:
+        html_code = render_report(kind="table", data=self.data, metadata=metadata)
         print(html_code, file=outfile)

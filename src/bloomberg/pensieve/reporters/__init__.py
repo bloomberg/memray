@@ -1,5 +1,7 @@
 from typing import TextIO
 
+from bloomberg.pensieve import Metadata
+
 try:
     from typing import Protocol
 except ImportError:
@@ -7,5 +9,5 @@ except ImportError:
 
 
 class BaseReporter(Protocol):
-    def render(self, outfile: TextIO) -> None:
+    def render(self, outfile: TextIO, metadata: Metadata) -> None:
         ...
