@@ -1,8 +1,7 @@
+import datetime
 import mmap
 import sys
-import time
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -578,24 +577,18 @@ def test_get_header(monkeypatch, tmpdir):
     # WHEN
 
     monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
-    start_time = time.time()
+    start_time = datetime.datetime.now()
     with Tracker(output) as tracker:
         for _ in range(100):
             allocator.valloc(1024)
-    end_time = time.time()
+    end_time = datetime.datetime.now()
 
-    header = tracker.reader.header
     n_records = len(list(tracker.reader.get_allocation_records()))
+    metadata = tracker.reader.metadata
 
     # THEN
-
-    assert header == {
-        "stats": {
-            "start_time": pytest.approx(start_time, rel=0.01),
-            "end_time": pytest.approx(end_time, rel=0.01),
-            "n_allocations": n_records,
-            "n_frames": mock.ANY,
-        },
-        "command_line": "python -m pytest",
-        "version": 1,
-    }
+    assert metadata.end_time > metadata.start_time
+    assert abs(metadata.start_time - start_time).seconds < 1
+    assert abs(metadata.end_time - end_time).seconds < 1
+    assert metadata.total_allocations == n_records
+    assert metadata.command_line == "python -m pytest"

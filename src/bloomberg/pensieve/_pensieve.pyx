@@ -5,6 +5,7 @@ import logging
 cimport cython
 import threading
 
+from datetime import datetime
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr, make_shared, unique_ptr
 from libcpp.string cimport string as cppstring
@@ -20,12 +21,69 @@ from _pensieve.record_reader cimport RecordReader
 from _pensieve.record_reader cimport getHighWatermarkIndex
 from _pensieve.record_reader cimport Py_GetSnapshotAllocationRecords
 from _pensieve.records cimport Allocation as NativeAllocation
+from ._metadata import Metadata
 
 initializePythonLoggerInterface()
 
 LOGGER = logging.getLogger(__file__)
 
 cdef unique_ptr[NativeTracker] _TRACKER
+
+# Testing utilities
+# This code is at the top so that tests which rely on line numbers don't have to
+# be updated every time a line change is introduced in the core pensieve code.
+
+cdef class MemoryAllocator:
+    cdef void* ptr
+
+    def __cinit__(self):
+        self.ptr = NULL
+
+    def free(self):
+        if self.ptr == NULL:
+            raise RuntimeError("Pointer cannot be NULL")
+        free(self.ptr)
+        self.ptr = NULL
+
+    def malloc(self, size_t size):
+        self.ptr = malloc(size)
+
+    def calloc(self, size_t size):
+        self.ptr = calloc(1, size)
+
+    def realloc(self, size_t size):
+        self.ptr = malloc(1)
+        self.ptr = realloc(self.ptr, size)
+
+    def posix_memalign(self, size_t size):
+        posix_memalign(&self.ptr, sizeof(void*), size)
+
+    def memalign(self, size_t size):
+        self.ptr = memalign(sizeof(void*), size)
+
+    def valloc(self, size_t size):
+        self.ptr = valloc(size)
+
+    def pvalloc(self, size_t size):
+        self.ptr = pvalloc(size)
+
+    def run_in_pthread(self, callback):
+        cdef pthread_t thread
+        cdef int ret = pthread_create(&thread, NULL, &_pthread_worker, <void*>callback)
+        if ret != 0:
+            raise RuntimeError("Failed to create thread")
+        with nogil:
+            pthread_join(thread, NULL)
+
+
+def _cython_nested_allocation(allocator_fn, size):
+    allocator_fn(size)
+    cdef void* p = valloc(size);
+    free(p)
+
+
+cdef void* _pthread_worker(void* arg) with gil:
+    (<object> arg)()
 
 cdef api void log_with_python(cppstring message, int level):
     LOGGER.log(level, message)
@@ -51,6 +109,7 @@ def size_fmt(num, suffix='B'):
         num /= 1024.0
     return f"{num:.1f}Y{suffix}"
 
+# Pensieve core
 
 @cython.freelist(1024)
 cdef class AllocationRecord:
@@ -187,7 +246,7 @@ cdef class FileReader:
             self._native_allocations.clear()
 
         cdef NativeAllocation native_allocation
-        total_allocations = self.header["stats"]["n_allocations"]
+        total_allocations = self.metadata.total_allocations
         self._native_allocations.reserve(total_allocations)
         while reader.nextAllocationRecord(&native_allocation):
             self._native_allocations.push_back(move(native_allocation))
@@ -224,62 +283,20 @@ cdef class FileReader:
             yield alloc
 
     @property
-    def header(self):
+    def metadata(self):
+        def millis_to_dt(millis) -> datetime:
+            return datetime.fromtimestamp(millis // 1000).replace(
+                microsecond=millis % 1000 * 1000)
+
         if self._reader == NULL:
             self._reader = make_shared[RecordReader](self._path)
         cdef RecordReader* reader = self._reader.get()
-        return reader.getHeader()
 
-# Testing utilities
+        header: dict = reader.getHeader()
+        stats = header["stats"]
+        return Metadata(start_time=millis_to_dt(stats["start_time"]),
+                        end_time=millis_to_dt(stats["end_time"]),
+                        total_allocations=stats["n_allocations"],
+                        total_frames=stats["n_frames"],
+                        command_line=header["command_line"])
 
-cdef class MemoryAllocator:
-    cdef void* ptr
-
-    def __cinit__(self):
-        self.ptr = NULL
-
-    def free(self):
-        if self.ptr == NULL:
-            raise RuntimeError("Pointer cannot be NULL")
-        free(self.ptr)
-        self.ptr = NULL
-
-    def malloc(self, size_t size):
-        self.ptr = malloc(size)
-
-    def calloc(self, size_t size):
-        self.ptr = calloc(1, size)
-
-    def realloc(self, size_t size):
-        self.ptr = malloc(1)
-        self.ptr = realloc(self.ptr, size)
-
-    def posix_memalign(self, size_t size):
-        posix_memalign(&self.ptr, sizeof(void*), size)
-
-    def memalign(self, size_t size):
-        self.ptr = memalign(sizeof(void*), size)
-
-    def valloc(self, size_t size):
-        self.ptr = valloc(size)
-
-    def pvalloc(self, size_t size):
-        self.ptr = pvalloc(size)
-
-    def run_in_pthread(self, callback):
-        cdef pthread_t thread
-        cdef int ret = pthread_create(&thread, NULL, &_pthread_worker, <void*>callback)
-        if ret != 0:
-            raise RuntimeError("Failed to create thread")
-        with nogil:
-            pthread_join(thread, NULL)
-
-
-def _cython_nested_allocation(allocator_fn, size):
-    allocator_fn(size)
-    cdef void* p = valloc(size);
-    free(p)
-
-
-cdef void* _pthread_worker(void* arg) with gil:
-    (<object> arg)()

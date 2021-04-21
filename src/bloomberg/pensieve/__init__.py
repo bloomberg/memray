@@ -1,3 +1,4 @@
+from ._metadata import Metadata
 from ._pensieve import AllocatorType
 from ._pensieve import FileReader
 from ._pensieve import Tracker
@@ -9,5 +10,6 @@ __all__ = [
     "start_thread_trace",
     "Tracker",
     "FileReader",
+    "Metadata",
     "__version__",
 ]
