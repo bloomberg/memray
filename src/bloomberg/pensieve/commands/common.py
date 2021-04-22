@@ -39,6 +39,7 @@ class HighWatermarkCommand:
 
         tracker = Tracker(args.results)
         snapshot = tracker.reader.get_high_watermark_allocation_records()
+
         try:
             reporter = self.reporter_factory(snapshot)
         except OSError:
@@ -49,7 +50,7 @@ class HighWatermarkCommand:
             return 1
 
         with open(args.output, "w") as f:
-            reporter.render(f)
+            reporter.render(f, tracker.reader.metadata)
 
         print(f"Wrote {args.output}")
         return 0

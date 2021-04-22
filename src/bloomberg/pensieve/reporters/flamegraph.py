@@ -6,6 +6,7 @@ from typing import Iterator
 from typing import TextIO
 from typing import Tuple
 
+from bloomberg.pensieve import Metadata
 from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve.reporters.templates import render_report
 
@@ -86,6 +87,6 @@ class FlameGraphReporter:
         transformed_data = with_converted_children_dict(data)
         return cls(transformed_data)
 
-    def render(self, outfile: TextIO) -> None:
-        html_code = render_report(kind="flamegraph", data=self.data)
+    def render(self, outfile: TextIO, metadata: Metadata) -> None:
+        html_code = render_report(kind="flamegraph", data=self.data, metadata=metadata)
         print(html_code, file=outfile)
