@@ -6,6 +6,10 @@ from _pensieve.records cimport Allocation
 from _pensieve.records cimport HeaderRecord
 
 cdef extern from "record_reader.h" namespace "pensieve::api":
+    cdef struct HighWatermark:
+        size_t index
+        size_t peak_memory
+
     cdef cppclass RecordReader:
         RecordReader(const string& file_name) except+
         bool nextAllocationRecord(Allocation* allocation) except+
@@ -17,5 +21,5 @@ cdef extern from "record_reader.h" namespace "pensieve::api":
         HeaderRecord getHeader()
 
 
-    size_t getHighWatermarkIndex(const vector[Allocation]& records) except+
+    HighWatermark getHighWatermark(const vector[Allocation]& records) except+
     object Py_GetSnapshotAllocationRecords(const vector[Allocation]& all_records, size_t record_index) except+

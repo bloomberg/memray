@@ -38,9 +38,9 @@ class HighWatermarkCommand:
             return 1
 
         tracker = Tracker(args.results)
-        snapshot = tracker.reader.get_high_watermark_allocation_records()
 
         try:
+            snapshot = tracker.reader.get_high_watermark_allocation_records()
             reporter = self.reporter_factory(snapshot)
         except OSError:
             print(
