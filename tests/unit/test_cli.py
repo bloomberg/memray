@@ -1,10 +1,13 @@
 import argparse
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from bloomberg.pensieve.__main__ import main
 from bloomberg.pensieve.commands import flamegraph
+from bloomberg.pensieve.commands.flamegraph import FlamegraphCommand
+from bloomberg.pensieve.commands.table import TableCommand
 
 
 def test_no_args_passed(capsys):
@@ -96,7 +99,7 @@ class TestFlamegraphSubCommand:
 
         # THEN
         assert namespace.results == "results.txt"
-        assert namespace.output == "pensieve-flamegraph.html"
+        assert namespace.output is None
 
     def test_parser_accepts_short_form_output_1(self):
         # GIVEN
@@ -141,3 +144,37 @@ class TestFlamegraphSubCommand:
         # THEN
         assert namespace.results == "results.txt"
         assert namespace.output == "output.html"
+
+
+@pytest.mark.parametrize(
+    "input, expected, factory",
+    (
+        ("result.bin", "pensieve-flamegraph-result.html", FlamegraphCommand),
+        ("/tmp/result.bin", "/tmp/pensieve-flamegraph-result.html", FlamegraphCommand),
+        ("../result.bin", "../pensieve-flamegraph-result.html", FlamegraphCommand),
+        (
+            "pensieve-json.tool.0.bin",
+            "pensieve-flamegraph-json.tool.0.html",
+            FlamegraphCommand,
+        ),
+        (
+            "/tmp/pensieve-json.tool.0.bin",
+            "/tmp/pensieve-flamegraph-json.tool.0.html",
+            FlamegraphCommand,
+        ),
+        (
+            "../pensieve-json.tool.0.bin",
+            "../pensieve-flamegraph-json.tool.0.html",
+            FlamegraphCommand,
+        ),
+        ("pensieve-json.tool.0.bin", "pensieve-table-json.tool.0.html", TableCommand),
+        ("my-result.bin", "pensieve-table-my-result.html", TableCommand),
+        ("../my-result.bin", "../pensieve-table-my-result.html", TableCommand),
+    ),
+)
+def test_determine_output(input, expected, factory):
+    # GIVEN
+    command = factory()
+
+    # WHEN/THEN
+    assert command.determine_output_filename(Path(input)) == Path(expected)
