@@ -569,26 +569,55 @@ class TestLeaks:
         )
 
 
-def test_get_header(monkeypatch, tmpdir):
-    # GIVEN
-    allocator = MemoryAllocator()
-    output = Path(tmpdir) / "test.bin"
+class TestHeader:
+    def test_get_header(self, monkeypatch, tmpdir):
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = Path(tmpdir) / "test.bin"
 
-    # WHEN
+        # WHEN
 
-    monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
-    start_time = datetime.datetime.now()
-    with Tracker(output) as tracker:
-        for _ in range(100):
-            allocator.valloc(1024)
-    end_time = datetime.datetime.now()
+        monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
+        start_time = datetime.datetime.now()
+        with Tracker(output) as tracker:
+            for _ in range(100):
+                allocator.valloc(1024)
+        end_time = datetime.datetime.now()
 
-    n_records = len(list(tracker.reader.get_allocation_records()))
-    metadata = tracker.reader.metadata
+        n_records = len(list(tracker.reader.get_allocation_records()))
+        metadata = tracker.reader.metadata
 
-    # THEN
-    assert metadata.end_time > metadata.start_time
-    assert abs(metadata.start_time - start_time).seconds < 1
-    assert abs(metadata.end_time - end_time).seconds < 1
-    assert metadata.total_allocations == n_records
-    assert metadata.command_line == "python -m pytest"
+        # THEN
+        assert metadata.end_time > metadata.start_time
+        assert abs(metadata.start_time - start_time).seconds < 1
+        assert abs(metadata.end_time - end_time).seconds < 1
+        assert metadata.total_allocations == n_records
+        assert metadata.command_line == "python -m pytest"
+        assert metadata.peak_memory == 1024 * 100
+
+    def test_get_header_after_snapshot(self, monkeypatch, tmpdir):
+        """Verify that we can successfully retrieve the metadata after querying
+        the high watermark snapshot."""
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = Path(tmpdir) / "test.bin"
+
+        # WHEN
+
+        monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
+        start_time = datetime.datetime.now()
+        with Tracker(output) as tracker:
+            for _ in range(100):
+                allocator.valloc(1024)
+        end_time = datetime.datetime.now()
+
+        peak, *_ = list(tracker.reader.get_high_watermark_allocation_records())
+        metadata = tracker.reader.metadata
+
+        # THEN
+        assert metadata.end_time > metadata.start_time
+        assert abs(metadata.start_time - start_time).seconds < 1
+        assert abs(metadata.end_time - end_time).seconds < 1
+        assert metadata.total_allocations == peak.n_allocations
+        assert metadata.command_line == "python -m pytest"
+        assert metadata.peak_memory == 1024 * 100

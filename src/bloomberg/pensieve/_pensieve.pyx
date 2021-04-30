@@ -7,7 +7,7 @@ import threading
 
 from datetime import datetime
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr, make_shared, unique_ptr
+from libcpp.memory cimport shared_ptr, make_shared, unique_ptr, make_unique
 from libcpp.string cimport string as cppstring
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -18,7 +18,7 @@ from _pensieve.logging cimport initializePythonLoggerInterface
 from _pensieve.alloc cimport calloc, free, malloc, realloc, posix_memalign, memalign, valloc, pvalloc
 from _pensieve.pthread cimport pthread_create, pthread_join, pthread_t
 from _pensieve.record_reader cimport RecordReader
-from _pensieve.record_reader cimport getHighWatermarkIndex
+from _pensieve.record_reader cimport getHighWatermark, HighWatermark
 from _pensieve.record_reader cimport Py_GetSnapshotAllocationRecords
 from _pensieve.records cimport Allocation as NativeAllocation
 from ._metadata import Metadata
@@ -228,11 +228,16 @@ cdef class FileReader:
     cdef cppstring _path
     cdef shared_ptr[RecordReader] _reader
     cdef vector[NativeAllocation] _native_allocations
+    cdef unique_ptr[HighWatermark] _high_watermark
+    cdef object _header
 
     def __init__(self, object file_name):
         self._path = str(file_name)
         if not pathlib.Path(self._path).exists():
             raise IOError(f"No such file: {self._path}")
+
+        self._reader = make_shared[RecordReader](self._path)
+        self._header: dict = self._reader.get().getHeader()
 
     def __del__(self):
         self._reader.reset()
@@ -241,12 +246,12 @@ cdef class FileReader:
         self._reader = make_shared[RecordReader](self._path)
         return self._reader.get()
 
-    cdef inline void _get_allocations(self, RecordReader*reader) except+:
+    cdef inline void _populate_allocations(self, RecordReader* reader) except+:
         if self._native_allocations.size() != 0:
-            self._native_allocations.clear()
+            return
 
         cdef NativeAllocation native_allocation
-        total_allocations = self.metadata.total_allocations
+        total_allocations = self._header["stats"]["n_allocations"]
         self._native_allocations.reserve(total_allocations)
         while reader.nextAllocationRecord(&native_allocation):
             self._native_allocations.push_back(move(native_allocation))
@@ -254,20 +259,28 @@ cdef class FileReader:
     def _yield_allocations(self, size_t index):
         assert (self._reader.get() != NULL)
         for elem in Py_GetSnapshotAllocationRecords(self._native_allocations, index):
-            alloc = AllocationRecord(elem);
+            alloc = AllocationRecord(elem)
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
         self._native_allocations.clear()
 
+    cdef inline HighWatermark* _get_high_watermark(self):
+        cdef shared_ptr[RecordReader] reader
+        if self._high_watermark == NULL:
+            reader = make_shared[RecordReader](self._path)
+            self._populate_allocations(reader.get())
+            self._high_watermark = make_unique[HighWatermark](getHighWatermark(self._native_allocations))
+        return self._high_watermark.get()
+
     def get_high_watermark_allocation_records(self):
-        cdef RecordReader*reader = self._get_new_reader()
-        self._get_allocations(reader)
-        cdef size_t high_watermark_index = getHighWatermarkIndex(self._native_allocations)
-        yield from self._yield_allocations(high_watermark_index)
+        cdef RecordReader* reader = self._get_new_reader()
+        self._populate_allocations(reader)
+        cdef HighWatermark* watermark = self._get_high_watermark()
+        yield from self._yield_allocations(watermark.index)
 
     def get_leaked_allocation_records(self):
         cdef RecordReader*reader = self._get_new_reader()
-        self._get_allocations(reader)
+        self._populate_allocations(reader)
 
         cdef size_t snapshot_index = self._native_allocations.size() - 1
         yield from self._yield_allocations(snapshot_index)
@@ -288,15 +301,11 @@ cdef class FileReader:
             return datetime.fromtimestamp(millis // 1000).replace(
                 microsecond=millis % 1000 * 1000)
 
-        if self._reader == NULL:
-            self._reader = make_shared[RecordReader](self._path)
-        cdef RecordReader* reader = self._reader.get()
-
-        header: dict = reader.getHeader()
-        stats = header["stats"]
+        stats = self._header["stats"]
         return Metadata(start_time=millis_to_dt(stats["start_time"]),
                         end_time=millis_to_dt(stats["end_time"]),
                         total_allocations=stats["n_allocations"],
                         total_frames=stats["n_frames"],
-                        command_line=header["command_line"])
+                        peak_memory=self._get_high_watermark().peak_memory,
+                        command_line=self._header["command_line"])
 

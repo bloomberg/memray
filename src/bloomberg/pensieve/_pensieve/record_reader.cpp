@@ -306,12 +306,11 @@ RecordReader::getHeader() const noexcept
     return d_header;
 }
 
-size_t
-getHighWatermarkIndex(const allocations_t& records)
+HighWatermark
+getHighWatermark(const allocations_t& records)
 {
+    HighWatermark result;
     size_t current_memory = 0;
-    size_t max_memory = 0;
-    size_t high_water_mark_index = 0;
     std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
 
     for (auto records_it = records.cbegin(); records_it != records.cend(); records_it++) {
@@ -328,16 +327,16 @@ getHighWatermarkIndex(const allocations_t& records)
             case hooks::AllocatorKind::SIMPLE_ALLOCATOR:
             case hooks::AllocatorKind::RANGED_ALLOCATOR: {
                 current_memory += records_it->record.size;
-                if (current_memory >= max_memory) {
-                    high_water_mark_index = records_it - records.cbegin();
-                    max_memory = current_memory;
+                if (current_memory >= result.peak_memory) {
+                    result.index = records_it - records.cbegin();
+                    result.peak_memory = current_memory;
                 }
                 ptr_to_allocation[records_it->record.address] = records_it - records.begin();
                 break;
             }
         }
     }
-    return high_water_mark_index;
+    return result;
 }
 
 PyObject*
