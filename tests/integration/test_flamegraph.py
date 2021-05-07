@@ -331,7 +331,7 @@ class TestFlameGraphReporter:
                                                     "allocations_label": "1 allocation",
                                                     "children": [
                                                         {
-                                                            "name": "two at recursive.py:20",
+                                                            "name": "two at recursive.py:20",  # noqa
                                                             "location": "File recursive.py, line 20 in two",  # noqa
                                                             "value": 1024,
                                                             "n_allocations": 1,

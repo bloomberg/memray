@@ -3,8 +3,11 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
+
+from bloomberg.pensieve.commands import main
 
 
 class TestRunSubcommand:
@@ -99,6 +102,19 @@ class TestRunSubcommand:
         assert "Arg: arg1" in proc.stdout
         assert out_file.exists()
 
+    @patch("bloomberg.pensieve.commands.run.os.getpid")
+    def test_run_file_exists(self, getpid, tmp_path, monkeypatch):
+        # GIVEN / WHEN
+        getpid.return_value = 0
+        (tmp_path / "pensieve-json.tool.0.bin").touch()
+        monkeypatch.chdir(tmp_path)
+
+        # THEN
+        with pytest.raises(
+            OSError, match="Output file pensieve-json.tool.0.bin already exists"
+        ):
+            main(["run", "-m", "json.tool", "-h"])
+
 
 class TestFlamegraphSubCommand:
     @staticmethod
@@ -143,7 +159,7 @@ class TestFlamegraphSubCommand:
         )
 
         # THEN
-        output_file = tmp_path / "pensieve-flamegraph.html"
+        output_file = tmp_path / "pensieve-flamegraph-result.html"
         assert output_file.exists()
         assert "json/tool.py" in output_file.read_text()
 
@@ -215,3 +231,20 @@ class TestFlamegraphSubCommand:
         assert re.match(
             r"Failed to parse allocation records in .*badfile\.bin$", proc.stderr
         )
+
+    def test_output_file_already_exists(self, tmp_path, monkeypatch):
+        """Check that when the output file is derived form the input name, we fail when there is
+        already a file with the same name as the output."""
+
+        # GIVEN
+        monkeypatch.chdir(tmp_path)
+        # This will generate "result.bin"
+        results_file = self.generate_sample_results(tmp_path)
+        output_file = tmp_path / "pensieve-flamegraph-result.html"
+        output_file.touch()
+
+        # WHEN
+        ret = main(["flamegraph", str(results_file)])
+
+        # THEN
+        assert ret != 0

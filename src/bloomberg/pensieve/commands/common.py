@@ -1,4 +1,6 @@
 import argparse
+import os
+import pathlib
 import sys
 from pathlib import Path
 from typing import Callable
@@ -12,29 +14,50 @@ from bloomberg.pensieve.reporters import BaseReporter
 class HighWatermarkCommand:
     def __init__(
         self,
-        default_output_file: str,
         reporter_factory: Callable[
             [Generator[AllocationRecord, None, None]], BaseReporter
         ],
     ) -> None:
-        self.default_output_file = default_output_file
         self.reporter_factory = reporter_factory
+
+    @property
+    def reporter_name(self) -> str:
+        raise NotImplementedError
+
+    def determine_output_filename(self, results_file: pathlib.Path) -> pathlib.Path:
+        output_name = results_file.with_suffix(".html").name
+        if output_name.startswith("pensieve-"):
+            output_name = output_name[len("pensieve-") :]
+
+        return results_file.parent / f"pensieve-{self.reporter_name}-{output_name}"
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "-o",
             "--output",
             help="Output file name",
-            default=self.default_output_file,
+            default=None,
         )
         parser.add_argument("results", help="Results of the tracker run")
 
-    def run(
-        self,
-        args: argparse.Namespace,
-    ) -> int:
-        if not Path(args.results).exists():
+    def run(self, args: argparse.Namespace) -> int:
+        # Check that the input file exists.
+        result_path = Path(args.results)
+        if not result_path.exists() or not result_path.is_file():
             print(f"No such file: {args.results}", file=sys.stderr)
+            return 1
+
+        # Check that the output file does not exist.
+        output_file = Path(
+            args.output
+            if args.output is not None
+            else self.determine_output_filename(result_path)
+        )
+        if output_file.exists():
+            print(
+                f"File already exists, will not overwrite: {output_file}",
+                file=sys.stderr,
+            )
             return 1
 
         tracker = Tracker(args.results)
@@ -49,8 +72,8 @@ class HighWatermarkCommand:
             )
             return 1
 
-        with open(args.output, "w") as f:
+        with open(os.fspath(output_file.expanduser()), "w") as f:
             reporter.render(f, tracker.reader.metadata)
 
-        print(f"Wrote {args.output}")
+        print(f"Wrote {output_file}")
         return 0
