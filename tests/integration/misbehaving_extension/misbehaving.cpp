@@ -46,8 +46,24 @@ call_fn(PyObject*, PyObject* args)
     Py_RETURN_NONE;
 }
 
+PyObject*
+call_fn_no_thread(PyObject*, PyObject* args)
+{
+    PyObject* callback;
+    if (!PyArg_ParseTuple(args,"O", &callback))
+    {
+        PyErr_SetString(PyExc_ValueError, "Failed to parse arguments");
+        Py_RETURN_NONE;
+    }
+    worker(callback);
+    Py_RETURN_NONE;
+}
+
+
+
 static PyMethodDef methods[] = {
         {"call_fn", call_fn, METH_VARARGS, "Call Python function on a thread"},
+        {"call_fn_no_thread", call_fn_no_thread, METH_VARARGS, "Call Python function with PyGILState_Ensure"},
         {NULL, NULL, 0, NULL},
 };
 

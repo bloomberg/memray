@@ -268,6 +268,20 @@ Tracker::getTracker()
     return d_instance;
 }
 
+void
+Tracker::installTrackingFunctionInThread(thread_id_t thread_id)
+{
+    PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
+    // Don't clear the python stack if we have already registered the tracking
+    // function with the current thread.
+    if (d_registered_threads.find(thread_id) != d_registered_threads.end()) {
+        return;
+    }
+    top_frame = PyEval_GetFrame();
+    python_stack.clear();
+    d_registered_threads.insert(thread_id);
+}
+
 // Trace Function interface
 
 int
@@ -314,9 +328,7 @@ install_trace_function()
 {
     assert(PyGILState_Check());
     RecursionGuard guard;
-    python_stack.clear();
-    top_frame = PyEval_GetFrame();
-    PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
+    Tracker::getTracker()->installTrackingFunctionInThread(thread_id());
 }
 
 }  // namespace pensieve::tracking_api
