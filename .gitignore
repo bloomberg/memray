@@ -166,3 +166,7 @@ cython_debug/
 
 # pensieve stuff
 pensieve-*
+
+# VSCode
+.devcontainer
+.vscode
