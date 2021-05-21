@@ -1,6 +1,10 @@
+import mmap
 import sys
+import threading
 from pathlib import Path
 from unittest.mock import ANY
+
+import pytest
 
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
@@ -435,3 +439,82 @@ def test_identical_stack_traces_started_in_different_lines_in_a_function_do_not_
 
     assert first_alloc1.stack_id != first_alloc2.stack_id
     assert second_alloc1.stack_id != second_alloc2.stack_id
+
+
+class TestMmap:
+    @classmethod
+    def allocating_function(cls):
+        with mmap.mmap(-1, length=2048, access=mmap.ACCESS_WRITE) as mmap_obj:
+            mmap_obj[0:100] = b"a" * 100
+
+    @pytest.mark.valgrind
+    def test_mmap(self, tmpdir):
+        # GIVEN / WHEN
+        output = Path(tmpdir) / "test.bin"
+        with Tracker(output) as tracker:
+            TestMmap.allocating_function()
+
+        # THEN
+        records = list(tracker.reader.get_allocation_records())
+
+        assert len(records) >= 2
+
+        mmap_record = next(
+            (record for record in records if AllocatorType.MMAP == record.allocator),
+            None,
+        )
+        assert mmap_record is not None
+        assert "allocating_function" in {
+            element[0] for element in mmap_record.stack_trace()
+        }
+
+        mmunmap_record = next(
+            (record for record in records if AllocatorType.MUNMAP == record.allocator),
+            None,
+        )
+        assert mmunmap_record is not None
+        assert "allocating_function" in {
+            element[0] for element in mmunmap_record.stack_trace()
+        }
+
+    @pytest.mark.valgrind
+    def test_mmap_in_thread(self, tmpdir):
+        # GIVEN / WHEN
+        output = Path(tmpdir) / "test.bin"
+
+        def custom_trace_fn():
+            pass
+
+        threading.setprofile(custom_trace_fn)
+        t = threading.Thread(target=TestMmap.allocating_function)
+        with Tracker(output) as tracker:
+            t.start()
+            t.join()
+
+        # THEN
+        assert threading._profile_hook == custom_trace_fn
+        records = list(tracker.reader.get_allocation_records())
+
+        assert len(records) >= 2
+
+        mmap_record = next(
+            (
+                record
+                for record in records
+                if AllocatorType.MMAP == record.allocator and record.size == 2048
+            ),
+            None,
+        )
+        assert mmap_record is not None
+        assert "allocating_function" in {
+            element[0] for element in mmap_record.stack_trace()
+        }
+
+        mmunmap_record = next(
+            (record for record in records if AllocatorType.MUNMAP == record.allocator),
+            None,
+        )
+        assert mmunmap_record is not None
+        assert "allocating_function" in {
+            element[0] for element in mmunmap_record.stack_trace()
+        }
