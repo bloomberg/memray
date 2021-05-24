@@ -18,9 +18,6 @@ _deps
 *.cbp
 cmake-build-*/
 
-# pip stuff
-pip-wheel-metadata/
-
 # Cython specific files
 src/bloomberg/pensieve/*.cpp
 src/bloomberg/pensieve/_pensieve_api.h
@@ -169,3 +166,7 @@ cython_debug/
 
 # pensieve stuff
 pensieve-*
+
+# VSCode
+.devcontainer
+.vscode
