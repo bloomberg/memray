@@ -53,9 +53,9 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 13),
-        ("alloc_func2", __file__, 22),
-        ("alloc_func1", __file__, 29),
+        ("alloc_func3", __file__, 17),
+        ("alloc_func2", __file__, 26),
+        ("alloc_func1", __file__, 33),
     ]
     frees = [
         record
@@ -66,9 +66,9 @@ def test_traceback(tmpdir):
     (free,) = frees
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 15),
-        ("alloc_func2", __file__, 22),
-        ("alloc_func1", __file__, 29),
+        ("alloc_func3", __file__, 19),
+        ("alloc_func2", __file__, 26),
+        ("alloc_func1", __file__, 33),
     ]
 
 
@@ -90,9 +90,9 @@ def test_traceback_for_high_watermark(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 13),
-        ("alloc_func2", __file__, 22),
-        ("alloc_func1", __file__, 29),
+        ("alloc_func3", __file__, 17),
+        ("alloc_func2", __file__, 26),
+        ("alloc_func1", __file__, 33),
     ]
 
 
