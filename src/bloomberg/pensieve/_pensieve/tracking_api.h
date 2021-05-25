@@ -142,7 +142,6 @@ class Tracker
     static const std::atomic<bool>& isActive();
     static void activate();
     static void deactivate();
-    void installTrackingFunctionInThread(thread_id_t thread_id);
 
   private:
     // Data members
@@ -152,7 +151,6 @@ class Tracker
     std::unique_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     bool d_unwind_native_frames;
-    std::unordered_set<thread_id_t> d_registered_threads{};
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);
