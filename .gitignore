@@ -170,3 +170,6 @@ pensieve-*
 # VSCode
 .devcontainer
 .vscode
+
+# NodeJS
+node_modules/
