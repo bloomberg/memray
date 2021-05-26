@@ -1,3 +1,5 @@
+import { humanFileSize } from "./common";
+
 function main() {
   const columns = [
     {

@@ -1,3 +1,5 @@
+import { humanFileSize } from "./common";
+
 // For navigable #[integer] fragments
 function getCurrentId() {
   if (location.hash) {
