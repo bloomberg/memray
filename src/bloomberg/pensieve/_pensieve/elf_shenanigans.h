@@ -1,5 +1,4 @@
-#ifndef _PENSIEVE_ELF_SHENANIGANS_H
-#define _PENSIEVE_ELF_SHENANIGANS_H
+#pragma once
 
 #include <set>
 #include <string>
@@ -16,5 +15,3 @@ class SymbolPatcher
     void restore_symbols() noexcept;
 };
 }  // namespace pensieve::elf
-
-#endif  //_PENSIEVE_ELF_SHENANIGANS_H
