@@ -105,13 +105,13 @@ Tracker::Tracker(const std::string& file_name, bool native_frames, const std::st
     RecursionGuard guard;
     tracking_api::Tracker::activate();
     tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
-    elf::overwrite_symbols();
+    d_patcher.overwrite_symbols();
 }
 Tracker::~Tracker()
 {
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
-    elf::restore_symbols();
+    d_patcher.restore_symbols();
     d_writer->writeHeader();
     d_writer.reset();
     d_instance = nullptr;
@@ -164,7 +164,7 @@ Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
 void
 Tracker::invalidate_module_cache()
 {
-    elf::overwrite_symbols();
+    d_patcher.overwrite_symbols();
     updateModuleCache();
 }
 

@@ -14,6 +14,7 @@
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 
+#include "elf_shenanigans.h"
 #include "frame_tree.h"
 #include "hooks.h"
 #include "record_writer.h"
@@ -151,6 +152,7 @@ class Tracker
     std::unique_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     bool d_unwind_native_frames;
+    elf::SymbolPatcher d_patcher;
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);

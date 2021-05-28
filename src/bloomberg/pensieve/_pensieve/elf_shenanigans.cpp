@@ -17,6 +17,17 @@
 #    define ELF_R_SYM ELF32_R_SYM
 #endif
 
+namespace {
+
+/* Private struct to pass data to to phdrs_callback. */
+struct elf_patcher_context_t
+{
+    bool restore_original;
+    std::set<std::string> patched;
+};
+
+}  // namespace
+
 namespace pensieve::elf {
 
 /* Patching functions */
@@ -134,9 +145,10 @@ patch_symbols(const Dyn* dyn_info_struct, const Addr base, bool restore_original
 static int
 phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noexcept
 {
-    static std::set<std::string> patched;
-    bool restore_original = *reinterpret_cast<bool*>(data);
-    if (restore_original) {
+    elf_patcher_context_t context = *reinterpret_cast<elf_patcher_context_t*>(data);
+    std::set<std::string> patched = context.patched;
+
+    if (context.restore_original) {
         patched.clear();
     } else {
         if (patched.find(info->dlpi_name) != patched.end()) {
@@ -160,7 +172,7 @@ phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noe
             continue;
         }
         const auto* dyn_info_struct = reinterpret_cast<const Dyn*>(phdr->p_vaddr + info->dlpi_addr);
-        patch_symbols(dyn_info_struct, info->dlpi_addr, restore_original);
+        patch_symbols(dyn_info_struct, info->dlpi_addr, context.restore_original);
     }
     return 0;
 }
@@ -168,17 +180,17 @@ phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noe
 /* Public API functions */
 
 void
-overwrite_symbols() noexcept
+SymbolPatcher::overwrite_symbols() noexcept
 {
-    bool restore_original = false;
-    dl_iterate_phdr(&phdrs_callback, (void*)&restore_original);
+    elf_patcher_context_t context{false, symbols};
+    dl_iterate_phdr(&phdrs_callback, (void*)&context);
 }
 
 void
-restore_symbols() noexcept
+SymbolPatcher::restore_symbols() noexcept
 {
-    bool restore_original = true;
-    dl_iterate_phdr(&phdrs_callback, (void*)&restore_original);
+    elf_patcher_context_t context{true, symbols};
+    dl_iterate_phdr(&phdrs_callback, (void*)&context);
 }
 
 }  // namespace pensieve::elf
