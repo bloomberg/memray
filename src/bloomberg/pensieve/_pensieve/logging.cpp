@@ -21,7 +21,7 @@ logWithPython(const std::string& message, int level)
     if (!LOGGER_INITIALIZED) {
         throw std::runtime_error("Logger is not initialized");
     }
-    if (!PyErr_Occurred()) {
+    if (!PyErr_Occurred() && Py_IsInitialized()) {
         log_with_python(message, level);
     }
 }
