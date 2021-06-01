@@ -72,13 +72,14 @@ static const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
 
 std::atomic<bool> Tracker::d_active = false;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
-static thread_local PyFrameObject* top_frame = nullptr;
+static thread_local PyFrameObject* entry_frame = nullptr;
+static thread_local PyFrameObject* current_frame = nullptr;
 static thread_local std::vector<PyFrameObject*> python_stack{};
 
 static inline int
 getCurrentPythonLineNumber()
 {
-    const PyFrameObject* the_python_stack = python_stack.empty() ? top_frame : python_stack.back();
+    const PyFrameObject* the_python_stack = current_frame ? current_frame : entry_frame;
     return the_python_stack ? PyCode_Addr2Line(the_python_stack->f_code, the_python_stack->f_lasti) : 0;
 }
 
@@ -119,6 +120,12 @@ Tracker::~Tracker()
 void
 Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 {
+    // IMPORTANT!
+    // This function can get called when libc and libpthread are deallocating
+    // the memory associated by threads and thread local storage variables so it's
+    // important that no TLS variables with non-trivial destructors are used in this
+    // function or any function called from here.
+
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
     }
@@ -152,6 +159,12 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 void
 Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
 {
+    // IMPORTANT!
+    // This function can get called when libc and libpthread are deallocating
+    // the memory associated by threads and thread local storage variables so it's
+    // important that no TLS variables with non-trivial destructors are used in this
+    // function or any function called from here.
+
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
     }
@@ -293,6 +306,7 @@ PyTraceFunction(
     int parent_lineno = getCurrentPythonLineNumber();
     switch (what) {
         case PyTrace_CALL:
+            current_frame = frame;
             python_stack.push_back(frame);
             Tracker::getTracker()->pushFrame({function, filename, parent_lineno});
             break;
@@ -301,6 +315,7 @@ PyTraceFunction(
                 Tracker::getTracker()->popFrame({function, filename, parent_lineno});
                 python_stack.pop_back();
             }
+            current_frame = python_stack.empty() ? nullptr : python_stack.back();
             break;
         }
         default:
@@ -321,7 +336,7 @@ install_trace_function()
         return;
     }
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
-    top_frame = PyEval_GetFrame();
+    entry_frame = PyEval_GetFrame();
     python_stack.clear();
 }
 
