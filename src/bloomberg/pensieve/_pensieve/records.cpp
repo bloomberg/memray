@@ -38,7 +38,7 @@ Allocation::toPythonObject() const
     elem = PyLong_FromSize_t(frame_index);
     __CHECK_ERROR(elem);
     PyTuple_SET_ITEM(tuple, 4, elem);
-    elem = PyLong_FromSize_t(n_allocactions);
+    elem = PyLong_FromSize_t(n_allocations);
     __CHECK_ERROR(elem);
     PyTuple_SET_ITEM(tuple, 5, elem);
     elem = PyLong_FromSize_t(record.native_frame_id);

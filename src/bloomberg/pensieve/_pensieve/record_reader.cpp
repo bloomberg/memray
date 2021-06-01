@@ -57,7 +57,7 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
             stack_to_allocation.insert(alloc_it, std::pair(record.frame_index, record));
         } else {
             alloc_it->second.record.size += record.record.size;
-            alloc_it->second.n_allocactions += 1;
+            alloc_it->second.n_allocations += 1;
         }
     }
     return stack_to_allocation;
