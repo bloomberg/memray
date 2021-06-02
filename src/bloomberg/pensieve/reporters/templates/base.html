@@ -9,7 +9,6 @@
 
   {%- block styles -%}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
-  <style>{% include "assets/skeleton.css" %}</style>
   {%- endblock styles -%}
 </head>
 
@@ -93,9 +92,6 @@
   {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
-  <script type="text/javascript">
-    {%- include "assets/skeleton.js" -%}
-  </script>
   <script type="text/javascript">var data = {{ data }};</script>
   {% endblock scripts %}
 </body>

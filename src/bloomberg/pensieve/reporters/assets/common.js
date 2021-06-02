@@ -1,4 +1,4 @@
-function humanFileSize(bytes, dp = 1) {
+export function humanFileSize(bytes, dp = 1) {
   if (Math.abs(bytes) < 1024) {
     return bytes + " B";
   }

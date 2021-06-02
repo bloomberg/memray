@@ -167,6 +167,9 @@ cython_debug/
 # pensieve stuff
 pensieve-*
 
+# Generated files
+**/templates/assets/*.js
+
 # VSCode
 .devcontainer
 .vscode
