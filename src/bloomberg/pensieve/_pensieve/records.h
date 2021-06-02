@@ -60,7 +60,7 @@ struct Allocation
     tracking_api::AllocationRecord record;
     size_t frame_index{0};
     size_t native_segment_generation{0};
-    size_t n_allocactions{1};
+    size_t n_allocations{1};
 
     PyObject* toPythonObject() const;
 };

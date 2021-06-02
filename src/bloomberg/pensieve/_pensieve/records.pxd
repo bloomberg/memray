@@ -29,6 +29,5 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
    cdef cppclass Allocation:
        AllocationRecord record
        size_t frame_index
-       size_t n_allocactions
+       size_t n_allocations
        object toPythonObject()
-
