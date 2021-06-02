@@ -242,14 +242,11 @@ cdef class FileReader:
     def __del__(self):
         self._reader.reset()
 
-    cdef inline RecordReader* _get_new_reader(self) except NULL:
-        self._reader = make_shared[RecordReader](self._path)
-        return self._reader.get()
-
-    cdef inline void _populate_allocations(self, RecordReader* reader) except+:
+    cdef inline void _populate_allocations(self) except+:
         if self._native_allocations.size() != 0:
             return
 
+        cdef RecordReader * reader = self._reader.get()
         cdef NativeAllocation native_allocation
         total_allocations = self._header["stats"]["n_allocations"]
         self._native_allocations.reserve(total_allocations)
@@ -262,37 +259,31 @@ cdef class FileReader:
             alloc = AllocationRecord(elem)
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
-        self._native_allocations.clear()
 
     cdef inline HighWatermark* _get_high_watermark(self):
-        cdef shared_ptr[RecordReader] reader
         if self._high_watermark == NULL:
-            reader = make_shared[RecordReader](self._path)
-            self._populate_allocations(reader.get())
+            self._populate_allocations()
             self._high_watermark = make_unique[HighWatermark](getHighWatermark(self._native_allocations))
         return self._high_watermark.get()
 
     def get_high_watermark_allocation_records(self):
-        cdef RecordReader* reader = self._get_new_reader()
-        self._populate_allocations(reader)
+        self._populate_allocations()
         cdef HighWatermark* watermark = self._get_high_watermark()
         yield from self._yield_allocations(watermark.index)
 
     def get_leaked_allocation_records(self):
-        cdef RecordReader*reader = self._get_new_reader()
-        self._populate_allocations(reader)
-
+        self._populate_allocations()
         cdef size_t snapshot_index = self._native_allocations.size() - 1
         yield from self._yield_allocations(snapshot_index)
 
     def get_allocation_records(self):
-        self._reader = make_shared[RecordReader](self._path)
-        cdef RecordReader*reader = self._reader.get()
+        cdef shared_ptr[RecordReader] reader = make_shared[RecordReader](self._path)
         cdef NativeAllocation native_allocation
+        cdef RecordReader* reader_ptr = reader.get()
 
-        while reader.nextAllocationRecord(&native_allocation):
+        while reader_ptr.nextAllocationRecord(&native_allocation):
             alloc = AllocationRecord(native_allocation.toPythonObject())
-            (<AllocationRecord> alloc)._reader = self._reader
+            (<AllocationRecord> alloc)._reader = reader
             yield alloc
 
     @property
@@ -308,4 +299,3 @@ cdef class FileReader:
                         total_frames=stats["n_frames"],
                         peak_memory=self._get_high_watermark().peak_memory,
                         command_line=self._header["command_line"])
-
