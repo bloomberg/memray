@@ -80,7 +80,6 @@ RecordReader::RecordReader(const std::string& file_name)
 {
     d_input.open(file_name, std::ios::binary | std::ios::in);
     readHeader(d_input, d_header);
-    d_allocation_frames = tracking_api::FrameCollection<tracking_api::Frame>(d_header.stats.n_frames);
 }
 
 void
