@@ -56,19 +56,6 @@ RecordWriter::_flush() noexcept
 }
 
 bool
-RecordWriter::reserveHeader() const noexcept
-{
-    assert(::lseek(fd, 0, SEEK_CUR) == 0);
-
-    int size = sizeof(d_header.magic) + sizeof(d_header.version) + sizeof(d_header.stats)
-               + d_header.command_line.length() + 1;
-    if (::lseek(fd, size, SEEK_CUR) != size) {
-        return false;
-    }
-    return true;
-}
-
-bool
 RecordWriter::writeHeader() noexcept
 {
     std::lock_guard<std::mutex> lock(d_mutex);

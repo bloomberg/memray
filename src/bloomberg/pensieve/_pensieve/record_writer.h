@@ -29,7 +29,6 @@ class RecordWriter
     bool inline writeString(const char* the_string) noexcept;
     template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item) noexcept;
-    [[nodiscard]] bool reserveHeader() const noexcept;
     bool writeHeader() noexcept;
 
     bool flush() noexcept;
