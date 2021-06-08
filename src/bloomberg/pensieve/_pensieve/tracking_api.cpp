@@ -97,10 +97,7 @@ Tracker::Tracker(const std::string& file_name, bool native_frames, const std::st
         python_stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
     });
 
-    if (!d_writer->reserveHeader()) {
-        throw std::ios_base::failure("Failed to reserve space for header");
-    }
-
+    d_writer->writeHeader();
     updateModuleCache();
 
     RecursionGuard guard;

@@ -1,6 +1,9 @@
 import datetime
 import mmap
+import signal
+import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -106,6 +109,43 @@ def test_pthread_tracking(tmp_path):
         if event.address == alloc.address and event.allocator == AllocatorType.FREE
     ]
     assert len(frees) >= 1
+
+
+def test_tracking_with_SIGKILL(tmpdir):
+    """Verify that we can successfully retrieve the allocations after SIGKILL."""
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    subprocess_code = textwrap.dedent(
+        f"""
+        import os
+        import signal
+        from bloomberg.pensieve import Tracker
+        from bloomberg.pensieve._test import MemoryAllocator
+
+        allocator = MemoryAllocator()
+        output = "{output}"
+
+        with Tracker(output) as tracker:
+            allocator.valloc(1024)
+            os.kill(os.getpid(), signal.SIGKILL)
+    """
+    )
+
+    # WHEN
+    process = subprocess.run([sys.executable, "-c", subprocess_code])
+
+    # THEN
+    assert process.returncode == -signal.SIGKILL
+
+    tracker = Tracker(output)
+    records = list(tracker.reader.get_allocation_records())
+    vallocs = [
+        record
+        for record in filter_relevant_allocations(records)
+        if record.allocator == AllocatorType.VALLOC
+    ]
+    (allocation,) = vallocs
+    assert allocation.size == 1024
 
 
 class TestHighWatermark:

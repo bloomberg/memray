@@ -146,7 +146,7 @@ class Tracker
 
   private:
     // Data members
-    FrameCollection<RawFrame> d_frames{};
+    FrameCollection<RawFrame> d_frames{0, 2};
     static std::atomic<bool> d_active;
     static std::atomic<Tracker*> d_instance;
     std::unique_ptr<RecordWriter> d_writer;
