@@ -8,3 +8,4 @@ furo
 bump2version
 towncrier
 check-manifest
+types-Jinja2
