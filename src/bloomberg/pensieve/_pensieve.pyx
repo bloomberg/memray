@@ -242,7 +242,7 @@ cdef class FileReader:
     def __del__(self):
         self._reader.reset()
 
-    cdef inline void _populate_allocations(self) except+:
+    cdef inline void _populate_allocations(self) except*:
         if self._native_allocations.size() != 0:
             return
 
@@ -260,7 +260,7 @@ cdef class FileReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
-    cdef inline HighWatermark* _get_high_watermark(self):
+    cdef inline HighWatermark* _get_high_watermark(self) except*:
         if self._high_watermark == NULL:
             self._populate_allocations()
             self._high_watermark = make_unique[HighWatermark](getHighWatermark(self._native_allocations))
