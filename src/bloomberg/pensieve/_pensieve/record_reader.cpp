@@ -71,6 +71,10 @@ readHeader(std::istream& input, HeaderRecord& header)
         throw std::ios_base::failure("Invalid input file");
     }
     input.read(reinterpret_cast<char*>(&header.version), sizeof(header.version));
+    if (header.version != CURRENT_HEADER_VERSION) {
+        throw std::ios_base::failure(
+                "The provided input file is incompatible with this version of pensieve.");
+    }
     input.read(reinterpret_cast<char*>(&header.stats), sizeof(header.stats));
     header.command_line.reserve(4096);
     std::getline(input, header.command_line, '\0');
