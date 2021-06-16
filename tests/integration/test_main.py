@@ -32,6 +32,8 @@ class TestRunSubcommand:
         # THEN
         assert "usage: python -m json.tool" in proc.stdout
         assert proc.returncode == 0
+        assert "example commands" in proc.stdout
+
         out_file = re.search("Writing profile results into (.*)", proc.stdout).group(1)
         assert (tmp_path / out_file).exists()
 
