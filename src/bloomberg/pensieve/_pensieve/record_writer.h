@@ -39,7 +39,7 @@ class RecordWriter
 
     // Data members
     int fd{-1};
-    int d_version{1};
+    int d_version{CURRENT_HEADER_VERSION};
     unsigned d_used_bytes{0};
     std::unique_ptr<char[]> d_buffer{nullptr};
     std::mutex d_mutex;

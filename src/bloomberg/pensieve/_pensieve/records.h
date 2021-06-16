@@ -14,6 +14,7 @@
 namespace pensieve::tracking_api {
 
 const char MAGIC[] = "pensieve";
+const int CURRENT_HEADER_VERSION = 1;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
