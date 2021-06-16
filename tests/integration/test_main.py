@@ -229,7 +229,7 @@ class TestFlamegraphSubCommand:
         # THEN
         assert proc.returncode == 1
         assert re.match(
-            r"Failed to parse allocation records in .*badfile\.bin$", proc.stderr
+            r"Failed to parse allocation records in .*badfile\.bin", proc.stderr
         )
 
     def test_output_file_already_exists(self, tmp_path, monkeypatch):

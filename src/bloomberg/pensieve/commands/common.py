@@ -65,11 +65,12 @@ class HighWatermarkCommand:
         try:
             snapshot = tracker.reader.get_high_watermark_allocation_records()
             reporter = self.reporter_factory(snapshot)
-        except OSError:
+        except OSError as e:
             print(
                 f"Failed to parse allocation records in {args.results}",
                 file=sys.stderr,
             )
+            print(f"Reason: {e}", file=sys.stderr)
             return 1
 
         with open(os.fspath(output_file.expanduser()), "w") as f:
