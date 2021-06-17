@@ -1,4 +1,4 @@
-import { humanFileSize } from "./common";
+import { debounced, humanFileSize } from "./common";
 
 // For navigable #[integer] fragments
 function getCurrentId() {
@@ -39,13 +39,24 @@ function onResetZoom() {
   chart.resetZoom(); // calls onClick
 }
 
-// For determining values for the graph
+// For window resizing
 function getChartWidth() {
   // Figure out the width from window size
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
   return window.innerWidth - 2 * rem;
 }
 
+function onResize() {
+  const width = getChartWidth();
+  // Update element widths
+  const svg = document.getElementById("chart").children[0];
+  svg.setAttribute("width", width);
+  chart.width(width);
+  // Merge 0 additional elements, triggering a redraw
+  chart.merge([]);
+}
+
+// For determining values for the graph
 function getTooltip() {
   let tip = d3
     .tip()
@@ -145,6 +156,7 @@ function main() {
   });
 
   window.addEventListener("popstate", handleFragments);
+  window.addEventListener("resize", debounced(onResize));
 }
 
 var chart = null;
