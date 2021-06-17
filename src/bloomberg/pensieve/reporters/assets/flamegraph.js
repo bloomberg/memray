@@ -120,7 +120,7 @@ function main() {
   chart = flamegraph()
     .width(getChartWidth())
     // smooth transitions
-    .transitionDuration(500)
+    .transitionDuration(250)
     .transitionEase(d3.easeCubic)
     // invert the graph by default
     .inverted(true)
