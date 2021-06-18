@@ -2,6 +2,7 @@ import argparse
 import os
 import runpy
 import sys
+import textwrap
 from typing import NoReturn
 
 from bloomberg.pensieve import Tracker
@@ -46,9 +47,22 @@ class RunCommand:
         print(f"Writing profile results into {results_file}")
         with Tracker(results_file):
             sys.argv[1:] = args.script_args
-            if args.run_as_module:
-                runpy.run_module(args.script, run_name="__main__", alter_sys=True)
-            else:
-                runpy.run_path(args.script, run_name="__main__")
+            try:
+                if args.run_as_module:
+                    runpy.run_module(args.script, run_name="__main__", alter_sys=True)
+                else:
+                    runpy.run_path(args.script, run_name="__main__")
+            finally:
+                example_report_generation_message = textwrap.dedent(
+                    f"""
+                    [pensieve] Successfully generated profile results.
+
+                    You can now generate reports from the stored allocation records.
+                    Some example commands to generate reports:
+
+                    {sys.executable} -m bloomberg.pensieve flamegraph {results_file}
+                    """
+                ).strip()
+                print(example_report_generation_message)
 
         return 0
