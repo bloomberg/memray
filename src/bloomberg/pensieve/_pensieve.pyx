@@ -6,6 +6,10 @@ cimport cython
 import threading
 
 from datetime import datetime
+
+from posix.mman cimport mmap, munmap, PROT_WRITE, MAP_ANONYMOUS, MAP_SHARED, MAP_FAILED
+from libc.errno cimport errno
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr, make_shared, unique_ptr, make_unique
 from libcpp.string cimport string as cppstring
@@ -81,6 +85,25 @@ def _cython_nested_allocation(allocator_fn, size):
     cdef void* p = valloc(size);
     free(p)
 
+cdef class MmapAllocator:
+    cdef uintptr_t _address
+
+    def __cinit__(self, size, address=0):
+        cdef uintptr_t start_address = address
+
+        self._address = <uintptr_t>mmap(<void *>start_address, size, PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)
+        if <void *>self._address == MAP_FAILED:
+            raise MemoryError
+
+    @property
+    def address(self):
+        return self._address
+
+    def munmap(self, length, offset=0):
+        cdef uintptr_t addr = self._address + <uintptr_t> offset
+        cdef int ret = munmap(<void *>addr, length)
+        if ret != 0:
+            raise MemoryError(f"munmap rcode: {ret} errno: {errno}")
 
 cdef void* _pthread_worker(void* arg) with gil:
     (<object> arg)()
