@@ -14,3 +14,20 @@ export function humanFileSize(bytes, dp = 1) {
 
   return bytes.toFixed(dp) + " " + units[u];
 }
+
+export function debounced(fn) {
+  var requestID;
+
+  // Return a debouncing wrapper function
+  return function () {
+    if (requestID) {
+      window.cancelAnimationFrame(requestID);
+    }
+
+    const context = this;
+    const args = arguments;
+    requestID = window.requestAnimationFrame(function () {
+      fn.apply(context, args);
+    });
+  };
+}
