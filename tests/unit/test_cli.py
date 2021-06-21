@@ -100,6 +100,7 @@ class TestFlamegraphSubCommand:
         # THEN
         assert namespace.results == "results.txt"
         assert namespace.output is None
+        assert namespace.show_memory_leaks is False
 
     def test_parser_accepts_short_form_output_1(self):
         # GIVEN
@@ -111,6 +112,7 @@ class TestFlamegraphSubCommand:
         # THEN
         assert namespace.results == "results.txt"
         assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
 
     def test_parser_accepts_short_form_output_2(self):
         # GIVEN
@@ -122,6 +124,7 @@ class TestFlamegraphSubCommand:
         # THEN
         assert namespace.results == "results.txt"
         assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
 
     def test_parser_accepts_long_form_output_1(self):
         # GIVEN
@@ -133,6 +136,7 @@ class TestFlamegraphSubCommand:
         # THEN
         assert namespace.results == "results.txt"
         assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
 
     def test_parser_accepts_long_form_output_2(self):
         # GIVEN
@@ -144,6 +148,21 @@ class TestFlamegraphSubCommand:
         # THEN
         assert namespace.results == "results.txt"
         assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+
+    def test_parser_takes_memory_leaks_as_a_flag(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(
+            ["results.txt", "--leaks", "--output", "output.html"]
+        )
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is True
 
 
 @pytest.mark.parametrize(

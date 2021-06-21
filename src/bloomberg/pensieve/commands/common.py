@@ -38,6 +38,13 @@ class HighWatermarkCommand:
             help="Output file name",
             default=None,
         )
+        parser.add_argument(
+            "--leaks",
+            help="Show memory leaks, instead of peak memory usage.",
+            action="store_true",
+            dest="show_memory_leaks",
+            default=False,
+        )
         parser.add_argument("results", help="Results of the tracker run")
 
     def run(self, args: argparse.Namespace) -> int:
@@ -63,7 +70,10 @@ class HighWatermarkCommand:
         tracker = Tracker(args.results)
 
         try:
-            snapshot = tracker.reader.get_high_watermark_allocation_records()
+            if args.show_memory_leaks:
+                snapshot = tracker.reader.get_leaked_allocation_records()
+            else:
+                snapshot = tracker.reader.get_high_watermark_allocation_records()
             reporter = self.reporter_factory(snapshot)
         except OSError as e:
             print(
