@@ -52,11 +52,32 @@ run_inline(PyObject*, PyObject*)
     Py_RETURN_NONE;
 }
 
+void deep_call(long n) {
+    if (n == 0) {
+        return foo();
+    }
+    return deep_call(n-1);
+}
+
+PyObject*
+run_deep(PyObject*, PyObject* n_stack)
+{
+    long n = PyLong_AsLong(n_stack);
+    if (n == -1 && PyErr_Occurred()) {
+        return NULL;
+    }
+    deep_call(n);
+    Py_RETURN_NONE;
+}
+
+
+
 #pragma GCC pop_options
 
 static PyMethodDef methods[] = {
         {"run_simple", run_simple, METH_NOARGS, "Execute a chain of native functions"},
         {"run_inline", run_inline, METH_NOARGS, "Execute a chain of native inlined_functions"},
+        {"run_deep", run_deep, METH_O, "Execute a chain of native inlined functions in a deep stack"},
         {NULL, NULL, 0, NULL},
 };
 

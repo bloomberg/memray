@@ -136,3 +136,44 @@ def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
     assert len(valloc.stack_trace()) == 0
     expected_symbols = ["baz_inline", "bar_inline", "foo_inline"]
     assert expected_symbols == [stack[0] for stack in valloc.native_stack_trace()[:3]]
+
+
+@pytest.mark.valgrind
+def test_deep_call_chain_with_native_tracking(tmpdir, monkeypatch):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "multithreaded_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_NATIVE_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from native_ext import run_deep
+
+        with Tracker(output, native_traces=True) as tracker:
+            run_deep(2048)
+
+    # THEN
+    records = list(tracker.reader.get_allocation_records())
+    vallocs = [
+        record
+        for record in filter_relevant_allocations(records)
+        if record.allocator == AllocatorType.VALLOC
+    ]
+
+    assert len(vallocs) == 1
+    (valloc,) = vallocs
+
+    assert len(valloc.stack_trace()) == 0
+    expected_symbols = ["baz", "bar", "foo"]
+    native_stack = tuple(valloc.native_stack_trace())
+    assert len(native_stack) > 2048
+    assert expected_symbols == [stack[0] for stack in native_stack[:3]]
+    assert all("deep_call" in stack[0] for stack in native_stack[3 : 3 + 2048])
