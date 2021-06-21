@@ -10,6 +10,7 @@ import pytest
 
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
+from bloomberg.pensieve._pensieve import MmapAllocator
 from bloomberg.pensieve._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
 
@@ -22,6 +23,8 @@ ALLOCATORS = [
     ("posix_memalign", AllocatorType.POSIX_MEMALIGN),
     ("realloc", AllocatorType.REALLOC),
 ]
+
+PAGE_SIZE = mmap.PAGESIZE
 
 
 def test_no_allocations_while_tracking(tmp_path):
@@ -449,6 +452,147 @@ class TestHighWatermark:
         assert record.n_allocations == 1
         assert record.allocator == AllocatorType.VALLOC
         assert record.size == 2048
+
+    def test_partial_munmap(self, tmp_path):
+        """Partial munmap operations should be accurately tracked: we should
+        only account for the removal of the actually munmap'd chunk and not
+        the entire mmap'd region when a partial munmap is performed."""
+
+        # GIVEN/WHEN
+        with Tracker(tmp_path / "test.bin") as tracker:
+            # Mmap some memory and free just the first page. This should not register
+            # the deallocation of the entire mmap'd region, only one page.
+            alloc = MmapAllocator(2 * PAGE_SIZE)
+            alloc.munmap(PAGE_SIZE)
+
+            # Now perform the peak allocation. This should be detected as the peak index.
+            MmapAllocator(10 * PAGE_SIZE)
+            # At this point we should have 11 * PAGE_SIZE allocated
+
+        # THEN
+        reader = tracker.reader
+        peak_allocations = list(reader.get_high_watermark_allocation_records())
+        assert len(peak_allocations) == 2
+        peak_memory = sum(x.size for x in peak_allocations)
+        assert peak_memory == 11 * PAGE_SIZE
+
+    def test_partial_munmap_gap(self, tmp_path):
+        """Validate that removing chunks from a mmap'd region correctly accounts
+        for the parts removed. This test allocates 4 pages and removes the first
+        and last pages of the mmap'd region."""
+
+        # GIVEN/WHEN
+        with Tracker(tmp_path / "test.bin") as tracker:
+            # Mmap some memory and free two pages: one at the beginning and one at the
+            # end of the region.
+            alloc = MmapAllocator(4 * PAGE_SIZE)
+            alloc.munmap(PAGE_SIZE)
+            alloc.munmap(PAGE_SIZE, 3 * PAGE_SIZE)
+
+            # Now perform the peak allocation. This should be detected as the peak index.
+            MmapAllocator(10 * PAGE_SIZE)
+            # At this point we should have 12 * PAGE_SIZE allocated
+
+        # THEN
+        reader = tracker.reader
+        peak_allocations = list(reader.get_high_watermark_allocation_records())
+        assert len(peak_allocations) == 2
+        peak_memory = sum(x.size for x in peak_allocations)
+        assert peak_memory == 12 * PAGE_SIZE
+
+    def test_munmap_multiple_mmaps(self, tmp_path):
+        """Allocate multiple contiguous mmap'd regions and then deallocate all of them
+        with munmap in one go."""
+
+        # GIVEN
+        # Ensure we have a long enough free buffer for the contiguous mmap's. We also
+        # need to make sure the allocation addresses are page-aligned later, and mmap
+        # does that # for us. We can then use the pointer from this allocation for the
+        # actual test.
+        buf = MmapAllocator(8 * PAGE_SIZE)
+        buf.munmap(8 * PAGE_SIZE)
+
+        # WHEN
+        with Tracker(tmp_path / "test.bin") as tracker:
+            # Allocate 2 contiguous chunks of 4 pages (8 pages in total) and free them
+            # with a single munmap
+            alloc1 = MmapAllocator(4 * PAGE_SIZE, buf.address)
+            MmapAllocator(4 * PAGE_SIZE, alloc1.address + (4 * PAGE_SIZE))
+            alloc1.munmap(8 * PAGE_SIZE)
+
+            # Now perform the peak allocation. This should be detected as the peak index.
+            MmapAllocator(10 * PAGE_SIZE)
+
+        # THEN
+        reader = tracker.reader
+        peak_allocations = list(
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
+        )
+        peak_memory = sum(x.size for x in peak_allocations)
+        assert peak_memory == 10 * PAGE_SIZE
+
+    def test_munmap_multiple_mmaps_multiple_munmaps(self, tmp_path):
+        """Allocate multiple contiguous mmap'd regions and then with multiple munmap's, each
+        deallocating several mmap'd areas in one go."""
+        # GIVEN
+        # Ensure we have a long enough free buffer for the contiguous mmap's. We also
+        # need to make sure the allocation addresses are page-aligned later, and mmap does that
+        # for us. We can then use the pointer from this allocation for the actual test.
+        buf = MmapAllocator(8 * PAGE_SIZE)
+        buf.munmap(8 * PAGE_SIZE)
+
+        # WHEN
+        with Tracker(tmp_path / "test.bin") as tracker:
+            alloc1 = MmapAllocator(2 * PAGE_SIZE, buf.address)
+            MmapAllocator(2 * PAGE_SIZE, buf.address + (2 * PAGE_SIZE))
+            MmapAllocator(2 * PAGE_SIZE, buf.address + (4 * PAGE_SIZE))
+            MmapAllocator(2 * PAGE_SIZE, buf.address + (6 * PAGE_SIZE))
+            alloc1.munmap(4 * PAGE_SIZE)
+            alloc1.munmap(4 * PAGE_SIZE, 4 * PAGE_SIZE)
+
+            # Now perform the peak allocation. This should be detected as the peak index.
+            MmapAllocator(10 * PAGE_SIZE)
+
+        # THEN
+        reader = tracker.reader
+        peak_allocations = list(
+            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
+        )
+        peak_memory = sum(x.size for x in peak_allocations)
+        assert peak_memory == 10 * PAGE_SIZE
+
+    def test_partial_munmap_multiple_split_in_middle(self, tmp_path):
+        """Deallocate pages in of a larger mmap'd area, splitting it into 3 areas."""
+        # GIVEN/WHEN
+        with Tracker(tmp_path / "test.bin") as tracker:
+            alloc = MmapAllocator(5 * PAGE_SIZE)
+            alloc.munmap(PAGE_SIZE, 1 * PAGE_SIZE)
+            alloc.munmap(PAGE_SIZE, 3 * PAGE_SIZE)
+
+            MmapAllocator(10 * PAGE_SIZE)
+
+        # THEN
+        reader = tracker.reader
+        peak_allocations = list(reader.get_high_watermark_allocation_records())
+        assert len(peak_allocations) == 2
+        peak_memory = sum(x.size for x in peak_allocations)
+        assert peak_memory == 13 * PAGE_SIZE
+
+    def test_partial_munmap_split_in_middle(self, tmp_path):
+        """Deallocate a single page in the middle of a larger mmap'd area."""
+        # GIVEN/WHEN
+        with Tracker(tmp_path / "test.bin") as tracker:
+            alloc = MmapAllocator(8 * PAGE_SIZE)
+            alloc.munmap(PAGE_SIZE, 4 * PAGE_SIZE)
+
+            MmapAllocator(10 * PAGE_SIZE)
+
+        # THEN
+        reader = tracker.reader
+        peak_allocations = list(reader.get_high_watermark_allocation_records())
+        assert len(peak_allocations) == 2
+        peak_memory = sum(x.size for x in peak_allocations)
+        assert peak_memory == 17 * PAGE_SIZE
 
 
 class TestLeaks:

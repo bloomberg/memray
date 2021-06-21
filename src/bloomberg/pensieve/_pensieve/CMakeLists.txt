@@ -23,6 +23,7 @@ add_library(_pensieve STATIC
         record_writer.cpp
         records.cpp
         tracking_api.cpp
-        native_resolver.cpp)
+        native_resolver.cpp
+        interval_tree.cpp)
 set_property(TARGET _pensieve PROPERTY POSITION_INDEPENDENT_CODE ON)
 include_directories("." ${PYTHON_INCLUDE_DIRS})

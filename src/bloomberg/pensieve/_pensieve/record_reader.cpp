@@ -1,10 +1,13 @@
 #include <algorithm>
 #include <cstdio>
+#include <numeric>
 #include <stdexcept>
+#include <unordered_map>
 
 #include "Python.h"
 
 #include "hooks.h"
+#include "interval_tree.h"
 #include "logging.h"
 #include "record_reader.h"
 #include "records.h"
@@ -30,20 +33,31 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
     assert(snapshot_index < records.size());
 
     std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
+    pensieve::IntervalTree<Allocation> interval_tree;
+    std::unordered_map<uintptr_t, Allocation> mmap_allocations{};
+
     const auto snapshot_limit = records.cbegin() + snapshot_index;
     for (auto record_it = records.cbegin(); record_it <= snapshot_limit; record_it++) {
         switch (hooks::allocatorKind(record_it->record.allocator)) {
-            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR:
-            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+            case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
+                ptr_to_allocation[record_it->record.address] = record_it - records.begin();
+                break;
+            }
+            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
                 auto it = ptr_to_allocation.find(record_it->record.address);
                 if (it != ptr_to_allocation.end()) {
                     ptr_to_allocation.erase(it);
                 }
                 break;
             }
-            case hooks::AllocatorKind::SIMPLE_ALLOCATOR:
             case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-                ptr_to_allocation[record_it->record.address] = record_it - records.begin();
+                auto record = record_it->record;
+                interval_tree.add(record.address, record.size, *record_it);
+                break;
+            }
+            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+                auto record = record_it->record;
+                interval_tree.remove(record.address, record.size);
                 break;
             }
         }
@@ -51,7 +65,7 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
 
     std::unordered_map<FrameTree::index_t, Allocation> stack_to_allocation{};
     for (const auto& it : ptr_to_allocation) {
-        const auto& record = records[it.second];
+        const Allocation& record = records[it.second];
         auto alloc_it = stack_to_allocation.find(record.frame_index);
         if (alloc_it == stack_to_allocation.end()) {
             stack_to_allocation.insert(alloc_it, std::pair(record.frame_index, record));
@@ -60,6 +74,22 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
             alloc_it->second.n_allocations += 1;
         }
     }
+
+    // Process ranged allocations. As there can be partial deallocations in mmap'd regions,
+    // we update the allocation to reflect the actual size at the peak, based on the lengths
+    // of the ranges in the interval tree.
+    for (const auto& [range, allocation] : interval_tree) {
+        auto alloc_it = stack_to_allocation.find(allocation.frame_index);
+        if (alloc_it == stack_to_allocation.end()) {
+            Allocation new_alloc = allocation;
+            new_alloc.record.size = range.size();
+            stack_to_allocation.insert(alloc_it, std::pair(allocation.frame_index, new_alloc));
+        } else {
+            alloc_it->second.record.size += range.size();
+            alloc_it->second.n_allocations += 1;
+        }
+    }
+
     return stack_to_allocation;
 }
 
@@ -315,11 +345,24 @@ getHighWatermark(const allocations_t& records)
     HighWatermark result;
     size_t current_memory = 0;
     std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
+    pensieve::IntervalTree<Allocation> mmap_intervals;
+
+    auto update_peak = [&](allocations_t::const_iterator records_it) {
+        if (current_memory >= result.peak_memory) {
+            result.index = records_it - records.cbegin();
+            result.peak_memory = current_memory;
+        }
+    };
 
     for (auto records_it = records.cbegin(); records_it != records.cend(); records_it++) {
         switch (hooks::allocatorKind(records_it->record.allocator)) {
-            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR:
-            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+            case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
+                current_memory += records_it->record.size;
+                update_peak(records_it);
+                ptr_to_allocation[records_it->record.address] = records_it - records.begin();
+                break;
+            }
+            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
                 auto it = ptr_to_allocation.find(records_it->record.address);
                 if (it != ptr_to_allocation.end()) {
                     current_memory -= records[it->second].record.size;
@@ -327,14 +370,29 @@ getHighWatermark(const allocations_t& records)
                 }
                 break;
             }
-            case hooks::AllocatorKind::SIMPLE_ALLOCATOR:
             case hooks::AllocatorKind::RANGED_ALLOCATOR: {
+                mmap_intervals.add(records_it->record.address, records_it->record.size, *records_it);
                 current_memory += records_it->record.size;
-                if (current_memory >= result.peak_memory) {
-                    result.index = records_it - records.cbegin();
-                    result.peak_memory = current_memory;
+                update_peak(records_it);
+                break;
+            }
+            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+                const auto address = records_it->record.address;
+                const auto size = records_it->record.size;
+                const auto removed = mmap_intervals.remove(address, size);
+
+                if (!removed.has_value()) {
+                    break;
                 }
-                ptr_to_allocation[records_it->record.address] = records_it - records.begin();
+                size_t removed_size = std::accumulate(
+                        removed.value().begin(),
+                        removed.value().cend(),
+                        0,
+                        [](size_t sum, const std::pair<Range, Allocation>& range) {
+                            return sum + range.first.size();
+                        });
+                current_memory -= removed_size;
+                update_peak(records_it);
                 break;
             }
         }

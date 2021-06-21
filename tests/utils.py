@@ -10,10 +10,10 @@ from bloomberg.pensieve import AllocatorType
 def filter_relevant_allocations(records):
     addresses = set()
     for record in records:
-        if record.allocator == AllocatorType.VALLOC:
+        if record.allocator in (AllocatorType.VALLOC, AllocatorType.MMAP):
             yield record
             addresses.add(record.address)
-        elif record.allocator == AllocatorType.FREE:
+        elif record.allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
             if record.address in addresses:
                 yield record
             addresses.discard(record.address)

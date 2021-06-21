@@ -74,7 +74,7 @@ struct HighWatermark
 };
 
 HighWatermark
-getHighWatermark(const allocations_t& records);
+getHighWatermark(const allocations_t& sum);
 PyObject*
 Py_GetSnapshotAllocationRecords(const allocations_t& all_records, size_t record_index);
 
