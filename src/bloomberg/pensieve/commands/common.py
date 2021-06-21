@@ -84,7 +84,11 @@ class HighWatermarkCommand:
             return 1
 
         with open(os.fspath(output_file.expanduser()), "w") as f:
-            reporter.render(f, tracker.reader.metadata)
+            reporter.render(
+                outfile=f,
+                metadata=tracker.reader.metadata,
+                show_memory_leaks=args.show_memory_leaks,
+            )
 
         print(f"Wrote {output_file}")
         return 0

@@ -8,10 +8,24 @@
 {% endblock %}
 
 {% block help %}
+{% if show_memory_leaks %}
+<p>
+  The table reporter provides a simple tabular representation of memory
+  allocations, for memory that was leaked during the tracking period
+  (i.e. allocated and not deallocated).
+</p>
+<div class="alert alert-warning" role="alert">
+  Note that the Python allocator doesn't necessarily release memory to
+  the system when Python objects are deallocated and these can still
+  appear as "leaks". If you want to exclude these, you can run your
+  application with the `PYTHONMALLOC=malloc` environment variable set.
+</div>
+{% else %}
 <p>
   The table reporter provides a simple tabular representation of memory
   allocations in the target <b>when the memory usage was at its peak</b>.
 </p>
+{% endif %}
 <p>
   You can find more information in the <a target="_blank" href="https://bbgithub.dev.bloomberg.com/pages/python/bloomberg-pensieve/table.html">documentation</a>.
 </p>

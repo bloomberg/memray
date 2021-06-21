@@ -21,8 +21,14 @@ def render_report(
     *,
     kind: str,
     data: Union[Dict[str, Any], Iterable[Dict[str, Any]]],
-    metadata: Metadata
+    metadata: Metadata,
+    show_memory_leaks: bool,
 ) -> str:
     env = get_render_environment()
     template = env.get_template(kind + ".html")
-    return template.render(kind=kind, data=data, metadata=metadata)
+    return template.render(
+        kind=kind,
+        data=data,
+        metadata=metadata,
+        show_memory_leaks=show_memory_leaks,
+    )

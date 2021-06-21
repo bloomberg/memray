@@ -40,6 +40,16 @@ class TableReporter:
 
         return cls(result)
 
-    def render(self, outfile: TextIO, metadata: Metadata) -> None:
-        html_code = render_report(kind="table", data=self.data, metadata=metadata)
+    def render(
+        self,
+        outfile: TextIO,
+        metadata: Metadata,
+        show_memory_leaks: bool,
+    ) -> None:
+        html_code = render_report(
+            kind="table",
+            data=self.data,
+            metadata=metadata,
+            show_memory_leaks=show_memory_leaks,
+        )
         print(html_code, file=outfile)

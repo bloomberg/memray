@@ -9,5 +9,10 @@ except ImportError:
 
 
 class BaseReporter(Protocol):
-    def render(self, outfile: TextIO, metadata: Metadata) -> None:
+    def render(
+        self,
+        outfile: TextIO,
+        metadata: Metadata,
+        show_memory_leaks: bool,
+    ) -> None:
         ...
