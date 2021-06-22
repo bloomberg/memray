@@ -106,7 +106,7 @@ function pensieveColorMapper(d, originalColor) {
   // "builtin" / nodes that we don't want to highlight
   if (
     !d.data.name ||
-    (d.data.location && d.data.location.startsWith("File <"))
+    (d.data.location && d.data.location.startsWith("File &lt;"))
   ) {
     return "#EEE";
   }
