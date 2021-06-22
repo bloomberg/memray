@@ -87,6 +87,16 @@ class FlameGraphReporter:
         transformed_data = with_converted_children_dict(data)
         return cls(transformed_data)
 
-    def render(self, outfile: TextIO, metadata: Metadata) -> None:
-        html_code = render_report(kind="flamegraph", data=self.data, metadata=metadata)
+    def render(
+        self,
+        outfile: TextIO,
+        metadata: Metadata,
+        show_memory_leaks: bool,
+    ) -> None:
+        html_code = render_report(
+            kind="flamegraph",
+            data=self.data,
+            metadata=metadata,
+            show_memory_leaks=show_memory_leaks,
+        )
         print(html_code, file=outfile)
