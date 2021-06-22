@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Callable
 from typing import Generator
+from typing import Optional
+from typing import Tuple
 
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._pensieve import AllocationRecord
@@ -51,29 +53,37 @@ class HighWatermarkCommand:
         )
         parser.add_argument("results", help="Results of the tracker run")
 
-    def run(self, args: argparse.Namespace) -> int:
-        # Check that the input file exists.
-        result_path = Path(args.results)
+    def validate_filenames(
+        self, output: Optional[str], results: str
+    ) -> Tuple[Path, Path]:
+        """Ensure that the filenames provided by the user are usable."""
+        result_path = Path(results)
         if not result_path.exists() or not result_path.is_file():
-            print(f"No such file: {args.results}", file=sys.stderr)
-            return 1
+            raise OSError(f"No such file: {results}")
 
-        # Check that the output file does not exist.
         output_file = Path(
-            args.output
-            if args.output is not None
+            output
+            if output is not None
             else self.determine_output_filename(result_path)
         )
         if output_file.exists():
-            print(
+            raise OSError(
                 f"File already exists, will not overwrite: {output_file}",
-                file=sys.stderr,
             )
+        return result_path, output_file
+
+    def run(self, args: argparse.Namespace) -> int:
+        try:
+            result_path, output_file = self.validate_filenames(
+                output=args.output,
+                results=args.results,
+            )
+        except OSError as e:
+            print(e, file=sys.stderr)
             return 1
 
         merge_threads = not args.split_threads
-        tracker = Tracker(args.results)
-
+        tracker = Tracker(os.fspath(result_path))
         try:
             if args.show_memory_leaks:
                 snapshot = tracker.reader.get_leaked_allocation_records(
