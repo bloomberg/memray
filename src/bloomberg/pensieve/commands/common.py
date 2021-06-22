@@ -17,12 +17,10 @@ class HighWatermarkCommand:
         reporter_factory: Callable[
             [Generator[AllocationRecord, None, None]], BaseReporter
         ],
+        reporter_name: str,
     ) -> None:
         self.reporter_factory = reporter_factory
-
-    @property
-    def reporter_name(self) -> str:
-        raise NotImplementedError
+        self.reporter_name = reporter_name
 
     def determine_output_filename(self, results_file: pathlib.Path) -> pathlib.Path:
         output_name = results_file.with_suffix(".html").name
