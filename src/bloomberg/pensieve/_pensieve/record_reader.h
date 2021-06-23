@@ -21,7 +21,6 @@ namespace pensieve::api {
 
 using namespace tracking_api;
 
-using reduced_snapshot_map_t = std::unordered_map<FrameTree::index_t, Allocation>;
 using allocations_t = std::vector<Allocation>;
 
 class RecordReader
@@ -76,6 +75,9 @@ struct HighWatermark
 HighWatermark
 getHighWatermark(const allocations_t& sum);
 PyObject*
-Py_GetSnapshotAllocationRecords(const allocations_t& all_records, size_t record_index);
+Py_GetSnapshotAllocationRecords(
+        const allocations_t& all_records,
+        size_t record_index,
+        bool merge_threads);
 
 }  // namespace pensieve::api

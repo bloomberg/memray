@@ -22,4 +22,4 @@ cdef extern from "record_reader.h" namespace "pensieve::api":
 
 
     HighWatermark getHighWatermark(const vector[Allocation]& records) except+
-    object Py_GetSnapshotAllocationRecords(const vector[Allocation]& all_records, size_t record_index) except+
+    object Py_GetSnapshotAllocationRecords(const vector[Allocation]& all_records, size_t record_index, bool merge_threads) except+
