@@ -7,10 +7,11 @@ from bloomberg.pensieve._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
 
 
-def allocating_function(allocator, event):
+def allocating_function(allocator, flag_event, wait_event):
     allocator.valloc(1234)
     allocator.free()
-    event.wait()
+    flag_event.set()
+    wait_event.wait()
     allocator.valloc(1234)
     allocator.free()
 
@@ -18,16 +19,20 @@ def allocating_function(allocator, event):
 def test_thread_allocations_after_tracker_is_deactivated(tmpdir):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
-    event = threading.Event()
+    wait_event = threading.Event()
+    flag_event = threading.Event()
     allocator = MemoryAllocator()
 
     # WHEN
     with Tracker(output) as tracker:
-        t = threading.Thread(target=allocating_function, args=(allocator, event))
+        t = threading.Thread(
+            target=allocating_function, args=(allocator, flag_event, wait_event)
+        )
         t.start()
+        flag_event.wait()
 
     # Keep allocating in the same thread while the tracker is not active
-    event.set()
+    wait_event.set()
     t.join()
 
     # THEN
