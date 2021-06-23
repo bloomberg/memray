@@ -1,9 +1,11 @@
+import collections
 import datetime
 import mmap
 import signal
 import subprocess
 import sys
 import textwrap
+import threading
 from pathlib import Path
 
 import pytest
@@ -755,6 +757,61 @@ class TestLeaks:
         assert not list(
             filter_relevant_allocations(reader.get_leaked_allocation_records())
         )
+
+    def test_thread_allocations_multiple_threads(self, tmpdir):
+
+        # GIVEN
+        def allocating_function(allocator, amount, stop_flag):
+            allocator.posix_memalign(amount)
+            allocator.posix_memalign(amount)
+            # We need a barrier as pthread might reuse the same thread ID if the first thread
+            # finishes before the other one starts
+            stop_flag.wait()
+
+        # WHEN
+        alloc1 = MemoryAllocator()
+        stop_flag1 = threading.Event()
+        alloc2 = MemoryAllocator()
+        stop_flag2 = threading.Event()
+        with Tracker(Path(tmpdir) / "test.bin") as tracker:
+            t1 = threading.Thread(
+                target=allocating_function, args=(alloc1, 2048, stop_flag1)
+            )
+            t1.start()
+            t2 = threading.Thread(
+                target=allocating_function, args=(alloc2, 2048, stop_flag2)
+            )
+            t2.start()
+
+            stop_flag1.set()
+            t1.join()
+            stop_flag2.set()
+            t2.join()
+
+        # THEN
+        reader = tracker.reader
+        all_allocations = [
+            record
+            for record in reader.get_allocation_records()
+            if record.allocator == AllocatorType.POSIX_MEMALIGN
+        ]
+        assert len(all_allocations) == 4
+
+        high_watermark_records = (
+            record
+            for record in reader.get_high_watermark_allocation_records(
+                merge_threads=False
+            )
+            if record.allocator == AllocatorType.POSIX_MEMALIGN
+        )
+        # Group the allocations per thread
+        records = collections.defaultdict(list)
+        for record in high_watermark_records:
+            records[record.tid].append(record)
+        assert len(records.keys()) == 2
+        # Each thread should have 4096 bytes total allocations
+        for tid, allocations in records.items():
+            assert sum(allocation.size for allocation in allocations) == 4096
 
 
 class TestHeader:
