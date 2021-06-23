@@ -526,7 +526,9 @@ class TestHighWatermark:
         # THEN
         reader = tracker.reader
         peak_allocations = list(
-            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
+            filter_relevant_allocations(
+                reader.get_high_watermark_allocation_records(), ranged=True
+            )
         )
         peak_memory = sum(x.size for x in peak_allocations)
         assert peak_memory == 10 * PAGE_SIZE
@@ -556,7 +558,9 @@ class TestHighWatermark:
         # THEN
         reader = tracker.reader
         peak_allocations = list(
-            filter_relevant_allocations(reader.get_high_watermark_allocation_records())
+            filter_relevant_allocations(
+                reader.get_high_watermark_allocation_records(), ranged=True
+            )
         )
         peak_memory = sum(x.size for x in peak_allocations)
         assert peak_memory == 10 * PAGE_SIZE
