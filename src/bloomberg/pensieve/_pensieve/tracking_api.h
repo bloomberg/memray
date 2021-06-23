@@ -53,13 +53,18 @@ class NativeTrace
   public:
     using ip_t = frame_id_t;
 
+    NativeTrace()
+    {
+        d_data.reserve(MAX_SIZE);
+    };
+
     auto begin() const
     {
-        return std::reverse_iterator(d_data + d_skip + d_size);
+        return std::reverse_iterator(d_data.begin() + d_skip + d_size);
     }
     auto end() const
     {
-        return std::reverse_iterator(d_data + d_skip);
+        return std::reverse_iterator(d_data.begin() + d_skip);
     }
     ip_t operator[](size_t i) const
     {
@@ -69,13 +74,18 @@ class NativeTrace
     {
         return d_size;
     }
-    bool fill(int skip)
+    __attribute__((always_inline)) inline bool fill(size_t skip)
     {
-        int size = unwind(d_data);
+        size_t size = unwind(d_data.data());
+        if (size == MAX_SIZE) {
+            size = exact_unwind();
+            MAX_SIZE = MAX_SIZE * 2 > size ? MAX_SIZE * 2 : size;
+        }
         d_size = size > skip ? size - skip : 0;
         d_skip = skip;
         return d_size > 0;
     }
+
     static void setup()
     {
         // configure libunwind for better speed
@@ -93,16 +103,41 @@ class NativeTrace
     }
 
   private:
-    static const size_t MAX_SIZE = 64;
-    static int unwind(frame_id_t* data)
+    static thread_local size_t MAX_SIZE;
+    __attribute__((always_inline)) static inline int unwind(frame_id_t* data)
     {
         return unw_backtrace((void**)data, MAX_SIZE);
     }
 
+    __attribute__((always_inline)) size_t inline exact_unwind()
+    {
+        unw_context_t context;
+        if (unw_getcontext(&context) < 0) {
+            std::cerr << "WARNING: Failed to initialize libunwind's context" << std::endl;
+            return 0;
+        }
+
+        unw_cursor_t cursor;
+        if (unw_init_local(&cursor, &context) < 0) {
+            std::cerr << "WARNING: Failed to initialize libunwind's cursor" << std::endl;
+            return 0;
+        }
+
+        do {
+            unw_word_t ip;
+            if (unw_get_reg(&cursor, UNW_REG_IP, &ip) < 0) {
+                std::cerr << "WARNING: Failed to get instruction pointer" << std::endl;
+                return 0;
+            }
+            d_data.emplace_back(ip);
+        } while (unw_step(&cursor));
+        return d_data.size();
+    }
+
   private:
-    int d_size = 0;
-    int d_skip = 0;
-    ip_t d_data[MAX_SIZE];
+    size_t d_size = 0;
+    size_t d_skip = 0;
+    std::vector<ip_t> d_data;
 };
 
 /**

@@ -2,12 +2,10 @@
 #include <limits.h>
 #include <link.h>
 #include <mutex>
-#include <pthread.h>
 #include <unistd.h>
 
 #include <Python.h>
 
-#include "elf_shenanigans.h"
 #include "guards.h"
 #include "hooks.h"
 #include "record_writer.h"
@@ -75,6 +73,7 @@ std::atomic<Tracker*> Tracker::d_instance = nullptr;
 static thread_local PyFrameObject* entry_frame = nullptr;
 static thread_local PyFrameObject* current_frame = nullptr;
 static thread_local std::vector<PyFrameObject*> python_stack{};
+thread_local size_t NativeTrace::MAX_SIZE{64};
 
 static inline int
 getCurrentPythonLineNumber()
@@ -132,20 +131,14 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
     size_t native_index = 0;
     if (d_unwind_native_frames) {
         NativeTrace trace;
-        // Skip the internal frames so we don't need to filter them later. In debug mode there will be
-        // no inlining so we need to filter 4 frames: 2 for the internals of trace.fill(), one for
-        // this function and the last one for the hook that is calling us. In non-debug mode,
-        // trace.fill() is always inlined so we just need to filter this function and our caller.
-#ifdef Py_DEBUG
-        trace.fill(4);
-#else
-        trace.fill(2);
-#endif
-        native_index = d_native_trace_tree.getTraceIndex(trace, [&](frame_id_t ip, uint32_t index) {
-            return d_writer->writeRecord(
-                    RecordType::NATIVE_TRACE_INDEX,
-                    UnresolvedNativeFrame{ip, index});
-        });
+        // Skip the internal frames so we don't need to filter them later.
+        if (trace.fill(2)) {
+            native_index = d_native_trace_tree.getTraceIndex(trace, [&](frame_id_t ip, uint32_t index) {
+                return d_writer->writeRecord(
+                        RecordType::NATIVE_TRACE_INDEX,
+                        UnresolvedNativeFrame{ip, index});
+            });
+        }
     }
 
     AllocationRecord
