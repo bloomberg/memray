@@ -63,7 +63,11 @@ function getTooltip() {
     .attr("class", "d3-flame-graph-tip")
     .html((d) => {
       const totalSize = humanFileSize(d.data.value);
-      return `${d.data.location}<br>${totalSize} total<br>${d.data.allocations_label}`;
+      let displayString = `${d.data.location}<br>${totalSize} total<br>${d.data.allocations_label}`;
+      if (d.data.thread_id >= 0) {
+        displayString.concat(`<br>Thread ID: ${d.data.thread_id}`);
+      }
+      return displayString;
     })
     .direction((d) => {
       const midpoint = (d.x1 + d.x0) / 2;
