@@ -31,3 +31,11 @@ export function debounced(fn) {
     });
   };
 }
+
+export function makeTooltipString(data, totalSize) {
+  let displayString = `${data.location}<br>${totalSize} total<br>${data.allocations_label}`;
+  if (data.thread_id >= 0) {
+    displayString = displayString.concat(`<br>Thread ID: ${data.thread_id}`);
+  }
+  return displayString;
+}

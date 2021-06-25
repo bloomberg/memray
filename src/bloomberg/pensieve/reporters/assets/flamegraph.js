@@ -1,4 +1,4 @@
-import { debounced, humanFileSize } from "./common";
+import { debounced, humanFileSize, makeTooltipString} from "./common";
 
 // For navigable #[integer] fragments
 function getCurrentId() {
@@ -63,11 +63,7 @@ function getTooltip() {
     .attr("class", "d3-flame-graph-tip")
     .html((d) => {
       const totalSize = humanFileSize(d.data.value);
-      let displayString = `${d.data.location}<br>${totalSize} total<br>${d.data.allocations_label}`;
-      if (d.data.thread_id >= 0) {
-        displayString.concat(`<br>Thread ID: ${d.data.thread_id}`);
-      }
-      return displayString;
+      return makeTooltipString(d.data, totalSize);
     })
     .direction((d) => {
       const midpoint = (d.x1 + d.x0) / 2;
