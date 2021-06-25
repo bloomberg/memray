@@ -134,6 +134,8 @@ def size_fmt(num, suffix='B'):
 
 # Pensieve core
 
+PYTHON_VERSION = (sys.version_info.major, sys.version_info.minor)
+
 @cython.freelist(1024)
 cdef class AllocationRecord:
     cdef object _tuple
@@ -196,6 +198,31 @@ cdef class AllocationRecord:
                 self._native_stack_trace = self._reader.get().Py_GetNativeStackFrame(
                         self._tuple[6], self._tuple[7], max_stacks)
         return self._native_stack_trace
+
+    cdef _is_eval_frame(self, object symbol):
+        return "_PyEval_EvalFrameDefault" in symbol
+
+    def _pure_python_stack_trace(self):
+        for frame in self.stack_trace():
+            _, file, _ = frame
+            if file.endswith(".pyx"):
+                continue
+            yield frame
+
+    def hybrid_stack_trace(self):
+        python_stack = tuple(self._pure_python_stack_trace())
+        n_python_frames_left = len(python_stack) if python_stack else None
+        python_stack = iter(python_stack)
+        for native_frame in self.native_stack_trace():
+            if n_python_frames_left == 0:
+                break
+            symbol, *_ = native_frame
+            if self._is_eval_frame(symbol):
+                python_frame =  next(python_stack)
+                n_python_frames_left -= 1
+                yield python_frame
+            else:
+                yield native_frame
 
     def __repr__(self):
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "

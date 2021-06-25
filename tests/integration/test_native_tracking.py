@@ -7,6 +7,7 @@ import pytest
 
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
+from bloomberg.pensieve._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
 
 HERE = Path(__file__).parent
@@ -177,3 +178,142 @@ def test_deep_call_chain_with_native_tracking(tmpdir, monkeypatch):
     assert len(native_stack) > 2048
     assert expected_symbols == [stack[0] for stack in native_stack[:3]]
     assert all("deep_call" in stack[0] for stack in native_stack[3 : 3 + 2048])
+
+
+def test_hybrid_stack_in_pure_python(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+    MAX_RECURSIONS = 4
+
+    def recursive_func(n):
+        if n == 1:
+            return allocator.valloc(1234)
+        return recursive_func(n - 1)
+
+    # WHEN
+
+    with Tracker(output, native_traces=True) as tracker:
+        recursive_func(MAX_RECURSIONS)
+
+    # THEN
+    records = list(tracker.reader.get_allocation_records())
+    vallocs = [
+        record
+        for record in filter_relevant_allocations(records)
+        if record.allocator == AllocatorType.VALLOC
+    ]
+
+    assert len(vallocs) == 1
+    (valloc,) = vallocs
+
+    hybrid_stack = tuple(frame[0] for frame in valloc.hybrid_stack_trace())
+    assert hybrid_stack.count("recursive_func") == MAX_RECURSIONS
+
+    # The cython frame of valloc() must not appear in the hybrid stack trace because we
+    # already have it in as a native information
+    assert (
+        hybrid_stack.count("recursive_func")
+        == len(valloc.stack_trace()) - 1
+        == MAX_RECURSIONS
+    )
+    assert (
+        len(valloc.stack_trace())
+        <= len(hybrid_stack)
+        <= len(valloc.native_stack_trace())
+    )
+
+    # The hybrid stack trace must run until the latest python function seen by the tracker
+    assert hybrid_stack[-1] == "recursive_func"
+
+
+def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "multithreaded_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_NATIVE_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    MAX_RECURSIONS = 4
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from native_ext import run_recursive
+
+        def callback(n):
+            return run_recursive(n, callback)
+
+        with Tracker(output, native_traces=True) as tracker:
+            run_recursive(MAX_RECURSIONS, callback)
+
+    # THEN
+    records = list(tracker.reader.get_allocation_records())
+    vallocs = [
+        record
+        for record in filter_relevant_allocations(records)
+        if record.allocator == AllocatorType.VALLOC
+    ]
+
+    assert len(vallocs) == 1
+    (valloc,) = vallocs
+
+    hybrid_stack = tuple(frame[0] for frame in valloc.hybrid_stack_trace())
+    assert hybrid_stack.count("callback") == MAX_RECURSIONS
+    assert (
+        sum(1 if "run_recursive" in elem else 0 for elem in hybrid_stack)
+        == MAX_RECURSIONS
+    )
+
+    assert hybrid_stack.count("callback") == len(valloc.stack_trace()) == MAX_RECURSIONS
+    assert (
+        len(valloc.stack_trace())
+        <= len(hybrid_stack)
+        <= len(valloc.native_stack_trace())
+    )
+
+    # The hybrid stack trace must run until the latest python function seen by the tracker
+    assert hybrid_stack[-1] == "callback"
+
+
+def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "multithreaded_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_NATIVE_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from native_ext import run_simple
+
+        with Tracker(output, native_traces=True) as tracker:
+            run_simple()
+
+    # THEN
+    records = list(tracker.reader.get_allocation_records())
+    vallocs = [
+        record
+        for record in filter_relevant_allocations(records)
+        if record.allocator == AllocatorType.VALLOC
+    ]
+
+    assert len(vallocs) == 1
+    (valloc,) = vallocs
+
+    assert len(valloc.stack_trace()) == 0
+    expected_symbols = ["baz", "bar", "foo"]
+    assert expected_symbols == [stack[0] for stack in valloc.hybrid_stack_trace()][:3]

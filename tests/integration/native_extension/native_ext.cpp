@@ -71,6 +71,20 @@ run_deep(PyObject*, PyObject* n_stack)
 }
 
 
+PyObject*
+run_recursive(PyObject*, PyObject* args)
+{
+    long n;
+    PyObject* callback;
+    if (!PyArg_ParseTuple(args, "lO", &n, &callback)) {
+        return NULL;
+    }
+    if (n <= 0) {
+        foo();
+        Py_RETURN_NONE;
+    }
+    return PyObject_CallFunction(callback, "i", n-1);
+}
 
 #pragma GCC pop_options
 
@@ -78,6 +92,7 @@ static PyMethodDef methods[] = {
         {"run_simple", run_simple, METH_NOARGS, "Execute a chain of native functions"},
         {"run_inline", run_inline, METH_NOARGS, "Execute a chain of native inlined_functions"},
         {"run_deep", run_deep, METH_O, "Execute a chain of native inlined functions in a deep stack"},
+        {"run_recursive", run_recursive, METH_VARARGS, "Execute a callback if the second argument is bigger than 0"},
         {NULL, NULL, 0, NULL},
 };
 
