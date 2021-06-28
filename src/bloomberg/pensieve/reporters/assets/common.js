@@ -1,3 +1,5 @@
+import _ from "lodash";
+
 export function humanFileSize(bytes, dp = 1) {
   if (Math.abs(bytes) < 1024) {
     return bytes + " B";
