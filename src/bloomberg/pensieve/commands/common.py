@@ -72,6 +72,38 @@ class HighWatermarkCommand:
             )
         return result_path, output_file
 
+    def write_report(
+        self,
+        result_path: Path,
+        output_file: Path,
+        show_memory_leaks: bool,
+        merge_threads: bool,
+    ) -> None:
+        tracker = Tracker(os.fspath(result_path))
+        try:
+            if show_memory_leaks:
+                snapshot = tracker.reader.get_leaked_allocation_records(
+                    merge_threads=merge_threads
+                )
+            else:
+                snapshot = tracker.reader.get_high_watermark_allocation_records(
+                    merge_threads=merge_threads
+                )
+            reporter = self.reporter_factory(snapshot)
+        except OSError:
+            print(
+                f"Failed to parse allocation records in {result_path}",
+                file=sys.stderr,
+            )
+            raise
+
+        with open(os.fspath(output_file.expanduser()), "w") as f:
+            reporter.render(
+                outfile=f,
+                metadata=tracker.reader.metadata,
+                show_memory_leaks=show_memory_leaks,
+            )
+
     def run(self, args: argparse.Namespace) -> int:
         try:
             result_path, output_file = self.validate_filenames(
@@ -82,32 +114,16 @@ class HighWatermarkCommand:
             print(e, file=sys.stderr)
             return 1
 
-        merge_threads = not args.split_threads
-        tracker = Tracker(os.fspath(result_path))
         try:
-            if args.show_memory_leaks:
-                snapshot = tracker.reader.get_leaked_allocation_records(
-                    merge_threads=merge_threads
-                )
-            else:
-                snapshot = tracker.reader.get_high_watermark_allocation_records(
-                    merge_threads=merge_threads
-                )
-            reporter = self.reporter_factory(snapshot)
+            self.write_report(
+                result_path,
+                output_file,
+                args.show_memory_leaks,
+                merge_threads=not args.split_threads,
+            )
         except OSError as e:
-            print(
-                f"Failed to parse allocation records in {args.results}",
-                file=sys.stderr,
-            )
-            print(f"Reason: {e}", file=sys.stderr)
+            print(f"Aborting due to {e}", file=sys.stderr)
             return 1
-
-        with open(os.fspath(output_file.expanduser()), "w") as f:
-            reporter.render(
-                outfile=f,
-                metadata=tracker.reader.metadata,
-                show_memory_leaks=args.show_memory_leaks,
-            )
 
         print(f"Wrote {output_file}")
         return 0
