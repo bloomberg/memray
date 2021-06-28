@@ -1,7 +1,6 @@
 import argparse
 import os
 import pathlib
-import sys
 from pathlib import Path
 from typing import Callable
 from typing import Generator
@@ -9,6 +8,7 @@ from typing import Optional
 from typing import Tuple
 
 from bloomberg.pensieve import Tracker
+from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve.reporters import BaseReporter
 
@@ -59,7 +59,7 @@ class HighWatermarkCommand:
         """Ensure that the filenames provided by the user are usable."""
         result_path = Path(results)
         if not result_path.exists() or not result_path.is_file():
-            raise OSError(f"No such file: {results}")
+            raise PensieveCommandError(f"No such file: {results}", exit_code=1)
 
         output_file = Path(
             output
@@ -67,8 +67,9 @@ class HighWatermarkCommand:
             else self.determine_output_filename(result_path)
         )
         if output_file.exists():
-            raise OSError(
+            raise PensieveCommandError(
                 f"File already exists, will not overwrite: {output_file}",
+                exit_code=1,
             )
         return result_path, output_file
 
@@ -90,12 +91,11 @@ class HighWatermarkCommand:
                     merge_threads=merge_threads
                 )
             reporter = self.reporter_factory(snapshot)
-        except OSError:
-            print(
-                f"Failed to parse allocation records in {result_path}",
-                file=sys.stderr,
+        except OSError as e:
+            raise PensieveCommandError(
+                f"Failed to parse allocation records in {result_path}\nReason: {e}",
+                exit_code=1,
             )
-            raise
 
         with open(os.fspath(output_file.expanduser()), "w") as f:
             reporter.render(
@@ -104,26 +104,16 @@ class HighWatermarkCommand:
                 show_memory_leaks=show_memory_leaks,
             )
 
-    def run(self, args: argparse.Namespace) -> int:
-        try:
-            result_path, output_file = self.validate_filenames(
-                output=args.output,
-                results=args.results,
-            )
-        except OSError as e:
-            print(e, file=sys.stderr)
-            return 1
-
-        try:
-            self.write_report(
-                result_path,
-                output_file,
-                args.show_memory_leaks,
-                merge_threads=not args.split_threads,
-            )
-        except OSError as e:
-            print(f"Aborting due to {e}", file=sys.stderr)
-            return 1
+    def run(self, args: argparse.Namespace) -> None:
+        result_path, output_file = self.validate_filenames(
+            output=args.output,
+            results=args.results,
+        )
+        self.write_report(
+            result_path,
+            output_file,
+            args.show_memory_leaks,
+            merge_threads=not args.split_threads,
+        )
 
         print(f"Wrote {output_file}")
-        return 0

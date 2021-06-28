@@ -43,7 +43,7 @@ class RunCommand:
             metavar="module",
         )
 
-    def run(self, args: argparse.Namespace) -> int:
+    def run(self, args: argparse.Namespace) -> None:
         if args.output is None:
             filename = f"pensieve-{os.path.basename(args.script)}.{os.getpid()}.bin"
             results_file = os.path.join(os.path.dirname(args.script), filename)
@@ -73,5 +73,3 @@ class RunCommand:
                 ).strip()
                 if not args.quiet:
                     print(example_report_generation_message)
-
-        return 0
