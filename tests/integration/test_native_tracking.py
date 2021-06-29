@@ -317,3 +317,18 @@ def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):
     assert len(valloc.stack_trace()) == 0
     expected_symbols = ["baz", "bar", "foo"]
     assert expected_symbols == [stack[0] for stack in valloc.hybrid_stack_trace()][:3]
+
+
+@pytest.mark.parametrize("native_traces", [True, False])
+def test_native_tracing_header(native_traces, tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+
+    with Tracker(output, native_traces=native_traces) as tracker:
+        return allocator.valloc(1234)
+
+    # THEN
+    assert tracker.reader.has_native_traces is native_traces

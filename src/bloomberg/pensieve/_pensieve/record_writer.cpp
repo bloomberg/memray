@@ -8,12 +8,16 @@ namespace pensieve::tracking_api {
 
 using namespace std::chrono;
 
-RecordWriter::RecordWriter(const std::string& file_name, const std::string& command_line)
+RecordWriter::RecordWriter(
+        const std::string& file_name,
+        const std::string& command_line,
+        bool native_traces)
 : d_buffer(new char[BUFFER_CAPACITY]{0})
 , d_command_line(command_line)
+, d_native_traces(native_traces)
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
-    d_header = HeaderRecord{"", d_version, d_stats, d_command_line};
+    d_header = HeaderRecord{"", d_version, d_native_traces, d_stats, d_command_line};
     strncpy(d_header.magic, MAGIC, sizeof(MAGIC));
 
     fd = ::open(file_name.c_str(), O_CREAT | O_WRONLY | O_CLOEXEC, 0644);
@@ -68,6 +72,7 @@ RecordWriter::writeHeader() noexcept
     d_header.stats = d_stats;
     writeSimpleType(d_header.magic);
     writeSimpleType(d_header.version);
+    writeSimpleType(d_header.native_traces);
     writeSimpleType(d_header.stats);
     writeString(d_header.command_line.c_str());
 

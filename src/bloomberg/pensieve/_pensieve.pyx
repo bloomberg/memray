@@ -349,3 +349,7 @@ cdef class FileReader:
                         total_frames=stats["n_frames"],
                         peak_memory=self._get_high_watermark().peak_memory,
                         command_line=self._header["command_line"])
+
+    @property
+    def has_native_traces(self):
+        return self._header["native_traces"]

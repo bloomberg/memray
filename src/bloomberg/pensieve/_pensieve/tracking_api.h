@@ -153,7 +153,7 @@ class Tracker
 {
   public:
     // Constructors
-    explicit Tracker(const std::string& file_name, bool native_frames, const std::string& command_line);
+    explicit Tracker(const std::string& file_name, bool native_traces, const std::string& command_line);
     ~Tracker();
 
     Tracker(Tracker& other) = delete;

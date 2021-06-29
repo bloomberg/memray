@@ -16,7 +16,10 @@ namespace pensieve::tracking_api {
 class RecordWriter
 {
   public:
-    explicit RecordWriter(const std::string& file_name, const std::string& command_line);
+    explicit RecordWriter(
+            const std::string& file_name,
+            const std::string& command_line,
+            bool native_traces);
     ~RecordWriter();
 
     RecordWriter(RecordWriter& other) = delete;
@@ -45,6 +48,7 @@ class RecordWriter
     std::mutex d_mutex;
     HeaderRecord d_header{};
     const std::string& d_command_line;
+    bool d_native_traces;
     TrackerStats d_stats{};
 
     // Methods
