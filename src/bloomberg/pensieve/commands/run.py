@@ -24,6 +24,12 @@ class RunCommand:
             help="Output file name (default: <process_name>.<pid>.bin)",
         )
         parser.add_argument(
+            "-q",
+            "--quiet",
+            help="Don't show any tracking-specific output while running",
+            action="store_true",
+        )
+        parser.add_argument(
             "-m",
             help="Run library module as a script (terminates option list)",
             action="store_true",
@@ -44,7 +50,9 @@ class RunCommand:
         else:
             results_file = args.output
 
-        print(f"Writing profile results into {results_file}")
+        if not args.quiet:
+            print(f"Writing profile results into {results_file}")
+
         with Tracker(results_file):
             sys.argv[1:] = args.script_args
             try:
@@ -63,6 +71,7 @@ class RunCommand:
                     {sys.executable} -m bloomberg.pensieve flamegraph {results_file}
                     """
                 ).strip()
-                print(example_report_generation_message)
+                if not args.quiet:
+                    print(example_report_generation_message)
 
         return 0

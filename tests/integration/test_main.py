@@ -117,6 +117,38 @@ class TestRunSubcommand:
         ):
             main(["run", "-m", "json.tool", "-h"])
 
+    @pytest.mark.parametrize("quiet", [True, False])
+    def test_quiet(self, quiet, tmp_path):
+        # GIVEN
+        out_file = tmp_path / "result.bin"
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                *(["-q"] if quiet else []),
+                "--output",
+                str(out_file),
+                "-m",
+                "json.tool",
+                "-h",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 0
+        assert out_file.exists()
+        if quiet:
+            assert str(out_file) not in proc.stdout
+        else:
+            assert str(out_file) in proc.stdout
+
 
 class TestFlamegraphSubCommand:
     @staticmethod
