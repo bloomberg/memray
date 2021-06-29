@@ -4,6 +4,7 @@ isort
 mypy
 sphinx
 sphinx-autobuild
+sphinx-argparse
 furo
 bump2version
 towncrier
