@@ -37,6 +37,7 @@ def create_framegraph_node_from_stack_frame(
         "children": {},
         "n_allocations": 0,
         "allocations_label": "",
+        "thread_id": 0,
     }
 
 
@@ -56,6 +57,7 @@ class FlameGraphReporter:
             "children": {},
             "n_allocations": 0,
             "allocations_label": "",
+            "thread_id": 0,
         }
 
         def gen_allocations_label(n_allocations: int) -> str:
@@ -65,22 +67,24 @@ class FlameGraphReporter:
 
         for record in allocations:
             size = record.size
+            thread_id = record.tid
 
             data["value"] += size
             data["n_allocations"] += record.n_allocations
 
             current_frame = data
             for stack_frame in reversed(record.stack_trace()):
-                if stack_frame not in current_frame["children"]:
+                if (stack_frame, thread_id) not in current_frame["children"]:
                     node = create_framegraph_node_from_stack_frame(stack_frame)
-                    current_frame["children"][stack_frame] = node
+                    current_frame["children"][(stack_frame, thread_id)] = node
 
-                current_frame = current_frame["children"][stack_frame]
+                current_frame = current_frame["children"][(stack_frame, thread_id)]
                 current_frame["value"] += size
                 current_frame["n_allocations"] += record.n_allocations
                 current_frame["allocations_label"] = gen_allocations_label(
                     current_frame["n_allocations"]
                 )
+                current_frame["thread_id"] = thread_id
 
         data["allocations_label"] = gen_allocations_label(data["n_allocations"])
 

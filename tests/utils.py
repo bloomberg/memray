@@ -7,13 +7,18 @@ from typing import Tuple
 from bloomberg.pensieve import AllocatorType
 
 
-def filter_relevant_allocations(records):
+def filter_relevant_allocations(records, ranged=False):
     addresses = set()
+    filter_allocations = [AllocatorType.VALLOC]
+    filter_deallocations = [AllocatorType.FREE]
+    if ranged:
+        filter_allocations.append(AllocatorType.MMAP)
+        filter_deallocations.append(AllocatorType.MUNMAP)
     for record in records:
-        if record.allocator in (AllocatorType.VALLOC, AllocatorType.MMAP):
+        if record.allocator in filter_allocations:
             yield record
             addresses.add(record.address)
-        elif record.allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
+        elif record.allocator in filter_deallocations:
             if record.address in addresses:
                 yield record
             addresses.discard(record.address)

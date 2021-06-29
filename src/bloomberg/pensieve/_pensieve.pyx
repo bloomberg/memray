@@ -303,9 +303,9 @@ cdef class FileReader:
         while reader.nextAllocationRecord(&native_allocation):
             self._native_allocations.push_back(move(native_allocation))
 
-    def _yield_allocations(self, size_t index):
+    def _yield_allocations(self, size_t index, merge_threads):
         assert (self._reader.get() != NULL)
-        for elem in Py_GetSnapshotAllocationRecords(self._native_allocations, index):
+        for elem in Py_GetSnapshotAllocationRecords(self._native_allocations, index, merge_threads):
             alloc = AllocationRecord(elem)
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
@@ -316,15 +316,15 @@ cdef class FileReader:
             self._high_watermark = make_unique[HighWatermark](getHighWatermark(self._native_allocations))
         return self._high_watermark.get()
 
-    def get_high_watermark_allocation_records(self):
+    def get_high_watermark_allocation_records(self, merge_threads=True):
         self._populate_allocations()
         cdef HighWatermark* watermark = self._get_high_watermark()
-        yield from self._yield_allocations(watermark.index)
+        yield from self._yield_allocations(watermark.index, merge_threads)
 
-    def get_leaked_allocation_records(self):
+    def get_leaked_allocation_records(self, merge_threads=True):
         self._populate_allocations()
         cdef size_t snapshot_index = self._native_allocations.size() - 1
-        yield from self._yield_allocations(snapshot_index)
+        yield from self._yield_allocations(snapshot_index, merge_threads)
 
     def get_allocation_records(self):
         cdef shared_ptr[RecordReader] reader = make_shared[RecordReader](self._path)

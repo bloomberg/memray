@@ -14,9 +14,25 @@
 
 namespace pensieve::api {
 
-using namespace tracking_api;
+namespace {
 
-using reduced_snapshot_map_t = std::unordered_map<FrameTree::index_t, Allocation>;
+const int NO_THREAD_INFO = -1;
+
+struct index_thread_pair_hash
+{
+    std::size_t operator()(const std::pair<FrameTree::index_t, thread_id_t>& p) const
+    {
+        // The indices and thread IDs are not likely to match as they are fundamentally different
+        // values and have different ranges, so xor should work here and not cause duplicate hashes.
+        return std::hash<FrameTree::index_t>{}(p.first) xor std::hash<thread_id_t>{}(p.second);
+    }
+};
+}  // namespace
+
+using namespace tracking_api;
+using reduced_snapshot_map_t = std::
+        unordered_map<std::pair<FrameTree::index_t, thread_id_t>, Allocation, index_thread_pair_hash>;
+
 /**
  * Produce an aggregated snapshot from a vector of allocations and a index in that vector
  *
@@ -28,7 +44,7 @@ using reduced_snapshot_map_t = std::unordered_map<FrameTree::index_t, Allocation
  *
  **/
 static reduced_snapshot_map_t
-reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
+reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index, bool merge_threads)
 {
     assert(snapshot_index < records.size());
 
@@ -63,12 +79,15 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
         }
     }
 
-    std::unordered_map<FrameTree::index_t, Allocation> stack_to_allocation{};
+    reduced_snapshot_map_t stack_to_allocation{};
     for (const auto& it : ptr_to_allocation) {
         const Allocation& record = records[it.second];
-        auto alloc_it = stack_to_allocation.find(record.frame_index);
+        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.record.tid;
+        auto alloc_it = stack_to_allocation.find(std::pair(record.frame_index, thread_id));
         if (alloc_it == stack_to_allocation.end()) {
-            stack_to_allocation.insert(alloc_it, std::pair(record.frame_index, record));
+            stack_to_allocation.insert(
+                    alloc_it,
+                    std::pair(std::pair(record.frame_index, thread_id), record));
         } else {
             alloc_it->second.record.size += record.record.size;
             alloc_it->second.n_allocations += 1;
@@ -79,11 +98,14 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index)
     // we update the allocation to reflect the actual size at the peak, based on the lengths
     // of the ranges in the interval tree.
     for (const auto& [range, allocation] : interval_tree) {
-        auto alloc_it = stack_to_allocation.find(allocation.frame_index);
+        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : allocation.record.tid;
+        auto alloc_it = stack_to_allocation.find(std::pair(allocation.frame_index, thread_id));
         if (alloc_it == stack_to_allocation.end()) {
             Allocation new_alloc = allocation;
             new_alloc.record.size = range.size();
-            stack_to_allocation.insert(alloc_it, std::pair(allocation.frame_index, new_alloc));
+            stack_to_allocation.insert(
+                    alloc_it,
+                    std::pair(std::pair(allocation.frame_index, thread_id), new_alloc));
         } else {
             alloc_it->second.record.size += range.size();
             alloc_it->second.n_allocations += 1;
@@ -402,13 +424,15 @@ getHighWatermark(const allocations_t& records)
 }
 
 PyObject*
-Py_GetSnapshotAllocationRecords(const allocations_t& all_records, size_t record_index)
+Py_GetSnapshotAllocationRecords(
+        const allocations_t& all_records,
+        size_t record_index,
+        bool merge_threads)
 {
     if (all_records.empty()) {
         return PyList_New(0);
     }
-
-    const auto stack_to_allocation = reduceSnapshotAllocations(all_records, record_index);
+    const auto stack_to_allocation = reduceSnapshotAllocations(all_records, record_index, merge_threads);
 
     PyObject* list = PyList_New(stack_to_allocation.size());
     if (list == nullptr) {

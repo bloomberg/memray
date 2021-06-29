@@ -40,9 +40,15 @@ class HighWatermarkCommand:
         )
         parser.add_argument(
             "--leaks",
-            help="Show memory leaks, instead of peak memory usage.",
+            help="Show memory leaks, instead of peak memory usage",
             action="store_true",
             dest="show_memory_leaks",
+            default=False,
+        )
+        parser.add_argument(
+            "--split-threads",
+            help="Do not merge allocations across threads",
+            action="store_true",
             default=False,
         )
         parser.add_argument("results", help="Results of the tracker run")
@@ -67,13 +73,18 @@ class HighWatermarkCommand:
             )
             return 1
 
+        merge_threads = not args.split_threads
         tracker = Tracker(args.results)
 
         try:
             if args.show_memory_leaks:
-                snapshot = tracker.reader.get_leaked_allocation_records()
+                snapshot = tracker.reader.get_leaked_allocation_records(
+                    merge_threads=merge_threads
+                )
             else:
-                snapshot = tracker.reader.get_high_watermark_allocation_records()
+                snapshot = tracker.reader.get_high_watermark_allocation_records(
+                    merge_threads=merge_threads
+                )
             reporter = self.reporter_factory(snapshot)
         except OSError as e:
             print(
