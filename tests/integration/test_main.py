@@ -222,6 +222,25 @@ class TestFlamegraphSubCommand:
         assert output_file.exists()
         assert "json/tool.py" in output_file.read_text()
 
+    def test_output_file_already_exists(self, tmp_path, monkeypatch):
+        """Check that when the output file is derived form the input name, we fail when there is
+        already a file with the same name as the output."""
+
+        # GIVEN
+        monkeypatch.chdir(tmp_path)
+        # This will generate "result.bin"
+        results_file = self.generate_sample_results(tmp_path)
+        output_file = tmp_path / "pensieve-flamegraph-result.html"
+        output_file.touch()
+
+        # WHEN
+        ret = main(["flamegraph", str(results_file)])
+
+        # THEN
+        assert ret != 0
+
+
+class TestReporterSubCommands:
     @pytest.mark.parametrize("report", ["flamegraph", "table"])
     def test_report_detects_missing_input(self, report):
         # GIVEN / WHEN
@@ -265,20 +284,3 @@ class TestFlamegraphSubCommand:
         assert re.match(
             r"Failed to parse allocation records in .*badfile\.bin", proc.stderr
         )
-
-    def test_output_file_already_exists(self, tmp_path, monkeypatch):
-        """Check that when the output file is derived form the input name, we fail when there is
-        already a file with the same name as the output."""
-
-        # GIVEN
-        monkeypatch.chdir(tmp_path)
-        # This will generate "result.bin"
-        results_file = self.generate_sample_results(tmp_path)
-        output_file = tmp_path / "pensieve-flamegraph-result.html"
-        output_file.touch()
-
-        # WHEN
-        ret = main(["flamegraph", str(results_file)])
-
-        # THEN
-        assert ret != 0
