@@ -1,12 +1,14 @@
 import argparse
 import os
 import pathlib
-import sys
 from pathlib import Path
 from typing import Callable
 from typing import Generator
+from typing import Optional
+from typing import Tuple
 
 from bloomberg.pensieve import Tracker
+from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve.reporters import BaseReporter
 
@@ -17,12 +19,10 @@ class HighWatermarkCommand:
         reporter_factory: Callable[
             [Generator[AllocationRecord, None, None]], BaseReporter
         ],
+        reporter_name: str,
     ) -> None:
         self.reporter_factory = reporter_factory
-
-    @property
-    def reporter_name(self) -> str:
-        raise NotImplementedError
+        self.reporter_name = reporter_name
 
     def determine_output_filename(self, results_file: pathlib.Path) -> pathlib.Path:
         output_name = results_file.with_suffix(".html").name
@@ -53,31 +53,36 @@ class HighWatermarkCommand:
         )
         parser.add_argument("results", help="Results of the tracker run")
 
-    def run(self, args: argparse.Namespace) -> int:
-        # Check that the input file exists.
-        result_path = Path(args.results)
+    def validate_filenames(
+        self, output: Optional[str], results: str
+    ) -> Tuple[Path, Path]:
+        """Ensure that the filenames provided by the user are usable."""
+        result_path = Path(results)
         if not result_path.exists() or not result_path.is_file():
-            print(f"No such file: {args.results}", file=sys.stderr)
-            return 1
+            raise PensieveCommandError(f"No such file: {results}", exit_code=1)
 
-        # Check that the output file does not exist.
         output_file = Path(
-            args.output
-            if args.output is not None
+            output
+            if output is not None
             else self.determine_output_filename(result_path)
         )
         if output_file.exists():
-            print(
+            raise PensieveCommandError(
                 f"File already exists, will not overwrite: {output_file}",
-                file=sys.stderr,
+                exit_code=1,
             )
-            return 1
+        return result_path, output_file
 
-        merge_threads = not args.split_threads
-        tracker = Tracker(args.results)
-
+    def write_report(
+        self,
+        result_path: Path,
+        output_file: Path,
+        show_memory_leaks: bool,
+        merge_threads: bool,
+    ) -> None:
+        tracker = Tracker(os.fspath(result_path))
         try:
-            if args.show_memory_leaks:
+            if show_memory_leaks:
                 snapshot = tracker.reader.get_leaked_allocation_records(
                     merge_threads=merge_threads
                 )
@@ -87,19 +92,28 @@ class HighWatermarkCommand:
                 )
             reporter = self.reporter_factory(snapshot)
         except OSError as e:
-            print(
-                f"Failed to parse allocation records in {args.results}",
-                file=sys.stderr,
+            raise PensieveCommandError(
+                f"Failed to parse allocation records in {result_path}\nReason: {e}",
+                exit_code=1,
             )
-            print(f"Reason: {e}", file=sys.stderr)
-            return 1
 
         with open(os.fspath(output_file.expanduser()), "w") as f:
             reporter.render(
                 outfile=f,
                 metadata=tracker.reader.metadata,
-                show_memory_leaks=args.show_memory_leaks,
+                show_memory_leaks=show_memory_leaks,
             )
 
+    def run(self, args: argparse.Namespace) -> None:
+        result_path, output_file = self.validate_filenames(
+            output=args.output,
+            results=args.results,
+        )
+        self.write_report(
+            result_path,
+            output_file,
+            args.show_memory_leaks,
+            merge_threads=not args.split_threads,
+        )
+
         print(f"Wrote {output_file}")
-        return 0

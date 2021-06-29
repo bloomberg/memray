@@ -5,7 +5,6 @@ from unittest.mock import patch
 import pytest
 
 from bloomberg.pensieve.__main__ import main
-from bloomberg.pensieve.commands import flamegraph
 from bloomberg.pensieve.commands.flamegraph import FlamegraphCommand
 from bloomberg.pensieve.commands.table import TableCommand
 
@@ -69,7 +68,7 @@ class TestFlamegraphSubCommand:
     @staticmethod
     def get_prepared_parser():
         parser = argparse.ArgumentParser()
-        command = flamegraph.FlamegraphCommand()
+        command = FlamegraphCommand()
         command.prepare_parser(parser)
 
         return command, parser

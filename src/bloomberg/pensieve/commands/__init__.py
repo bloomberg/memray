@@ -11,6 +11,9 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
+from bloomberg.pensieve._errors import PensieveCommandError
+from bloomberg.pensieve._errors import PensieveError
+
 from . import flamegraph
 from . import run
 from . import table
@@ -43,7 +46,7 @@ class Command(Protocol):
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         ...
 
-    def run(self, args: argparse.Namespace) -> int:
+    def run(self, args: argparse.Namespace) -> None:
         ...
 
 
@@ -113,4 +116,13 @@ def main(args: Optional[List[str]] = None) -> int:
         format="%(levelname)s(%(funcName)s): %(message)s",
     )
 
-    return cast(int, arg_values.entrypoint(arg_values))
+    try:
+        arg_values.entrypoint(arg_values)
+    except PensieveCommandError as e:
+        print(e, file=sys.stderr)
+        return cast(int, e.exit_code)
+    except PensieveError as e:
+        print(e, file=sys.stderr)
+        return 1
+    else:
+        return 0
