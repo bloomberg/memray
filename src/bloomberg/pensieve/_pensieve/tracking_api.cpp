@@ -82,11 +82,11 @@ getCurrentPythonLineNumber()
     return the_python_stack ? PyCode_Addr2Line(the_python_stack->f_code, the_python_stack->f_lasti) : 0;
 }
 
-Tracker::Tracker(const std::string& file_name, bool native_frames, const std::string& command_line)
-: d_unwind_native_frames(native_frames)
+Tracker::Tracker(const std::string& file_name, bool native_traces, const std::string& command_line)
+: d_unwind_native_frames(native_traces)
 {
     d_instance = this;
-    d_writer = std::make_unique<RecordWriter>(file_name, command_line);
+    d_writer = std::make_unique<RecordWriter>(file_name, command_line, native_traces);
 
     static std::once_flag once;
     call_once(once, [] {
