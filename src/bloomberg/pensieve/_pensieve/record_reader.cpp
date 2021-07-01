@@ -16,7 +16,7 @@ namespace pensieve::api {
 
 namespace {
 
-const int NO_THREAD_INFO = -1;
+const thread_id_t NO_THREAD_INFO = 0;
 
 struct index_thread_pair_hash
 {
