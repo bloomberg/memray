@@ -35,14 +35,22 @@ class TestRunSubCommand:
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
-        tracker_mock.assert_called_with("pensieve-foobar.0.bin")
+        tracker_mock.assert_called_with("pensieve-foobar.0.bin", native_traces=False)
+
+    def test_run_with_native_mode(self, getpid_mock, runpy_mock, tracker_mock):
+        getpid_mock.return_value = 0
+        assert 0 == main(["run", "--native", "-m", "foobar"])
+        runpy_mock.run_module.assert_called_with(
+            "foobar", run_name="__main__", alter_sys=True
+        )
+        tracker_mock.assert_called_with("pensieve-foobar.0.bin", native_traces=True)
 
     def test_run_override_output(self, getpid_mock, runpy_mock, tracker_mock):
         assert 0 == main(["run", "--output", "my_output", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
-        tracker_mock.assert_called_with("my_output")
+        tracker_mock.assert_called_with("my_output", native_traces=False)
 
     def test_run_module(self, getpid_mock, runpy_mock, tracker_mock):
         assert 0 == main(["run", "-m", "foobar"])
@@ -61,7 +69,9 @@ class TestRunSubCommand:
             "./directory/foobar.py",
             run_name="__main__",
         )
-        tracker_mock.assert_called_with("./directory/pensieve-foobar.py.0.bin")
+        tracker_mock.assert_called_with(
+            "./directory/pensieve-foobar.py.0.bin", native_traces=False
+        )
 
 
 class TestFlamegraphSubCommand:
