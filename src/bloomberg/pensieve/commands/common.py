@@ -39,6 +39,13 @@ class HighWatermarkCommand:
             default=None,
         )
         parser.add_argument(
+            "--native",
+            help="Track native (C/C++) stack frames as well",
+            action="store_true",
+            dest="native",
+            default=False,
+        )
+        parser.add_argument(
             "--leaks",
             help="Show memory leaks, instead of peak memory usage",
             action="store_true",
@@ -77,10 +84,12 @@ class HighWatermarkCommand:
         self,
         result_path: Path,
         output_file: Path,
+        *,
         show_memory_leaks: bool,
         merge_threads: bool,
+        native_traces: bool,
     ) -> None:
-        tracker = Tracker(os.fspath(result_path))
+        tracker = Tracker(os.fspath(result_path), native_traces=native_traces)
         try:
             if show_memory_leaks:
                 snapshot = tracker.reader.get_leaked_allocation_records(
@@ -112,8 +121,9 @@ class HighWatermarkCommand:
         self.write_report(
             result_path,
             output_file,
-            args.show_memory_leaks,
+            show_memory_leaks=args.show_memory_leaks,
             merge_threads=not args.split_threads,
+            native_traces=args.native,
         )
 
         print(f"Wrote {output_file}")
