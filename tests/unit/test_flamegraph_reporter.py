@@ -8,7 +8,7 @@ from tests.utils import filter_relevant_allocations
 
 class TestFlameGraphReporter:
     def test_works_with_no_allocations(self):
-        reporter = FlameGraphReporter.from_snapshot([])
+        reporter = FlameGraphReporter.from_snapshot([], native_traces=False)
         assert reporter.data["name"] == "<root>"
         assert reporter.data["value"] == 0
         assert reporter.data["children"] == []
@@ -32,7 +32,9 @@ class TestFlameGraphReporter:
         ]
 
         # WHEN
-        reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
 
         # THEN
         assert reporter.data == {
@@ -55,6 +57,70 @@ class TestFlameGraphReporter:
                             "name": "parent at fun.py:8",
                             "thread_id": 1,
                             "location": "File fun.py, line 8 in parent",
+                            "value": 1024,
+                            "n_allocations": 1,
+                            "allocations_label": "1 allocation",
+                            "children": [
+                                {
+                                    "name": "me at fun.py:12",
+                                    "thread_id": 1,
+                                    "location": "File fun.py, line 12 in me",
+                                    "value": 1024,
+                                    "children": [],
+                                    "n_allocations": 1,
+                                    "allocations_label": "1 allocation",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def test_uses_hybrid_stack_for_native_traces(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _hybrid_stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.pyx", 8),
+                    ("grandparent", "fun.c", 4),
+                ],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=True
+        )
+
+        # THEN
+        assert reporter.data == {
+            "name": "<root>",
+            "thread_id": 0,
+            "location": "The overall context that <b>pensieve</b> is run in.",
+            "value": 1024,
+            "n_allocations": 1,
+            "allocations_label": "1 allocation",
+            "children": [
+                {
+                    "name": "grandparent at fun.c:4",
+                    "thread_id": 1,
+                    "location": "File fun.c, line 4 in grandparent",
+                    "value": 1024,
+                    "n_allocations": 1,
+                    "allocations_label": "1 allocation",
+                    "children": [
+                        {
+                            "name": "parent at fun.pyx:8",
+                            "thread_id": 1,
+                            "location": "File fun.pyx, line 8 in parent",
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -107,7 +173,9 @@ class TestFlameGraphReporter:
         ]
 
         # WHEN
-        reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
 
         # THEN
         assert reporter.data == {
@@ -171,7 +239,9 @@ class TestFlameGraphReporter:
         )
 
         # WHEN
-        reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
 
         # THEN
         assert reporter.data["name"] == "<root>"
@@ -215,7 +285,9 @@ class TestFlameGraphReporter:
         ]
 
         # WHEN
-        reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
 
         # THEN
         assert reporter.data == {
@@ -300,7 +372,9 @@ class TestFlameGraphReporter:
         ]
 
         # WHEN
-        reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
 
         # THEN
         assert reporter.data == {
@@ -415,7 +489,9 @@ class TestFlameGraphReporter:
         ]
 
         # WHEN
-        reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
 
         # THEN
         assert reporter.data == {
@@ -519,7 +595,9 @@ class TestFlameGraphReporter:
         ]
 
         # WHEN
-        reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
 
         # THEN
         assert reporter.data == {
@@ -623,7 +701,9 @@ class TestFlameGraphReporter:
         ]
 
         # WHEN
-        reporter = FlameGraphReporter.from_snapshot(peak_allocations)
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
 
         # THEN
         assert reporter.data == {
