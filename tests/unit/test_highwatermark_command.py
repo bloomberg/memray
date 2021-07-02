@@ -107,10 +107,7 @@ class TestFilenameValidation:
 
 class TestReportGeneration:
     @pytest.mark.parametrize("merge_threads", [True, False])
-    @pytest.mark.parametrize("native_traces", [True, False])
-    def test_tracker_and_reporter_interactions_for_peak(
-        self, tmp_path, merge_threads, native_traces
-    ):
+    def test_tracker_and_reporter_interactions_for_peak(self, tmp_path, merge_threads):
         # GIVEN
         reporter_factory_mock = Mock()
         command = HighWatermarkCommand(reporter_factory_mock, reporter_name="reporter")
@@ -124,12 +121,11 @@ class TestReportGeneration:
                 output_file=output_file,
                 show_memory_leaks=False,
                 merge_threads=merge_threads,
-                native_traces=native_traces,
             )
 
         # THEN
         assert tracker_mock.mock_calls == [
-            call(os.fspath(result_path), native_traces=native_traces),
+            call(os.fspath(result_path)),
             call().reader.get_high_watermark_allocation_records(
                 merge_threads=merge_threads
             ),
@@ -138,10 +134,7 @@ class TestReportGeneration:
         reporter_factory_mock().render.assert_called_once()
 
     @pytest.mark.parametrize("merge_threads", [True, False])
-    @pytest.mark.parametrize("native_traces", [True, False])
-    def test_tracker_and_reporter_interactions_for_leak(
-        self, tmp_path, merge_threads, native_traces
-    ):
+    def test_tracker_and_reporter_interactions_for_leak(self, tmp_path, merge_threads):
         # GIVEN
         reporter_factory_mock = Mock()
         command = HighWatermarkCommand(reporter_factory_mock, reporter_name="reporter")
@@ -155,12 +148,11 @@ class TestReportGeneration:
                 output_file=output_file,
                 show_memory_leaks=True,
                 merge_threads=merge_threads,
-                native_traces=native_traces,
             )
 
         # THEN
         assert tracker_mock.mock_calls == [
-            call(os.fspath(result_path), native_traces=native_traces),
+            call(os.fspath(result_path)),
             call().reader.get_leaked_allocation_records(merge_threads=merge_threads),
         ]
         reporter_factory_mock.assert_called_once()
