@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 from bloomberg.pensieve import AllocatorType
@@ -34,10 +35,22 @@ class MockAllocationRecord:
     allocator: AllocatorType
     stack_id: int
     n_allocations: int
-    _stack: List[Tuple[str, str, int]]
+    _stack: Optional[List[Tuple[str, str, int]]] = None
+    _hybrid_stack: Optional[List[Tuple[str, str, int]]] = None
+
+    @staticmethod
+    def __get_stack_trace(stack, max_stacks):
+        if max_stacks == 0:
+            return stack
+        else:
+            return stack[:max_stacks]
 
     def stack_trace(self, max_stacks=0):
-        if max_stacks == 0:
-            return self._stack
-        else:
-            return self._stack[:max_stacks]
+        if self._stack is None:
+            raise AssertionError("did not expect a call to `stack_trace`")
+        return self.__get_stack_trace(self._stack, max_stacks)
+
+    def hybrid_stack_trace(self, max_stacks=0):
+        if self._hybrid_stack is None:
+            raise AssertionError("did not expect a call to `hybrid_stack_trace`")
+        return self.__get_stack_trace(self._hybrid_stack, max_stacks)
