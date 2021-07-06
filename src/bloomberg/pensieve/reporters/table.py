@@ -17,11 +17,17 @@ class TableReporter:
         self.data = data
 
     @classmethod
-    def from_snapshot(cls, allocations: Iterator[AllocationRecord]) -> "TableReporter":
+    def from_snapshot(
+        cls, allocations: Iterator[AllocationRecord], *, native_traces: bool
+    ) -> "TableReporter":
 
         result = []
         for record in allocations:
-            stack_trace = record.stack_trace(max_stacks=1)
+            stack_trace = (
+                record.hybrid_stack_trace(max_stacks=1)
+                if native_traces
+                else record.stack_trace(max_stacks=1)
+            )
             stack = "???"
             if stack_trace:
                 function, file, line = stack_trace[0]

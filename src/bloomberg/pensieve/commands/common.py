@@ -2,10 +2,14 @@ import argparse
 import os
 import pathlib
 from pathlib import Path
-from typing import Callable
-from typing import Generator
+from typing import Iterator
 from typing import Optional
 from typing import Tuple
+
+try:
+    from typing import Protocol
+except ImportError:
+    from typing_extensions import Protocol  # type: ignore
 
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._errors import PensieveCommandError
@@ -13,12 +17,17 @@ from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve.reporters import BaseReporter
 
 
+class ReporterFactory(Protocol):
+    def __call__(
+        self, allocations: Iterator[AllocationRecord], *, native_traces: bool
+    ) -> BaseReporter:
+        ...
+
+
 class HighWatermarkCommand:
     def __init__(
         self,
-        reporter_factory: Callable[
-            [Generator[AllocationRecord, None, None]], BaseReporter
-        ],
+        reporter_factory: ReporterFactory,
         reporter_name: str,
     ) -> None:
         self.reporter_factory = reporter_factory
@@ -90,7 +99,9 @@ class HighWatermarkCommand:
                 snapshot = tracker.reader.get_high_watermark_allocation_records(
                     merge_threads=merge_threads
                 )
-            reporter = self.reporter_factory(snapshot)
+            reporter = self.reporter_factory(
+                snapshot, native_traces=tracker.reader.has_native_traces
+            )
         except OSError as e:
             raise PensieveCommandError(
                 f"Failed to parse allocation records in {result_path}\nReason: {e}",

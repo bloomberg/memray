@@ -48,7 +48,7 @@ class FlameGraphReporter:
 
     @classmethod
     def from_snapshot(
-        cls, allocations: Iterator[AllocationRecord]
+        cls, allocations: Iterator[AllocationRecord], *, native_traces: bool
     ) -> "FlameGraphReporter":
         data: Dict[str, Any] = {
             "name": "<root>",
@@ -73,7 +73,10 @@ class FlameGraphReporter:
             data["n_allocations"] += record.n_allocations
 
             current_frame = data
-            for stack_frame in reversed(record.stack_trace()):
+            stack = (
+                record.hybrid_stack_trace() if native_traces else record.stack_trace()
+            )
+            for stack_frame in reversed(stack):
                 if (stack_frame, thread_id) not in current_frame["children"]:
                     node = create_framegraph_node_from_stack_frame(stack_frame)
                     current_frame["children"][(stack_frame, thread_id)] = node

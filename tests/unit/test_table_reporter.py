@@ -6,7 +6,7 @@ from tests.utils import MockAllocationRecord
 class TestTableReporter:
     def test_empty_report(self):
         # GIVEN / WHEN
-        table = TableReporter.from_snapshot([])
+        table = TableReporter.from_snapshot([], native_traces=False)
 
         # THEN
         assert table.data == []
@@ -28,7 +28,7 @@ class TestTableReporter:
         ]
 
         # WHEN
-        table = TableReporter.from_snapshot(peak_allocations)
+        table = TableReporter.from_snapshot(peak_allocations, native_traces=False)
 
         # THEN
         assert table.data == [
@@ -38,6 +38,36 @@ class TestTableReporter:
                 "allocator": "malloc",
                 "n_allocations": 1,
                 "stack_trace": "me at fun.py:12",
+            }
+        ]
+
+    def test_single_native_allocation(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _hybrid_stack=[
+                    ("me", "fun.c", 12),
+                ],
+            ),
+        ]
+
+        # WHEN
+        table = TableReporter.from_snapshot(peak_allocations, native_traces=True)
+
+        # THEN
+        assert table.data == [
+            {
+                "tid": 1,
+                "size": 1024,
+                "allocator": "malloc",
+                "n_allocations": 1,
+                "stack_trace": "me at fun.c:12",
             }
         ]
 
@@ -69,7 +99,7 @@ class TestTableReporter:
         ]
 
         # WHEN
-        table = TableReporter.from_snapshot(peak_allocations)
+        table = TableReporter.from_snapshot(peak_allocations, native_traces=False)
 
         # THEN
         assert table.data == [
@@ -104,7 +134,7 @@ class TestTableReporter:
         ]
 
         # WHEN
-        table = TableReporter.from_snapshot(peak_allocations)
+        table = TableReporter.from_snapshot(peak_allocations, native_traces=False)
 
         # THEN
         assert table.data == [

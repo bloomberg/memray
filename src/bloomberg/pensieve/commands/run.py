@@ -24,6 +24,13 @@ class RunCommand:
             help="Output file name (default: <process_name>.<pid>.bin)",
         )
         parser.add_argument(
+            "--native",
+            help="Track native (C/C++) stack frames as well",
+            action="store_true",
+            dest="native",
+            default=False,
+        )
+        parser.add_argument(
             "-q",
             "--quiet",
             help="Don't show any tracking-specific output while running",
@@ -53,7 +60,7 @@ class RunCommand:
         if not args.quiet:
             print(f"Writing profile results into {results_file}")
 
-        with Tracker(results_file):
+        with Tracker(results_file, native_traces=args.native):
             sys.argv[1:] = args.script_args
             try:
                 if args.run_as_module:
