@@ -74,7 +74,9 @@ class FlameGraphReporter:
 
             current_frame = data
             stack = (
-                record.hybrid_stack_trace() if native_traces else record.stack_trace()
+                tuple(record.hybrid_stack_trace())
+                if native_traces
+                else record.stack_trace()
             )
             for stack_frame in reversed(stack):
                 if (stack_frame, thread_id) not in current_frame["children"]:
