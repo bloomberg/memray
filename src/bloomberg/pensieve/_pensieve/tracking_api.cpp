@@ -100,9 +100,9 @@ Tracker::Tracker(const std::string& file_name, bool native_traces, const std::st
     updateModuleCache();
 
     RecursionGuard guard;
-    tracking_api::Tracker::activate();
     tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
     d_patcher.overwrite_symbols();
+    tracking_api::Tracker::activate();
 }
 Tracker::~Tracker()
 {
@@ -329,6 +329,7 @@ install_trace_function()
     }
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
     entry_frame = PyEval_GetFrame();
+    current_frame = nullptr;
     python_stack.clear();
 }
 
