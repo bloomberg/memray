@@ -32,9 +32,13 @@ class RecordWriter
     bool inline writeString(const char* the_string) noexcept;
     template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item) noexcept;
+    template<typename T>
+    bool inline writeRecordUnsafe(const RecordType& token, const T& item) noexcept;
     bool writeHeader() noexcept;
 
     bool flush() noexcept;
+
+    std::unique_lock<std::mutex> acquireLock();
 
   private:
     // Constants
@@ -99,6 +103,12 @@ template<typename T>
 bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) noexcept
 {
     std::lock_guard<std::mutex> lock(d_mutex);
+    return writeRecordUnsafe(token, item);
+}
+
+template<typename T>
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& item) noexcept
+{
     constexpr const size_t total = sizeof(RecordType) + sizeof(T);
     static_assert(
             std::is_trivially_copyable<T>::value,
@@ -119,9 +129,10 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) no
 }
 
 template<>
-bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map_val_t& item) noexcept
+bool inline RecordWriter::writeRecordUnsafe(
+        const RecordType& token,
+        const pyframe_map_val_t& item) noexcept
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
     if (!_flush()) {
         return false;
     }
@@ -133,9 +144,8 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const pyframe_map
 }
 
 template<>
-bool inline RecordWriter::writeRecord(const RecordType& token, const SegmentHeader& item) noexcept
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const SegmentHeader& item) noexcept
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
     if (!_flush()) {
         return false;
     }
