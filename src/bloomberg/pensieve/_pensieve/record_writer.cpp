@@ -79,4 +79,10 @@ RecordWriter::writeHeader() noexcept
     return true;
 }
 
+std::unique_lock<std::mutex>
+RecordWriter::acquireLock()
+{
+    return std::unique_lock<std::mutex>(d_mutex);
+}
+
 }  // namespace pensieve::tracking_api

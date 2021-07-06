@@ -167,6 +167,7 @@ Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
 void
 Tracker::invalidate_module_cache()
 {
+    RecursionGuard guard;
     d_patcher.overwrite_symbols();
     updateModuleCache();
 }
@@ -195,7 +196,7 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
         }
     }
 
-    if (!writer->writeRecord(
+    if (!writer->writeRecordUnsafe(
                 RecordType::SEGMENT_HEADER,
                 SegmentHeader{filename, segments.size(), info->dlpi_addr}))
     {
@@ -203,7 +204,7 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
     }
 
     for (const auto& segment : segments) {
-        if (!writer->writeRecord(RecordType::SEGMENT, segment)) {
+        if (!writer->writeRecordUnsafe(RecordType::SEGMENT, segment)) {
             return 1;
         }
     }
@@ -214,6 +215,7 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
 void
 Tracker::updateModuleCache()
 {
+    auto writer_lock = d_writer->acquireLock();
     d_writer->writeSimpleType(RecordType::MEMORY_MAP_START);
     dl_iterate_phdr(&dl_iterate_phdr_callback, d_writer.get());
 }
