@@ -111,11 +111,25 @@ function decimalHash(string) {
   return sum % 1;
 }
 
-function pensieveColorMapper(d, originalColor) {
-  // Root node
-  if (d.data.name == "<root>") {
-    return d3.interpolateYlGn(0.6);
+function fileExtension(filename) {
+  if (filename === undefined) return filename;
+  return (
+    filename.substring(filename.lastIndexOf(".") + 1, filename.length) ||
+    filename
+  );
+}
+
+function colorByExtension(extension) {
+  if (extension == "py" || extension == "pyx") {
+    return d3.schemePastel1[2];
+  } else if (extension == "c" || extension == "cpp" || extension == "h") {
+    return d3.schemePastel1[5];
+  } else {
+    return d3.schemePastel1[8];
   }
+}
+
+function pensieveColorMapper(d, originalColor) {
   // Highlighted nodes
   if (d.highlight) {
     return "orange";
@@ -124,8 +138,8 @@ function pensieveColorMapper(d, originalColor) {
   if (!d.data.name || !d.data.location) {
     return "#EEE";
   }
-  // Fallback to the "yellow-green" colors
-  return d3.interpolateYlGn(0.1 + decimalHash(d.data.name) / 2);
+
+  return colorByExtension(fileExtension(d.data.location[1]));
 }
 
 // Show the 'Threads' dropdown if we have thread data, and populate it

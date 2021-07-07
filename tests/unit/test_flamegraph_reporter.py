@@ -441,7 +441,7 @@ class TestFlameGraphReporter:
                                                                 "two",
                                                                 "recursive.py",
                                                                 "20",
-                                                            ],  # noqa
+                                                            ],
                                                             "value": 1024,
                                                             "n_allocations": 1,
                                                             "allocations_label": "1 allocation",  # noqa
