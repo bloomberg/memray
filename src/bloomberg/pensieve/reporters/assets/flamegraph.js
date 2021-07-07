@@ -1,4 +1,9 @@
-import { debounced, filterChildThreads, humanFileSize, makeTooltipString} from "./common";
+import {
+  debounced,
+  filterChildThreads,
+  humanFileSize,
+  makeTooltipString,
+} from "./common";
 
 // For navigable #[integer] fragments
 function getCurrentId() {

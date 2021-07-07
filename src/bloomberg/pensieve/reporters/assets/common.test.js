@@ -1,4 +1,4 @@
-import {humanFileSize, makeTooltipString, filterChildThreads} from "./common";
+import { humanFileSize, makeTooltipString, filterChildThreads } from "./common";
 
 test("handlesSmallValues", () => {
   expect(humanFileSize(0)).toBe("0 B");
@@ -9,20 +9,24 @@ test("handlesSmallValues", () => {
 describe("Flame graph tooltip generation", () => {
   test("Generate label without thread", () => {
     const data = {
-      "location": "File foo.py, line 10 in foo",
-      "allocations_label": "3 allocations",
-      "thread_id": -1
+      location: "File foo.py, line 10 in foo",
+      allocations_label: "3 allocations",
+      thread_id: -1,
     };
-    expect(makeTooltipString(data, "1KiB", true)).toBe("File foo.py, line 10 in foo<br>1KiB total<br>3 allocations")
+    expect(makeTooltipString(data, "1KiB", true)).toBe(
+      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations"
+    );
   });
 
   test("Generate label with thread", () => {
     const data = {
-      "location": "File foo.py, line 10 in foo",
-      "allocations_label": "3 allocations",
-      "thread_id": 1
+      location: "File foo.py, line 10 in foo",
+      allocations_label: "3 allocations",
+      thread_id: 1,
     };
-    expect(makeTooltipString(data, "1KiB", false)).toBe("File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 1")
+    expect(makeTooltipString(data, "1KiB", false)).toBe(
+      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 1"
+    );
   });
 });
 
