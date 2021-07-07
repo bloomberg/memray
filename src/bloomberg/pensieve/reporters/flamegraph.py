@@ -65,6 +65,7 @@ class FlameGraphReporter:
                 f"{n_allocations} allocation{'s' if n_allocations > 1 else ''}"
             )
 
+        unique_threads = set()
         for record in allocations:
             size = record.size
             thread_id = record.tid
@@ -88,10 +89,12 @@ class FlameGraphReporter:
                     current_frame["n_allocations"]
                 )
                 current_frame["thread_id"] = thread_id
+                unique_threads.add(thread_id)
 
         data["allocations_label"] = gen_allocations_label(data["n_allocations"])
 
         transformed_data = with_converted_children_dict(data)
+        transformed_data["unique_threads"] = list(unique_threads)
         return cls(transformed_data)
 
     def render(
@@ -99,11 +102,13 @@ class FlameGraphReporter:
         outfile: TextIO,
         metadata: Metadata,
         show_memory_leaks: bool,
+        merge_threads: bool,
     ) -> None:
         html_code = render_report(
             kind="flamegraph",
             data=self.data,
             metadata=metadata,
             show_memory_leaks=show_memory_leaks,
+            merge_threads=merge_threads,
         )
         print(html_code, file=outfile)

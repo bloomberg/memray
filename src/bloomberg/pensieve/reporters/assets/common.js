@@ -34,10 +34,30 @@ export function debounced(fn) {
   };
 }
 
-export function makeTooltipString(data, totalSize) {
+export function makeTooltipString(data, totalSize, merge_threads) {
   let displayString = `${data.location}<br>${totalSize} total<br>${data.allocations_label}`;
-  if (data.thread_id >= 0) {
+  if (merge_threads === false) {
     displayString = displayString.concat(`<br>Thread ID: ${data.thread_id}`);
   }
   return displayString;
+}
+
+/**
+ * Recursively filter out the specified thread IDs from the node's `children` attribute.
+ * @param data Root node.
+ * @param threadId Thread ID to filter.
+ * @returns {NonNullable<any>} A copy of the input object with the filtering applied.
+ */
+export function filterChildThreads(data, threadId) {
+  function _filter(obj) {
+    if (obj.children && obj.children.length > 0) {
+      obj.children = _.filter(obj.children, _filter);
+    }
+    return obj.thread_id === threadId;
+  }
+
+  // Avoid mutating the input
+  let children = _.cloneDeep(data.children);
+  const filtered_children = _.filter(children, _filter);
+  return _.defaults({ children: filtered_children }, data);
 }

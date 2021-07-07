@@ -113,6 +113,7 @@ class HighWatermarkCommand:
                 outfile=f,
                 metadata=tracker.reader.metadata,
                 show_memory_leaks=show_memory_leaks,
+                merge_threads=merge_threads,
             )
 
     def run(self, args: argparse.Namespace) -> None:

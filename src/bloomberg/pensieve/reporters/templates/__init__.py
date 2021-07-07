@@ -23,6 +23,7 @@ def render_report(
     data: Union[Dict[str, Any], Iterable[Dict[str, Any]]],
     metadata: Metadata,
     show_memory_leaks: bool,
+    merge_threads: bool,
 ) -> str:
     env = get_render_environment()
     template = env.get_template(kind + ".html")
@@ -31,4 +32,5 @@ def render_report(
         data=data,
         metadata=metadata,
         show_memory_leaks=show_memory_leaks,
+        merge_threads=merge_threads,
     )
