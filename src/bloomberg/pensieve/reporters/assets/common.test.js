@@ -1,4 +1,9 @@
-import { humanFileSize, makeTooltipString, filterChildThreads } from "./common";
+import {
+  humanFileSize,
+  makeTooltipString,
+  filterChildThreads,
+  sumAllocations,
+} from "./common";
 
 test("handlesSmallValues", () => {
   expect(humanFileSize(0)).toBe("0 B");
@@ -102,5 +107,45 @@ describe("Filter threads", () => {
       thread_id: 0,
       children: [],
     });
+  });
+});
+
+describe("Recalculate allocations in root node", () => {
+  const data = {
+    thread_id: 0,
+    n_allocations: 100,
+    value: 100,
+    children: [
+      {
+        thread_id: 1,
+        n_allocations: 1,
+        value: 10,
+        children: [
+          {
+            thread_id: 1,
+            n_allocations: 3,
+            value: 30,
+            children: [
+              {
+                thread_id: 1,
+                n_allocations: 1,
+                value: 10,
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        thread_id: 1,
+        n_allocations: 1,
+        value: 10,
+        children: [],
+      },
+    ],
+  };
+  test("Recalculate allocations", () => {
+    const sum = sumAllocations(data.children);
+    expect(sum).toStrictEqual({ n_allocations: 6, value: 60 });
   });
 });

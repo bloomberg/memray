@@ -66,3 +66,21 @@ export function filterChildThreads(data, threadId) {
   const filtered_children = _.filter(children, _filter);
   return _.defaults({ children: filtered_children }, data);
 }
+
+export function sumAllocations(data) {
+  let initial = {
+    n_allocations: 0,
+    value: 0,
+  };
+
+  let callback = (result, node) => {
+    result.n_allocations += node.n_allocations;
+    result.value += node.value;
+    if (node.children && node.children.length >= 0) {
+      result = _.reduce(node.children, callback, result);
+    }
+    return result;
+  };
+
+  return _.reduce(data, callback, initial);
+}

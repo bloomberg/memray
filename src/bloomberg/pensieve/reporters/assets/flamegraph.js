@@ -3,6 +3,7 @@ import {
   filterChildThreads,
   humanFileSize,
   makeTooltipString,
+  sumAllocations,
 } from "./common";
 
 // For navigable #[integer] fragments
@@ -68,7 +69,15 @@ function onFilterThread() {
     // Reset
     drawChart(data);
   } else {
-    drawChart(filterChildThreads(data, thread_id));
+    let filteredData = filterChildThreads(data, thread_id);
+    console.log(JSON.stringify(filteredData));
+    const totalAllocations = sumAllocations(filteredData.children);
+    console.log(JSON.stringify(filteredData));
+    // _.defaults(totalAllocations, filteredData);
+    filteredData.n_allocations = totalAllocations.n_allocations;
+    filteredData.value = totalAllocations.value;
+    console.log(JSON.stringify(filteredData));
+    drawChart(filteredData);
   }
   chart.merge([]);
 }
@@ -79,6 +88,7 @@ function getTooltip() {
     .tip()
     .attr("class", "d3-flame-graph-tip")
     .html((d) => {
+      console.log(`Generating tooltip for node: ${JSON.stringify(d.data)}`);
       const totalSize = humanFileSize(d.data.value);
       return makeTooltipString(d.data, totalSize, merge_threads);
     })
