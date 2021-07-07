@@ -9,7 +9,7 @@ test("handlesSmallValues", () => {
 describe("Flame graph tooltip generation", () => {
   test("Generate label without thread", () => {
     const data = {
-      location: "File foo.py, line 10 in foo",
+      location: ["foo", "foo.py", "10"],
       allocations_label: "3 allocations",
       thread_id: -1,
     };
@@ -20,7 +20,7 @@ describe("Flame graph tooltip generation", () => {
 
   test("Generate label with thread", () => {
     const data = {
-      location: "File foo.py, line 10 in foo",
+      location: ["foo", "foo.py", "10"],
       allocations_label: "3 allocations",
       thread_id: 1,
     };

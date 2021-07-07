@@ -40,7 +40,7 @@ class TestFlameGraphReporter:
         assert {
             "name": "<root>",
             "thread_id": 0,
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 1024,
             "n_allocations": 1,
             "allocations_label": "1 allocation",
@@ -49,7 +49,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "grandparent at fun.py:4",
                     "thread_id": 1,
-                    "location": "File fun.py, line 4 in grandparent",
+                    "location": ["grandparent", "fun.py", "4"],
                     "value": 1024,
                     "n_allocations": 1,
                     "allocations_label": "1 allocation",
@@ -57,7 +57,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent at fun.py:8",
                             "thread_id": 1,
-                            "location": "File fun.py, line 8 in parent",
+                            "location": ["parent", "fun.py", "8"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -65,7 +65,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "me at fun.py:12",
                                     "thread_id": 1,
-                                    "location": "File fun.py, line 12 in me",
+                                    "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "children": [],
                                     "n_allocations": 1,
@@ -105,7 +105,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": 0,
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 1024,
             "n_allocations": 1,
             "allocations_label": "1 allocation",
@@ -114,7 +114,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "grandparent at fun.c:4",
                     "thread_id": 1,
-                    "location": "File fun.c, line 4 in grandparent",
+                    "location": ["grandparent", "fun.c", "4"],
                     "value": 1024,
                     "n_allocations": 1,
                     "allocations_label": "1 allocation",
@@ -122,7 +122,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent at fun.pyx:8",
                             "thread_id": 1,
-                            "location": "File fun.pyx, line 8 in parent",
+                            "location": ["parent", "fun.pyx", "8"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -130,7 +130,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "me at fun.py:12",
                                     "thread_id": 1,
-                                    "location": "File fun.py, line 12 in me",
+                                    "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "children": [],
                                     "n_allocations": 1,
@@ -183,7 +183,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": 0,
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
@@ -192,7 +192,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "grandparent at fun.py:4",
                     "thread_id": 1,
-                    "location": "File fun.py, line 4 in grandparent",
+                    "location": ["grandparent", "fun.py", "4"],
                     "value": 2048,
                     "n_allocations": 2,
                     "allocations_label": "2 allocations",
@@ -200,7 +200,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent at fun.py:8",
                             "thread_id": 1,
-                            "location": "File fun.py, line 8 in parent",
+                            "location": ["parent", "fun.py", "8"],
                             "value": 2048,
                             "n_allocations": 2,
                             "allocations_label": "2 allocations",
@@ -208,7 +208,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "me at fun.py:12",
                                     "thread_id": 1,
-                                    "location": "File fun.py, line 12 in me",
+                                    "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -217,7 +217,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "sibling at fun.py:16",
                                     "thread_id": 1,
-                                    "location": "File fun.py, line 16 in sibling",
+                                    "location": ["sibling", "fun.py", "16"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -296,7 +296,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": 0,
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
@@ -305,7 +305,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "grandparent at fun.py:4",
                     "thread_id": 1,
-                    "location": "File fun.py, line 4 in grandparent",
+                    "location": ["grandparent", "fun.py", "4"],
                     "value": 2048,
                     "n_allocations": 2,
                     "allocations_label": "2 allocations",
@@ -313,7 +313,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent_one at fun.py:8",
                             "thread_id": 1,
-                            "location": "File fun.py, line 8 in parent_one",
+                            "location": ["parent_one", "fun.py", "8"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -321,7 +321,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "me at fun.py:12",
                                     "thread_id": 1,
-                                    "location": "File fun.py, line 12 in me",
+                                    "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -332,7 +332,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent_two at fun.py:10",
                             "thread_id": 1,
-                            "location": "File fun.py, line 10 in parent_two",
+                            "location": ["parent_two", "fun.py", "10"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -340,7 +340,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "sibling at fun.py:16",
                                     "thread_id": 1,
-                                    "location": "File fun.py, line 16 in sibling",
+                                    "location": ["sibling", "fun.py", "16"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -384,7 +384,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": 0,
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 1024,
             "n_allocations": 1,
             "allocations_label": "1 allocation",
@@ -393,7 +393,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "main at recursive.py:5",
                     "thread_id": 1,
-                    "location": "File recursive.py, line 5 in main",
+                    "location": ["main", "recursive.py", "5"],
                     "value": 1024,
                     "n_allocations": 1,
                     "allocations_label": "1 allocation",
@@ -401,7 +401,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "two at recursive.py:20",
                             "thread_id": 1,
-                            "location": "File recursive.py, line 20 in two",
+                            "location": ["two", "recursive.py", "20"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -409,7 +409,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "one at recursive.py:10",
                                     "thread_id": 1,
-                                    "location": "File recursive.py, line 10 in one",
+                                    "location": ["one", "recursive.py", "10"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -417,7 +417,7 @@ class TestFlameGraphReporter:
                                         {
                                             "name": "two at recursive.py:20",
                                             "thread_id": 1,
-                                            "location": "File recursive.py, line 20 in two",
+                                            "location": ["two", "recursive.py", "20"],
                                             "value": 1024,
                                             "n_allocations": 1,
                                             "allocations_label": "1 allocation",
@@ -425,7 +425,11 @@ class TestFlameGraphReporter:
                                                 {
                                                     "name": "one at recursive.py:10",
                                                     "thread_id": 1,
-                                                    "location": "File recursive.py, line 10 in one",  # noqa
+                                                    "location": [
+                                                        "one",
+                                                        "recursive.py",
+                                                        "10",
+                                                    ],
                                                     "value": 1024,
                                                     "n_allocations": 1,
                                                     "allocations_label": "1 allocation",
@@ -433,7 +437,11 @@ class TestFlameGraphReporter:
                                                         {
                                                             "name": "two at recursive.py:20",  # noqa
                                                             "thread_id": 1,
-                                                            "location": "File recursive.py, line 20 in two",  # noqa
+                                                            "location": [
+                                                                "two",
+                                                                "recursive.py",
+                                                                "20",
+                                                            ],  # noqa
                                                             "value": 1024,
                                                             "n_allocations": 1,
                                                             "allocations_label": "1 allocation",  # noqa
@@ -441,7 +449,11 @@ class TestFlameGraphReporter:
                                                                 {
                                                                     "name": "one at recursive.py:9",  # noqa
                                                                     "thread_id": 1,
-                                                                    "location": "File recursive.py, line 9 in one",  # noqa
+                                                                    "location": [
+                                                                        "one",
+                                                                        "recursive.py",
+                                                                        "9",
+                                                                    ],
                                                                     "value": 1024,
                                                                     "n_allocations": 1,
                                                                     "allocations_label": "1 allocation",  # noqa
@@ -502,7 +514,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": 0,
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
@@ -511,7 +523,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo2 at /src/lel.py:12",
                     "thread_id": 1,
-                    "location": "File /src/lel.py, line 12 in foo2",
+                    "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
                     "allocations_label": "1 allocation",
@@ -519,7 +531,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar2 at /src/lel.py:15",
                             "thread_id": 1,
-                            "location": "File /src/lel.py, line 15 in bar2",
+                            "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -527,7 +539,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz2 at /src/lel.py:18",
                                     "thread_id": 1,
-                                    "location": "File /src/lel.py, line 18 in baz2",
+                                    "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -540,7 +552,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo1 at /src/lel.py:2",
                     "thread_id": 1,
-                    "location": "File /src/lel.py, line 2 in foo1",
+                    "location": ["foo1", "/src/lel.py", "2"],
                     "value": 1024,
                     "n_allocations": 1,
                     "allocations_label": "1 allocation",
@@ -548,7 +560,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar1 at /src/lel.py:5",
                             "thread_id": 1,
-                            "location": "File /src/lel.py, line 5 in bar1",
+                            "location": ["bar1", "/src/lel.py", "5"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -556,7 +568,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz1 at /src/lel.py:8",
                                     "thread_id": 1,
-                                    "location": "File /src/lel.py, line 8 in baz1",
+                                    "location": ["baz1", "/src/lel.py", "8"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -609,7 +621,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": 0,
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
@@ -618,7 +630,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo2 at /src/lel.py:12",
                     "thread_id": 1,
-                    "location": "File /src/lel.py, line 12 in foo2",
+                    "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
                     "allocations_label": "1 allocation",
@@ -626,7 +638,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar2 at /src/lel.py:15",
                             "thread_id": 1,
-                            "location": "File /src/lel.py, line 15 in bar2",
+                            "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -634,7 +646,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz2 at /src/lel.py:18",
                                     "thread_id": 1,
-                                    "location": "File /src/lel.py, line 18 in baz2",
+                                    "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -647,7 +659,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo2 at /src/lel.py:12",
                     "thread_id": 2,
-                    "location": "File /src/lel.py, line 12 in foo2",
+                    "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
                     "allocations_label": "1 allocation",
@@ -655,7 +667,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar2 at /src/lel.py:15",
                             "thread_id": 2,
-                            "location": "File /src/lel.py, line 15 in bar2",
+                            "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
                             "allocations_label": "1 allocation",
@@ -663,7 +675,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz2 at /src/lel.py:18",
                                     "thread_id": 2,
-                                    "location": "File /src/lel.py, line 18 in baz2",
+                                    "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "allocations_label": "1 allocation",
@@ -716,7 +728,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": 0,
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
@@ -725,7 +737,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo2 at /src/lel.py:12",
                     "thread_id": -1,
-                    "location": "File /src/lel.py, line 12 in foo2",
+                    "location": ["foo2", "/src/lel.py", "12"],
                     "value": 2048,
                     "n_allocations": 2,
                     "allocations_label": "2 allocations",
@@ -733,7 +745,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar2 at /src/lel.py:15",
                             "thread_id": -1,
-                            "location": "File /src/lel.py, line 15 in bar2",
+                            "location": ["bar2", "/src/lel.py", "15"],
                             "value": 2048,
                             "n_allocations": 2,
                             "allocations_label": "2 allocations",
@@ -741,7 +753,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz2 at /src/lel.py:18",
                                     "thread_id": -1,
-                                    "location": "File /src/lel.py, line 18 in baz2",
+                                    "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 2048,
                                     "n_allocations": 2,
                                     "allocations_label": "2 allocations",

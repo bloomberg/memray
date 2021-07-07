@@ -121,10 +121,7 @@ function pensieveColorMapper(d, originalColor) {
     return "orange";
   }
   // "builtin" / nodes that we don't want to highlight
-  if (
-    !d.data.name ||
-    (d.data.location && d.data.location.startsWith("File &lt;"))
-  ) {
+  if (!d.data.name || !d.data.location) {
     return "#EEE";
   }
   // Fallback to the "yellow-green" colors

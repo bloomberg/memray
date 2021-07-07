@@ -35,7 +35,12 @@ export function debounced(fn) {
 }
 
 export function makeTooltipString(data, totalSize, merge_threads) {
-  let displayString = `${data.location}<br>${totalSize} total<br>${data.allocations_label}`;
+  let location = "unknown location";
+  if (data.location !== undefined) {
+    location = `File ${data.location[1]}, line ${data.location[2]} in ${data.location[0]}`;
+  }
+
+  let displayString = `${location}<br>${totalSize} total<br>${data.allocations_label}`;
   if (merge_threads === false) {
     displayString = displayString.concat(`<br>Thread ID: ${data.thread_id}`);
   }

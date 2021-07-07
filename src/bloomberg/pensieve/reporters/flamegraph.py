@@ -29,10 +29,9 @@ def create_framegraph_node_from_stack_frame(
         # Or just describe where it is from
         or f"{function} at {filename}:{lineno}"
     )
-    location = html.escape(f"File {filename}, line {lineno} in {function}")
     return {
         "name": name,
-        "location": location,
+        "location": [html.escape(str(part)) for part in stack_frame],
         "value": 0,
         "children": {},
         "n_allocations": 0,
@@ -52,7 +51,7 @@ class FlameGraphReporter:
     ) -> "FlameGraphReporter":
         data: Dict[str, Any] = {
             "name": "<root>",
-            "location": "The overall context that <b>pensieve</b> is run in.",
+            "location": [html.escape("<tracker>"), "<b>pensieve</b>", 0],
             "value": 0,
             "children": {},
             "n_allocations": 0,
