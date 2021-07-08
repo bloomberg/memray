@@ -1,4 +1,9 @@
-import { debounced, humanFileSize, makeTooltipString} from "./common";
+import {
+  debounced,
+  filterChildThreads,
+  humanFileSize,
+  makeTooltipString,
+} from "./common";
 
 // For navigable #[integer] fragments
 function getCurrentId() {
@@ -56,6 +61,18 @@ function onResize() {
   chart.merge([]);
 }
 
+// Handle
+function onFilterThread() {
+  const thread_id = parseInt(this.dataset.thread, 10);
+  if (thread_id === -1) {
+    // Reset
+    drawChart(data);
+  } else {
+    drawChart(filterChildThreads(data, thread_id));
+  }
+  chart.merge([]);
+}
+
 // For determining values for the graph
 function getTooltip() {
   let tip = d3
@@ -63,7 +80,7 @@ function getTooltip() {
     .attr("class", "d3-flame-graph-tip")
     .html((d) => {
       const totalSize = humanFileSize(d.data.value);
-      return makeTooltipString(d.data, totalSize);
+      return makeTooltipString(d.data, totalSize, merge_threads);
     })
     .direction((d) => {
       const midpoint = (d.x1 + d.x0) / 2;
@@ -114,9 +131,29 @@ function pensieveColorMapper(d, originalColor) {
   return d3.interpolateYlGn(0.1 + decimalHash(d.data.name) / 2);
 }
 
-// Main entrypoint
-function main() {
-  // Create the flamegraph renderer
+// Show the 'Threads' dropdown if we have thread data, and populate it
+function initThreadsDropdown(data, merge_threads) {
+  if (merge_threads === true) {
+    return;
+  }
+  const threads = data.unique_threads;
+  if (!threads || threads.length <= 1) {
+    return;
+  }
+
+  document.getElementById("threadsDropdown").removeAttribute("hidden");
+  const threadsDropdownList = document.getElementById("threadsDropdownList");
+  for (const thread of threads) {
+    let elem = document.createElement("a");
+    elem.className = "dropdown-item";
+    elem.dataset.thread = thread;
+    elem.text = thread;
+    elem.onclick = onFilterThread;
+    threadsDropdownList.appendChild(elem);
+  }
+}
+
+function drawChart(chart_data) {
   chart = flamegraph()
     .width(getChartWidth())
     // smooth transitions
@@ -134,7 +171,15 @@ function main() {
     .tooltip(getTooltip());
 
   // Render the chart
-  d3.select("#chart").datum(data).call(chart);
+  d3.select("#chart").datum(chart_data).call(chart);
+}
+
+// Main entrypoint
+function main() {
+  initThreadsDropdown(data, merge_threads);
+
+  // Create the flamegraph renderer
+  drawChart(data);
 
   // Set zoom to correct element
   if (location.hash) {
@@ -144,6 +189,7 @@ function main() {
   // Setup event handlers
   document.getElementById("invertButton").onclick = onInvert;
   document.getElementById("resetZoomButton").onclick = onResetZoom;
+  document.getElementById("resetThreadFilterItem").onclick = onFilterThread;
 
   document.onkeyup = (event) => {
     if (event.code == "Escape") {
@@ -157,6 +203,9 @@ function main() {
 
   window.addEventListener("popstate", handleFragments);
   window.addEventListener("resize", debounced(onResize));
+
+  // Enable tooltips
+  $('[data-toggle-second="tooltip"]').tooltip();
 }
 
 var chart = null;

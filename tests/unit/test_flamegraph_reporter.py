@@ -37,13 +37,14 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data == {
+        assert {
             "name": "<root>",
             "thread_id": 0,
             "location": "The overall context that <b>pensieve</b> is run in.",
             "value": 1024,
             "n_allocations": 1,
             "allocations_label": "1 allocation",
+            "unique_threads": [1],
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -75,7 +76,7 @@ class TestFlameGraphReporter:
                     ],
                 }
             ],
-        }
+        } == reporter.data
 
     def test_uses_hybrid_stack_for_native_traces(self):
         # GIVEN
@@ -108,6 +109,7 @@ class TestFlameGraphReporter:
             "value": 1024,
             "n_allocations": 1,
             "allocations_label": "1 allocation",
+            "unique_threads": [1],
             "children": [
                 {
                     "name": "grandparent at fun.c:4",
@@ -185,6 +187,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
+            "unique_threads": [1],
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -297,6 +300,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
+            "unique_threads": [1],
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -384,6 +388,7 @@ class TestFlameGraphReporter:
             "value": 1024,
             "n_allocations": 1,
             "allocations_label": "1 allocation",
+            "unique_threads": [1],
             "children": [
                 {
                     "name": "main at recursive.py:5",
@@ -501,6 +506,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
+            "unique_threads": [1],
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
@@ -607,6 +613,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
+            "unique_threads": [1, 2],
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
@@ -713,6 +720,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "allocations_label": "2 allocations",
+            "unique_threads": [-1],
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",

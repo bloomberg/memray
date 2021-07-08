@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 
 {% block topbar_buttons %}
+<div class="dropdown" id="threadsDropdown" hidden>
+  <button class="btn btn-outline-light dropdown-toggle mr-3" type="button" id="threadsDropdownButton" data-toggle="dropdown"
+          aria-haspopup="true" aria-expanded="false" data-toggle-second="tooltip" data-placement="right"
+          title="Display only the selected thread">
+    Filter Thread
+  </button>
+  <div class="dropdown-menu" aria-labelledby="threadsDropdownButton" id="threadsDropdownList">
+    <a class="dropdown-item" data-thread="-1" id="resetThreadFilterItem">Reset</a>
+  </div>
+</div>
 <button id="resetZoomButton" class="btn btn-outline-light mr-3">Reset Zoom</button>
 <button id="invertButton" class="btn btn-outline-light mr-3">Invert</button>
 {% endblock %}
