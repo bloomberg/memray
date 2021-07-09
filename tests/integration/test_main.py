@@ -152,7 +152,7 @@ class TestRunSubcommand:
 
 class TestFlamegraphSubCommand:
     @staticmethod
-    def generate_sample_results(tmp_path):
+    def generate_sample_results(tmp_path, *, native=False):
         results_file = tmp_path / "result.bin"
         subprocess.run(
             [
@@ -160,6 +160,7 @@ class TestFlamegraphSubCommand:
                 "-m",
                 "bloomberg.pensieve",
                 "run",
+                *(["--native"] if native else []),
                 "--output",
                 str(results_file),
                 "-m",
@@ -176,6 +177,30 @@ class TestFlamegraphSubCommand:
     def test_reads_from_correct_file(self, tmp_path):
         # GIVEN
         results_file = self.generate_sample_results(tmp_path)
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "flamegraph",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        output_file = tmp_path / "pensieve-flamegraph-result.html"
+        assert output_file.exists()
+        assert "json/tool.py" in output_file.read_text()
+
+    def test_can_generate_reports_with_native_traces(self, tmp_path):
+        # GIVEN
+        results_file = self.generate_sample_results(tmp_path, native=True)
 
         # WHEN
         subprocess.run(
