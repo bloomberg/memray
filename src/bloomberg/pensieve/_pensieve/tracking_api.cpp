@@ -33,6 +33,7 @@ child_fork()
 {
     // TODO: allow children to be tracked
     RecursionGuard::isActive = true;
+    pensieve::tracking_api::Tracker::getTracker()->deactivate();
 }
 
 std::string
