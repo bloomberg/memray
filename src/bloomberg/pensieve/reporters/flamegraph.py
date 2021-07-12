@@ -35,7 +35,6 @@ def create_framegraph_node_from_stack_frame(
         "value": 0,
         "children": {},
         "n_allocations": 0,
-        "allocations_label": "",
         "thread_id": 0,
     }
 
@@ -55,14 +54,8 @@ class FlameGraphReporter:
             "value": 0,
             "children": {},
             "n_allocations": 0,
-            "allocations_label": "",
             "thread_id": 0,
         }
-
-        def gen_allocations_label(n_allocations: int) -> str:
-            return html.escape(
-                f"{n_allocations} allocation{'s' if n_allocations > 1 else ''}"
-            )
 
         unique_threads = set()
         for record in allocations:
@@ -86,13 +79,8 @@ class FlameGraphReporter:
                 current_frame = current_frame["children"][(stack_frame, thread_id)]
                 current_frame["value"] += size
                 current_frame["n_allocations"] += record.n_allocations
-                current_frame["allocations_label"] = gen_allocations_label(
-                    current_frame["n_allocations"]
-                )
                 current_frame["thread_id"] = thread_id
                 unique_threads.add(thread_id)
-
-        data["allocations_label"] = gen_allocations_label(data["n_allocations"])
 
         transformed_data = with_converted_children_dict(data)
         transformed_data["unique_threads"] = list(unique_threads)

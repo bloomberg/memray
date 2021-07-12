@@ -3,6 +3,7 @@ import {
   filterChildThreads,
   humanFileSize,
   makeTooltipString,
+  sumAllocations,
 } from "./common";
 
 // For navigable #[integer] fragments
@@ -68,7 +69,12 @@ function onFilterThread() {
     // Reset
     drawChart(data);
   } else {
-    drawChart(filterChildThreads(data, thread_id));
+    let filteredData = filterChildThreads(data, thread_id);
+    const totalAllocations = sumAllocations(filteredData.children);
+    _.defaults(totalAllocations, filteredData);
+    filteredData.n_allocations = totalAllocations.n_allocations;
+    filteredData.value = totalAllocations.value;
+    drawChart(filteredData);
   }
   chart.merge([]);
 }

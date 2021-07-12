@@ -40,7 +40,9 @@ export function makeTooltipString(data, totalSize, merge_threads) {
     location = `File ${data.location[1]}, line ${data.location[2]} in ${data.location[0]}`;
   }
 
-  let displayString = `${location}<br>${totalSize} total<br>${data.allocations_label}`;
+  const plural = data.n_allocations > 1 ? "s" : "";
+  const allocations_label = `${data.n_allocations} allocation${plural}`;
+  let displayString = `${location}<br>${totalSize} total<br>${allocations_label}`;
   if (merge_threads === false) {
     displayString = displayString.concat(`<br>Thread ID: ${data.thread_id}`);
   }
@@ -65,4 +67,27 @@ export function filterChildThreads(data, threadId) {
   let children = _.cloneDeep(data.children);
   const filtered_children = _.filter(children, _filter);
   return _.defaults({ children: filtered_children }, data);
+}
+
+/**
+ * Walk the tree of allocation data and sum up the total allocations and memory use.
+ * @param data Root node.
+ * @returns {{n_allocations: number, value: number}}
+ */
+export function sumAllocations(data) {
+  let initial = {
+    n_allocations: 0,
+    value: 0,
+  };
+
+  let callback = (result, node) => {
+    result.n_allocations += node.n_allocations;
+    result.value += node.value;
+    if (node.children && node.children.length >= 0) {
+      result = _.reduce(node.children, callback, result);
+    }
+    return result;
+  };
+
+  return _.reduce(data, callback, initial);
 }

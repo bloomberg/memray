@@ -1,4 +1,9 @@
-import { humanFileSize, makeTooltipString, filterChildThreads } from "./common";
+import {
+  humanFileSize,
+  makeTooltipString,
+  filterChildThreads,
+  sumAllocations,
+} from "./common";
 
 test("handlesSmallValues", () => {
   expect(humanFileSize(0)).toBe("0 B");
@@ -10,7 +15,7 @@ describe("Flame graph tooltip generation", () => {
   test("Generate label without thread", () => {
     const data = {
       location: ["foo", "foo.py", "10"],
-      allocations_label: "3 allocations",
+      n_allocations: 3,
       thread_id: -1,
     };
     expect(makeTooltipString(data, "1KiB", true)).toBe(
@@ -21,11 +26,21 @@ describe("Flame graph tooltip generation", () => {
   test("Generate label with thread", () => {
     const data = {
       location: ["foo", "foo.py", "10"],
-      allocations_label: "3 allocations",
+      n_allocations: 3,
       thread_id: 1,
     };
     expect(makeTooltipString(data, "1KiB", false)).toBe(
       "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 1"
+    );
+  });
+  test("Generate label with single allocation", () => {
+    const data = {
+      location: ["foo", "foo.py", "10"],
+      n_allocations: 1,
+      thread_id: 1,
+    };
+    expect(makeTooltipString(data, "1KiB", false)).toBe(
+      "File foo.py, line 10 in foo<br>1KiB total<br>1 allocation<br>Thread ID: 1"
     );
   });
 });
@@ -102,5 +117,45 @@ describe("Filter threads", () => {
       thread_id: 0,
       children: [],
     });
+  });
+});
+
+describe("Recalculate allocations in root node", () => {
+  const data = {
+    thread_id: 0,
+    n_allocations: 100,
+    value: 100,
+    children: [
+      {
+        thread_id: 1,
+        n_allocations: 1,
+        value: 10,
+        children: [
+          {
+            thread_id: 1,
+            n_allocations: 3,
+            value: 30,
+            children: [
+              {
+                thread_id: 1,
+                n_allocations: 1,
+                value: 10,
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        thread_id: 1,
+        n_allocations: 1,
+        value: 10,
+        children: [],
+      },
+    ],
+  };
+  test("Recalculate allocations", () => {
+    const sum = sumAllocations(data.children);
+    expect(sum).toStrictEqual({ n_allocations: 6, value: 60 });
   });
 });
