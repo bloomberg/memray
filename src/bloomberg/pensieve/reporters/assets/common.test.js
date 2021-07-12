@@ -15,7 +15,7 @@ describe("Flame graph tooltip generation", () => {
   test("Generate label without thread", () => {
     const data = {
       location: ["foo", "foo.py", "10"],
-      allocations_label: "3 allocations",
+      n_allocations: 3,
       thread_id: -1,
     };
     expect(makeTooltipString(data, "1KiB", true)).toBe(
@@ -26,11 +26,21 @@ describe("Flame graph tooltip generation", () => {
   test("Generate label with thread", () => {
     const data = {
       location: ["foo", "foo.py", "10"],
-      allocations_label: "3 allocations",
+      n_allocations: 3,
       thread_id: 1,
     };
     expect(makeTooltipString(data, "1KiB", false)).toBe(
       "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 1"
+    );
+  });
+  test("Generate label with single allocation", () => {
+    const data = {
+      location: ["foo", "foo.py", "10"],
+      n_allocations: 1,
+      thread_id: 1,
+    };
+    expect(makeTooltipString(data, "1KiB", false)).toBe(
+      "File foo.py, line 10 in foo<br>1KiB total<br>1 allocation<br>Thread ID: 1"
     );
   });
 });

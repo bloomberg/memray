@@ -70,13 +70,10 @@ function onFilterThread() {
     drawChart(data);
   } else {
     let filteredData = filterChildThreads(data, thread_id);
-    console.log(JSON.stringify(filteredData));
     const totalAllocations = sumAllocations(filteredData.children);
-    console.log(JSON.stringify(filteredData));
-    // _.defaults(totalAllocations, filteredData);
+    _.defaults(totalAllocations, filteredData);
     filteredData.n_allocations = totalAllocations.n_allocations;
     filteredData.value = totalAllocations.value;
-    console.log(JSON.stringify(filteredData));
     drawChart(filteredData);
   }
   chart.merge([]);
@@ -88,7 +85,6 @@ function getTooltip() {
     .tip()
     .attr("class", "d3-flame-graph-tip")
     .html((d) => {
-      console.log(`Generating tooltip for node: ${JSON.stringify(d.data)}`);
       const totalSize = humanFileSize(d.data.value);
       return makeTooltipString(d.data, totalSize, merge_threads);
     })
