@@ -95,7 +95,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
   <script type="text/javascript">
-    const data = {{ data }};
+    const data = {{ data|tojson }};
     const merge_threads = {{ merge_threads|tojson }};
   </script>
   {% endblock scripts %}
