@@ -50,27 +50,40 @@ export function makeTooltipString(data, totalSize, merge_threads) {
 }
 
 /**
- * Recursively filter out the specified thread IDs from the node's `children` attribute.
- * @param data Root node.
- * @param threadId Thread ID to filter.
+ * Recursively apply a filter to every frame in .children.
+ *
+ * @param root Root node.
+ * @param compFunction Called with the node being traversed. Expected to return true or false.
  * @returns {NonNullable<any>} A copy of the input object with the filtering applied.
  */
-export function filterChildThreads(data, threadId) {
+export function filterFrames(root, compFunction) {
   function _filter(obj) {
     if (obj.children && obj.children.length > 0) {
       obj.children = _.filter(obj.children, _filter);
     }
-    return obj.thread_id === threadId;
+    return compFunction(obj);
   }
 
   // Avoid mutating the input
-  let children = _.cloneDeep(data.children);
+  let children = _.cloneDeep(root.children);
   const filtered_children = _.filter(children, _filter);
-  return _.defaults({ children: filtered_children }, data);
+  return _.defaults({ children: filtered_children }, root);
+}
+
+/**
+ * Recursively filter out the specified thread IDs from the node's `children` attribute.
+ *
+ * @param root Root node.
+ * @param threadId Thread ID to filter.
+ * @returns {NonNullable<any>} A copy of the input object with the filtering applied.
+ */
+export function filterChildThreads(root, threadId) {
+  return filterFrames(root, (obj) => obj.thread_id === threadId);
 }
 
 /**
  * Walk the tree of allocation data and sum up the total allocations and memory use.
+ *
  * @param data Root node.
  * @returns {{n_allocations: number, value: number}}
  */
