@@ -44,6 +44,7 @@ class TestFlameGraphReporter:
             "value": 1024,
             "n_allocations": 1,
             "unique_threads": [1],
+            "interesting": True,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -51,6 +52,7 @@ class TestFlameGraphReporter:
                     "location": ["grandparent", "fun.py", "4"],
                     "value": 1024,
                     "n_allocations": 1,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "parent at fun.py:8",
@@ -58,6 +60,7 @@ class TestFlameGraphReporter:
                             "location": ["parent", "fun.py", "8"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
@@ -65,6 +68,7 @@ class TestFlameGraphReporter:
                                     "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "children": [],
+                                    "interesting": True,
                                     "n_allocations": 1,
                                 }
                             ],
@@ -105,6 +109,7 @@ class TestFlameGraphReporter:
             "value": 1024,
             "n_allocations": 1,
             "unique_threads": [1],
+            "interesting": True,
             "children": [
                 {
                     "name": "grandparent at fun.c:4",
@@ -112,6 +117,7 @@ class TestFlameGraphReporter:
                     "location": ["grandparent", "fun.c", "4"],
                     "value": 1024,
                     "n_allocations": 1,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "parent at fun.pyx:8",
@@ -119,6 +125,7 @@ class TestFlameGraphReporter:
                             "location": ["parent", "fun.pyx", "8"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
@@ -126,6 +133,7 @@ class TestFlameGraphReporter:
                                     "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "children": [],
+                                    "interesting": True,
                                     "n_allocations": 1,
                                 }
                             ],
@@ -179,6 +187,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": [1],
+            "interesting": True,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -186,6 +195,7 @@ class TestFlameGraphReporter:
                     "location": ["grandparent", "fun.py", "4"],
                     "value": 2048,
                     "n_allocations": 2,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "parent at fun.py:8",
@@ -193,6 +203,7 @@ class TestFlameGraphReporter:
                             "location": ["parent", "fun.py", "8"],
                             "value": 2048,
                             "n_allocations": 2,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
@@ -200,6 +211,7 @@ class TestFlameGraphReporter:
                                     "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [],
                                 },
                                 {
@@ -208,6 +220,7 @@ class TestFlameGraphReporter:
                                     "location": ["sibling", "fun.py", "16"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [],
                                 },
                             ],
@@ -287,6 +300,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": [1],
+            "interesting": True,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -294,6 +308,7 @@ class TestFlameGraphReporter:
                     "location": ["grandparent", "fun.py", "4"],
                     "value": 2048,
                     "n_allocations": 2,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "parent_one at fun.py:8",
@@ -301,6 +316,7 @@ class TestFlameGraphReporter:
                             "location": ["parent_one", "fun.py", "8"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
@@ -308,6 +324,7 @@ class TestFlameGraphReporter:
                                     "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [],
                                 }
                             ],
@@ -318,6 +335,7 @@ class TestFlameGraphReporter:
                             "location": ["parent_two", "fun.py", "10"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "sibling at fun.py:16",
@@ -325,6 +343,7 @@ class TestFlameGraphReporter:
                                     "location": ["sibling", "fun.py", "16"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [],
                                 }
                             ],
@@ -369,6 +388,7 @@ class TestFlameGraphReporter:
             "value": 1024,
             "n_allocations": 1,
             "unique_threads": [1],
+            "interesting": True,
             "children": [
                 {
                     "name": "main at recursive.py:5",
@@ -376,6 +396,7 @@ class TestFlameGraphReporter:
                     "location": ["main", "recursive.py", "5"],
                     "value": 1024,
                     "n_allocations": 1,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "two at recursive.py:20",
@@ -383,6 +404,7 @@ class TestFlameGraphReporter:
                             "location": ["two", "recursive.py", "20"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "one at recursive.py:10",
@@ -390,6 +412,7 @@ class TestFlameGraphReporter:
                                     "location": ["one", "recursive.py", "10"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [
                                         {
                                             "name": "two at recursive.py:20",
@@ -397,6 +420,7 @@ class TestFlameGraphReporter:
                                             "location": ["two", "recursive.py", "20"],
                                             "value": 1024,
                                             "n_allocations": 1,
+                                            "interesting": True,
                                             "children": [
                                                 {
                                                     "name": "one at recursive.py:10",
@@ -408,6 +432,7 @@ class TestFlameGraphReporter:
                                                     ],
                                                     "value": 1024,
                                                     "n_allocations": 1,
+                                                    "interesting": True,
                                                     "children": [
                                                         {
                                                             "name": "two at recursive.py:20",  # noqa
@@ -419,6 +444,7 @@ class TestFlameGraphReporter:
                                                             ],
                                                             "value": 1024,
                                                             "n_allocations": 1,
+                                                            "interesting": True,
                                                             "children": [
                                                                 {
                                                                     "name": "one at recursive.py:9",  # noqa
@@ -430,6 +456,7 @@ class TestFlameGraphReporter:
                                                                     ],
                                                                     "value": 1024,
                                                                     "n_allocations": 1,
+                                                                    "interesting": True,
                                                                     "children": [],
                                                                 }
                                                             ],
@@ -491,6 +518,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": [1],
+            "interesting": True,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
@@ -498,6 +526,7 @@ class TestFlameGraphReporter:
                     "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
@@ -505,6 +534,7 @@ class TestFlameGraphReporter:
                             "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
@@ -512,6 +542,7 @@ class TestFlameGraphReporter:
                                     "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [],
                                 }
                             ],
@@ -524,6 +555,7 @@ class TestFlameGraphReporter:
                     "location": ["foo1", "/src/lel.py", "2"],
                     "value": 1024,
                     "n_allocations": 1,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "bar1 at /src/lel.py:5",
@@ -531,6 +563,7 @@ class TestFlameGraphReporter:
                             "location": ["bar1", "/src/lel.py", "5"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "baz1 at /src/lel.py:8",
@@ -538,6 +571,7 @@ class TestFlameGraphReporter:
                                     "location": ["baz1", "/src/lel.py", "8"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [],
                                 }
                             ],
@@ -591,6 +625,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": [1, 2],
+            "interesting": True,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
@@ -598,6 +633,7 @@ class TestFlameGraphReporter:
                     "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
@@ -605,6 +641,7 @@ class TestFlameGraphReporter:
                             "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
@@ -612,6 +649,7 @@ class TestFlameGraphReporter:
                                     "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [],
                                 }
                             ],
@@ -624,6 +662,7 @@ class TestFlameGraphReporter:
                     "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
@@ -631,6 +670,7 @@ class TestFlameGraphReporter:
                             "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
@@ -638,6 +678,7 @@ class TestFlameGraphReporter:
                                     "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
+                                    "interesting": True,
                                     "children": [],
                                 }
                             ],
@@ -691,6 +732,7 @@ class TestFlameGraphReporter:
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": [-1],
+            "interesting": True,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
@@ -698,6 +740,7 @@ class TestFlameGraphReporter:
                     "location": ["foo2", "/src/lel.py", "12"],
                     "value": 2048,
                     "n_allocations": 2,
+                    "interesting": True,
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
@@ -705,6 +748,7 @@ class TestFlameGraphReporter:
                             "location": ["bar2", "/src/lel.py", "15"],
                             "value": 2048,
                             "n_allocations": 2,
+                            "interesting": True,
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
@@ -712,6 +756,7 @@ class TestFlameGraphReporter:
                                     "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 2048,
                                     "n_allocations": 2,
+                                    "interesting": True,
                                     "children": [],
                                 }
                             ],

@@ -11,6 +11,9 @@
     <a class="dropdown-item" data-thread="-1" id="resetThreadFilterItem">Reset</a>
   </div>
 </div>
+<button class="btn btn-outline-light mr-3" type="button" data-toggle="tooltip" id="hideUninteresting"
+        title="Hide or show CPython eval frames and other, pensieve-related frames">
+</button>
 <button id="resetZoomButton" class="btn btn-outline-light mr-3">Reset Zoom</button>
 <button id="invertButton" class="btn btn-outline-light mr-3">Invert</button>
 {% endblock %}
@@ -41,6 +44,10 @@
 <p>
   On the flame graph, each bar represents a stack frame and shows the code which triggered the memory allocation.
   Hovering over the frame you can also see the overall memory allocated in the given frame and its children and the number of times allocations have occurred.
+</p>
+<p>
+  The <b>Show/Hide Non-Relevant Frames</b> button can be used to reveal and hide frames which contain allocations in code which might not be
+  relevant for the application. These include frames in the CPython eval loop as well as frames introduced by pensieve during the analysis.
 </p>
 <p>
   You can find more information in the <a target="_blank"  href="https://bbgithub.dev.bloomberg.com/pages/python/bloomberg-pensieve/flamegraph.html">documentation</a>.

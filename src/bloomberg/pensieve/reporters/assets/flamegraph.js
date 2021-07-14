@@ -1,6 +1,7 @@
 import {
   debounced,
   filterChildThreads,
+  filterUninteresting,
   humanFileSize,
   makeTooltipString,
   sumAllocations,
@@ -62,7 +63,6 @@ function onResize() {
   chart.merge([]);
 }
 
-// Handle
 function onFilterThread() {
   const thread_id = parseInt(this.dataset.thread, 10);
   if (thread_id === -1) {
@@ -76,6 +76,24 @@ function onFilterThread() {
     filteredData.value = totalAllocations.value;
     drawChart(filteredData);
   }
+  chart.merge([]);
+}
+
+function onFilterUninteresting(button) {
+  if (this.hideUninterestingFrames === undefined) {
+    // Hide boring frames by default
+    this.hideUninterestingFrames = true;
+  }
+  if (this.hideUninterestingFrames === true) {
+    this.hideUninterestingFrames = true;
+    const filteredData = filterUninteresting(data);
+    drawChart(filteredData);
+    button.innerText = "Show Non-Relevant Frames";
+  } else {
+    drawChart(data);
+    button.innerText = "Hide Non-Relevant Frames";
+  }
+  this.hideUninterestingFrames = !this.hideUninterestingFrames;
   chart.merge([]);
 }
 
@@ -207,6 +225,13 @@ function main() {
   document.getElementById("invertButton").onclick = onInvert;
   document.getElementById("resetZoomButton").onclick = onResetZoom;
   document.getElementById("resetThreadFilterItem").onclick = onFilterThread;
+  let hideUninterestingButton = document.getElementById("hideUninteresting");
+  hideUninterestingButton.onclick = onFilterUninteresting.bind(
+    this,
+    hideUninterestingButton
+  );
+  // Enable filtering by default
+  onFilterUninteresting.bind(this, hideUninterestingButton)();
 
   document.onkeyup = (event) => {
     if (event.code == "Escape") {
@@ -223,6 +248,7 @@ function main() {
 
   // Enable tooltips
   $('[data-toggle-second="tooltip"]').tooltip();
+  $('[data-toggle="tooltip"]').tooltip();
 }
 
 var chart = null;

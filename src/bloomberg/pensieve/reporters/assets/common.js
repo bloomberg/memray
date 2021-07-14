@@ -82,6 +82,38 @@ export function filterChildThreads(root, threadId) {
 }
 
 /**
+ * Recursively filter out nodes where the `interesting` property is set to `false`.
+ *
+ * @param root Root node.
+ * @returns {NonNullable<any>} A copy of the input object with the filtering applied.
+ */
+export function filterUninteresting(root) {
+  console.log(`Input: ${JSON.stringify(root)}`);
+  function filterChildren(node) {
+    let result = [];
+    if (!node.interesting) {
+      for (const child of node.children) {
+        result.push(...filterChildren(child));
+      }
+    } else {
+      result = [];
+      for (const child of node.children) {
+        result.push(...filterChildren(child));
+      }
+      node.children = result;
+      result = [node];
+    }
+    return result;
+  }
+
+  let children = [];
+  for (let child of root.children) {
+    children.push(...filterChildren(child));
+  }
+  return _.defaults({ children: children }, root);
+}
+
+/**
  * Walk the tree of allocation data and sum up the total allocations and memory use.
  *
  * @param data Root node.

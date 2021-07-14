@@ -4,10 +4,11 @@ from typing import Any
 from typing import Dict
 from typing import Iterator
 from typing import TextIO
-from typing import Tuple
 
 from bloomberg.pensieve import Metadata
 from bloomberg.pensieve._pensieve import AllocationRecord
+from bloomberg.pensieve.reporters.frame_tools import StackFrame
+from bloomberg.pensieve.reporters.frame_tools import is_frame_interesting
 from bloomberg.pensieve.reporters.templates import render_report
 
 
@@ -18,9 +19,7 @@ def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
     return node
 
 
-def create_framegraph_node_from_stack_frame(
-    stack_frame: Tuple[str, str, int]
-) -> Dict[str, Any]:
+def create_framegraph_node_from_stack_frame(stack_frame: StackFrame) -> Dict[str, Any]:
     function, filename, lineno = stack_frame
 
     name = (
@@ -36,6 +35,7 @@ def create_framegraph_node_from_stack_frame(
         "children": {},
         "n_allocations": 0,
         "thread_id": 0,
+        "interesting": is_frame_interesting(stack_frame),
     }
 
 
@@ -55,6 +55,7 @@ class FlameGraphReporter:
             "children": {},
             "n_allocations": 0,
             "thread_id": 0,
+            "interesting": True,
         }
 
         unique_threads = set()

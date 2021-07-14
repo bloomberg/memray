@@ -3,6 +3,7 @@ import {
   makeTooltipString,
   filterChildThreads,
   sumAllocations,
+  filterUninteresting,
 } from "./common";
 
 test("handlesSmallValues", () => {
@@ -157,5 +158,145 @@ describe("Recalculate allocations in root node", () => {
   test("Recalculate allocations", () => {
     const sum = sumAllocations(data.children);
     expect(sum).toStrictEqual({ n_allocations: 6, value: 60 });
+  });
+});
+
+describe("Filter uninteresting frames", () => {
+  const data = {
+    interesting: true,
+    n_allocations: 10,
+    value: 100,
+    children: [
+      {
+        interesting: true,
+        n_allocations: 5,
+        value: 50,
+        children: [
+          {
+            interesting: false,
+            n_allocations: 2,
+            value: 20,
+            children: [
+              {
+                interesting: true,
+                n_allocations: 1,
+                value: 10,
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        interesting: true,
+        n_allocations: 1,
+        value: 10,
+        children: [],
+      },
+    ],
+  };
+
+  test("Filter uninteresting", () => {
+    const result = filterUninteresting(data);
+    expect(result).toStrictEqual({
+      interesting: true,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          interesting: true,
+          n_allocations: 5,
+          value: 50,
+          children: [
+            {
+              interesting: true,
+              n_allocations: 1,
+              value: 10,
+              children: [],
+            },
+          ],
+        },
+        {
+          interesting: true,
+          n_allocations: 1,
+          value: 10,
+          children: [],
+        },
+      ],
+    });
+  });
+  test("Filter uninteresting when first child is not interesting", () => {
+    data.children[0].interesting = false;
+
+    const result = filterUninteresting(data);
+    expect(result).toStrictEqual({
+      interesting: true,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          interesting: true,
+          n_allocations: 1,
+          value: 10,
+          children: [],
+        },
+        {
+          interesting: true,
+          n_allocations: 1,
+          value: 10,
+          children: [],
+        },
+      ],
+    });
+  });
+
+  test("Filter uninteresting in a deep tree", () => {
+    const result = filterUninteresting({
+      interesting: true,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          interesting: false,
+          n_allocations: 5,
+          value: 50,
+          children: [
+            {
+              interesting: false,
+              n_allocations: 2,
+              value: 20,
+              children: [
+                {
+                  interesting: true,
+                  n_allocations: 1,
+                  value: 10,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          interesting: false,
+          n_allocations: 1,
+          value: 10,
+          children: [],
+        },
+      ],
+    });
+
+    expect(result).toStrictEqual({
+      interesting: true,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          interesting: true,
+          n_allocations: 1,
+          value: 10,
+          children: [],
+        },
+      ],
+    });
   });
 });
