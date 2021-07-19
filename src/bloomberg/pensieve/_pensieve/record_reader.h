@@ -27,6 +27,8 @@ class RecordReader
 {
   public:
     explicit RecordReader(const std::string& file_name);
+    void close() noexcept;
+    bool isOpen() const noexcept;
     PyObject*
     Py_GetStackFrame(FrameTree::index_t index, size_t max_stacks = std::numeric_limits<size_t>::max());
     PyObject* Py_GetNativeStackFrame(
