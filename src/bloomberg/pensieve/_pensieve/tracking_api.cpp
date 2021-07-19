@@ -216,6 +216,9 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
 void
 Tracker::updateModuleCache()
 {
+    if (!d_unwind_native_frames) {
+        return;
+    }
     auto writer_lock = d_writer->acquireLock();
     d_writer->writeSimpleType(RecordType::MEMORY_MAP_START);
     dl_iterate_phdr(&dl_iterate_phdr_callback, d_writer.get());
