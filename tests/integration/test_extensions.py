@@ -33,7 +33,7 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
     # WHEN
     with monkeypatch.context() as ctx:
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
-        from testext import run
+        from testext import run  # type: ignore
 
         with Tracker(output) as tracker:
             run()
@@ -83,7 +83,7 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
     # WHEN
     with monkeypatch.context() as ctx:
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
-        from misbehaving import call_fn
+        from misbehaving import call_fn  # type: ignore
 
         with Tracker(output) as tracker:
             call_fn(allocating_function)

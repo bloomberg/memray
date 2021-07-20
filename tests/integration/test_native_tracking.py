@@ -33,7 +33,7 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
     # WHEN
     with monkeypatch.context() as ctx:
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
-        from testext import run
+        from testext import run  # type: ignore
 
         with Tracker(output, native_traces=True) as tracker:
             run()
@@ -81,7 +81,7 @@ def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
     # WHEN
     with monkeypatch.context() as ctx:
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
-        from native_ext import run_simple
+        from native_ext import run_simple  # type: ignore
 
         with Tracker(output, native_traces=True) as tracker:
             run_simple()

@@ -14,5 +14,6 @@ class BaseReporter(Protocol):
         outfile: TextIO,
         metadata: Metadata,
         show_memory_leaks: bool,
+        merge_threads: bool,
     ) -> None:
         ...
