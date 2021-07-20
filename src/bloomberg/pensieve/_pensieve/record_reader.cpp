@@ -141,6 +141,18 @@ RecordReader::RecordReader(const std::string& file_name)
 }
 
 void
+RecordReader::close() noexcept
+{
+    d_input.close();
+}
+
+bool
+RecordReader::isOpen() const noexcept
+{
+    return d_input.is_open();
+}
+
+void
 RecordReader::parseFrame()
 {
     FrameSeqEntry frame_seq_entry{};

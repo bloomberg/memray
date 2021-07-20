@@ -279,6 +279,7 @@ cdef class FileReader:
     cdef shared_ptr[RecordReader] _reader
     cdef vector[NativeAllocation] _native_allocations
     cdef unique_ptr[HighWatermark] _high_watermark
+    cdef bool _closed
     cdef object _header
 
     def __init__(self, object file_name):
@@ -289,6 +290,29 @@ cdef class FileReader:
         self._reader = make_shared[RecordReader](self._path)
         self._header: dict = self._reader.get().getHeader()
 
+    cdef RecordReader* _get_reader(self) except *:
+        if self._reader.get() == NULL:
+            raise ValueError("Operation on a closed FileReader")
+        return self._reader.get()
+
+    def close(self):
+        cdef RecordReader* reader = self._get_reader()
+        reader.close()
+
+    cdef void _ensure_reader_is_open(self) except *:
+        if not self._get_reader().isOpen():
+            raise ValueError("Operation on a closed FileReader")
+
+    @property
+    def closed(self):
+        return not self._get_reader().isOpen()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.close()
+
     def __del__(self):
         self._reader.reset()
 
@@ -296,7 +320,7 @@ cdef class FileReader:
         if self._native_allocations.size() != 0:
             return
 
-        cdef RecordReader * reader = self._reader.get()
+        cdef RecordReader * reader = self._get_reader()
         cdef NativeAllocation native_allocation
         total_allocations = self._header["stats"]["n_allocations"]
         self._native_allocations.reserve(total_allocations)
@@ -304,11 +328,11 @@ cdef class FileReader:
             self._native_allocations.push_back(move(native_allocation))
 
     def _yield_allocations(self, size_t index, merge_threads):
-        assert (self._reader.get() != NULL)
         for elem in Py_GetSnapshotAllocationRecords(self._native_allocations, index, merge_threads):
             alloc = AllocationRecord(elem)
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
+            self._ensure_reader_is_open()
 
     cdef inline HighWatermark* _get_high_watermark(self) except*:
         if self._high_watermark == NULL:
@@ -317,11 +341,13 @@ cdef class FileReader:
         return self._high_watermark.get()
 
     def get_high_watermark_allocation_records(self, merge_threads=True):
+        self._ensure_reader_is_open()
         self._populate_allocations()
         cdef HighWatermark* watermark = self._get_high_watermark()
         yield from self._yield_allocations(watermark.index, merge_threads)
 
     def get_leaked_allocation_records(self, merge_threads=True):
+        self._ensure_reader_is_open()
         self._populate_allocations()
         cdef size_t snapshot_index = self._native_allocations.size() - 1
         yield from self._yield_allocations(snapshot_index, merge_threads)
@@ -335,6 +361,7 @@ cdef class FileReader:
             alloc = AllocationRecord(native_allocation.toPythonObject())
             (<AllocationRecord> alloc)._reader = reader
             yield alloc
+        reader_ptr.close()
 
     @property
     def metadata(self):
