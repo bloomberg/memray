@@ -202,18 +202,18 @@ cdef class AllocationRecord:
     cdef _is_eval_frame(self, object symbol):
         return "_PyEval_EvalFrameDefault" in symbol
 
-    def _pure_python_stack_trace(self):
-        for frame in self.stack_trace():
+    def _pure_python_stack_trace(self, max_stacks):
+        for frame in self.stack_trace(max_stacks):
             _, file, _ = frame
             if file.endswith(".pyx"):
                 continue
             yield frame
 
-    def hybrid_stack_trace(self):
-        python_stack = tuple(self._pure_python_stack_trace())
+    def hybrid_stack_trace(self, max_stacks=None):
+        python_stack = tuple(self._pure_python_stack_trace(max_stacks))
         n_python_frames_left = len(python_stack) if python_stack else None
         python_stack = iter(python_stack)
-        for native_frame in self.native_stack_trace():
+        for native_frame in self.native_stack_trace(max_stacks):
             if n_python_frames_left == 0:
                 break
             symbol, *_ = native_frame

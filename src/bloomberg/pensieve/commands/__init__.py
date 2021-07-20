@@ -4,7 +4,6 @@ import sys
 import textwrap
 from typing import List
 from typing import Optional
-from typing import cast
 
 try:
     from typing import Protocol
@@ -120,7 +119,7 @@ def main(args: Optional[List[str]] = None) -> int:
         arg_values.entrypoint(arg_values)
     except PensieveCommandError as e:
         print(e, file=sys.stderr)
-        return cast(int, e.exit_code)
+        return e.exit_code
     except PensieveError as e:
         print(e, file=sys.stderr)
         return 1

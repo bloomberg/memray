@@ -2,7 +2,7 @@ import argparse
 import os
 import pathlib
 from pathlib import Path
-from typing import Iterator
+from typing import Iterable
 from typing import Optional
 from typing import Tuple
 
@@ -19,7 +19,7 @@ from bloomberg.pensieve.reporters import BaseReporter
 
 class ReporterFactory(Protocol):
     def __call__(
-        self, allocations: Iterator[AllocationRecord], *, native_traces: bool
+        self, allocations: Iterable[AllocationRecord], *, native_traces: bool
     ) -> BaseReporter:
         ...
 

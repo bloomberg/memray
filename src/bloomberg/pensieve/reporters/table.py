@@ -24,7 +24,7 @@ class TableReporter:
         result = []
         for record in allocations:
             stack_trace = (
-                record.hybrid_stack_trace(max_stacks=1)
+                list(record.hybrid_stack_trace(max_stacks=1))
                 if native_traces
                 else record.stack_trace(max_stacks=1)
             )
@@ -57,5 +57,6 @@ class TableReporter:
             data=self.data,
             metadata=metadata,
             show_memory_leaks=show_memory_leaks,
+            merge_threads=True,
         )
         print(html_code, file=outfile)
