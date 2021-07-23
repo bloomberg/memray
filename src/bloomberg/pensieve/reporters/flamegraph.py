@@ -8,6 +8,7 @@ from typing import TextIO
 from bloomberg.pensieve import Metadata
 from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve.reporters.frame_tools import StackFrame
+from bloomberg.pensieve.reporters.frame_tools import is_cpython_internal
 from bloomberg.pensieve.reporters.frame_tools import is_frame_interesting
 from bloomberg.pensieve.reporters.templates import render_report
 
@@ -73,6 +74,8 @@ class FlameGraphReporter:
                 else record.stack_trace()
             )
             for stack_frame in reversed(stack):
+                if is_cpython_internal(stack_frame):
+                    continue
                 if (stack_frame, thread_id) not in current_frame["children"]:
                     node = create_framegraph_node_from_stack_frame(stack_frame)
                     current_frame["children"][(stack_frame, thread_id)] = node

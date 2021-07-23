@@ -1,11 +1,13 @@
 """Tools for processing and filtering stack frames."""
-
+import re
 from typing import Tuple
 
 Symbol = str
 File = str
 Lineno = int
 StackFrame = Tuple[Symbol, File, Lineno]
+
+RE_CPYTHON_PATHS = re.compile(r"(Objects|Modules|Python|cpython).*\.[c|h]$")
 
 SYMBOL_IGNORELIST = {
     "PyObject_Call",
@@ -32,16 +34,21 @@ SYMBOL_IGNORELIST = {
 
 
 def is_cpython_internal(frame: StackFrame) -> bool:
-    symbol, *_ = frame
-    if "PyEval_EvalFrameEx" in symbol or "_PyEval_EvalFrameDefault" in symbol:
-        return True
-    if symbol.startswith(("PyEval", "_Py")):
-        return True
-    if "vectorcall" in symbol.lower():
-        return True
-    if symbol in SYMBOL_IGNORELIST:
-        return True
+    symbol, file, *_ = frame
 
+    def _is_candidate() -> bool:
+        if "PyEval_EvalFrameEx" in symbol or "_PyEval_EvalFrameDefault" in symbol:
+            return True
+        if symbol.startswith(("PyEval", "_Py")):
+            return True
+        if "vectorcall" in symbol.lower():
+            return True
+        if symbol in SYMBOL_IGNORELIST:
+            return True
+        return False
+
+    if _is_candidate():
+        return re.search(RE_CPYTHON_PATHS, file) is not None
     return False
 
 

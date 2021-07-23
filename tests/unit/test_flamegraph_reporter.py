@@ -765,3 +765,58 @@ class TestFlameGraphReporter:
                 },
             ],
         }
+
+    def test_drops_cpython_frames(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("PyObject_Call", "/opt/bb/src/python/python3.8/Python/ceval.c", 4),
+                ],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
+
+        # THEN
+        assert {
+            "name": "<root>",
+            "thread_id": 0,
+            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "value": 1024,
+            "n_allocations": 1,
+            "unique_threads": [1],
+            "interesting": True,
+            "children": [
+                {
+                    "name": "parent at fun.py:8",
+                    "thread_id": 1,
+                    "location": ["parent", "fun.py", "8"],
+                    "value": 1024,
+                    "n_allocations": 1,
+                    "interesting": True,
+                    "children": [
+                        {
+                            "name": "me at fun.py:12",
+                            "thread_id": 1,
+                            "location": ["me", "fun.py", "12"],
+                            "value": 1024,
+                            "children": [],
+                            "interesting": True,
+                            "n_allocations": 1,
+                        }
+                    ],
+                }
+            ],
+        } == reporter.data

@@ -8,12 +8,30 @@ class TestFrameFiltering:
     @pytest.mark.parametrize(
         "frame, expected",
         [
-            [("_PyEval_EvalFrameDefault", "ceval.c", 100), True],
-            [("_PyEvalSomeFunc", "ceval.c", 100), True],
-            [("VectorCall", "ceval.c", 100), True],
-            [("proxy_call", "ceval.c", 100), True],
-            [("function_code_fastcall", "ceval.c", 100), True],
+            [
+                (
+                    "_PyEval_EvalFrameDefault",
+                    "/opt/bb/src/python/python3.8/Python/ceval.c",
+                    100,
+                ),
+                True,
+            ],
+            [
+                ("_PyEvalSomeFunc", "/opt/bb/src/python/python3.8/Python/ceval.c", 100),
+                True,
+            ],
+            [("VectorCall", "/opt/bb/src/python/python3.8/Python/ceval.c", 100), True],
+            [("proxy_call", "/opt/bb/src/python/python3.8/Python/ceval.c", 100), True],
+            [
+                (
+                    "function_code_fastcall",
+                    "/opt/bb/src/python/python3.8/Modules/gcmodule.c",
+                    100,
+                ),
+                True,
+            ],
             [("somefunc", "myapp.py", 100), False],
+            [("function_code_fastcall", "myapp.py", 100), False],
         ],
     )
     def test_cpython_internal_calls(self, frame, expected):
@@ -24,8 +42,22 @@ class TestFrameFiltering:
         "frame, expected",
         [
             [("somefunc", "runpy.py", 100), False],
-            [("_PyEval_EvalFrameDefault", "ceval.c", 100), False],
-            [("PyArg_ParseTuple", "ceval.c", 100), True],
+            [
+                (
+                    "_PyEval_EvalFrameDefault",
+                    "/opt/bb/src/python/python3.8/Python/ceval.c",
+                    100,
+                ),
+                False,
+            ],
+            [
+                (
+                    "PyArg_ParseTuple",
+                    "/opt/bb/src/python/python3.8/Python/ceval.c",
+                    100,
+                ),
+                True,
+            ],
             [("somefunc", "myapp.py", 100), True],
         ],
     )
