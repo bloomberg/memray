@@ -1,6 +1,9 @@
+import sys
+
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
+from bloomberg.pensieve.reporters.flamegraph import MAX_STACKS
 from bloomberg.pensieve.reporters.flamegraph import FlameGraphReporter
 from tests.utils import MockAllocationRecord
 from tests.utils import filter_relevant_allocations
@@ -820,3 +823,44 @@ class TestFlameGraphReporter:
                 }
             ],
         } == reporter.data
+
+    def test_very_deep_call_is_limited(self):
+        # GIVEN
+        n_frames = sys.getrecursionlimit() * 2
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[(f"func_{i}", "fun.py", i) for i in range(n_frames, 0, -1)],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, native_traces=False
+        )
+
+        # THEN
+        current_depth = 0
+        current_node = reporter.data["children"][0]
+        while current_node["children"]:
+            current_depth += 1
+            assert len(current_node["children"]) == 1
+            name = current_node["name"]
+            assert name == f"func_{current_depth} at fun.py:{current_depth}"
+            current_node = current_node["children"][0]
+
+        assert current_depth == MAX_STACKS + 1
+        assert current_node == {
+            "children": [],
+            "location": ["...", "...", 0],
+            "n_allocations": 1,
+            "interesting": True,
+            "name": "<STACK TOO DEEP>",
+            "thread_id": 1,
+            "value": 1024,
+        }

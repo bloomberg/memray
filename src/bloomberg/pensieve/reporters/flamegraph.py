@@ -1,5 +1,6 @@
 import html
 import linecache
+import sys
 from typing import Any
 from typing import Dict
 from typing import Iterator
@@ -12,11 +13,21 @@ from bloomberg.pensieve.reporters.frame_tools import is_cpython_internal
 from bloomberg.pensieve.reporters.frame_tools import is_frame_interesting
 from bloomberg.pensieve.reporters.templates import render_report
 
+MAX_STACKS = int(sys.getrecursionlimit() // 2.5)
+
+MAX_STACKS_NODE = {
+    "name": "<STACK TOO DEEP>",
+    "location": ["...", "...", 0],
+    "children": {},
+}
+
 
 def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
-    node["children"] = [
-        with_converted_children_dict(child) for child in node["children"].values()
-    ]
+    stack = [node]
+    while stack:
+        the_node = stack.pop()
+        the_node["children"] = [child for child in the_node["children"].values()]
+        stack.extend(the_node["children"])
     return node
 
 
@@ -73,7 +84,7 @@ class FlameGraphReporter:
                 if native_traces
                 else record.stack_trace()
             )
-            for stack_frame in reversed(stack):
+            for index, stack_frame in enumerate(reversed(stack)):
                 if is_cpython_internal(stack_frame):
                     continue
                 if (stack_frame, thread_id) not in current_frame["children"]:
@@ -85,6 +96,10 @@ class FlameGraphReporter:
                 current_frame["n_allocations"] += record.n_allocations
                 current_frame["thread_id"] = thread_id
                 unique_threads.add(thread_id)
+
+                if index > MAX_STACKS:
+                    current_frame.update(MAX_STACKS_NODE)
+                    break
 
         transformed_data = with_converted_children_dict(data)
         transformed_data["unique_threads"] = list(unique_threads)
