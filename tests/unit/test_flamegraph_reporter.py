@@ -780,6 +780,11 @@ class TestFlameGraphReporter:
                     ("me", "fun.py", 12),
                     ("parent", "fun.py", 8),
                     ("PyObject_Call", "/opt/bb/src/python/python3.8/Python/ceval.c", 4),
+                    (
+                        "PyCFunction_Call",
+                        "/opt/bb/src/python/python3.8/Objects/call.c",
+                        1,
+                    ),
                 ],
             ),
         ]

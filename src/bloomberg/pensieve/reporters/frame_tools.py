@@ -45,6 +45,8 @@ def is_cpython_internal(frame: StackFrame) -> bool:
             return True
         if symbol in SYMBOL_IGNORELIST:
             return True
+        if "Objects/call.c" in file:
+            return True
         return False
 
     if _is_candidate():
