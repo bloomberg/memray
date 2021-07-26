@@ -7,6 +7,10 @@ import {
   sumAllocations,
 } from "./common";
 
+const FILTER_UNINTERESTING = "filter_uninteresting";
+const FILTER_THREAD = "filter_thread";
+let filteredChart = new FilteredChart();
+
 // For navigable #[integer] fragments
 function getCurrentId() {
   if (location.hash) {
@@ -53,30 +57,53 @@ function getChartWidth() {
   return window.innerWidth - 2 * rem;
 }
 
+class FilteredChart {
+  constructor() {
+    this.filters = {};
+  }
+  registerFilter(name, func) {
+    this.filters[name] = func;
+  }
+  unRegisterFilter(name) {
+    delete this.filters[name];
+  }
+
+  drawChart(data) {
+    let filtered = data;
+    _.forOwn(this.filters, (func) => {
+      filtered = func(filtered);
+    });
+    drawChart(filtered);
+    // Merge 0 additional elements, triggering a redraw
+    chart.merge([]);
+  }
+}
+
 function onResize() {
   const width = getChartWidth();
   // Update element widths
   const svg = document.getElementById("chart").children[0];
   svg.setAttribute("width", width);
   chart.width(width);
-  // Merge 0 additional elements, triggering a redraw
-  chart.merge([]);
+  filteredChart.drawChart();
 }
 
 function onFilterThread() {
   const thread_id = parseInt(this.dataset.thread, 10);
   if (thread_id === -1) {
     // Reset
-    drawChart(data);
+    filteredChart.unRegisterFilter(FILTER_THREAD);
   } else {
-    let filteredData = filterChildThreads(data, thread_id);
-    const totalAllocations = sumAllocations(filteredData.children);
-    _.defaults(totalAllocations, filteredData);
-    filteredData.n_allocations = totalAllocations.n_allocations;
-    filteredData.value = totalAllocations.value;
-    drawChart(filteredData);
+    filteredChart.registerFilter(FILTER_THREAD, (data) => {
+      let filteredData = filterChildThreads(data, thread_id);
+      const totalAllocations = sumAllocations(filteredData.children);
+      _.defaults(totalAllocations, filteredData);
+      filteredData.n_allocations = totalAllocations.n_allocations;
+      filteredData.value = totalAllocations.value;
+      return filteredData;
+    });
   }
-  chart.merge([]);
+  filteredChart.drawChart(data);
 }
 
 function onFilterUninteresting(button) {
@@ -86,15 +113,18 @@ function onFilterUninteresting(button) {
   }
   if (this.hideUninterestingFrames === true) {
     this.hideUninterestingFrames = true;
-    const filteredData = filterUninteresting(data);
-    drawChart(filteredData);
-    button.innerText = "Show Non-Relevant Frames";
+
+    filteredChart.registerFilter(FILTER_UNINTERESTING, (data) => {
+      const filteredData = filterUninteresting(data);
+      button.innerText = "Show Non-Relevant Frames";
+      return filteredData;
+    });
   } else {
-    drawChart(data);
+    filteredChart.unRegisterFilter(FILTER_UNINTERESTING);
     button.innerText = "Hide Non-Relevant Frames";
   }
   this.hideUninterestingFrames = !this.hideUninterestingFrames;
-  chart.merge([]);
+  filteredChart.drawChart(data);
 }
 
 // For determining values for the graph
