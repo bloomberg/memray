@@ -17,6 +17,12 @@ def get_render_environment() -> jinja2.Environment:
     )
 
 
+def get_report_title(*, kind: str, show_memory_leaks: bool) -> str:
+    if show_memory_leaks:
+        return f"{kind} report (memory leaks)"
+    return f"{kind} report"
+
+
 def render_report(
     *,
     kind: str,
@@ -27,9 +33,11 @@ def render_report(
 ) -> str:
     env = get_render_environment()
     template = env.get_template(kind + ".html")
+
+    title = get_report_title(kind=kind, show_memory_leaks=show_memory_leaks)
     return template.render(
         kind=kind,
-        title=f"{kind} report",
+        title=title,
         data=data,
         metadata=metadata,
         show_memory_leaks=show_memory_leaks,
