@@ -29,6 +29,7 @@ def render_report(
     template = env.get_template(kind + ".html")
     return template.render(
         kind=kind,
+        title=f"{kind} report",
         data=data,
         metadata=metadata,
         show_memory_leaks=show_memory_leaks,
