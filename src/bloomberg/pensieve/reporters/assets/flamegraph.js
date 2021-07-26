@@ -106,7 +106,7 @@ function onFilterThread() {
   filteredChart.drawChart(data);
 }
 
-function onFilterUninteresting(button) {
+function onFilterUninteresting() {
   if (this.hideUninterestingFrames === undefined) {
     // Hide boring frames by default
     this.hideUninterestingFrames = true;
@@ -115,13 +115,10 @@ function onFilterUninteresting(button) {
     this.hideUninterestingFrames = true;
 
     filteredChart.registerFilter(FILTER_UNINTERESTING, (data) => {
-      const filteredData = filterUninteresting(data);
-      button.innerText = "Show Non-Relevant Frames";
-      return filteredData;
+      return filterUninteresting(data);
     });
   } else {
     filteredChart.unRegisterFilter(FILTER_UNINTERESTING);
-    button.innerText = "Hide Non-Relevant Frames";
   }
   this.hideUninterestingFrames = !this.hideUninterestingFrames;
   filteredChart.drawChart(data);
@@ -255,13 +252,10 @@ function main() {
   document.getElementById("invertButton").onclick = onInvert;
   document.getElementById("resetZoomButton").onclick = onResetZoom;
   document.getElementById("resetThreadFilterItem").onclick = onFilterThread;
-  let hideUninterestingButton = document.getElementById("hideUninteresting");
-  hideUninterestingButton.onclick = onFilterUninteresting.bind(
-    this,
-    hideUninterestingButton
-  );
+  let hideUninterestingCheckBox = document.getElementById("hideUninteresting");
+  hideUninterestingCheckBox.onclick = onFilterUninteresting.bind(this);
   // Enable filtering by default
-  onFilterUninteresting.bind(this, hideUninterestingButton)();
+  onFilterUninteresting.bind(this)();
 
   document.onkeyup = (event) => {
     if (event.code == "Escape") {
