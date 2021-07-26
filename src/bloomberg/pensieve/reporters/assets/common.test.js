@@ -129,8 +129,8 @@ describe("Recalculate allocations in root node", () => {
     children: [
       {
         thread_id: 1,
-        n_allocations: 1,
-        value: 10,
+        n_allocations: 5,
+        value: 50,
         children: [
           {
             thread_id: 1,
