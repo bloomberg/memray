@@ -88,7 +88,6 @@ export function filterChildThreads(root, threadId) {
  * @returns {NonNullable<any>} A copy of the input object with the filtering applied.
  */
 export function filterUninteresting(root) {
-  console.log(`Input: ${JSON.stringify(root)}`);
   function filterChildren(node) {
     let result = [];
     if (!node.interesting) {

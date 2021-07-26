@@ -11,9 +11,11 @@
     <a class="dropdown-item" data-thread="-1" id="resetThreadFilterItem">Reset</a>
   </div>
 </div>
-<button class="btn btn-outline-light mr-3" type="button" data-toggle="tooltip" id="hideUninteresting"
-        title="Hide or show CPython eval frames and other, pensieve-related frames">
-</button>
+<div class="form-check mr-3">
+  <input class="form-check-input" type="checkbox" data-toggle="tooltip" id="hideUninteresting"
+          title="Hide CPython eval frames and other, pensieve-related frames" checked>
+    <label class="form-check-label text-white bg-dark">Hide Non-Relevant Frames</label>
+</div>
 <button id="resetZoomButton" class="btn btn-outline-light mr-3">Reset Zoom</button>
 <button id="invertButton" class="btn btn-outline-light mr-3">Invert</button>
 {% endblock %}
