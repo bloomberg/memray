@@ -40,28 +40,6 @@ class HighWatermarkCommand:
 
         return results_file.parent / f"pensieve-{self.reporter_name}-{output_name}"
 
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "-o",
-            "--output",
-            help="Output file name",
-            default=None,
-        )
-        parser.add_argument(
-            "--leaks",
-            help="Show memory leaks, instead of peak memory usage",
-            action="store_true",
-            dest="show_memory_leaks",
-            default=False,
-        )
-        parser.add_argument(
-            "--split-threads",
-            help="Do not merge allocations across threads",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument("results", help="Results of the tracker run")
-
     def validate_filenames(
         self, output: Optional[str], results: str
     ) -> Tuple[Path, Path]:
@@ -87,7 +65,7 @@ class HighWatermarkCommand:
         result_path: Path,
         output_file: Path,
         show_memory_leaks: bool,
-        merge_threads: bool,
+        merge_threads: Optional[bool] = None,
     ) -> None:
         tracker = Tracker(os.fspath(result_path))
         try:
@@ -109,11 +87,14 @@ class HighWatermarkCommand:
             )
 
         with open(os.fspath(output_file.expanduser()), "w") as f:
+            kwargs = {}
+            if merge_threads is not None:
+                kwargs["merge_threads"] = merge_threads
             reporter.render(
                 outfile=f,
                 metadata=tracker.reader.metadata,
                 show_memory_leaks=show_memory_leaks,
-                merge_threads=merge_threads,
+                **kwargs,
             )
 
     def run(self, args: argparse.Namespace) -> None:
@@ -121,11 +102,9 @@ class HighWatermarkCommand:
             output=args.output,
             results=args.results,
         )
-        self.write_report(
-            result_path,
-            output_file,
-            args.show_memory_leaks,
-            merge_threads=not args.split_threads,
-        )
+        kwargs = {}
+        if hasattr(args, "split_threads"):
+            kwargs["merge_threads"] = not args.split_threads
+        self.write_report(result_path, output_file, args.show_memory_leaks, **kwargs)
 
         print(f"Wrote {output_file}")

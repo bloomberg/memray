@@ -1,3 +1,4 @@
+import argparse
 from typing import cast
 
 from ..reporters.table import TableReporter
@@ -13,3 +14,19 @@ class TableCommand(HighWatermarkCommand):
             reporter_factory=cast(ReporterFactory, TableReporter.from_snapshot),
             reporter_name="table",
         )
+
+    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "-o",
+            "--output",
+            help="Output file name",
+            default=None,
+        )
+        parser.add_argument(
+            "--leaks",
+            help="Show memory leaks, instead of peak memory usage",
+            action="store_true",
+            dest="show_memory_leaks",
+            default=False,
+        )
+        parser.add_argument("results", help="Results of the tracker run")
