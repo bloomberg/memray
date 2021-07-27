@@ -79,6 +79,7 @@ thread_local size_t NativeTrace::MAX_SIZE{64};
 static inline int
 getCurrentPythonLineNumber()
 {
+    assert(entry_frame == nullptr || Py_REFCNT(entry_frame) > 0);
     const PyFrameObject* the_python_stack = current_frame ? current_frame : entry_frame;
     return the_python_stack ? PyCode_Addr2Line(the_python_stack->f_code, the_python_stack->f_lasti) : 0;
 }
@@ -109,6 +110,7 @@ Tracker::~Tracker()
 {
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
+    python_stack.clear();
     d_patcher.restore_symbols();
     d_writer->writeHeader();
     d_writer.reset();
@@ -310,6 +312,11 @@ PyTraceFunction(
             if (!python_stack.empty()) {
                 Tracker::getTracker()->popFrame({function, filename, parent_lineno});
                 python_stack.pop_back();
+            } else {
+                // If we have reached the top of the stack it means that we are returning
+                // to frames that we never saw being pushed in the first place, so we need
+                // to unset the entry frame to avoid incorrectly using it once is freed.
+                entry_frame = nullptr;
             }
             current_frame = python_stack.empty() ? nullptr : python_stack.back();
             break;

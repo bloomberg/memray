@@ -164,6 +164,7 @@ RecordReader::parseFrame()
             d_stack_traces[tid].push_back(frame_seq_entry.frame_id);
             break;
         case POP:
+            assert(!d_stack_traces[tid].empty());
             d_stack_traces[tid].pop_back();
             break;
     }
