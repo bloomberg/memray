@@ -43,34 +43,43 @@ cdef class MemoryAllocator:
     def __cinit__(self):
         self.ptr = NULL
 
+    @cython.profile(True)
     def free(self):
         if self.ptr == NULL:
             raise RuntimeError("Pointer cannot be NULL")
         free(self.ptr)
         self.ptr = NULL
 
+    @cython.profile(True)
     def malloc(self, size_t size):
         self.ptr = malloc(size)
 
+    @cython.profile(True)
     def calloc(self, size_t size):
         self.ptr = calloc(1, size)
 
+    @cython.profile(True)
     def realloc(self, size_t size):
         self.ptr = malloc(1)
         self.ptr = realloc(self.ptr, size)
 
+    @cython.profile(True)
     def posix_memalign(self, size_t size):
         posix_memalign(&self.ptr, sizeof(void*), size)
 
+    @cython.profile(True)
     def memalign(self, size_t size):
         self.ptr = memalign(sizeof(void*), size)
 
+    @cython.profile(True)
     def valloc(self, size_t size):
         self.ptr = valloc(size)
 
+    @cython.profile(True)
     def pvalloc(self, size_t size):
         self.ptr = pvalloc(size)
 
+    @cython.profile(True)
     def run_in_pthread(self, callback):
         cdef pthread_t thread
         cdef int ret = pthread_create(&thread, NULL, &_pthread_worker, <void*>callback)
@@ -80,6 +89,7 @@ cdef class MemoryAllocator:
             pthread_join(thread, NULL)
 
 
+@cython.profile(True)
 def _cython_nested_allocation(allocator_fn, size):
     allocator_fn(size)
     cdef void* p = valloc(size);
@@ -88,6 +98,7 @@ def _cython_nested_allocation(allocator_fn, size):
 cdef class MmapAllocator:
     cdef uintptr_t _address
 
+    @cython.profile(True)
     def __cinit__(self, size, address=0):
         cdef uintptr_t start_address = address
 
@@ -99,12 +110,14 @@ cdef class MmapAllocator:
     def address(self):
         return self._address
 
+    @cython.profile(True)
     def munmap(self, length, offset=0):
         cdef uintptr_t addr = self._address + <uintptr_t> offset
         cdef int ret = munmap(<void *>addr, length)
         if ret != 0:
             raise MemoryError(f"munmap rcode: {ret} errno: {errno}")
 
+@cython.profile(True)
 cdef void* _pthread_worker(void* arg) with gil:
     (<object> arg)()
 
@@ -241,6 +254,7 @@ cdef class Tracker:
         self._output_path = str(file_name)
         self._native_traces = native_traces
 
+    @cython.profile(False)
     def __enter__(self):
         if pathlib.Path(self._output_path).exists():
             raise OSError(f"Output file {self._output_path} already exists")
@@ -258,6 +272,7 @@ cdef class Tracker:
     def __del__(self):
         self._reader.reset()
 
+    @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
         _TRACKER.reset(NULL)
         sys.setprofile(self._previous_profile_func)
