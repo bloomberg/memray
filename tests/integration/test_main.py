@@ -10,6 +10,29 @@ import pytest
 from bloomberg.pensieve.commands import main
 
 
+def generate_sample_results(tmp_path, *, native=False):
+    results_file = tmp_path / "result.bin"
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "bloomberg.pensieve",
+            "run",
+            *(["--native"] if native else []),
+            "--output",
+            str(results_file),
+            "-m",
+            "json.tool",
+            "-h",
+        ],
+        cwd=str(tmp_path),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return results_file
+
+
 class TestRunSubcommand:
     def test_run(self, tmp_path):
         # GIVEN / WHEN
@@ -151,32 +174,9 @@ class TestRunSubcommand:
 
 
 class TestFlamegraphSubCommand:
-    @staticmethod
-    def generate_sample_results(tmp_path, *, native=False):
-        results_file = tmp_path / "result.bin"
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "bloomberg.pensieve",
-                "run",
-                *(["--native"] if native else []),
-                "--output",
-                str(results_file),
-                "-m",
-                "json.tool",
-                "-h",
-            ],
-            cwd=str(tmp_path),
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return results_file
-
     def test_reads_from_correct_file(self, tmp_path):
         # GIVEN
-        results_file = self.generate_sample_results(tmp_path)
+        results_file = generate_sample_results(tmp_path)
 
         # WHEN
         subprocess.run(
@@ -200,7 +200,7 @@ class TestFlamegraphSubCommand:
 
     def test_can_generate_reports_with_native_traces(self, tmp_path):
         # GIVEN
-        results_file = self.generate_sample_results(tmp_path, native=True)
+        results_file = generate_sample_results(tmp_path, native=True)
 
         # WHEN
         subprocess.run(
@@ -224,7 +224,7 @@ class TestFlamegraphSubCommand:
 
     def test_writes_to_correct_file(self, tmp_path):
         # GIVEN
-        results_file = self.generate_sample_results(tmp_path)
+        results_file = generate_sample_results(tmp_path)
         output_file = tmp_path / "output.html"
 
         # WHEN
@@ -254,7 +254,7 @@ class TestFlamegraphSubCommand:
         # GIVEN
         monkeypatch.chdir(tmp_path)
         # This will generate "result.bin"
-        results_file = self.generate_sample_results(tmp_path)
+        results_file = generate_sample_results(tmp_path)
         output_file = tmp_path / "pensieve-flamegraph-result.html"
         output_file.touch()
 
@@ -263,6 +263,76 @@ class TestFlamegraphSubCommand:
 
         # THEN
         assert ret != 0
+
+    def test_split_threads_subcommand(self, tmp_path):
+        # GIVEN
+        results_file = generate_sample_results(tmp_path)
+        output_file = tmp_path / "output.html"
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "flamegraph",
+                "--split-threads",
+                str(results_file),
+                "--output",
+                str(output_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert output_file.exists()
+        assert "json/tool.py" in output_file.read_text()
+
+
+class TestTableSubCommand:
+    def test_reads_from_correct_file(self, tmp_path):
+        # GIVEN
+        results_file = generate_sample_results(tmp_path)
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "table",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        output_file = tmp_path / "pensieve-table-result.html"
+        assert output_file.exists()
+        assert "json/tool.py" in output_file.read_text()
+
+    def test_no_split_threads(self, tmp_path):
+        # GIVEN/WHEN/THEN
+        with pytest.raises(subprocess.CalledProcessError):
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "bloomberg.pensieve",
+                    "table",
+                    "--split-threads",
+                    "somefile",
+                ],
+                cwd=str(tmp_path),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
 
 
 class TestReporterSubCommands:
@@ -309,3 +379,28 @@ class TestReporterSubCommands:
         assert re.match(
             r"Failed to parse allocation records in .*badfile\.bin", proc.stderr
         )
+
+    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    def test_report_leaks_argument(self, tmp_path, report):
+        results_file = generate_sample_results(tmp_path)
+        output_file = tmp_path / "output.html"
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                report,
+                "--leaks",
+                str(results_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        output_file = tmp_path / f"pensieve-{report}-result.html"
+        assert output_file.exists()
+        assert "json/tool.py" in output_file.read_text()

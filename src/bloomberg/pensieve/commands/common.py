@@ -71,11 +71,11 @@ class HighWatermarkCommand:
         try:
             if show_memory_leaks:
                 snapshot = tracker.reader.get_leaked_allocation_records(
-                    merge_threads=merge_threads
+                    merge_threads=merge_threads if merge_threads is not None else True
                 )
             else:
                 snapshot = tracker.reader.get_high_watermark_allocation_records(
-                    merge_threads=merge_threads
+                    merge_threads=merge_threads if merge_threads is not None else True
                 )
             reporter = self.reporter_factory(
                 snapshot, native_traces=tracker.reader.has_native_traces
