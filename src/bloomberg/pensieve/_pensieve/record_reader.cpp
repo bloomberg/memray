@@ -164,6 +164,7 @@ RecordReader::parseFrame()
             d_stack_traces[tid].push_back(frame_seq_entry.frame_id);
             break;
         case POP:
+            assert(!d_stack_traces[tid].empty());
             d_stack_traces[tid].pop_back();
             break;
     }
@@ -322,8 +323,9 @@ RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
         if (pyframe == nullptr) {
             goto error;
         }
-        if (PyList_Append(list, pyframe) != 0) {
-            Py_DECREF(pyframe);
+        int ret = PyList_Append(list, pyframe);
+        Py_DECREF(pyframe);
+        if (ret != 0) {
             goto error;
         }
         current_index = node.parent_index;
@@ -357,8 +359,9 @@ RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation
             if (pyframe == nullptr) {
                 return nullptr;
             }
-            if (PyList_Append(list, pyframe) != 0) {
-                Py_DECREF(pyframe);
+            int ret = PyList_Append(list, pyframe);
+            Py_DECREF(pyframe);
+            if (ret != 0) {
                 goto error;
             }
         }
