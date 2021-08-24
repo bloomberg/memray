@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <dlfcn.h>
 #include <assert.h>
 #include <pthread.h>
 #include <malloc.h>
@@ -28,6 +29,25 @@ void start_threads(void* args)
 void join_threads()
 {
     pthread_join(thread, NULL);
+}
+
+PyObject* dlopen_self(PyObject *, PyObject *args) {
+    PyObject* callback;
+    if (!PyArg_ParseTuple(args,"O", &callback))
+    {
+        PyErr_SetString(PyExc_ValueError, "Failed to parse arguments");
+        Py_RETURN_NONE;
+    }
+    Py_BEGIN_ALLOW_THREADS
+    void* p = dlopen(NULL, RTLD_NOW);
+    dlclose(p);
+    Py_END_ALLOW_THREADS
+
+    PyObject* result = PyObject_CallFunction(callback, NULL);
+    assert(result != NULL);
+    Py_DECREF(result);
+
+    Py_RETURN_NONE;
 }
 
 PyObject*
@@ -62,6 +82,7 @@ call_fn_no_thread(PyObject*, PyObject* args)
 
 
 static PyMethodDef methods[] = {
+        {"dlopen_self", dlopen_self, METH_VARARGS, "Call dlopen without the GIL"},
         {"call_fn", call_fn, METH_VARARGS, "Call Python function on a thread"},
         {"call_fn_no_thread", call_fn_no_thread, METH_VARARGS, "Call Python function with PyGILState_Ensure"},
         {NULL, NULL, 0, NULL},
