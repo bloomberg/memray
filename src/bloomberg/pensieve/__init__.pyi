@@ -1,7 +1,5 @@
 from ._metadata import Metadata as Metadata
-from ._pensieve import (
-    AllocationRecord as AllocationRecord,
-    AllocatorType as AllocatorType,
-    FileReader as FileReader,
-    Tracker as Tracker,
-)
+from ._pensieve import AllocationRecord as AllocationRecord
+from ._pensieve import AllocatorType as AllocatorType
+from ._pensieve import FileReader as FileReader
+from ._pensieve import Tracker as Tracker

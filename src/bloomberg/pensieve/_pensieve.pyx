@@ -1,30 +1,49 @@
+import logging
 import pathlib
 import sys
-import logging
 
 cimport cython
-import threading
 
+import threading
 from datetime import datetime
 
-from posix.mman cimport mmap, munmap, PROT_WRITE, MAP_ANONYMOUS, MAP_SHARED, MAP_FAILED
+from posix.mman cimport MAP_ANONYMOUS
+from posix.mman cimport MAP_FAILED
+from posix.mman cimport MAP_SHARED
+from posix.mman cimport PROT_WRITE
+from posix.mman cimport mmap
+from posix.mman cimport munmap
+
+from _pensieve.alloc cimport calloc
+from _pensieve.alloc cimport free
+from _pensieve.alloc cimport malloc
+from _pensieve.alloc cimport memalign
+from _pensieve.alloc cimport posix_memalign
+from _pensieve.alloc cimport pvalloc
+from _pensieve.alloc cimport realloc
+from _pensieve.alloc cimport valloc
+from _pensieve.logging cimport initializePythonLoggerInterface
+from _pensieve.pthread cimport pthread_create
+from _pensieve.pthread cimport pthread_join
+from _pensieve.pthread cimport pthread_t
+from _pensieve.record_reader cimport HighWatermark
+from _pensieve.record_reader cimport Py_GetSnapshotAllocationRecords
+from _pensieve.record_reader cimport RecordReader
+from _pensieve.record_reader cimport getHighWatermark
+from _pensieve.records cimport Allocation as NativeAllocation
+from _pensieve.tracking_api cimport Tracker as NativeTracker
+from _pensieve.tracking_api cimport install_trace_function
 from libc.errno cimport errno
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr, make_shared, unique_ptr, make_unique
+from libcpp.memory cimport make_shared
+from libcpp.memory cimport make_unique
+from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string as cppstring
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
-from _pensieve.tracking_api cimport install_trace_function
-from _pensieve.tracking_api cimport Tracker as NativeTracker
-from _pensieve.logging cimport initializePythonLoggerInterface
-from _pensieve.alloc cimport calloc, free, malloc, realloc, posix_memalign, memalign, valloc, pvalloc
-from _pensieve.pthread cimport pthread_create, pthread_join, pthread_t
-from _pensieve.record_reader cimport RecordReader
-from _pensieve.record_reader cimport getHighWatermark, HighWatermark
-from _pensieve.record_reader cimport Py_GetSnapshotAllocationRecords
-from _pensieve.records cimport Allocation as NativeAllocation
 from ._metadata import Metadata
 
 initializePythonLoggerInterface()

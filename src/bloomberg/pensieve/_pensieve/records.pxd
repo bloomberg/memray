@@ -3,6 +3,7 @@ from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 
+
 cdef extern from "records.h" namespace "pensieve::tracking_api":
 
    struct Frame:

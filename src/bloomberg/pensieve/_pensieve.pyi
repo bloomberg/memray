@@ -1,7 +1,15 @@
-from typing import Any, ClassVar, List, Tuple, Iterable, Union, Callable, Optional, Type
-from types import TracebackType
-from pathlib import Path
 import enum
+from pathlib import Path
+from types import TracebackType
+from typing import Any
+from typing import Callable
+from typing import ClassVar
+from typing import Iterable
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
+from typing import Union
 
 from ._metadata import Metadata
 

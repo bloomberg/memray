@@ -1,9 +1,9 @@
-from libcpp.string cimport string
-from libcpp.vector cimport vector
-from libcpp cimport bool
-
 from _pensieve.records cimport Allocation
 from _pensieve.records cimport HeaderRecord
+from libcpp cimport bool
+from libcpp.string cimport string
+from libcpp.vector cimport vector
+
 
 cdef extern from "record_reader.h" namespace "pensieve::api":
     cdef struct HighWatermark:
