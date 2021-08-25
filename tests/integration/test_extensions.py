@@ -185,3 +185,58 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
         and event.allocator == AllocatorType.FREE
     ]
     assert len(frees) >= 1
+
+
+def test_native_dlopen(tmpdir, monkeypatch):
+    """Check that we can correctly track allocations in an extension which calls
+    dlopen() without the GIL held"""
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "misbehaving_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_MISBEHAVING_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    def allocating_function():
+        allocator = MemoryAllocator()
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from misbehaving import dlopen_self  # type: ignore
+
+        with Tracker(output) as tracker:
+            dlopen_self(allocating_function)
+
+    # THEN
+    allocations = list(tracker.reader.get_allocation_records())
+    allocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+
+    stack_trace = alloc.stack_trace()
+    assert len(stack_trace)
+
+    *_, bottom_frame = stack_trace
+    func, filename, line = bottom_frame
+    assert func == "allocating_function"
+    assert filename.endswith(__file__)
+    assert line == 207
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == alloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) >= 1
