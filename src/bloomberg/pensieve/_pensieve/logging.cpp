@@ -21,9 +21,13 @@ logWithPython(const std::string& message, int level)
     if (!LOGGER_INITIALIZED) {
         throw std::runtime_error("Logger is not initialized");
     }
+
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
     if (!PyErr_Occurred() && Py_IsInitialized()) {
         log_with_python(message, level);
     }
+    PyGILState_Release(gstate);
 }
 
 }  // namespace pensieve

@@ -80,8 +80,8 @@ static inline int
 getCurrentPythonLineNumber()
 {
     assert(entry_frame == nullptr || Py_REFCNT(entry_frame) > 0);
-    const PyFrameObject* the_python_stack = current_frame ? current_frame : entry_frame;
-    return the_python_stack ? PyCode_Addr2Line(the_python_stack->f_code, the_python_stack->f_lasti) : 0;
+    PyFrameObject* the_python_stack = current_frame ? current_frame : entry_frame;
+    return the_python_stack ? PyFrame_GetLineNumber(the_python_stack) : 0;
 }
 
 Tracker::Tracker(const std::string& file_name, bool native_traces, const std::string& command_line)
