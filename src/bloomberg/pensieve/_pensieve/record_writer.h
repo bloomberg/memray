@@ -77,12 +77,12 @@ RecordWriter::bufferNeedle() const noexcept
 template<typename T>
 bool inline RecordWriter::writeSimpleType(T&& item)
 {
-    return d_sink->write(reinterpret_cast<const char*>(&item), sizeof(item));
+    return d_sink->writeAll(reinterpret_cast<const char*>(&item), sizeof(item));
 };
 
 bool inline RecordWriter::writeString(const char* the_string)
 {
-    return d_sink->write(the_string, strlen(the_string) + 1);
+    return d_sink->writeAll(the_string, strlen(the_string) + 1);
 }
 
 template<typename T>

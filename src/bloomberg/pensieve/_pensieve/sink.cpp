@@ -15,7 +15,7 @@ namespace pensieve::io {
 using namespace pensieve::exception;
 
 bool
-FileSink::write(const char* data, size_t length)
+FileSink::writeAll(const char* data, size_t length)
 {
     while (length) {
         ssize_t ret = ::write(d_fd, data, length);
@@ -62,7 +62,7 @@ SocketSink::SocketSink(int port)
 }
 
 bool
-SocketSink::write(const char* data, size_t length)
+SocketSink::writeAll(const char* data, size_t length)
 {
     if (!d_socket_open) {
         open();

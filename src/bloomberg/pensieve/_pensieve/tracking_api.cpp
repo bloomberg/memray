@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include <Python.h>
-#include <sys/file.h>
 
 #include "exceptions.h"
 #include "guards.h"

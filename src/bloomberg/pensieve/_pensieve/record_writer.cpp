@@ -4,7 +4,6 @@
 
 #include "exceptions.h"
 #include "record_writer.h"
-#include "sink.h"
 
 namespace pensieve::tracking_api {
 
@@ -43,12 +42,7 @@ RecordWriter::_flush()
         return true;
     }
 
-    int ret = 0;
-    do {
-        ret = d_sink->write(d_buffer.get(), d_used_bytes);
-    } while (ret < 0 && errno == EINTR);
-
-    if (ret < 0) {
+    if (!d_sink->writeAll(d_buffer.get(), d_used_bytes)) {
         return false;
     }
 
