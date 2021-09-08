@@ -30,7 +30,7 @@ FileSink::writeAll(const char* data, size_t length)
 }
 FileSink::FileSink(const std::string& file_name)
 {
-    d_fd = open(file_name.c_str(), O_CREAT | O_WRONLY | O_CLOEXEC, 0644);
+    d_fd = open(file_name.c_str(), O_CREAT | O_WRONLY | O_CLOEXEC | O_EXCL, 0644);
     if (d_fd < 0) {
         throw IoError{"Could not create file for writing: " + file_name};
     }
