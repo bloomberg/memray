@@ -26,11 +26,11 @@ from _pensieve.logging cimport initializePythonLoggerInterface
 from _pensieve.pthread cimport pthread_create
 from _pensieve.pthread cimport pthread_join
 from _pensieve.pthread cimport pthread_t
-from _pensieve.record_reader cimport HighWatermark
-from _pensieve.record_reader cimport Py_GetSnapshotAllocationRecords
 from _pensieve.record_reader cimport RecordReader
-from _pensieve.record_reader cimport getHighWatermark
 from _pensieve.records cimport Allocation as NativeAllocation
+from _pensieve.snapshot cimport HighWatermark
+from _pensieve.snapshot cimport Py_GetSnapshotAllocationRecords
+from _pensieve.snapshot cimport getHighWatermark
 from _pensieve.tracking_api cimport Tracker as NativeTracker
 from _pensieve.tracking_api cimport install_trace_function
 from libc.errno cimport errno
