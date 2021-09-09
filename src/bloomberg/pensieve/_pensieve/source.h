@@ -53,7 +53,6 @@ class SocketSource : public Source
     void getline(std::string& result, char delimiter) override;
 
   private:
-    bool eof();
     void _close();
     int d_sockfd{-1};
     bool d_is_open{false};

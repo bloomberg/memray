@@ -114,18 +114,18 @@ SocketSource::SocketSource(int port)
 void
 SocketSource::read(char* result, ssize_t length)
 {
-    if (eof()) {
-        LOG(DEBUG) << "Remote connection closed";
-        throw IoError{"Remote connection closed"};
-    }
-    ssize_t received = 0;
-    while (received < length) {
-        ssize_t ret = ::recv(d_sockfd, result + received, length - received, 0);
-        if (ret <= 0 && errno != EINTR) {
+    while (length > 0) {
+        ssize_t ret = ::recv(d_sockfd, result, length, 0);
+        if (ret > 0) {
+            result += ret;
+            length -= ret;
+        } else if (ret == 0) {
+            LOG(DEBUG) << "Connection closed by remote";
+            throw IoError{"Connection closed by remote"};
+        } else if (ret < 0 && errno != EINTR) {
             LOG(WARNING) << "Encountered error in 'recv' call: " << ::strerror(errno);
             throw IoError{"recv call failed"};
         }
-        received += ret;
     }
 }
 
@@ -148,21 +148,6 @@ bool
 SocketSource::is_open()
 {
     return d_is_open;
-}
-
-bool
-SocketSource::eof()
-{
-    if (!d_is_open) {
-        return true;
-    }
-
-    char buffer;
-    if (::recv(d_sockfd, &buffer, sizeof(buffer), MSG_PEEK) == 0) {
-        close();
-        return true;
-    }
-    return false;
 }
 
 void
