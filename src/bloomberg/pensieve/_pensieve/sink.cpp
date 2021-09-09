@@ -35,11 +35,6 @@ FileSink::FileSink(const std::string& file_name)
         throw IoError{"Could not create file for writing: " + file_name};
     }
 }
-void
-FileSink::close()
-{
-    _close();
-}
 bool
 FileSink::seek(off_t offset, int whence)
 {
@@ -48,12 +43,9 @@ FileSink::seek(off_t offset, int whence)
 
 FileSink::~FileSink()
 {
-    _close();
-}
-void
-FileSink::_close() const
-{
-    ::close(d_fd);
+    if (d_fd != -1) {
+        ::close(d_fd);
+    }
 }
 
 SocketSink::SocketSink(int port)
@@ -87,19 +79,7 @@ SocketSink::seek(__attribute__((unused)) off_t offset, __attribute__((unused)) i
     return false;
 }
 
-void
-SocketSink::close()
-{
-    _close();
-}
-
 SocketSink::~SocketSink()
-{
-    _close();
-}
-
-void
-SocketSink::_close()
 {
     if (d_socket_open) {
         ::close(d_socket_fd);

@@ -23,11 +23,6 @@ RecordWriter::RecordWriter(
     strncpy(d_header.magic, MAGIC, sizeof(MAGIC));
 }
 
-RecordWriter::~RecordWriter()
-{
-    d_sink->close();
-}
-
 bool
 RecordWriter::flush()
 {

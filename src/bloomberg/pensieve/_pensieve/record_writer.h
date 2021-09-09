@@ -21,7 +21,6 @@ class RecordWriter
             std::unique_ptr<pensieve::io::Sink> sink,
             const std::string& command_line,
             bool native_traces);
-    ~RecordWriter();
 
     RecordWriter(RecordWriter& other) = delete;
     RecordWriter(RecordWriter&& other) = delete;
