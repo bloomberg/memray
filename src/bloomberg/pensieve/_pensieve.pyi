@@ -10,6 +10,7 @@ from typing import Optional
 from typing import Tuple
 from typing import Type
 from typing import Union
+from typing import overload
 
 from ._metadata import Metadata
 
@@ -59,6 +60,14 @@ class AllocatorType(enum.IntEnum):
     MMAP: int
     MUNMAP: int
 
+class Writer: ...
+
+class FileWriter(Writer):
+    def __init__(self, file_name: str) -> None: ...
+
+class SocketWriter(Writer):
+    def __init__(self, port: int) -> None: ...
+
 class FileReader:
     @property
     def has_native_traces(self) -> bool: ...
@@ -83,11 +92,26 @@ class FileReader:
     def closed(self) -> bool: ...
     def close(self) -> None: ...
 
+class SocketReader:
+    def __init__(self, port: int) -> None: ...
+    def get_allocation_records(self) -> Iterable[AllocationRecord]: ...
+
 class Tracker:
     @property
     def reader(self) -> FileReader: ...
+    @overload
     def __init__(
-        self, file_name: Union[Path, str], *, native_traces: bool = False
+        self,
+        file_name: Union[Path, str],
+        *,
+        native_traces: bool = False,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        *,
+        writer: Writer,
+        native_traces: bool = False,
     ) -> None: ...
     def __enter__(self) -> Any: ...
     def __exit__(

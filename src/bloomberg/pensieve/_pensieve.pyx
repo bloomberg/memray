@@ -27,10 +27,17 @@ from _pensieve.pthread cimport pthread_create
 from _pensieve.pthread cimport pthread_join
 from _pensieve.pthread cimport pthread_t
 from _pensieve.record_reader cimport RecordReader
+from _pensieve.record_writer cimport RecordWriter
 from _pensieve.records cimport Allocation as NativeAllocation
+from _pensieve.sink cimport FileSink
+from _pensieve.sink cimport Sink
+from _pensieve.sink cimport SocketSink
 from _pensieve.snapshot cimport HighWatermark
 from _pensieve.snapshot cimport Py_GetSnapshotAllocationRecords
 from _pensieve.snapshot cimport getHighWatermark
+from _pensieve.source cimport FileSource
+from _pensieve.source cimport SocketSource
+from _pensieve.source cimport Source
 from _pensieve.tracking_api cimport Tracker as NativeTracker
 from _pensieve.tracking_api cimport install_trace_function
 from libc.errno cimport errno
@@ -261,31 +268,72 @@ cdef class AllocationRecord:
                 f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}, "
                 f"allocations={self.n_allocations}>")
 
+cdef class Writer:
+    cdef unique_ptr[RecordWriter] _get_writer(self, object command_line, bool native_traces=False):
+        raise NotImplemented
+
+cdef class FileWriter(Writer):
+    cdef cppstring _file_name
+    def __cinit__(self, object file_name):
+        if pathlib.Path(file_name).exists():
+            raise OSError(f"Output file {file_name} already exists")
+        self._file_name = str(file_name)
+
+    cdef unique_ptr[RecordWriter] _get_writer(self, object command_line, bool native_traces=False):
+        return make_unique[RecordWriter](
+            make_unique[FileSink](self._file_name),
+            <cppstring> command_line,
+            native_traces,
+        )
+
+cdef class SocketWriter(Writer):
+    cdef int _port
+    def __cinit__(self, object port):
+        self._port = int(port)
+
+    cdef unique_ptr[RecordWriter] _get_writer(self, object command_line, bool native_traces=False):
+        return make_unique[RecordWriter](
+            make_unique[SocketSink](self._port),
+            <cppstring> command_line,
+            native_traces)
+
+
 cdef class Tracker:
     cdef bool _native_traces
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
-    cdef object _command_line
+    cdef cppstring _command_line
     cdef cppstring _output_path
     cdef shared_ptr[RecordReader] _reader
+    cdef Writer _writer
 
-    def __cinit__(self, object file_name, *, bool native_traces=False):
-        self._output_path = str(file_name)
+    def __cinit__(self, object file_name=None, *, Writer writer=None, bool native_traces=False):
+        if (not file_name and not writer) or (file_name and writer):
+            raise TypeError("Exactly one of 'file_name' or 'writer' argument must be specified")
+
+        self._command_line = " ".join(sys.argv)
         self._native_traces = native_traces
+        self._writer = writer
+
+        if file_name is not None:
+            self._output_path = str(file_name)
 
     @cython.profile(False)
     def __enter__(self):
-        if pathlib.Path(self._output_path).exists():
-            raise OSError(f"Output file {self._output_path} already exists")
+        cdef unique_ptr[RecordWriter] record_writer
+
+        if not self._writer:
+            self._writer = FileWriter(self._output_path)
+        record_writer = move(self._writer._get_writer(self._command_line, native_traces=self._native_traces))
+
         if _TRACKER.get() != NULL:
             raise RuntimeError("No more than one Tracker instance can be active at the same time")
 
-        self._command_line = " ".join(sys.argv)
         self._previous_profile_func = sys.getprofile()
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
-        _TRACKER.reset(new NativeTracker(self._output_path, self._native_traces, self._command_line))
+        _TRACKER.reset(new NativeTracker(move(record_writer), self._native_traces))
         return self
 
     def __del__(self):
@@ -310,6 +358,7 @@ def start_thread_trace(frame, event, arg):
 
 cdef class FileReader:
     cdef cppstring _path
+
     cdef shared_ptr[RecordReader] _reader
     cdef vector[NativeAllocation] _native_allocations
     cdef unique_ptr[HighWatermark] _high_watermark
@@ -320,8 +369,7 @@ cdef class FileReader:
         self._path = str(file_name)
         if not pathlib.Path(self._path).exists():
             raise IOError(f"No such file: {self._path}")
-
-        self._reader = make_shared[RecordReader](self._path)
+        self._reader = make_shared[RecordReader](make_unique[FileSource](self._path))
         self._header: dict = self._reader.get().getHeader()
 
     cdef RecordReader* _get_reader(self) except *:
@@ -387,7 +435,7 @@ cdef class FileReader:
         yield from self._yield_allocations(snapshot_index, merge_threads)
 
     def get_allocation_records(self):
-        cdef shared_ptr[RecordReader] reader = make_shared[RecordReader](self._path)
+        cdef shared_ptr[RecordReader] reader = make_shared[RecordReader](make_unique[FileSource](self._path))
         cdef NativeAllocation native_allocation
         cdef RecordReader* reader_ptr = reader.get()
 
@@ -414,3 +462,23 @@ cdef class FileReader:
     @property
     def has_native_traces(self):
         return self._header["native_traces"]
+
+
+cdef class SocketReader:
+    cdef shared_ptr[RecordReader] _reader
+    cdef object _header
+    def __cinit__(self, object port):
+        self._create_reader(port)
+        self._header: dict = self._reader.get().getHeader()
+
+    def get_allocation_records(self):
+        cdef RecordReader* reader = self._reader.get()
+        cdef NativeAllocation native_allocation
+
+        while reader.nextAllocationRecord(&native_allocation):
+            alloc = AllocationRecord(native_allocation.toPythonObject())
+            (<AllocationRecord> alloc)._reader = self._reader
+            yield alloc
+
+    cdef _create_reader(self, int port) except+:
+        self._reader = make_shared[RecordReader](make_unique[SocketSource](port))

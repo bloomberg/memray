@@ -2,4 +2,8 @@ from ._metadata import Metadata as Metadata
 from ._pensieve import AllocationRecord as AllocationRecord
 from ._pensieve import AllocatorType as AllocatorType
 from ._pensieve import FileReader as FileReader
+from ._pensieve import FileWriter as FileWriter
+from ._pensieve import SocketReader as SocketReader
+from ._pensieve import SocketWriter as SocketWriter
 from ._pensieve import Tracker as Tracker
+from ._pensieve import Writer as Writer

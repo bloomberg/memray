@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include <Python.h>
+#include <sys/file.h>
 
 #include "guards.h"
 #include "hooks.h"
@@ -84,11 +85,11 @@ getCurrentPythonLineNumber()
     return the_python_stack ? PyFrame_GetLineNumber(the_python_stack) : 0;
 }
 
-Tracker::Tracker(const std::string& file_name, bool native_traces, const std::string& command_line)
-: d_unwind_native_frames(native_traces)
+Tracker::Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces)
+: d_writer(std::move(record_writer))
+, d_unwind_native_frames(native_traces)
 {
     d_instance = this;
-    d_writer = std::make_unique<RecordWriter>(file_name, command_line, native_traces);
 
     static std::once_flag once;
     call_once(once, [] {
@@ -112,7 +113,9 @@ Tracker::~Tracker()
     tracking_api::Tracker::deactivate();
     python_stack.clear();
     d_patcher.restore_symbols();
-    d_writer->writeHeader();
+    // FIXME Avoid trying to seek in the output. The only thing we have to write at the end is the
+    // tracking stats. We should do this as a separate footer record type.
+    //    d_writer->writeHeader();
     d_writer.reset();
     d_instance = nullptr;
 }
@@ -146,7 +149,12 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 
     AllocationRecord
             record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, native_index};
-    d_writer->writeRecord(RecordType::ALLOCATION, record);
+    try {
+        d_writer->writeRecord(RecordType::ALLOCATION, record);
+    } catch (const EofException&) {
+        std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+        deactivate();
+    }
 }
 
 void
