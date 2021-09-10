@@ -5,6 +5,7 @@
 
 #include "Python.h"
 
+#include "exceptions.h"
 #include "hooks.h"
 #include "interval_tree.h"
 #include "logging.h"
@@ -16,6 +17,7 @@ namespace pensieve::api {
 
 using namespace tracking_api;
 using namespace io;
+using namespace exception;
 
 void
 RecordReader::readHeader(HeaderRecord& header)
@@ -201,7 +203,7 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
                     throw std::runtime_error("Invalid record type");
             }
         }
-    } catch (const EofException&) {
+    } catch (const IoError&) {
         return false;
     }
 }

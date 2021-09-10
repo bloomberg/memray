@@ -11,6 +11,7 @@
 #include <chrono>
 #include <thread>
 
+#include "exceptions.h"
 #include "logging.h"
 #include "source.h"
 
@@ -29,7 +30,7 @@ FileSource::read(char* stream, ssize_t length)
 {
     d_stream.read(stream, length);
     if (!d_stream) {
-        throw EofException();
+        throw IoError{"Failed to read file"};
     }
 }
 
@@ -38,7 +39,7 @@ FileSource::getline(std::string& result, char delimiter)
 {
     std::getline(d_stream, result, delimiter);
     if (!d_stream) {
-        throw EofException();
+        throw IoError{"Failed to read file"};
     }
 }
 
@@ -78,7 +79,7 @@ SocketSource::SocketSource(int port)
     while (curr_address == nullptr) {
         if ((rv = ::getaddrinfo(nullptr, port_str.c_str(), &hints, &all_addresses)) != 0) {
             LOG(ERROR) << "Encountered error in 'getaddrinfo' call: " << ::gai_strerror(rv);
-            throw EofException();
+            throw IoError{"Failed to resolve host IP and port"};
         }
 
         // loop through all the results and connect to the first we can
@@ -91,7 +92,7 @@ SocketSource::SocketSource(int port)
                 == -1)
             {
                 LOG(ERROR) << "Encountered error in 'socket' call: " << ::strerror(errno);
-                throw EofException();
+                throw IoError{"Failed to open socket"};
             }
 
             if (::connect(d_sockfd, curr_address->ai_addr, curr_address->ai_addrlen) == -1) {
@@ -106,26 +107,6 @@ SocketSource::SocketSource(int port)
         }
     }
 
-    auto sa = reinterpret_cast<struct sockaddr*>(curr_address);
-
-    if (sa->sa_family == AF_INET) {
-        char peer[INET_ADDRSTRLEN];
-        inet_ntop(
-                curr_address->ai_family,
-                &(reinterpret_cast<sockaddr_in*>(&sa)->sin_addr),
-                peer,
-                sizeof peer);
-        LOG(DEBUG) << "Connecting to " << peer;
-    } else {
-        char peer[INET_ADDRSTRLEN];
-        inet_ntop(
-                curr_address->ai_family,
-                &(reinterpret_cast<sockaddr_in6*>(&sa)->sin6_addr),
-                peer,
-                sizeof peer);
-        LOG(DEBUG) << "Connecting to " << peer;
-    }
-
     freeaddrinfo(all_addresses);
     d_is_open = true;
 }
@@ -135,14 +116,14 @@ SocketSource::read(char* result, ssize_t length)
 {
     if (eof()) {
         LOG(DEBUG) << "Remote connection closed";
-        throw EofException();
+        throw IoError{"Remote connection closed"};
     }
     ssize_t received = 0;
     while (received < length) {
         ssize_t ret = ::recv(d_sockfd, result + received, length - received, 0);
         if (ret <= 0 && errno != EINTR) {
-            LOG(ERROR) << "Encountered error in 'recv' call: " << ::strerror(errno);
-            throw EofException();
+            LOG(WARNING) << "Encountered error in 'recv' call: " << ::strerror(errno);
+            throw IoError{"recv call failed"};
         }
         received += ret;
     }

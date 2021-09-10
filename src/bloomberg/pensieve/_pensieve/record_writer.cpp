@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <stdexcept>
 
+#include "exceptions.h"
 #include "record_writer.h"
 #include "sink.h"
 
@@ -29,14 +30,14 @@ RecordWriter::~RecordWriter()
 }
 
 bool
-RecordWriter::flush() noexcept
+RecordWriter::flush()
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     return _flush();
 }
 
 bool
-RecordWriter::_flush() noexcept
+RecordWriter::_flush()
 {
     if (!d_used_bytes) {
         return true;
@@ -57,7 +58,7 @@ RecordWriter::_flush() noexcept
 }
 
 bool
-RecordWriter::writeHeader() noexcept
+RecordWriter::writeHeader()
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     if (!_flush()) {
@@ -67,11 +68,15 @@ RecordWriter::writeHeader() noexcept
 
     d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     d_header.stats = d_stats;
-    writeSimpleType(d_header.magic);
-    writeSimpleType(d_header.version);
-    writeSimpleType(d_header.native_traces);
-    writeSimpleType(d_header.stats);
-    writeString(d_header.command_line.c_str());
+    try {
+        writeSimpleType(d_header.magic);
+        writeSimpleType(d_header.version);
+        writeSimpleType(d_header.native_traces);
+        writeSimpleType(d_header.stats);
+        writeString(d_header.command_line.c_str());
+    } catch (const pensieve::exception::IoError&) {
+        return false;
+    }
 
     return true;
 }

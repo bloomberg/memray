@@ -29,15 +29,15 @@ class RecordWriter
     void operator=(RecordWriter&&) = delete;
 
     template<typename T>
-    bool inline writeSimpleType(T&& item) noexcept;
-    bool inline writeString(const char* the_string) noexcept;
+    bool inline writeSimpleType(T&& item);
+    bool inline writeString(const char* the_string);
     template<typename T>
-    bool inline writeRecord(const RecordType& token, const T& item) noexcept;
+    bool inline writeRecord(const RecordType& token, const T& item);
     template<typename T>
-    bool inline writeRecordUnsafe(const RecordType& token, const T& item) noexcept;
-    bool writeHeader() noexcept;
+    bool inline writeRecordUnsafe(const RecordType& token, const T& item);
+    bool writeHeader();
 
-    bool flush() noexcept;
+    bool flush();
 
     std::unique_lock<std::mutex> acquireLock();
 
@@ -59,7 +59,7 @@ class RecordWriter
     // Methods
     inline size_t availableSpace() const noexcept;
     inline char* bufferNeedle() const noexcept;
-    bool _flush() noexcept;
+    bool _flush();
 };
 
 inline size_t
@@ -75,25 +75,25 @@ RecordWriter::bufferNeedle() const noexcept
 }
 
 template<typename T>
-bool inline RecordWriter::writeSimpleType(T&& item) noexcept
+bool inline RecordWriter::writeSimpleType(T&& item)
 {
     return d_sink->write(reinterpret_cast<const char*>(&item), sizeof(item));
 };
 
-bool inline RecordWriter::writeString(const char* the_string) noexcept
+bool inline RecordWriter::writeString(const char* the_string)
 {
     return d_sink->write(the_string, strlen(the_string) + 1);
 }
 
 template<typename T>
-bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) noexcept
+bool inline RecordWriter::writeRecord(const RecordType& token, const T& item)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     return writeRecordUnsafe(token, item);
 }
 
 template<typename T>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& item) noexcept
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& item)
 {
     constexpr const size_t total = sizeof(RecordType) + sizeof(T);
     static_assert(
@@ -115,9 +115,7 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& it
 }
 
 template<>
-bool inline RecordWriter::writeRecordUnsafe(
-        const RecordType& token,
-        const pyframe_map_val_t& item) noexcept
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyframe_map_val_t& item)
 {
     if (!_flush()) {
         return false;
@@ -130,7 +128,7 @@ bool inline RecordWriter::writeRecordUnsafe(
 }
 
 template<>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const SegmentHeader& item) noexcept
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const SegmentHeader& item)
 {
     if (!_flush()) {
         return false;

@@ -59,6 +59,7 @@ class TestSocketWriter:
         assert free.size == 0
         assert proc.wait() == 0
 
+    @pytest.mark.xfail()
     def test_tracker_waits_for_connection(self, free_port):
         """Check that we gracefully handle the case when a `SocketReader` disconnects before
         the tracking completes."""

@@ -55,7 +55,9 @@ class SocketSink : public Sink
 
   private:
     void _close();
+    void open();
 
+    int d_port;
     int d_socket_fd{-1};
     bool d_socket_open{false};
 };
