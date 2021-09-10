@@ -1,6 +1,5 @@
 """Tests to exercise socket-based read and write operations in the Tracker."""
 import multiprocessing
-import socket
 import subprocess
 import sys
 import textwrap
@@ -12,15 +11,6 @@ from bloomberg.pensieve._pensieve import MemoryAllocator
 from bloomberg.pensieve._pensieve import SocketReader
 from bloomberg.pensieve._pensieve import SocketWriter
 from bloomberg.pensieve._pensieve import Tracker
-
-
-@pytest.fixture
-def free_port():
-    s = socket.socket()
-    s.bind(("", 0))
-    port_number = s.getsockname()[1]
-    s.close()
-    return port_number
 
 
 class TestSocketWriter:
