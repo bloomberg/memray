@@ -118,6 +118,8 @@ SocketSink::open()
         }
 
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+            ::close(sockfd);
+            freeaddrinfo(servinfo);
             LOG(ERROR) << "Encountered error in 'setsockopt' call: " << strerror(errno);
             throw IoError{"Failed to set socket options"};
         }
@@ -138,12 +140,14 @@ SocketSink::open()
     }
 
     if (listen(sockfd, 1) == -1) {
+        ::close(sockfd);
         throw IoError{"Encountered error in listen call"};
     }
 
     LOG(DEBUG) << "Waiting for connections";
     sin_size = sizeof their_addr;
     d_socket_fd = accept(sockfd, (struct sockaddr*)&their_addr, &sin_size);
+    ::close(sockfd);
     if (d_socket_fd == -1) {
         LOG(ERROR) << "Encountered error in 'accept' call: " << strerror(errno);
         throw IoError{"accept failed"};

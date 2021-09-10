@@ -91,6 +91,7 @@ SocketSource::SocketSource(int port)
                          curr_address->ai_protocol))
                 == -1)
             {
+                freeaddrinfo(all_addresses);
                 LOG(ERROR) << "Encountered error in 'socket' call: " << ::strerror(errno);
                 throw IoError{"Failed to open socket"};
             }
@@ -102,6 +103,7 @@ SocketSource::SocketSource(int port)
             break;
         }
         if (curr_address == nullptr) {
+            freeaddrinfo(all_addresses);
             LOG(DEBUG) << "No connection, sleeping before retrying...";
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
