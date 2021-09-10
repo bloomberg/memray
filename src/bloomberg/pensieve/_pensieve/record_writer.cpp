@@ -58,13 +58,20 @@ RecordWriter::_flush()
 }
 
 bool
-RecordWriter::writeHeader()
+RecordWriter::writeHeader(bool seek_to_start)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     if (!_flush()) {
         return false;
     }
-    d_sink->seek(0, SEEK_SET);
+
+    if (seek_to_start) {
+        // If we can't seek to the beginning to the stream (e.g. dealing with a socket), just give
+        // up.
+        if (!d_sink->seek(0, SEEK_SET)) {
+            return false;
+        }
+    }
 
     d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     d_header.stats = d_stats;

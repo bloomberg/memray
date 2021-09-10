@@ -35,7 +35,7 @@ class RecordWriter
     bool inline writeRecord(const RecordType& token, const T& item);
     template<typename T>
     bool inline writeRecordUnsafe(const RecordType& token, const T& item);
-    bool writeHeader();
+    bool writeHeader(bool seek_to_start);
 
     bool flush();
 

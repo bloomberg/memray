@@ -14,7 +14,7 @@ class Sink
   public:
     virtual ~Sink(){};
     virtual bool write(const char* data, size_t length) = 0;
-    virtual void seek(off_t offset, int whence) = 0;
+    virtual bool seek(off_t offset, int whence) = 0;
     virtual void close() = 0;
 };
 
@@ -29,7 +29,7 @@ class FileSink : public pensieve::io::Sink
     void operator=(const FileSink&&) = delete;
 
     bool write(const char* data, size_t length) override;
-    void seek(off_t offset, int whence) override;
+    bool seek(off_t offset, int whence) override;
     void close() override;
 
   private:
@@ -50,7 +50,7 @@ class SocketSink : public Sink
     void operator=(const FileSink&&) = delete;
 
     bool write(const char* data, size_t length) override;
-    void seek(off_t offset, int whence) override;
+    bool seek(off_t offset, int whence) override;
     void close() override;
 
   private:

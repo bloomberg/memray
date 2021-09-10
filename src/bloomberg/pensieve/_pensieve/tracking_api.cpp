@@ -102,7 +102,7 @@ Tracker::Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces
         python_stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
     });
 
-    d_writer->writeHeader();
+    d_writer->writeHeader(false);
     updateModuleCache();
 
     RecursionGuard guard;
@@ -116,9 +116,7 @@ Tracker::~Tracker()
     tracking_api::Tracker::deactivate();
     python_stack.clear();
     d_patcher.restore_symbols();
-    // FIXME Avoid trying to seek in the output. The only thing we have to write at the end is the
-    // tracking stats. We should do this as a separate footer record type.
-    //    d_writer->writeHeader();
+    d_writer->writeHeader(true);
     d_writer.reset();
     d_instance = nullptr;
 }

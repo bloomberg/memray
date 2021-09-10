@@ -40,10 +40,10 @@ FileSink::close()
 {
     _close();
 }
-void
+bool
 FileSink::seek(off_t offset, int whence)
 {
-    lseek(d_fd, offset, whence);
+    return -1 != lseek(d_fd, offset, whence);
 }
 
 FileSink::~FileSink()
@@ -81,10 +81,10 @@ SocketSink::write(const char* data, size_t length)
     return true;
 }
 
-void
+bool
 SocketSink::seek(__attribute__((unused)) off_t offset, __attribute__((unused)) int whence)
 {
-    // This is a no-op for sockets.
+    return false;
 }
 
 void
