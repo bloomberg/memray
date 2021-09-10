@@ -1,10 +1,7 @@
 """Tests to exercise socket-based read and write operations in the Tracker."""
-import multiprocessing
 import subprocess
 import sys
 import textwrap
-
-import pytest
 
 from bloomberg.pensieve._pensieve import AllocatorType
 from bloomberg.pensieve._pensieve import MemoryAllocator
@@ -49,39 +46,37 @@ class TestSocketWriter:
         assert free.size == 0
         assert proc.wait() == 0
 
-    @pytest.mark.xfail()
-    def test_tracker_waits_for_connection(self, free_port):
+    def test_tracker_handles_disconnection(self, free_port):
         """Check that we gracefully handle the case when a `SocketReader` disconnects before
         the tracking completes."""
 
         # GIVEN
-        def server(q):
-            allocator = MemoryAllocator()
-            socket_writer = SocketWriter(port=free_port)
-            tracker = Tracker(writer=socket_writer)
-            with tracker:
-                allocator.valloc(1234)
-                q.put("valloc")
-                # At this point the reader will disconnect and the Tracker should
-                # get disabled
-                allocator.free()
+        reader_app = textwrap.dedent(
+            f"""
+            from bloomberg.pensieve._pensieve import SocketReader
+            from bloomberg.pensieve._pensieve import AllocatorType
 
-            # The Tracker should still be in disabled state, even after getting
-            # a new context manager instance
-            with tracker:
-                allocator.valloc(1234)
-                allocator.free()
-
-        def client(q):
-            reader = SocketReader(port=free_port)
+            reader = SocketReader(port={free_port})
             record = next(reader.get_allocation_records())
             assert record.allocator == AllocatorType.VALLOC
-            assert q.get() == "valloc"
-            # CLose connection before reading any further records
+            """
+        )
 
-        queue = multiprocessing.Queue()
-        server = multiprocessing.Process(target=server, args=(queue,))
-        server.start()
+        reader_process = subprocess.Popen([sys.executable, "-c", reader_app])
 
-        client = multiprocessing.Process(target=client, args=(queue,))
-        client.start()
+        allocator = MemoryAllocator()
+        socket_writer = SocketWriter(port=free_port)
+        tracker = Tracker(writer=socket_writer)
+
+        # WHEN / THEN
+        with tracker:
+            allocator.valloc(1234)
+            # At this point the reader will read the record and disconnect.
+            assert reader_process.wait() == 0
+            # From here on the tracker should be disabled.
+            allocator.free()
+
+        # And it stays disabled even when entering it again.
+        with tracker:
+            allocator.valloc(1234)
+            allocator.free()
