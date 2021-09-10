@@ -91,9 +91,7 @@ SocketSource::SocketSource(int port)
                          curr_address->ai_protocol))
                 == -1)
             {
-                freeaddrinfo(all_addresses);
-                LOG(ERROR) << "Encountered error in 'socket' call: " << ::strerror(errno);
-                throw IoError{"Failed to open socket"};
+                continue;
             }
 
             if (::connect(d_sockfd, curr_address->ai_addr, curr_address->ai_addrlen) == -1) {
