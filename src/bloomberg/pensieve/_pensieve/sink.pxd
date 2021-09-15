@@ -6,7 +6,7 @@ cdef extern from "sink.h" namespace "pensieve::io":
         pass
 
     cdef cppclass FileSink(Sink):
-        FileSink(const string& file_name)
+        FileSink(const string& file_name) except +IOError
 
     cdef cppclass SocketSink(Sink):
-        SocketSink(int port)
+        SocketSink(int port) except +IOError

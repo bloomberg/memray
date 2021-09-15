@@ -51,19 +51,15 @@ FileSink::~FileSink()
 SocketSink::SocketSink(int port)
 : d_port(port)
 {
+    open();
 }
 
 bool
 SocketSink::writeAll(const char* data, size_t length)
 {
-    if (!d_socket_open) {
-        open();
-    }
-
     while (length) {
         ssize_t ret = ::send(d_socket_fd, data, length, 0);
         if (ret < 0 && errno != EINTR) {
-            LOG(ERROR) << "Encountered error in 'send' call: " << strerror(errno);
             return false;
         } else if (ret >= 0) {
             data += ret;

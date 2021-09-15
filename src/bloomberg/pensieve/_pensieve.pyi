@@ -3,7 +3,6 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any
 from typing import Callable
-from typing import ClassVar
 from typing import Iterable
 from typing import List
 from typing import Optional
@@ -12,6 +11,7 @@ from typing import Type
 from typing import Union
 from typing import overload
 
+from . import Destination
 from ._metadata import Metadata
 
 PythonStackElement = Tuple[str, str, int]
@@ -60,14 +60,6 @@ class AllocatorType(enum.IntEnum):
     MMAP: int
     MUNMAP: int
 
-class Writer: ...
-
-class FileWriter(Writer):
-    def __init__(self, file_name: str) -> None: ...
-
-class SocketWriter(Writer):
-    def __init__(self, port: int) -> None: ...
-
 class FileReader:
     @property
     def has_native_traces(self) -> bool: ...
@@ -110,7 +102,7 @@ class Tracker:
     def __init__(
         self,
         *,
-        writer: Writer,
+        destination: Destination,
         native_traces: bool = False,
     ) -> None: ...
     def __enter__(self) -> Any: ...

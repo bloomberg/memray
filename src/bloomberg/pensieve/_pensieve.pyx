@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import sys
 
@@ -37,7 +38,6 @@ from _pensieve.snapshot cimport Py_GetSnapshotAllocationRecords
 from _pensieve.snapshot cimport getHighWatermark
 from _pensieve.source cimport FileSource
 from _pensieve.source cimport SocketSource
-from _pensieve.source cimport Source
 from _pensieve.tracking_api cimport Tracker as NativeTracker
 from _pensieve.tracking_api cimport install_trace_function
 from libc.errno cimport errno
@@ -51,6 +51,10 @@ from libcpp.string cimport string as cppstring
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
+import typing
+
+from ._destination import FileDestination
+from ._destination import SocketDestination
 from ._metadata import Metadata
 
 initializePythonLoggerInterface()
@@ -268,72 +272,54 @@ cdef class AllocationRecord:
                 f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}, "
                 f"allocations={self.n_allocations}>")
 
-cdef class Writer:
-    cdef unique_ptr[RecordWriter] _get_writer(self, object command_line, bool native_traces=False):
-        raise NotImplemented
-
-cdef class FileWriter(Writer):
-    cdef cppstring _file_name
-    def __cinit__(self, object file_name):
-        if pathlib.Path(file_name).exists():
-            raise OSError(f"Output file {file_name} already exists")
-        self._file_name = str(file_name)
-
-    cdef unique_ptr[RecordWriter] _get_writer(self, object command_line, bool native_traces=False):
-        return make_unique[RecordWriter](
-            make_unique[FileSink](self._file_name),
-            <cppstring> command_line,
-            native_traces,
-        )
-
-cdef class SocketWriter(Writer):
-    cdef int _port
-    def __cinit__(self, object port):
-        self._port = int(port)
-
-    cdef unique_ptr[RecordWriter] _get_writer(self, object command_line, bool native_traces=False):
-        return make_unique[RecordWriter](
-            make_unique[SocketSink](self._port),
-            <cppstring> command_line,
-            native_traces)
-
-
 cdef class Tracker:
     cdef bool _native_traces
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
-    cdef cppstring _command_line
     cdef cppstring _output_path
     cdef shared_ptr[RecordReader] _reader
-    cdef Writer _writer
+    cdef unique_ptr[RecordWriter] _writer
 
-    def __cinit__(self, object file_name=None, *, Writer writer=None, bool native_traces=False):
-        if (not file_name and not writer) or (file_name and writer):
-            raise TypeError("Exactly one of 'file_name' or 'writer' argument must be specified")
+    def __cinit__(self, object file_name=None, *, object destination=None, bool native_traces=False):
+        if (file_name, destination).count(None) != 1:
+            raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
-        self._command_line = " ".join(sys.argv)
+        cdef cppstring command_line = " ".join(sys.argv)
         self._native_traces = native_traces
-        self._writer = writer
 
         if file_name is not None:
-            self._output_path = str(file_name)
+            destination = FileDestination(path=file_name)
+
+        if isinstance(destination, FileDestination):
+            # We need this for the `reader` property
+            self._output_path = os.fsencode(destination.path)
+            self._writer = unique_ptr[RecordWriter](
+                new RecordWriter(unique_ptr[Sink](new FileSink(self._output_path)),
+                                 command_line,
+                                 native_traces))
+
+        elif isinstance(destination, SocketDestination):
+            self._writer = unique_ptr[RecordWriter](
+                new RecordWriter(unique_ptr[Sink](new SocketSink(destination.port)),
+                                 command_line,
+                                 native_traces))
+        else:
+            raise TypeError("destination must be a SocketDestination or FileDestination")
 
     @cython.profile(False)
     def __enter__(self):
-        cdef unique_ptr[RecordWriter] record_writer
-
-        if not self._writer:
-            self._writer = FileWriter(self._output_path)
-        record_writer = move(self._writer._get_writer(self._command_line, native_traces=self._native_traces))
 
         if _TRACKER.get() != NULL:
             raise RuntimeError("No more than one Tracker instance can be active at the same time")
+
+        if self._writer == NULL:
+            raise RuntimeError("Attempting to use stale output handle")
 
         self._previous_profile_func = sys.getprofile()
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
-        _TRACKER.reset(new NativeTracker(move(record_writer), self._native_traces))
+        _TRACKER.reset(new NativeTracker(move(self._writer), self._native_traces))
         return self
 
     def __del__(self):
@@ -347,6 +333,8 @@ cdef class Tracker:
 
     @property
     def reader(self):
+        if self._output_path.empty():
+            raise TypeError("This property is only valid when using file paths")
         return FileReader(self._output_path)
 
 

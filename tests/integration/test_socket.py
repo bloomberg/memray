@@ -3,10 +3,12 @@ import subprocess
 import sys
 import textwrap
 
+import pytest
+
+from bloomberg.pensieve._destination import SocketDestination
 from bloomberg.pensieve._pensieve import AllocatorType
 from bloomberg.pensieve._pensieve import MemoryAllocator
 from bloomberg.pensieve._pensieve import SocketReader
-from bloomberg.pensieve._pensieve import SocketWriter
 from bloomberg.pensieve._pensieve import Tracker
 
 
@@ -16,12 +18,11 @@ class TestSocketWriter:
         tracked_app = textwrap.dedent(
             f"""\
             from bloomberg.pensieve._pensieve import MemoryAllocator
-            from bloomberg.pensieve._pensieve import SocketWriter
+            from bloomberg.pensieve._pensieve import SocketDestination
             from bloomberg.pensieve._pensieve import Tracker
 
             allocator = MemoryAllocator()
-            socket_writer = SocketWriter(port={free_port})
-            with Tracker(writer=socket_writer):
+            with Tracker(destination=SocketDestination(port={free_port})):
                 allocator.valloc(1234)
                 allocator.free()
         """
@@ -65,8 +66,7 @@ class TestSocketWriter:
         reader_process = subprocess.Popen([sys.executable, "-c", reader_app])
 
         allocator = MemoryAllocator()
-        socket_writer = SocketWriter(port=free_port)
-        tracker = Tracker(writer=socket_writer)
+        tracker = Tracker(destination=SocketDestination(port=free_port))
 
         # WHEN / THEN
         with tracker:
@@ -77,6 +77,7 @@ class TestSocketWriter:
             allocator.free()
 
         # And it stays disabled even when entering it again.
-        with tracker:
-            allocator.valloc(1234)
-            allocator.free()
+        with pytest.raises(RuntimeError, match="stale output"):
+            with tracker:
+                allocator.valloc(1234)
+                allocator.free()
