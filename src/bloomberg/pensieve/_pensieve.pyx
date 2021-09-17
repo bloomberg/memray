@@ -312,14 +312,16 @@ cdef class Tracker:
         if _TRACKER.get() != NULL:
             raise RuntimeError("No more than one Tracker instance can be active at the same time")
 
+        cdef unique_ptr[RecordWriter] writer
         if self._writer == NULL:
             raise RuntimeError("Attempting to use stale output handle")
+        writer = move(self._writer)
 
         self._previous_profile_func = sys.getprofile()
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
-        _TRACKER.reset(new NativeTracker(move(self._writer), self._native_traces))
+        _TRACKER.reset(new NativeTracker(move(writer), self._native_traces))
         return self
 
     def __del__(self):
