@@ -7,7 +7,7 @@ cdef extern from "source.h" namespace "pensieve::io":
         pass
 
     cdef cppclass FileSource(Source):
-        FileSource(const string& file_name)
+        FileSource(const string& file_name) except+ IOError
 
     cdef cppclass SocketSource(Source):
-        SocketSource(int port) except+
+        SocketSource(int port) except+ IOError

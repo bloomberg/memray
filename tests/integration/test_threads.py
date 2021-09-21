@@ -2,6 +2,7 @@ import threading
 from pathlib import Path
 
 from bloomberg.pensieve import AllocatorType
+from bloomberg.pensieve import FileReader
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
@@ -24,7 +25,7 @@ def test_thread_allocations_after_tracker_is_deactivated(tmpdir):
     allocator = MemoryAllocator()
 
     # WHEN
-    with Tracker(output) as tracker:
+    with Tracker(output):
         t = threading.Thread(
             target=allocating_function, args=(allocator, flag_event, wait_event)
         )
@@ -37,7 +38,7 @@ def test_thread_allocations_after_tracker_is_deactivated(tmpdir):
 
     # THEN
     relevant_records = list(
-        filter_relevant_allocations(tracker.reader.get_allocation_records())
+        filter_relevant_allocations(FileReader(output).get_allocation_records())
     )
     assert len(relevant_records) == 2
 

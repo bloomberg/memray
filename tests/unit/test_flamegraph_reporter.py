@@ -1,6 +1,7 @@
 import sys
 
 from bloomberg.pensieve import AllocatorType
+from bloomberg.pensieve import FileReader
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 from bloomberg.pensieve.reporters.flamegraph import MAX_STACKS
@@ -236,12 +237,13 @@ class TestFlameGraphReporter:
     def test_sanity_check_with_real_allocations(self, tmp_path):
         # GIVEN
         allocator = MemoryAllocator()
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             allocator.valloc(1024)
             allocator.free()
 
         peak_allocations = filter_relevant_allocations(
-            tracker.reader.get_high_watermark_allocation_records()
+            FileReader(output).get_high_watermark_allocation_records()
         )
 
         # WHEN

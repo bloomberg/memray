@@ -276,7 +276,6 @@ cdef class Tracker:
     cdef bool _native_traces
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
-    cdef cppstring _output_path
     cdef shared_ptr[RecordReader] _reader
     cdef unique_ptr[RecordWriter] _writer
 
@@ -291,10 +290,8 @@ cdef class Tracker:
             destination = FileDestination(path=file_name)
 
         if isinstance(destination, FileDestination):
-            # We need this for the `reader` property
-            self._output_path = os.fsencode(destination.path)
             self._writer = unique_ptr[RecordWriter](
-                new RecordWriter(unique_ptr[Sink](new FileSink(self._output_path)),
+                new RecordWriter(unique_ptr[Sink](new FileSink(os.fsencode(destination.path))),
                                  command_line,
                                  native_traces))
 
@@ -333,12 +330,6 @@ cdef class Tracker:
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
 
-    @property
-    def reader(self):
-        if self._output_path.empty():
-            raise TypeError("This property is only valid when using file paths")
-        return FileReader(self._output_path)
-
 
 def start_thread_trace(frame, event, arg):
     if event in {"call", "c_call"}:
@@ -359,7 +350,7 @@ cdef class FileReader:
         self._path = str(file_name)
         if not pathlib.Path(self._path).exists():
             raise IOError(f"No such file: {self._path}")
-        self._reader = make_shared[RecordReader](make_unique[FileSource](self._path))
+        self._reader = make_shared[RecordReader](unique_ptr[FileSource](new FileSource(self._path)))
         self._header: dict = self._reader.get().getHeader()
 
     cdef RecordReader* _get_reader(self) except *:

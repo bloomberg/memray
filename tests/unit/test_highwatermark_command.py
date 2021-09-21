@@ -115,7 +115,7 @@ class TestReportGeneration:
         output_file = tmp_path / "output.txt"
 
         # WHEN
-        with patch("bloomberg.pensieve.commands.common.Tracker") as tracker_mock:
+        with patch("bloomberg.pensieve.commands.common.FileReader") as reader_mock:
             command.write_report(
                 result_path=result_path,
                 output_file=output_file,
@@ -124,11 +124,9 @@ class TestReportGeneration:
             )
 
         # THEN
-        assert tracker_mock.mock_calls == [
+        assert reader_mock.mock_calls == [
             call(os.fspath(result_path)),
-            call().reader.get_high_watermark_allocation_records(
-                merge_threads=merge_threads
-            ),
+            call().get_high_watermark_allocation_records(merge_threads=merge_threads),
         ]
         reporter_factory_mock.assert_called_once()
         reporter_factory_mock().render.assert_called_once()
@@ -142,7 +140,7 @@ class TestReportGeneration:
         output_file = tmp_path / "output.txt"
 
         # WHEN
-        with patch("bloomberg.pensieve.commands.common.Tracker") as tracker_mock:
+        with patch("bloomberg.pensieve.commands.common.FileReader") as reader_mock:
             command.write_report(
                 result_path=result_path,
                 output_file=output_file,
@@ -151,9 +149,9 @@ class TestReportGeneration:
             )
 
         # THEN
-        assert tracker_mock.mock_calls == [
+        assert reader_mock.mock_calls == [
             call(os.fspath(result_path)),
-            call().reader.get_leaked_allocation_records(merge_threads=merge_threads),
+            call().get_leaked_allocation_records(merge_threads=merge_threads),
         ]
         reporter_factory_mock.assert_called_once()
         reporter_factory_mock().render.assert_called_once()
