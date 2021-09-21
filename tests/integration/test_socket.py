@@ -81,3 +81,17 @@ class TestSocketWriter:
             with tracker:
                 allocator.valloc(1234)
                 allocator.free()
+
+
+class TestSocketReader:
+    def test_failure_to_connect(self, free_port):
+        # GIVEN
+        invalid_port = -1
+
+        # WHEN
+        with pytest.raises(Exception) as exc:
+            SocketReader(invalid_port)
+
+        # THEN
+        assert exc.type is IOError
+        assert exc.match("Failed to resolve host IP and port")

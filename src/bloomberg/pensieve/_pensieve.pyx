@@ -416,7 +416,9 @@ cdef class FileReader:
         yield from self._yield_allocations(snapshot_index, merge_threads)
 
     def get_allocation_records(self):
-        cdef shared_ptr[RecordReader] reader = make_shared[RecordReader](make_unique[FileSource](self._path))
+        cdef shared_ptr[RecordReader] reader = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(self._path))
+        )
         cdef NativeAllocation native_allocation
         cdef RecordReader* reader_ptr = reader.get()
 
@@ -462,4 +464,6 @@ cdef class SocketReader:
             yield alloc
 
     cdef _create_reader(self, int port) except+:
-        self._reader = make_shared[RecordReader](make_unique[SocketSource](port))
+        self._reader = make_shared[RecordReader](
+            unique_ptr[SocketSource](new SocketSource(port))
+        )
