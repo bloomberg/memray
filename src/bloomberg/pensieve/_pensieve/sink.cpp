@@ -1,7 +1,7 @@
 
-#include <arpa/inet.h>
 #include <cerrno>
 #include <cstdio>
+
 #include <fcntl.h>
 #include <netdb.h>
 #include <stdexcept>
@@ -32,7 +32,7 @@ FileSink::FileSink(const std::string& file_name)
 {
     d_fd = open(file_name.c_str(), O_CREAT | O_WRONLY | O_CLOEXEC | O_EXCL, 0644);
     if (d_fd < 0) {
-        throw IoError{"Could not create file for writing: " + file_name};
+        throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
     }
 }
 bool
