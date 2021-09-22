@@ -2,6 +2,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 from bloomberg.pensieve import AllocatorType
+from bloomberg.pensieve import FileReader
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
@@ -20,8 +21,7 @@ def test_allocations_with_multiprocessing(tmpdir):
     allocator = MemoryAllocator()
 
     # WHEN
-    allocator = MemoryAllocator()
-    with Tracker(output) as tracker:
+    with Tracker(output):
         with Pool(3) as p:
             p.map(multiproc_func, [1, 10, 100, 1000, 2000, 3000, 4000, 5000])
 
@@ -29,7 +29,7 @@ def test_allocations_with_multiprocessing(tmpdir):
         allocator.free()
 
     relevant_records = list(
-        filter_relevant_allocations(tracker.reader.get_allocation_records())
+        filter_relevant_allocations(FileReader(output).get_allocation_records())
     )
     assert len(relevant_records) == 2
 

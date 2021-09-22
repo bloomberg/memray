@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from bloomberg.pensieve import AllocatorType
+from bloomberg.pensieve import FileReader
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 
@@ -35,11 +36,11 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from testext import run  # type: ignore
 
-        with Tracker(output) as tracker:
+        with Tracker(output):
             run()
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     assert records
 
     memaligns = [
@@ -85,11 +86,11 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from misbehaving import call_fn  # type: ignore
 
-        with Tracker(output) as tracker:
+        with Tracker(output):
             call_fn(allocating_function)
 
     # THEN
-    allocations = list(tracker.reader.get_allocation_records())
+    allocations = list(FileReader(output).get_allocation_records())
     allocs = [
         event
         for event in allocations
@@ -105,7 +106,7 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "allocating_function"
     assert filename.endswith(__file__)
-    assert line == 80
+    assert line == 81
 
     frees = [
         event
@@ -147,13 +148,13 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
         from misbehaving import call_fn_no_thread
 
         allocator = MemoryAllocator()
-        with Tracker(output) as tracker:
+        with Tracker(output):
             foo1()
             allocator.valloc(1234)
             allocator.free()
 
     # THEN
-    allocations = list(tracker.reader.get_allocation_records())
+    allocations = list(FileReader(output).get_allocation_records())
     allocs = [
         event
         for event in allocations
@@ -168,7 +169,7 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "foo1"
     assert filename.endswith(__file__)
-    assert line == 139
+    assert line == 140
 
     # We should have a single frame here, which is the call to valloc()
     # and we should not see any call to foo1() or foo2()
@@ -212,11 +213,11 @@ def test_native_dlopen(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from misbehaving import dlopen_self  # type: ignore
 
-        with Tracker(output) as tracker:
+        with Tracker(output):
             dlopen_self(allocating_function)
 
     # THEN
-    allocations = list(tracker.reader.get_allocation_records())
+    allocations = list(FileReader(output).get_allocation_records())
     allocs = [
         event
         for event in allocations
@@ -232,7 +233,7 @@ def test_native_dlopen(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "allocating_function"
     assert filename.endswith(__file__)
-    assert line == 207
+    assert line == 208
 
     frees = [
         event

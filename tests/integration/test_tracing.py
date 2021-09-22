@@ -7,6 +7,7 @@ from unittest.mock import ANY
 import pytest
 
 from bloomberg.pensieve import AllocatorType
+from bloomberg.pensieve import FileReader
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 from bloomberg.pensieve._test import _cython_nested_allocation
@@ -42,9 +43,9 @@ def test_traceback(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
 
     # THEN
 
@@ -53,9 +54,9 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 17),
-        ("alloc_func2", __file__, 26),
-        ("alloc_func1", __file__, 33),
+        ("alloc_func3", __file__, 18),
+        ("alloc_func2", __file__, 27),
+        ("alloc_func1", __file__, 34),
     ]
     frees = [
         record
@@ -66,9 +67,9 @@ def test_traceback(tmpdir):
     (free,) = frees
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 19),
-        ("alloc_func2", __file__, 26),
-        ("alloc_func1", __file__, 33),
+        ("alloc_func3", __file__, 20),
+        ("alloc_func2", __file__, 27),
+        ("alloc_func1", __file__, 34),
     ]
 
 
@@ -79,9 +80,9 @@ def test_traceback_for_high_watermark(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
-    records = list(tracker.reader.get_high_watermark_allocation_records())
+    records = list(FileReader(output).get_high_watermark_allocation_records())
 
     # THEN
 
@@ -90,9 +91,9 @@ def test_traceback_for_high_watermark(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-3:] == [
-        ("alloc_func3", __file__, 17),
-        ("alloc_func2", __file__, 26),
-        ("alloc_func1", __file__, 33),
+        ("alloc_func3", __file__, 18),
+        ("alloc_func2", __file__, 27),
+        ("alloc_func1", __file__, 34),
     ]
 
 
@@ -103,19 +104,19 @@ def test_traceback_iteration_does_not_depend_on_the_order_of_elements(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
         alloc_func1(allocator)
 
     # THEN
 
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     alloc1, alloc2 = allocs
     traceback1 = list(alloc1.stack_trace())
     traceback2 = list(alloc2.stack_trace())
 
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     alloc1, alloc2 = allocs
     assert traceback2 == list(alloc2.stack_trace())
@@ -129,10 +130,10 @@ def test_cython_traceback(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         _cython_nested_allocation(allocator.valloc, 1234)
     allocator.free()
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
 
     # THEN
 
@@ -142,13 +143,13 @@ def test_cython_traceback(tmpdir):
 
     traceback = list(alloc1.stack_trace())
     assert traceback[-3:] == [
-        ("valloc", ANY, 94),
-        ("_cython_nested_allocation", ANY, 112),
+        ("valloc", ANY, 105),
+        ("_cython_nested_allocation", ANY, 123),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 112),
+        ("_cython_nested_allocation", ANY, 123),
     ]
 
     frees = [
@@ -160,7 +161,7 @@ def test_cython_traceback(tmpdir):
     (free,) = frees
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 112),
+        ("_cython_nested_allocation", ANY, 123),
     ]
 
 
@@ -171,12 +172,12 @@ def test_records_can_be_retrieved_twice(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
 
     # THEN
 
-    reader = tracker.reader
+    reader = FileReader(output)
     records1 = list(reader.get_allocation_records())
     records2 = list(reader.get_allocation_records())
 
@@ -190,12 +191,12 @@ def test_high_watermark_records_can_be_retrieved_twice(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
 
     # THEN
 
-    reader = tracker.reader
+    reader = FileReader(output)
     records1 = list(reader.get_high_watermark_allocation_records())
     records2 = list(reader.get_high_watermark_allocation_records())
 
@@ -209,12 +210,12 @@ def test_traceback_can_be_retrieved_twice(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
 
     # THEN
 
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     (alloc,) = allocs
     traceback1 = list(alloc.stack_trace())
@@ -229,12 +230,12 @@ def test_traceback_for_high_watermark_records_can_be_retrieved_twice(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
 
     # THEN
 
-    reader = tracker.reader
+    reader = FileReader(output)
     records = list(reader.get_high_watermark_allocation_records())
     (alloc,) = records
     traceback1 = list(alloc.stack_trace())
@@ -274,9 +275,9 @@ def test_initial_tracking_frames_are_correctly_populated(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         foo()
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
 
     # THEN
 
@@ -312,9 +313,9 @@ def test_restart_tracing_function_gets_correctly_the_frames(tmpdir):
 
     # Do another *independent* round of tracking. The previous frames
     # should not interfere with this tracing.
-    with Tracker(output) as tracker:
+    with Tracker(output):
         bar()
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
 
     # THEN
 
@@ -336,14 +337,14 @@ def test_num_records(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
         alloc_func1(allocator)
-    n_records = len(list(tracker.reader.get_allocation_records()))
 
     # THEN
-
-    assert n_records == tracker.reader.metadata.total_allocations
+    reader = FileReader(output)
+    n_records = len(list(reader.get_allocation_records()))
+    assert n_records == reader.metadata.total_allocations
 
 
 def test_equal_stack_traces_compare_equal(tmpdir):
@@ -353,14 +354,14 @@ def test_equal_stack_traces_compare_equal(tmpdir):
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         for _ in range(2):
             alloc_func1(allocator)
             alloc_func2(allocator)
 
     # THEN
 
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
 
     assert len(allocs) == 4
@@ -383,7 +384,7 @@ def test_identical_stack_traces_started_in_different_lines_in_the_root_do_not_co
 
     # WHEN
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         alloc_func1(allocator)
         alloc_func2(allocator)
         alloc_func1(allocator)
@@ -391,7 +392,7 @@ def test_identical_stack_traces_started_in_different_lines_in_the_root_do_not_co
 
     # THEN
 
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
 
     assert len(allocs) == 4
@@ -421,12 +422,12 @@ def test_identical_stack_traces_started_in_different_lines_in_a_function_do_not_
         alloc_func1(allocator)
         alloc_func2(allocator)
 
-    with Tracker(output) as tracker:
+    with Tracker(output):
         foo()
 
     # THEN
 
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     allocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
 
     assert len(allocs) == 4
@@ -451,11 +452,11 @@ class TestMmap:
     def test_mmap(self, tmpdir):
         # GIVEN / WHEN
         output = Path(tmpdir) / "test.bin"
-        with Tracker(output) as tracker:
+        with Tracker(output):
             TestMmap.allocating_function()
 
         # THEN
-        records = list(tracker.reader.get_allocation_records())
+        records = list(FileReader(output).get_allocation_records())
 
         assert len(records) >= 2
 
@@ -487,13 +488,13 @@ class TestMmap:
 
         threading.setprofile(custom_trace_fn)
         t = threading.Thread(target=TestMmap.allocating_function)
-        with Tracker(output) as tracker:
+        with Tracker(output):
             t.start()
             t.join()
 
         # THEN
         assert threading._profile_hook == custom_trace_fn
-        records = list(tracker.reader.get_allocation_records())
+        records = list(FileReader(output).get_allocation_records())
 
         assert len(records) >= 2
 

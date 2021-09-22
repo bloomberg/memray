@@ -11,9 +11,9 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
-from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._pensieve import AllocationRecord
+from bloomberg.pensieve._pensieve import FileReader
 from bloomberg.pensieve.reporters import BaseReporter
 
 
@@ -67,18 +67,18 @@ class HighWatermarkCommand:
         show_memory_leaks: bool,
         merge_threads: Optional[bool] = None,
     ) -> None:
-        tracker = Tracker(os.fspath(result_path))
         try:
+            reader = FileReader(os.fspath(result_path))
             if show_memory_leaks:
-                snapshot = tracker.reader.get_leaked_allocation_records(
+                snapshot = reader.get_leaked_allocation_records(
                     merge_threads=merge_threads if merge_threads is not None else True
                 )
             else:
-                snapshot = tracker.reader.get_high_watermark_allocation_records(
+                snapshot = reader.get_high_watermark_allocation_records(
                     merge_threads=merge_threads if merge_threads is not None else True
                 )
             reporter = self.reporter_factory(
-                snapshot, native_traces=tracker.reader.has_native_traces
+                snapshot, native_traces=reader.has_native_traces
             )
         except OSError as e:
             raise PensieveCommandError(
@@ -92,7 +92,7 @@ class HighWatermarkCommand:
                 kwargs["merge_threads"] = merge_threads
             reporter.render(
                 outfile=f,
-                metadata=tracker.reader.metadata,
+                metadata=reader.metadata,
                 show_memory_leaks=show_memory_leaks,
                 **kwargs,
             )

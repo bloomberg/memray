@@ -3,14 +3,15 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any
 from typing import Callable
-from typing import ClassVar
 from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Type
 from typing import Union
+from typing import overload
 
+from . import Destination
 from ._metadata import Metadata
 
 PythonStackElement = Tuple[str, str, int]
@@ -83,11 +84,26 @@ class FileReader:
     def closed(self) -> bool: ...
     def close(self) -> None: ...
 
+class SocketReader:
+    def __init__(self, port: int) -> None: ...
+    def get_allocation_records(self) -> Iterable[AllocationRecord]: ...
+
 class Tracker:
     @property
     def reader(self) -> FileReader: ...
+    @overload
     def __init__(
-        self, file_name: Union[Path, str], *, native_traces: bool = False
+        self,
+        file_name: Union[Path, str],
+        *,
+        native_traces: bool = False,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        *,
+        destination: Destination,
+        native_traces: bool = False,
     ) -> None: ...
     def __enter__(self) -> Any: ...
     def __exit__(

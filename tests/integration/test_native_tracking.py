@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from bloomberg.pensieve import AllocatorType
+from bloomberg.pensieve import FileReader
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
@@ -35,11 +36,11 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from testext import run  # type: ignore
 
-        with Tracker(output, native_traces=True) as tracker:
+        with Tracker(output, native_traces=True):
             run()
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     memaligns = [
         record for record in records if record.allocator == AllocatorType.MEMALIGN
     ]
@@ -83,11 +84,11 @@ def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from native_ext import run_simple  # type: ignore
 
-        with Tracker(output, native_traces=True) as tracker:
+        with Tracker(output, native_traces=True):
             run_simple()
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -120,11 +121,11 @@ def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from native_ext import run_inline
 
-        with Tracker(output, native_traces=True) as tracker:
+        with Tracker(output, native_traces=True):
             run_inline()
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -158,11 +159,11 @@ def test_deep_call_chain_with_native_tracking(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from native_ext import run_deep
 
-        with Tracker(output, native_traces=True) as tracker:
+        with Tracker(output, native_traces=True):
             run_deep(2048)
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -193,11 +194,11 @@ def test_hybrid_stack_in_pure_python(tmpdir):
 
     # WHEN
 
-    with Tracker(output, native_traces=True) as tracker:
+    with Tracker(output, native_traces=True):
         recursive_func(MAX_RECURSIONS)
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -250,11 +251,11 @@ def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
         def callback(n):
             return run_recursive(n, callback)
 
-        with Tracker(output, native_traces=True) as tracker:
+        with Tracker(output, native_traces=True):
             run_recursive(MAX_RECURSIONS, callback)
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -300,11 +301,11 @@ def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from native_ext import run_simple
 
-        with Tracker(output, native_traces=True) as tracker:
+        with Tracker(output, native_traces=True):
             run_simple()
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -327,8 +328,8 @@ def test_native_tracing_header(native_traces, tmpdir):
 
     # WHEN
 
-    with Tracker(output, native_traces=native_traces) as tracker:
-        return allocator.valloc(1234)
+    with Tracker(output, native_traces=native_traces):
+        allocator.valloc(1234)
 
     # THEN
-    assert tracker.reader.has_native_traces is native_traces
+    assert FileReader(output).has_native_traces is native_traces

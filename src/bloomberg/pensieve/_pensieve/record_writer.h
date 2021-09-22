@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "records.h"
+#include "sink.h"
 
 namespace pensieve::tracking_api {
 
@@ -17,10 +18,9 @@ class RecordWriter
 {
   public:
     explicit RecordWriter(
-            const std::string& file_name,
+            std::unique_ptr<pensieve::io::Sink> sink,
             const std::string& command_line,
             bool native_traces);
-    ~RecordWriter();
 
     RecordWriter(RecordWriter& other) = delete;
     RecordWriter(RecordWriter&& other) = delete;
@@ -28,15 +28,15 @@ class RecordWriter
     void operator=(RecordWriter&&) = delete;
 
     template<typename T>
-    bool inline writeSimpleType(T&& item) noexcept;
-    bool inline writeString(const char* the_string) noexcept;
+    bool inline writeSimpleType(T&& item);
+    bool inline writeString(const char* the_string);
     template<typename T>
-    bool inline writeRecord(const RecordType& token, const T& item) noexcept;
+    bool inline writeRecord(const RecordType& token, const T& item);
     template<typename T>
-    bool inline writeRecordUnsafe(const RecordType& token, const T& item) noexcept;
-    bool writeHeader() noexcept;
+    bool inline writeRecordUnsafe(const RecordType& token, const T& item);
+    bool writeHeader(bool seek_to_start);
 
-    bool flush() noexcept;
+    bool flush();
 
     std::unique_lock<std::mutex> acquireLock();
 
@@ -45,10 +45,10 @@ class RecordWriter
     static const size_t BUFFER_CAPACITY = PIPE_BUF;
 
     // Data members
-    int fd{-1};
     int d_version{CURRENT_HEADER_VERSION};
     unsigned d_used_bytes{0};
     std::unique_ptr<char[]> d_buffer{nullptr};
+    std::unique_ptr<pensieve::io::Sink> d_sink;
     std::mutex d_mutex;
     HeaderRecord d_header{};
     const std::string& d_command_line;
@@ -56,10 +56,9 @@ class RecordWriter
     TrackerStats d_stats{};
 
     // Methods
-    bool inline writeAll(const char* buffer, size_t length);
     inline size_t availableSpace() const noexcept;
     inline char* bufferNeedle() const noexcept;
-    bool _flush() noexcept;
+    bool _flush();
 };
 
 inline size_t
@@ -74,40 +73,26 @@ RecordWriter::bufferNeedle() const noexcept
     return d_buffer.get() + d_used_bytes;
 }
 
-bool inline RecordWriter::writeAll(const char* data, size_t length)
-{
-    while (length) {
-        int ret = write(fd, data, length);
-        if (ret < 0 && errno != EINTR) {
-            return false;
-        } else if (ret >= 0) {
-            data += ret;
-            length -= ret;
-        }
-    }
-    return true;
-}
-
 template<typename T>
-bool inline RecordWriter::writeSimpleType(T&& item) noexcept
+bool inline RecordWriter::writeSimpleType(T&& item)
 {
-    return writeAll(reinterpret_cast<const char*>(&item), sizeof(item));
+    return d_sink->writeAll(reinterpret_cast<const char*>(&item), sizeof(item));
 };
 
-bool inline RecordWriter::writeString(const char* the_string) noexcept
+bool inline RecordWriter::writeString(const char* the_string)
 {
-    return writeAll(the_string, strlen(the_string) + 1);
+    return d_sink->writeAll(the_string, strlen(the_string) + 1);
 }
 
 template<typename T>
-bool inline RecordWriter::writeRecord(const RecordType& token, const T& item) noexcept
+bool inline RecordWriter::writeRecord(const RecordType& token, const T& item)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     return writeRecordUnsafe(token, item);
 }
 
 template<typename T>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& item) noexcept
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& item)
 {
     constexpr const size_t total = sizeof(RecordType) + sizeof(T);
     static_assert(
@@ -129,9 +114,7 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& it
 }
 
 template<>
-bool inline RecordWriter::writeRecordUnsafe(
-        const RecordType& token,
-        const pyframe_map_val_t& item) noexcept
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyframe_map_val_t& item)
 {
     if (!_flush()) {
         return false;
@@ -144,7 +127,7 @@ bool inline RecordWriter::writeRecordUnsafe(
 }
 
 template<>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const SegmentHeader& item) noexcept
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const SegmentHeader& item)
 {
     if (!_flush()) {
         return false;

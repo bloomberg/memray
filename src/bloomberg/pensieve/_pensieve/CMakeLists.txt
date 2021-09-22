@@ -25,6 +25,8 @@ add_library(_pensieve STATIC
         snapshot.cpp
         tracking_api.cpp
         native_resolver.cpp
-        interval_tree.cpp)
+        interval_tree.cpp
+        sink.cpp
+        source.cpp)
 set_property(TARGET _pensieve PROPERTY POSITION_INDEPENDENT_CODE ON)
 include_directories("." ${PYTHON_INCLUDE_DIRS})

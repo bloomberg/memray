@@ -136,9 +136,20 @@ class TestRunSubcommand:
 
         # THEN
         with pytest.raises(
-            OSError, match="Output file pensieve-json.tool.0.bin already exists"
+            OSError,
+            match="Could not create output file pensieve-json.tool.0.bin: File exists",
         ):
             main(["run", "-m", "json.tool", "-h"])
+
+    def test_run_output_file_directory_does_not_exist(self):
+        # GIVEN / WHEN / THEN
+        with pytest.raises(
+            OSError,
+            match=(
+                "Could not create output file /doesn/t/exist: No such file or directory"
+            ),
+        ):
+            main(["run", "--output", "/doesn/t/exist", "-m", "json.tool", "-h"])
 
     @pytest.mark.parametrize("quiet", [True, False])
     def test_quiet(self, quiet, tmp_path):

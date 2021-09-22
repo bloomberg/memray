@@ -6,11 +6,14 @@
 
 #include <Python.h>
 
+#include "exceptions.h"
 #include "guards.h"
 #include "hooks.h"
 #include "record_writer.h"
 #include "records.h"
 #include "tracking_api.h"
+
+using namespace pensieve::exception;
 
 namespace {
 void
@@ -84,11 +87,11 @@ getCurrentPythonLineNumber()
     return the_python_stack ? PyFrame_GetLineNumber(the_python_stack) : 0;
 }
 
-Tracker::Tracker(const std::string& file_name, bool native_traces, const std::string& command_line)
-: d_unwind_native_frames(native_traces)
+Tracker::Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces)
+: d_writer(std::move(record_writer))
+, d_unwind_native_frames(native_traces)
 {
     d_instance = this;
-    d_writer = std::make_unique<RecordWriter>(file_name, command_line, native_traces);
 
     static std::once_flag once;
     call_once(once, [] {
@@ -98,7 +101,7 @@ Tracker::Tracker(const std::string& file_name, bool native_traces, const std::st
         python_stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
     });
 
-    d_writer->writeHeader();
+    d_writer->writeHeader(false);
     updateModuleCache();
 
     RecursionGuard guard;
@@ -112,7 +115,7 @@ Tracker::~Tracker()
     tracking_api::Tracker::deactivate();
     python_stack.clear();
     d_patcher.restore_symbols();
-    d_writer->writeHeader();
+    d_writer->writeHeader(true);
     d_writer.reset();
     d_instance = nullptr;
 }
@@ -146,7 +149,12 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 
     AllocationRecord
             record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, native_index};
-    d_writer->writeRecord(RecordType::ALLOCATION, record);
+    try {
+        d_writer->writeRecord(RecordType::ALLOCATION, record);
+    } catch (const IoError&) {
+        std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+        deactivate();
+    }
 }
 
 void
@@ -164,7 +172,12 @@ Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
     RecursionGuard guard;
     int lineno = getCurrentPythonLineNumber();
     AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, 0};
-    d_writer->writeRecord(RecordType::ALLOCATION, record);
+    try {
+        d_writer->writeRecord(RecordType::ALLOCATION, record);
+    } catch (const IoError&) {
+        std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+        deactivate();
+    }
 }
 
 void
@@ -207,7 +220,13 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
     }
 
     for (const auto& segment : segments) {
-        if (!writer->writeRecordUnsafe(RecordType::SEGMENT, segment)) {
+        try {
+            if (!writer->writeRecordUnsafe(RecordType::SEGMENT, segment)) {
+                return 1;
+            }
+        } catch (const IoError&) {
+            std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
+            Tracker::deactivate();
             return 1;
         }
     }
@@ -222,7 +241,13 @@ Tracker::updateModuleCache()
         return;
     }
     auto writer_lock = d_writer->acquireLock();
-    d_writer->writeSimpleType(RecordType::MEMORY_MAP_START);
+    try {
+        d_writer->writeSimpleType(RecordType::MEMORY_MAP_START);
+    } catch (const IoError&) {
+        std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
+        deactivate();
+    }
+
     dl_iterate_phdr(&dl_iterate_phdr_callback, d_writer.get());
 }
 
@@ -234,7 +259,12 @@ Tracker::registerFrame(const RawFrame& frame)
         pyframe_map_val_t frame_index{
                 frame_id,
                 Frame{frame.function_name, frame.filename, frame.parent_lineno}};
-        d_writer->writeRecord(RecordType::FRAME_INDEX, frame_index);
+        try {
+            d_writer->writeRecord(RecordType::FRAME_INDEX, frame_index);
+        } catch (const IoError&) {
+            std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
+            deactivate();
+        }
     }
     return frame_id;
 }
@@ -244,7 +274,12 @@ Tracker::popFrame(const RawFrame& frame)
 {
     const frame_id_t frame_id = registerFrame(frame);
     const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::POP};
-    d_writer->writeRecord(RecordType::FRAME, entry);
+    try {
+        d_writer->writeRecord(RecordType::FRAME, entry);
+    } catch (const IoError&) {
+        std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
+        deactivate();
+    }
 }
 
 void
@@ -252,7 +287,12 @@ Tracker::pushFrame(const RawFrame& frame)
 {
     const frame_id_t frame_id = registerFrame(frame);
     const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::PUSH};
-    d_writer->writeRecord(RecordType::FRAME, entry);
+    try {
+        d_writer->writeRecord(RecordType::FRAME, entry);
+    } catch (const IoError&) {
+        std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
+        deactivate();
+    }
 }
 
 void

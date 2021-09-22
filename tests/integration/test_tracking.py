@@ -12,6 +12,7 @@ import pytest
 
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import Tracker
+from bloomberg.pensieve._pensieve import FileReader
 from bloomberg.pensieve._pensieve import MmapAllocator
 from bloomberg.pensieve._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
@@ -30,24 +31,26 @@ PAGE_SIZE = mmap.PAGESIZE
 
 
 def test_no_allocations_while_tracking(tmp_path):
-    with Tracker(tmp_path / "test.bin") as tracker:
+    output = tmp_path / "test.bin"
+    with Tracker(output):
         pass
 
-    assert list(tracker.reader.get_allocation_records()) == []
+    assert list(FileReader(output).get_allocation_records()) == []
 
 
 @pytest.mark.parametrize(["allocator_func", "allocator_type"], ALLOCATORS)
 def test_simple_allocation_tracking(allocator_func, allocator_type, tmp_path):
     # GIVEN
     allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
 
     # WHEN
-    with Tracker(tmp_path / "test.bin") as tracker:
+    with Tracker(output):
         getattr(allocator, allocator_func)(1234)
         allocator.free()
 
     # THEN
-    allocations = list(tracker.reader.get_allocation_records())
+    allocations = list(FileReader(output).get_allocation_records())
     allocs = [
         event
         for event in allocations
@@ -66,12 +69,13 @@ def test_simple_allocation_tracking(allocator_func, allocator_type, tmp_path):
 
 def test_mmap_tracking(tmp_path):
     # GIVEN / WHEN
-    with Tracker(tmp_path / "test.bin") as tracker:
+    output = tmp_path / "test.bin"
+    with Tracker(output):
         with mmap.mmap(-1, length=2048, access=mmap.ACCESS_WRITE) as mmap_obj:
             mmap_obj[0:100] = b"a" * 100
 
     # THEN
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     assert len(records) >= 2
 
     mmap_records = [
@@ -95,11 +99,12 @@ def test_pthread_tracking(tmp_path):
         allocator.free()
 
     # WHEN
-    with Tracker(tmp_path / "test.bin") as tracker:
+    output = tmp_path / "test.bin"
+    with Tracker(output):
         allocator.run_in_pthread(tracking_function)
 
     # THEN
-    allocations = list(tracker.reader.get_allocation_records())
+    allocations = list(FileReader(output).get_allocation_records())
     allocs = [
         event
         for event in allocations
@@ -142,8 +147,7 @@ def test_tracking_with_SIGKILL(tmpdir):
     # THEN
     assert process.returncode == -signal.SIGKILL
 
-    tracker = Tracker(output)
-    records = list(tracker.reader.get_allocation_records())
+    records = list(FileReader(output).get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -156,26 +160,28 @@ def test_tracking_with_SIGKILL(tmpdir):
 class TestHighWatermark:
     def test_no_allocations_while_tracking(self, tmp_path):
         # GIVEN / WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             pass
 
         # THEN
-        assert list(tracker.reader.get_high_watermark_allocation_records()) == []
+        assert list(FileReader(output).get_high_watermark_allocation_records()) == []
 
     @pytest.mark.parametrize(["allocator_func", "allocator_type"], ALLOCATORS)
     def test_simple_allocation_tracking(self, tmp_path, allocator_func, allocator_type):
         # GIVEN
         allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             getattr(allocator, allocator_func)(1234)
             allocator.free()
 
         # THEN
-        peak_allocations_unfiltered = (
-            tracker.reader.get_high_watermark_allocation_records()
-        )
+        peak_allocations_unfiltered = FileReader(
+            output
+        ).get_high_watermark_allocation_records()
         peak_allocations = [
             record for record in peak_allocations_unfiltered if record.size == 1234
         ]
@@ -188,15 +194,16 @@ class TestHighWatermark:
     def test_multiple_high_watermark(self, tmp_path):
         # GIVEN
         allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             for _ in range(2):
                 allocator.valloc(1024)
                 allocator.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -216,16 +223,17 @@ class TestHighWatermark:
         # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator1.valloc(1024)
             allocator1.free()
             allocator2.valloc(2048)
             allocator2.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -245,16 +253,17 @@ class TestHighWatermark:
         # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator2.valloc(2048)
             allocator2.free()
             allocator1.valloc(1024)
             allocator1.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -273,9 +282,10 @@ class TestHighWatermark:
     def test_allocations_aggregation_on_same_line(self, tmp_path):
         # GIVEN
         allocators = []
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             for _ in range(2):
                 allocator = MemoryAllocator()
                 allocators.append(allocator)
@@ -286,7 +296,7 @@ class TestHighWatermark:
                 allocator.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -306,16 +316,17 @@ class TestHighWatermark:
         # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator1.valloc(1024)
             allocator2.valloc(2048)
             allocator1.free()
             allocator2.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -332,16 +343,17 @@ class TestHighWatermark:
         # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator1.valloc(1024)
             allocator2.valloc(2048)
             allocator1.free()
             allocator2.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -358,16 +370,17 @@ class TestHighWatermark:
         # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator1.valloc(1024)
             allocator1.free()
             allocator2.valloc(2048)
         allocator2.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -407,11 +420,12 @@ class TestHighWatermark:
                 print(f"-{n:>2} kB")
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             recursive(10, 1024)
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -430,16 +444,17 @@ class TestHighWatermark:
     def test_allocations_after_high_watermark_is_freed_do_not_appear(self, tmp_path):
         # GIVEN
         allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator.valloc(2048)
             allocator.free()
             allocator.valloc(1024)
         allocator.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -461,7 +476,8 @@ class TestHighWatermark:
         the entire mmap'd region when a partial munmap is performed."""
 
         # GIVEN/WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             # Mmap some memory and free just the first page. This should not register
             # the deallocation of the entire mmap'd region, only one page.
             alloc = MmapAllocator(2 * PAGE_SIZE)
@@ -472,7 +488,7 @@ class TestHighWatermark:
             # At this point we should have 11 * PAGE_SIZE allocated
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         peak_allocations = list(reader.get_high_watermark_allocation_records())
         assert len(peak_allocations) == 2
         peak_memory = sum(x.size for x in peak_allocations)
@@ -484,7 +500,8 @@ class TestHighWatermark:
         and last pages of the mmap'd region."""
 
         # GIVEN/WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             # Mmap some memory and free two pages: one at the beginning and one at the
             # end of the region.
             alloc = MmapAllocator(4 * PAGE_SIZE)
@@ -496,7 +513,7 @@ class TestHighWatermark:
             # At this point we should have 12 * PAGE_SIZE allocated
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         peak_allocations = list(reader.get_high_watermark_allocation_records())
         assert len(peak_allocations) == 2
         peak_memory = sum(x.size for x in peak_allocations)
@@ -515,7 +532,8 @@ class TestHighWatermark:
         buf.munmap(8 * PAGE_SIZE)
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             # Allocate 2 contiguous chunks of 4 pages (8 pages in total) and free them
             # with a single munmap
             alloc1 = MmapAllocator(4 * PAGE_SIZE, buf.address)
@@ -526,7 +544,7 @@ class TestHighWatermark:
             MmapAllocator(10 * PAGE_SIZE)
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         peak_allocations = list(
             filter_relevant_allocations(
                 reader.get_high_watermark_allocation_records(), ranged=True
@@ -546,7 +564,8 @@ class TestHighWatermark:
         buf.munmap(8 * PAGE_SIZE)
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             alloc1 = MmapAllocator(2 * PAGE_SIZE, buf.address)
             MmapAllocator(2 * PAGE_SIZE, buf.address + (2 * PAGE_SIZE))
             MmapAllocator(2 * PAGE_SIZE, buf.address + (4 * PAGE_SIZE))
@@ -558,7 +577,7 @@ class TestHighWatermark:
             MmapAllocator(10 * PAGE_SIZE)
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         peak_allocations = list(
             filter_relevant_allocations(
                 reader.get_high_watermark_allocation_records(), ranged=True
@@ -570,7 +589,8 @@ class TestHighWatermark:
     def test_partial_munmap_multiple_split_in_middle(self, tmp_path):
         """Deallocate pages in of a larger mmap'd area, splitting it into 3 areas."""
         # GIVEN/WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             alloc = MmapAllocator(5 * PAGE_SIZE)
             alloc.munmap(PAGE_SIZE, 1 * PAGE_SIZE)
             alloc.munmap(PAGE_SIZE, 3 * PAGE_SIZE)
@@ -578,7 +598,7 @@ class TestHighWatermark:
             MmapAllocator(10 * PAGE_SIZE)
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         peak_allocations = list(reader.get_high_watermark_allocation_records())
         assert len(peak_allocations) == 2
         peak_memory = sum(x.size for x in peak_allocations)
@@ -587,14 +607,15 @@ class TestHighWatermark:
     def test_partial_munmap_split_in_middle(self, tmp_path):
         """Deallocate a single page in the middle of a larger mmap'd area."""
         # GIVEN/WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        output = tmp_path / "test.bin"
+        with Tracker(output):
             alloc = MmapAllocator(8 * PAGE_SIZE)
             alloc.munmap(PAGE_SIZE, 4 * PAGE_SIZE)
 
             MmapAllocator(10 * PAGE_SIZE)
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         peak_allocations = list(reader.get_high_watermark_allocation_records())
         assert len(peak_allocations) == 2
         peak_memory = sum(x.size for x in peak_allocations)
@@ -605,14 +626,15 @@ class TestLeaks:
     def test_leaks_allocations_are_detected(self, tmp_path):
         # GIVEN
         allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator.valloc(1024)
         allocator.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -631,9 +653,10 @@ class TestLeaks:
     def test_allocations_that_are_freed_do_not_appear_as_leaks(self, tmp_path):
         # GIVEN
         allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator.valloc(1024)
             allocator.free()
             allocator.valloc(1024)
@@ -642,7 +665,7 @@ class TestLeaks:
             allocator.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -657,9 +680,10 @@ class TestLeaks:
         # GIVEN
         allocator = MemoryAllocator()
         leak_allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator.valloc(1024)
             allocator.free()
             allocator.valloc(1024)
@@ -670,7 +694,7 @@ class TestLeaks:
         leak_allocator.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -691,9 +715,10 @@ class TestLeaks:
         # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator1.valloc(1024)
             allocator2.valloc(2048)
 
@@ -702,7 +727,9 @@ class TestLeaks:
 
         # THEN
         leaked_allocations = list(
-            filter_relevant_allocations(tracker.reader.get_leaked_allocation_records())
+            filter_relevant_allocations(
+                FileReader(output).get_leaked_allocation_records()
+            )
         )
         assert len(leaked_allocations) == 2
         assert sum(record.size for record in leaked_allocations) == 1024 + 2048
@@ -712,6 +739,7 @@ class TestLeaks:
 
         # GIVEN
         allocators = []
+        output = tmp_path / "test.bin"
 
         def foo():
             allocator = MemoryAllocator()
@@ -719,7 +747,7 @@ class TestLeaks:
             allocators.append(allocator)
 
         # WHEN
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             for _ in range(10):
                 foo()
 
@@ -727,7 +755,7 @@ class TestLeaks:
             allocator.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(
             filter_relevant_allocations(reader.get_allocation_records())
         )
@@ -744,14 +772,15 @@ class TestLeaks:
     def test_unmatched_deallocations_are_not_reported(self, tmp_path):
         # GIVEN
         allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
 
         # WHEN
         allocator.valloc(1234)
-        with Tracker(tmp_path / "test.bin") as tracker:
+        with Tracker(output):
             allocator.free()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = list(reader.get_allocation_records())
         assert len(all_allocations) >= 1
         assert not list(
@@ -773,7 +802,8 @@ class TestLeaks:
         stop_flag1 = threading.Event()
         alloc2 = MemoryAllocator()
         stop_flag2 = threading.Event()
-        with Tracker(Path(tmpdir) / "test.bin") as tracker:
+        output = Path(tmpdir) / "test.bin"
+        with Tracker(output):
             t1 = threading.Thread(
                 target=allocating_function, args=(alloc1, 2048, stop_flag1)
             )
@@ -789,7 +819,7 @@ class TestLeaks:
             t2.join()
 
         # THEN
-        reader = tracker.reader
+        reader = FileReader(output)
         all_allocations = [
             record
             for record in reader.get_allocation_records()
@@ -824,13 +854,14 @@ class TestHeader:
 
         monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
         start_time = datetime.datetime.now()
-        with Tracker(output) as tracker:
+        with Tracker(output):
             for _ in range(100):
                 allocator.valloc(1024)
         end_time = datetime.datetime.now()
 
-        n_records = len(list(tracker.reader.get_allocation_records()))
-        metadata = tracker.reader.metadata
+        reader = FileReader(output)
+        n_records = len(list(reader.get_allocation_records()))
+        metadata = reader.metadata
 
         # THEN
         assert metadata.end_time > metadata.start_time
@@ -851,13 +882,14 @@ class TestHeader:
 
         monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
         start_time = datetime.datetime.now()
-        with Tracker(output) as tracker:
+        with Tracker(output):
             for _ in range(100):
                 allocator.valloc(1024)
         end_time = datetime.datetime.now()
 
-        peak, *_ = list(tracker.reader.get_high_watermark_allocation_records())
-        metadata = tracker.reader.metadata
+        reader = FileReader(output)
+        peak, *_ = list(reader.get_high_watermark_allocation_records())
+        metadata = reader.metadata
 
         # THEN
         assert metadata.end_time > metadata.start_time

@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <stdexcept>
 
+#include "exceptions.h"
 #include "record_writer.h"
 
 namespace pensieve::tracking_api {
@@ -9,48 +10,34 @@ namespace pensieve::tracking_api {
 using namespace std::chrono;
 
 RecordWriter::RecordWriter(
-        const std::string& file_name,
+        std::unique_ptr<pensieve::io::Sink> sink,
         const std::string& command_line,
         bool native_traces)
 : d_buffer(new char[BUFFER_CAPACITY]{0})
+, d_sink(std::move(sink))
 , d_command_line(command_line)
 , d_native_traces(native_traces)
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
     d_header = HeaderRecord{"", d_version, d_native_traces, d_stats, d_command_line};
     strncpy(d_header.magic, MAGIC, sizeof(MAGIC));
-
-    fd = ::open(file_name.c_str(), O_CREAT | O_WRONLY | O_CLOEXEC, 0644);
-    if (fd < 0) {
-        std::runtime_error("Could not open file for writing: " + file_name);
-    }
-}
-
-RecordWriter::~RecordWriter()
-{
-    ::close(fd);
 }
 
 bool
-RecordWriter::flush() noexcept
+RecordWriter::flush()
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     return _flush();
 }
 
 bool
-RecordWriter::_flush() noexcept
+RecordWriter::_flush()
 {
     if (!d_used_bytes) {
         return true;
     }
 
-    int ret = 0;
-    do {
-        ret = ::write(fd, d_buffer.get(), d_used_bytes);
-    } while (ret < 0 && errno == EINTR);
-
-    if (ret < 0) {
+    if (!d_sink->writeAll(d_buffer.get(), d_used_bytes)) {
         return false;
     }
 
@@ -60,21 +47,32 @@ RecordWriter::_flush() noexcept
 }
 
 bool
-RecordWriter::writeHeader() noexcept
+RecordWriter::writeHeader(bool seek_to_start)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     if (!_flush()) {
         return false;
     }
-    ::lseek(fd, 0, SEEK_SET);
+
+    if (seek_to_start) {
+        // If we can't seek to the beginning to the stream (e.g. dealing with a socket), just give
+        // up.
+        if (!d_sink->seek(0, SEEK_SET)) {
+            return false;
+        }
+    }
 
     d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     d_header.stats = d_stats;
-    writeSimpleType(d_header.magic);
-    writeSimpleType(d_header.version);
-    writeSimpleType(d_header.native_traces);
-    writeSimpleType(d_header.stats);
-    writeString(d_header.command_line.c_str());
+    try {
+        writeSimpleType(d_header.magic);
+        writeSimpleType(d_header.version);
+        writeSimpleType(d_header.native_traces);
+        writeSimpleType(d_header.stats);
+        writeString(d_header.command_line.c_str());
+    } catch (const pensieve::exception::IoError&) {
+        return false;
+    }
 
     return true;
 }
