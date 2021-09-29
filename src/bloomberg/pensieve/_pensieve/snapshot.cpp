@@ -4,25 +4,6 @@
 
 namespace pensieve::api {
 
-namespace {
-
-const thread_id_t NO_THREAD_INFO = 0;
-
-struct index_thread_pair_hash
-{
-    std::size_t operator()(const std::pair<FrameTree::index_t, thread_id_t>& p) const
-    {
-        // The indices and thread IDs are not likely to match as they are fundamentally different
-        // values and have different ranges, so xor should work here and not cause duplicate hashes.
-        return std::hash<FrameTree::index_t>{}(p.first) xor std::hash<thread_id_t>{}(p.second);
-    }
-};
-}  // namespace
-
-using namespace tracking_api;
-using reduced_snapshot_map_t = std::
-        unordered_map<std::pair<FrameTree::index_t, thread_id_t>, Allocation, index_thread_pair_hash>;
-
 /**
  * Produce an aggregated snapshot from a vector of allocations and a index in that vector
  *
