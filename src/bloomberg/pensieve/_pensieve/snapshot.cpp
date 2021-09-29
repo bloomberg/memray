@@ -4,55 +4,47 @@
 
 namespace pensieve::api {
 
-/**
- * Produce an aggregated snapshot from a vector of allocations and a index in that vector
- *
- * This function takes a vector containing a sequence of allocation events and an index in that
- * vector indicating the position where the snapshot should be produced and returns a collection
- * of allocations representing the heap structure at that particular point. This collection of
- * allocations is aggregated so allocations with the same stack trace will be reported together
- * as a single allocation with the size being the sum af the sizes of the individual allocations.
- *
- **/
-static reduced_snapshot_map_t
-reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index, bool merge_threads)
+SnapshotAllocationAggregator::SnapshotAllocationAggregator(const allocations_t& records)
+: d_records(records)
 {
-    assert(snapshot_index < records.size());
+}
 
-    std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
-    pensieve::IntervalTree<Allocation> interval_tree;
-    std::unordered_map<uintptr_t, Allocation> mmap_allocations{};
-
-    const auto snapshot_limit = records.cbegin() + snapshot_index;
-    for (auto record_it = records.cbegin(); record_it <= snapshot_limit; record_it++) {
-        switch (hooks::allocatorKind(record_it->record.allocator)) {
-            case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
-                ptr_to_allocation[record_it->record.address] = record_it - records.begin();
-                break;
+void
+SnapshotAllocationAggregator::addAllocation(const Allocation& allocation)
+{
+    switch (hooks::allocatorKind(allocation.record.allocator)) {
+        case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
+            d_ptr_to_allocation[allocation.record.address] = d_index;
+            break;
+        }
+        case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
+            auto it = d_ptr_to_allocation.find(allocation.record.address);
+            if (it != d_ptr_to_allocation.end()) {
+                d_ptr_to_allocation.erase(it);
             }
-            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
-                auto it = ptr_to_allocation.find(record_it->record.address);
-                if (it != ptr_to_allocation.end()) {
-                    ptr_to_allocation.erase(it);
-                }
-                break;
-            }
-            case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-                auto record = record_it->record;
-                interval_tree.add(record.address, record.size, *record_it);
-                break;
-            }
-            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
-                auto record = record_it->record;
-                interval_tree.remove(record.address, record.size);
-                break;
-            }
+            break;
+        }
+        case hooks::AllocatorKind::RANGED_ALLOCATOR: {
+            auto record = allocation.record;
+            d_interval_tree.add(record.address, record.size, allocation);
+            break;
+        }
+        case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+            auto record = allocation.record;
+            d_interval_tree.remove(record.address, record.size);
+            break;
         }
     }
+    d_index++;
+}
 
+reduced_snapshot_map_t
+SnapshotAllocationAggregator::getSnapshotAllocations(bool merge_threads)
+{
     reduced_snapshot_map_t stack_to_allocation{};
-    for (const auto& it : ptr_to_allocation) {
-        const Allocation& record = records[it.second];
+
+    for (const auto& it : d_ptr_to_allocation) {
+        const Allocation& record = d_records[it.second];
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.record.tid;
         auto alloc_it = stack_to_allocation.find(std::pair(record.frame_index, thread_id));
         if (alloc_it == stack_to_allocation.end()) {
@@ -68,7 +60,7 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index, b
     // Process ranged allocations. As there can be partial deallocations in mmap'd regions,
     // we update the allocation to reflect the actual size at the peak, based on the lengths
     // of the ranges in the interval tree.
-    for (const auto& [range, allocation] : interval_tree) {
+    for (const auto& [range, allocation] : d_interval_tree) {
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : allocation.record.tid;
         auto alloc_it = stack_to_allocation.find(std::pair(allocation.frame_index, thread_id));
         if (alloc_it == stack_to_allocation.end()) {
@@ -84,6 +76,30 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index, b
     }
 
     return stack_to_allocation;
+}
+
+/**
+ * Produce an aggregated snapshot from a vector of allocations and a index in that vector
+ *
+ * This function takes a vector containing a sequence of allocation events and an index in that
+ * vector indicating the position where the snapshot should be produced and returns a collection
+ * of allocations representing the heap structure at that particular point. This collection of
+ * allocations is aggregated so allocations with the same stack trace will be reported together
+ * as a single allocation with the size being the sum af the sizes of the individual allocations.
+ *
+ **/
+static reduced_snapshot_map_t
+reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index, bool merge_threads)
+{
+    assert(snapshot_index < records.size());
+
+    SnapshotAllocationAggregator aggregator(records);
+
+    std::for_each(records.cbegin(), records.cbegin() + snapshot_index + 1, [&](auto& record) {
+        aggregator.addAllocation(record);
+    });
+
+    return aggregator.getSnapshotAllocations(merge_threads);
 }
 
 HighWatermark

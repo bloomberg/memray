@@ -34,6 +34,21 @@ using allocations_t = std::vector<Allocation>;
 using reduced_snapshot_map_t = std::
         unordered_map<std::pair<FrameTree::index_t, thread_id_t>, Allocation, index_thread_pair_hash>;
 
+class SnapshotAllocationAggregator
+{
+  private:
+    size_t d_index{0};
+    const allocations_t& d_records;
+    pensieve::IntervalTree<Allocation> d_interval_tree;
+    std::unordered_map<uintptr_t, size_t> d_ptr_to_allocation{};
+
+  public:
+    SnapshotAllocationAggregator(const allocations_t& records);
+
+    void addAllocation(const Allocation& allocation);
+    reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads);
+};
+
 struct HighWatermark
 {
     size_t index{0};
