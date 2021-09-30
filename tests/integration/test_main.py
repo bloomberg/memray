@@ -128,28 +128,29 @@ class TestRunSubcommand:
         assert out_file.exists()
 
     @patch("bloomberg.pensieve.commands.run.os.getpid")
-    def test_run_file_exists(self, getpid, tmp_path, monkeypatch):
+    def test_run_file_exists(self, getpid, tmp_path, monkeypatch, capsys):
         # GIVEN / WHEN
         getpid.return_value = 0
         (tmp_path / "pensieve-json.tool.0.bin").touch()
         monkeypatch.chdir(tmp_path)
 
         # THEN
-        with pytest.raises(
-            OSError,
-            match="Could not create output file pensieve-json.tool.0.bin: File exists",
-        ):
-            main(["run", "-m", "json.tool", "-h"])
+        assert main(["run", "-m", "json.tool", "-h"]) == 1
+        captured = capsys.readouterr()
+        assert (
+            captured.err.strip()
+            == "Could not create output file pensieve-json.tool.0.bin: File exists"
+        )
 
-    def test_run_output_file_directory_does_not_exist(self):
+    def test_run_output_file_directory_does_not_exist(self, capsys):
         # GIVEN / WHEN / THEN
-        with pytest.raises(
-            OSError,
-            match=(
-                "Could not create output file /doesn/t/exist: No such file or directory"
-            ),
-        ):
-            main(["run", "--output", "/doesn/t/exist", "-m", "json.tool", "-h"])
+
+        assert main(["run", "--output", "/doesn/t/exist", "-m", "json.tool", "-h"]) == 1
+        captured = capsys.readouterr()
+        assert (
+            captured.err.strip()
+            == "Could not create output file /doesn/t/exist: No such file or directory"
+        )
 
     @pytest.mark.parametrize("quiet", [True, False])
     def test_quiet(self, quiet, tmp_path):
