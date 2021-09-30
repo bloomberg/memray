@@ -90,7 +90,7 @@ class RunCommand:
         )
         output_group.add_argument(
             "--live",
-            help="Start live tracking session and wait until a client connects",
+            help="Start a live tracking session and wait until a client connects",
             action="store_true",
             dest="live_mode",
             default=False,
@@ -99,7 +99,7 @@ class RunCommand:
         parser.add_argument(
             "--live-port",
             "-p",
-            help="Port to use when starting live tracking. (default: random free port)",
+            help="Port to use when starting live tracking (default: random free port)",
             default=_get_free_port(),
             type=int,
         )
