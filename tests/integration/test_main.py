@@ -416,3 +416,64 @@ class TestReporterSubCommands:
         output_file = tmp_path / f"pensieve-{report}-result.html"
         assert output_file.exists()
         assert "json/tool.py" in output_file.read_text()
+
+
+class TestLiveSubcommand:
+    def test_live_tracking(self, free_port):
+
+        # GIVEN
+        server = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "--live",
+                "--live-port",
+                str(free_port),
+                "-m",
+                "json.tool",
+                "--help",
+            ],
+        )
+
+        client = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "live",
+                str(free_port),
+            ],
+            stdin=subprocess.PIPE,
+        )
+
+        # WHEN
+        server.wait(timeout=5)
+        client.communicate(timeout=1, input=b"\n")
+
+        # THEN
+        assert client.returncode == 0
+        assert server.returncode == 0
+
+    def test_live_tracking_waits_for_client(self):
+        # GIVEN/WHEN
+        tracker = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "--live",
+                "-m",
+                "json.tool",
+                "--help",
+            ],
+            env={"PYTHONUNBUFFERED": "1"},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # THEN
+        assert b"another shell to see live results\n" in tracker.stdout.readline()
+        tracker.kill()
