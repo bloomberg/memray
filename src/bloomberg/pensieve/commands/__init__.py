@@ -14,6 +14,7 @@ from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._errors import PensieveError
 
 from . import flamegraph
+from . import live
 from . import run
 from . import table
 
@@ -53,6 +54,7 @@ _COMMANDS: List[Command] = [
     run.RunCommand(),
     flamegraph.FlamegraphCommand(),
     table.TableCommand(),
+    live.LiveCommand(),
 ]
 
 

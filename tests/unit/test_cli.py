@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
+from bloomberg.pensieve import FileDestination
 from bloomberg.pensieve.__main__ import main
 from bloomberg.pensieve.commands.flamegraph import FlamegraphCommand
 from bloomberg.pensieve.commands.table import TableCommand
@@ -35,7 +36,10 @@ class TestRunSubCommand:
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
-        tracker_mock.assert_called_with("pensieve-foobar.0.bin", native_traces=False)
+        tracker_mock.assert_called_with(
+            destination=FileDestination("pensieve-foobar.0.bin"),
+            native_traces=False,
+        )
 
     def test_run_with_native_mode(self, getpid_mock, runpy_mock, tracker_mock):
         getpid_mock.return_value = 0
@@ -43,14 +47,20 @@ class TestRunSubCommand:
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
-        tracker_mock.assert_called_with("pensieve-foobar.0.bin", native_traces=True)
+        tracker_mock.assert_called_with(
+            destination=FileDestination("pensieve-foobar.0.bin"),
+            native_traces=True,
+        )
 
     def test_run_override_output(self, getpid_mock, runpy_mock, tracker_mock):
         assert 0 == main(["run", "--output", "my_output", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
-        tracker_mock.assert_called_with("my_output", native_traces=False)
+        tracker_mock.assert_called_with(
+            destination=FileDestination("my_output"),
+            native_traces=False,
+        )
 
     def test_run_module(self, getpid_mock, runpy_mock, tracker_mock):
         assert 0 == main(["run", "-m", "foobar"])
@@ -70,7 +80,8 @@ class TestRunSubCommand:
             run_name="__main__",
         )
         tracker_mock.assert_called_with(
-            "./directory/pensieve-foobar.py.0.bin", native_traces=False
+            destination=FileDestination("./directory/pensieve-foobar.py.0.bin"),
+            native_traces=False,
         )
 
 
