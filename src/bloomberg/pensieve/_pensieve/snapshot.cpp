@@ -164,16 +164,8 @@ getHighWatermark(const allocations_t& records)
 }
 
 PyObject*
-Py_GetSnapshotAllocationRecords(
-        const allocations_t& all_records,
-        size_t record_index,
-        bool merge_threads)
+Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t& stack_to_allocation)
 {
-    if (all_records.empty()) {
-        return PyList_New(0);
-    }
-    const auto stack_to_allocation = reduceSnapshotAllocations(all_records, record_index, merge_threads);
-
     PyObject* list = PyList_New(stack_to_allocation.size());
     if (list == nullptr) {
         return nullptr;
@@ -189,6 +181,19 @@ Py_GetSnapshotAllocationRecords(
         PyList_SET_ITEM(list, list_index++, pyrecord);
     }
     return list;
+}
+
+PyObject*
+Py_GetSnapshotAllocationRecords(
+        const allocations_t& all_records,
+        size_t record_index,
+        bool merge_threads)
+{
+    if (all_records.empty()) {
+        return PyList_New(0);
+    }
+    const auto stack_to_allocation = reduceSnapshotAllocations(all_records, record_index, merge_threads);
+    return Py_ListFromSnapshotAllocationRecords(stack_to_allocation);
 }
 
 }  // namespace pensieve::api
