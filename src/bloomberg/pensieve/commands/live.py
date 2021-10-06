@@ -20,7 +20,7 @@ class LiveCommand:
     def run(self, args: argparse.Namespace) -> None:
         reporter = LiveAllocationsReporter()
 
-        with Live(screen=True) as live:
+        with Live(screen=True, auto_refresh=False, refresh_per_second=30) as live:
             for record in SocketReader(port=args.port).get_allocation_records():
                 reporter.update(record)
                 live.update(reporter)
