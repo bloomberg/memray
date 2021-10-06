@@ -6,6 +6,8 @@
 
 namespace pensieve::io {
 
+const int MAX_BUF_SIZE = 4096;
+
 class Source
 {
   public:
@@ -37,6 +39,18 @@ class FileSource : public Source
     std::ifstream d_stream;
 };
 
+class SocketBuf : public std::streambuf
+{
+  public:
+    explicit SocketBuf(int socket_fd);
+
+  private:
+    int underflow() override;
+    std::streamsize xsgetn(char_type* s, std::streamsize n) override;
+    int d_sockfd{-1};
+    char d_buf[MAX_BUF_SIZE];
+};
+
 class SocketSource : public Source
 {
   public:
@@ -56,6 +70,7 @@ class SocketSource : public Source
     void _close();
     int d_sockfd{-1};
     bool d_is_open{false};
+    std::unique_ptr<SocketBuf> d_socket_buf;
 };
 
 }  // namespace pensieve::io

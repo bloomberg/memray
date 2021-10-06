@@ -65,6 +65,58 @@ FileSource::~FileSource()
     _close();
 }
 
+SocketBuf::SocketBuf(int socket_fd)
+: d_sockfd(socket_fd)
+{
+    setg(d_buf, d_buf, d_buf);
+}
+
+int
+SocketBuf::underflow()
+{
+    if (gptr() < egptr()) {
+        return traits_type::to_int_type(*gptr());
+    }
+
+    ssize_t bytes_read;
+    do {
+        bytes_read = ::recv(d_sockfd, d_buf, MAX_BUF_SIZE, 0);
+    } while (bytes_read < 0 && errno == EINTR);
+
+    if (bytes_read < 0) {
+        LOG(ERROR) << "Encountered error in 'recv' call: " << strerror(errno);
+        throw IoError{"recv call failed: " + std::string(strerror(errno))};
+    }
+
+    if (bytes_read == 0) {
+        throw IoError{"Connection closed by remote"};
+    }
+
+    setg(d_buf, d_buf, d_buf + bytes_read);
+    return traits_type::to_int_type(*gptr());
+}
+
+std::streamsize
+SocketBuf::xsgetn(char* destination, std::streamsize length)
+{
+    std::streamsize needed = length;
+    while (needed > 0) {
+        if (gptr() == egptr()) {
+            // Buffer empty. Get some new data, and throw if we can't.
+            underflow();
+        }
+
+        std::streamsize available = egptr() - gptr();
+        std::streamsize to_copy = std::min(available, needed);
+
+        ::memcpy(destination, gptr(), to_copy);
+        gbump(static_cast<int>(to_copy));
+        destination += to_copy;
+        needed -= to_copy;
+    }
+    return length;
+}
+
 SocketSource::SocketSource(int port)
 {
     struct addrinfo hints = {};
@@ -109,29 +161,19 @@ SocketSource::SocketSource(int port)
 
     freeaddrinfo(all_addresses);
     d_is_open = true;
+    d_socket_buf = std::make_unique<SocketBuf>(d_sockfd);
 }
 
 void
 SocketSource::read(char* result, ssize_t length)
 {
-    while (length > 0) {
-        ssize_t ret = ::recv(d_sockfd, result, length, 0);
-        if (ret > 0) {
-            result += ret;
-            length -= ret;
-        } else if (ret == 0) {
-            LOG(DEBUG) << "Connection closed by remote";
-            throw IoError{"Connection closed by remote"};
-        } else if (ret < 0 && errno != EINTR) {
-            LOG(WARNING) << "Encountered error in 'recv' call: " << ::strerror(errno);
-            throw IoError{"recv call failed"};
-        }
-    }
+    d_socket_buf->sgetn(result, length);
 }
 
 void
 SocketSource::_close()
 {
+    d_socket_buf.reset();
     if (d_is_open) {
         ::close(d_sockfd);
     }
@@ -155,7 +197,7 @@ SocketSource::getline(std::string& result, char delimiter)
 {
     char buf;
     while (true) {
-        read(&buf, 1);
+        buf = static_cast<char>(d_socket_buf->sbumpc());
         if (buf == delimiter) {
             break;
         }
