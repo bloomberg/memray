@@ -38,13 +38,10 @@ class SnapshotAllocationAggregator
 {
   private:
     size_t d_index{0};
-    const allocations_t& d_records;
     pensieve::IntervalTree<Allocation> d_interval_tree;
-    std::unordered_map<uintptr_t, size_t> d_ptr_to_allocation{};
+    std::unordered_map<uintptr_t, Allocation> d_ptr_to_allocation{};
 
   public:
-    SnapshotAllocationAggregator(const allocations_t& records);
-
     void addAllocation(const Allocation& allocation);
     reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads);
 };

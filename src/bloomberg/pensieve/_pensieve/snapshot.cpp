@@ -4,17 +4,12 @@
 
 namespace pensieve::api {
 
-SnapshotAllocationAggregator::SnapshotAllocationAggregator(const allocations_t& records)
-: d_records(records)
-{
-}
-
 void
 SnapshotAllocationAggregator::addAllocation(const Allocation& allocation)
 {
     switch (hooks::allocatorKind(allocation.record.allocator)) {
         case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
-            d_ptr_to_allocation[allocation.record.address] = d_index;
+            d_ptr_to_allocation[allocation.record.address] = allocation;
             break;
         }
         case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
@@ -25,12 +20,12 @@ SnapshotAllocationAggregator::addAllocation(const Allocation& allocation)
             break;
         }
         case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-            auto record = allocation.record;
+            auto& record = allocation.record;
             d_interval_tree.add(record.address, record.size, allocation);
             break;
         }
         case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
-            auto record = allocation.record;
+            auto& record = allocation.record;
             d_interval_tree.remove(record.address, record.size);
             break;
         }
@@ -44,7 +39,7 @@ SnapshotAllocationAggregator::getSnapshotAllocations(bool merge_threads)
     reduced_snapshot_map_t stack_to_allocation{};
 
     for (const auto& it : d_ptr_to_allocation) {
-        const Allocation& record = d_records[it.second];
+        const Allocation& record = it.second;
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.record.tid;
         auto alloc_it = stack_to_allocation.find(std::pair(record.frame_index, thread_id));
         if (alloc_it == stack_to_allocation.end()) {
@@ -93,7 +88,7 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index, b
 {
     assert(snapshot_index < records.size());
 
-    SnapshotAllocationAggregator aggregator(records);
+    SnapshotAllocationAggregator aggregator;
 
     std::for_each(records.cbegin(), records.cbegin() + snapshot_index + 1, [&](auto& record) {
         aggregator.addAllocation(record);
