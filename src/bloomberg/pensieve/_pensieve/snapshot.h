@@ -14,8 +14,6 @@ namespace pensieve::api {
 
 using namespace tracking_api;
 
-namespace {
-
 const thread_id_t NO_THREAD_INFO = 0;
 
 struct index_thread_pair_hash
@@ -27,8 +25,6 @@ struct index_thread_pair_hash
         return std::hash<FrameTree::index_t>{}(p.first) xor std::hash<thread_id_t>{}(p.second);
     }
 };
-
-}  // namespace
 
 using allocations_t = std::vector<Allocation>;
 using reduced_snapshot_map_t = std::
