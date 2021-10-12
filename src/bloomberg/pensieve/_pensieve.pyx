@@ -225,6 +225,7 @@ cdef class AllocationRecord:
         return self._tuple[5]
 
     def stack_trace(self, max_stacks=None):
+        assert self._reader.get() != NULL, "Cannot get stack trace without reader."
         if self._stack_trace is None:
             if max_stacks is None:
                 self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4])
@@ -233,6 +234,7 @@ cdef class AllocationRecord:
         return self._stack_trace
 
     def native_stack_trace(self, max_stacks=None):
+        assert self._reader.get() != NULL, "Cannot get stack trace without reader."
         if self._native_stack_trace is None:
             if max_stacks is None:
                 self._native_stack_trace = self._reader.get().Py_GetNativeStackFrame(
