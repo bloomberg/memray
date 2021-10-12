@@ -42,6 +42,9 @@ class SnapshotAllocationAggregator
     reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads);
 };
 
+PyObject*
+Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t& stack_to_allocation);
+
 struct HighWatermark
 {
     size_t index{0};
