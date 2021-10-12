@@ -36,6 +36,7 @@ from _pensieve.sink cimport SocketSink
 from _pensieve.snapshot cimport HighWatermark
 from _pensieve.snapshot cimport Py_GetSnapshotAllocationRecords
 from _pensieve.snapshot cimport getHighWatermark
+from _pensieve.socket_reader_thread cimport BackgroundSocketReader
 from _pensieve.source cimport FileSource
 from _pensieve.source cimport SocketSource
 from _pensieve.tracking_api cimport Tracker as NativeTracker
@@ -450,22 +451,36 @@ cdef class FileReader:
 
 
 cdef class SocketReader:
+    cdef BackgroundSocketReader* _impl
     cdef shared_ptr[RecordReader] _reader
-    cdef object _header
-    def __cinit__(self, object port):
+
+    def __cinit__(self, int port):
+        self._impl = NULL
         self._create_reader(port)
-        self._header: dict = self._reader.get().getHeader()
-
-    def get_allocation_records(self):
-        cdef RecordReader* reader = self._reader.get()
-        cdef NativeAllocation native_allocation
-
-        while reader.nextAllocationRecord(&native_allocation):
-            alloc = AllocationRecord(native_allocation.toPythonObject())
-            (<AllocationRecord> alloc)._reader = self._reader
-            yield alloc
 
     cdef _create_reader(self, int port) except+:
         self._reader = make_shared[RecordReader](
             unique_ptr[SocketSource](new SocketSource(port))
         )
+
+    def __enter__(self):
+        self._impl = new BackgroundSocketReader(self._reader)
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        with nogil:
+            del self._impl
+        self._impl = NULL
+
+    def __dealloc__(self):
+        if self._impl is not NULL:
+            with nogil:
+                del self._impl
+            self._impl = NULL
+
+    def get_current_snapshot(self, *, bool merge_threads):
+        snapshot_allocations = self._impl.Py_GetSnapshotAllocationRecords(merge_threads=merge_threads)
+        for elem in snapshot_allocations:
+            alloc = AllocationRecord(elem)
+            (<AllocationRecord> alloc)._reader = self._reader
+            yield alloc

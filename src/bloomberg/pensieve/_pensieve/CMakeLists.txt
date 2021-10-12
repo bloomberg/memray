@@ -23,6 +23,7 @@ add_library(_pensieve STATIC
         record_writer.cpp
         records.cpp
         snapshot.cpp
+        socket_reader_thread.cpp
         tracking_api.cpp
         native_resolver.cpp
         interval_tree.cpp
