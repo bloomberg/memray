@@ -465,7 +465,7 @@ class TestLiveSubcommand:
 
     def test_live_tracking_waits_for_client(self):
         # GIVEN/WHEN
-        tracker = subprocess.Popen(
+        server = subprocess.Popen(
             [
                 sys.executable,
                 "-m",
@@ -482,5 +482,5 @@ class TestLiveSubcommand:
         )
 
         # THEN
-        assert b"another shell to see live results\n" in tracker.stdout.readline()
-        tracker.kill()
+        assert b"another shell to see live results\n" in server.stdout.readline()
+        server.kill()
