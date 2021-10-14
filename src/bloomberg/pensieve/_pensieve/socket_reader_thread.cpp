@@ -27,8 +27,13 @@ BackgroundSocketReader::backgroundThreadWorker()
 
 BackgroundSocketReader::BackgroundSocketReader(std::shared_ptr<api::RecordReader> reader)
 : d_record_reader(reader)
-, d_thread(&BackgroundSocketReader::backgroundThreadWorker, this)
 {
+}
+
+void
+BackgroundSocketReader::start()
+{
+    d_thread = std::thread(&BackgroundSocketReader::backgroundThreadWorker, this);
 }
 
 BackgroundSocketReader::~BackgroundSocketReader()

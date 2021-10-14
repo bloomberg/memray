@@ -18,8 +18,8 @@ class BackgroundSocketReader
     std::mutex d_mutex;
     std::shared_ptr<api::RecordReader> d_record_reader;
 
-    std::thread d_thread;
     api::SnapshotAllocationAggregator d_aggregator;
+    std::thread d_thread;
 
     void backgroundThreadWorker();
 
@@ -27,6 +27,7 @@ class BackgroundSocketReader
     explicit BackgroundSocketReader(std::shared_ptr<api::RecordReader> reader);
     ~BackgroundSocketReader();
 
+    void start();
     PyObject* Py_GetSnapshotAllocationRecords(bool merge_threads);
 };
 

@@ -465,6 +465,7 @@ cdef class SocketReader:
 
     def __enter__(self):
         self._impl = new BackgroundSocketReader(self._reader)
+        self._impl.start()
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
