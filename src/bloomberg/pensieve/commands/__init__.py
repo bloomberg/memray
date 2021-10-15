@@ -17,6 +17,7 @@ from . import flamegraph
 from . import live
 from . import run
 from . import table
+from . import tree
 
 _EPILOG = textwrap.dedent(
     """\
@@ -55,6 +56,7 @@ _COMMANDS: List[Command] = [
     flamegraph.FlamegraphCommand(),
     table.TableCommand(),
     live.LiveCommand(),
+    tree.TreeCommand(),
 ]
 
 
