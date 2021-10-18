@@ -1,46 +1,55 @@
+from unittest import mock
+
 from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve.reporters.live import MAX_TABLE_SIZE
 from bloomberg.pensieve.reporters.live import LiveAllocationsReporter
 from tests.utils import MockAllocationRecord
 
 
 def test_initializes_with_empty_table():
     # GIVEN
-    reporter = LiveAllocationsReporter()
+    reader = mock.Mock()
+    reader.get_current_snapshot.side_effect = [[]]
+    reporter = LiveAllocationsReporter(reader)
 
-    # WHEN / THEN
+    # WHEN
     table = reporter.get_current_table()
+
+    # THEN
     assert table.row_count == 0
 
 
-def test_shows_initial_allocations():
+def test_shows_single_allocation():
     # GIVEN
-    reporter = LiveAllocationsReporter()
-    record = MockAllocationRecord(
-        tid=1,
-        address=0x1000000,
-        size=1024,
-        allocator=AllocatorType.MALLOC,
-        stack_id=1,
-        n_allocations=1,
-        _stack=[],
-    )
+    reader = mock.Mock()
+    reader.get_current_snapshot.side_effect = [
+        [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[],
+            )
+        ]
+    ]
+    reporter = LiveAllocationsReporter(reader)
 
     # WHEN
-    reporter.update(record)
+    table = reporter.get_current_table()
 
     # THEN
-    table = reporter.get_current_table()
     assert table.row_count == 1
 
 
-def test_shows_largest_n_allocations():
+def test_shows_all_allocations():
     # GIVEN
-    reporter = LiveAllocationsReporter()
-
-    def record_generator():
-        for i in range(MAX_TABLE_SIZE + 1):
-            yield MockAllocationRecord(
+    table_size = 10
+    reader = mock.Mock()
+    reader.get_current_snapshot.side_effect = [
+        [
+            MockAllocationRecord(
                 tid=1,
                 address=0x1000000,
                 size=1024 * (i + 1),
@@ -51,12 +60,13 @@ def test_shows_largest_n_allocations():
                     (f"function{i}", "/src/lel.py", 18),
                 ],
             )
+            for i in range(table_size)
+        ]
+    ]
+    reporter = LiveAllocationsReporter(reader)
 
     # WHEN
-    for record in record_generator():
-        reporter.update(record)
+    table = reporter.get_current_table()
 
     # THEN
-    table = reporter.get_current_table()
-    assert table.row_count == MAX_TABLE_SIZE
-    # assert "function0" not in something_to_get_rows(table)
+    assert table.row_count == table_size
