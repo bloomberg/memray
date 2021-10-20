@@ -480,6 +480,7 @@ cdef class SocketReader:
             self._impl = NULL
 
     def get_current_snapshot(self, *, bool merge_threads):
+        assert self._impl is not NULL
         snapshot_allocations = self._impl.Py_GetSnapshotAllocationRecords(merge_threads=merge_threads)
         for elem in snapshot_allocations:
             alloc = AllocationRecord(elem)
