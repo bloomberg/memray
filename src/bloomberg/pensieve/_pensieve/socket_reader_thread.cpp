@@ -45,8 +45,11 @@ BackgroundSocketReader::~BackgroundSocketReader()
 PyObject*
 BackgroundSocketReader::Py_GetSnapshotAllocationRecords(bool merge_threads)
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
-    const auto stack_to_allocation = d_aggregator.getSnapshotAllocations(merge_threads);
+    api::reduced_snapshot_map_t stack_to_allocation;
+    {
+        std::lock_guard<std::mutex> lock(d_mutex);
+        stack_to_allocation = d_aggregator.getSnapshotAllocations(merge_threads);
+    }
     return api::Py_ListFromSnapshotAllocationRecords(stack_to_allocation);
 }
 
