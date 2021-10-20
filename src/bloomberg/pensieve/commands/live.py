@@ -22,7 +22,8 @@ class LiveCommand:
         reader = SocketReader(port=args.port)
         reporter = LiveAllocationsReporter(reader)
 
-        with Live() as live, reader:
-            live.update(reporter)
-            while True:
-                time.sleep(1)
+        with reader:
+            with Live() as live:
+                live.update(reporter)
+                while True:
+                    time.sleep(1)
