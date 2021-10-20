@@ -24,6 +24,11 @@ class BackgroundSocketReader
     void backgroundThreadWorker();
 
   public:
+    BackgroundSocketReader(BackgroundSocketReader& other) = delete;
+    BackgroundSocketReader(BackgroundSocketReader&& other) = delete;
+    void operator=(const BackgroundSocketReader&) = delete;
+    void operator=(BackgroundSocketReader&&) = delete;
+
     explicit BackgroundSocketReader(std::shared_ptr<api::RecordReader> reader);
     ~BackgroundSocketReader();
 
