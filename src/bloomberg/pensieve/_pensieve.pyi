@@ -98,6 +98,8 @@ class SocketReader:
     def get_current_snapshot(
         self, *, merge_threads: bool
     ) -> Iterator[AllocationRecord]: ...
+    @property
+    def command_line(self) -> Optional[str]: ...
 
 class Tracker:
     @property

@@ -7,10 +7,7 @@ import textwrap
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
 from typing import Iterator
-from typing import List
-from typing import Tuple
 
 import pytest
 
@@ -113,7 +110,7 @@ def run_and_get_reader_at_snapshot_point(
         with open(allocations_made, "r") as f1:
             assert f1.read() == "done"
 
-        print("[parent] Defering to caller")
+        print("[parent] Deferring to caller")
         # Wait a bit of time, for background thread to recieve + process the records.
         time.sleep(0.1)
         yield reader
@@ -199,3 +196,21 @@ class TestSocketReader:
         assert symbol == "valloc"
         assert filename == "src/bloomberg/pensieve/_pensieve.pyx"
         assert 0 < lineno < 200
+
+    @pytest.mark.valgrind
+    def test_command_line(self, free_port: int, tmp_path: Path) -> None:
+        # GIVEN
+        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
+            ALLOCATE_THEN_FREE_THEN_SNAPSHOT,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        )
+
+        # WHEN
+        with reader_at_snapshot_point as reader:
+            command_line = reader.command_line
+
+        # THEN
+        assert command_line
+        assert command_line.startswith("-c")  # these samples run with `python -c`
+        assert str(free_port) in command_line

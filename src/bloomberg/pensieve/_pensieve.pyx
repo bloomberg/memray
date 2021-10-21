@@ -453,10 +453,14 @@ cdef class FileReader:
 cdef class SocketReader:
     cdef BackgroundSocketReader* _impl
     cdef shared_ptr[RecordReader] _reader
+    cdef object _header
 
     def __cinit__(self, int port):
         self._impl = NULL
         self._create_reader(port)
+
+    def __init__(self, port: int):
+        self._header = {}
 
     cdef _create_reader(self, int port) except+:
         self._reader = make_shared[RecordReader](
@@ -464,6 +468,7 @@ cdef class SocketReader:
         )
 
     def __enter__(self):
+        self._header = self._reader.get().getHeader()
         self._impl = new BackgroundSocketReader(self._reader)
         self._impl.start()
         return self
@@ -478,6 +483,12 @@ cdef class SocketReader:
             with nogil:
                 del self._impl
             self._impl = NULL
+
+    @property
+    def command_line(self):
+        if not self._header:
+            return None
+        return self._header["command_line"]
 
     def get_current_snapshot(self, *, bool merge_threads):
         assert self._impl is not NULL

@@ -1,6 +1,7 @@
 from rich.console import Console
 from rich.console import ConsoleOptions
 from rich.console import RenderResult
+from rich.markup import escape
 from rich.table import Column
 from rich.table import Table
 
@@ -46,4 +47,6 @@ class LiveAllocationsReporter:
         console: Console,
         options: ConsoleOptions,
     ) -> RenderResult:
+        if self.reader.command_line:
+            yield f"[bold]Command line:[/] {escape(self.reader.command_line)}"
         yield self.get_current_table()
