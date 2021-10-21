@@ -23,7 +23,7 @@ class LiveAllocationsReporter:
             expand=True,
         )
         snapshot = list(self.reader.get_current_snapshot(merge_threads=False))
-        for record in reversed(snapshot):
+        for record in sorted(snapshot, key=lambda r: r.size, reverse=True):
             stack_trace = list(record.stack_trace(max_stacks=1))
 
             location = "???"
