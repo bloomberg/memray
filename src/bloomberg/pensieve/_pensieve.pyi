@@ -4,6 +4,7 @@ from types import TracebackType
 from typing import Any
 from typing import Callable
 from typing import Iterable
+from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -12,6 +13,7 @@ from typing import Union
 from typing import overload
 
 from . import Destination
+from ._destination import SocketDestination as SocketDestination
 from ._metadata import Metadata
 
 PythonStackElement = Tuple[str, str, int]
@@ -86,7 +88,16 @@ class FileReader:
 
 class SocketReader:
     def __init__(self, port: int) -> None: ...
-    def get_allocation_records(self) -> Iterable[AllocationRecord]: ...
+    def __enter__(self) -> "SocketReader": ...
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        exc_traceback: Optional[TracebackType],
+    ) -> Any: ...
+    def get_current_snapshot(
+        self, *, merge_threads: bool
+    ) -> Iterator[AllocationRecord]: ...
 
 class Tracker:
     @property

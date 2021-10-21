@@ -1,4 +1,5 @@
 import argparse
+import time
 
 from rich.live import Live
 
@@ -18,10 +19,11 @@ class LiveCommand:
         )
 
     def run(self, args: argparse.Namespace) -> None:
-        reporter = LiveAllocationsReporter()
+        reader = SocketReader(port=args.port)
+        reporter = LiveAllocationsReporter(reader)
 
-        with Live(screen=True, auto_refresh=False, refresh_per_second=30) as live:
-            for record in SocketReader(port=args.port).get_allocation_records():
-                reporter.update(record)
+        with reader:
+            with Live() as live:
                 live.update(reporter)
-            live.console.input()
+                while True:
+                    time.sleep(1)
