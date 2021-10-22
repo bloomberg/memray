@@ -42,6 +42,7 @@ from _pensieve.source cimport SocketSource
 from _pensieve.tracking_api cimport Tracker as NativeTracker
 from _pensieve.tracking_api cimport install_trace_function
 from libc.errno cimport errno
+from libc.stdint cimport uint16_t
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport make_shared
@@ -275,6 +276,7 @@ cdef class AllocationRecord:
                 f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}, "
                 f"allocations={self.n_allocations}>")
 
+
 cdef class Tracker:
     cdef bool _native_traces
     cdef object _previous_profile_func
@@ -300,7 +302,7 @@ cdef class Tracker:
 
         elif isinstance(destination, SocketDestination):
             self._writer = unique_ptr[RecordWriter](
-                new RecordWriter(unique_ptr[Sink](new SocketSink(destination.port)),
+                new RecordWriter(unique_ptr[Sink](new SocketSink(destination.host, destination.port)),
                                  command_line,
                                  native_traces))
         else:
