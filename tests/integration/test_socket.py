@@ -5,12 +5,12 @@ import subprocess
 import sys
 import textwrap
 import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import List
+from typing import Iterator
 
 import pytest
 
-from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve._pensieve import AllocatorType
 from bloomberg.pensieve._pensieve import SocketReader
 from tests.utils import filter_relevant_allocations
@@ -83,9 +83,10 @@ ALLOCATE_MANY_THEN_SNAPSHOT_THEN_FREE_MANY = textwrap.dedent(
 )
 
 
-def get_snapshot_from_sample_program(
+@contextmanager
+def run_and_get_reader_at_snapshot_point(
     program: str, *, tmp_path: Path, free_port: int, **kwargs
-) -> List[AllocationRecord]:
+) -> Iterator[SocketReader]:
     allocations_made = tmp_path / "allocations_made.event"
     snapshot_taken = tmp_path / "snapshot_taken.event"
     os.mkfifo(allocations_made)
@@ -109,12 +110,12 @@ def get_snapshot_from_sample_program(
         with open(allocations_made, "r") as f1:
             assert f1.read() == "done"
 
-        print("[parent] Getting current snapshot")
+        print("[parent] Deferring to caller")
         # Wait a bit of time, for background thread to recieve + process the records.
         time.sleep(0.1)
-        snapshot = list(reader.get_current_snapshot(merge_threads=False))
+        yield reader
 
-        print("[parent] Notifying snapshot taken")
+        print("[parent] Notifying program to continue")
         with open(snapshot_taken, "w") as f2:
             f2.write("done")
         print("[parent] Will close socket reader now.")
@@ -122,35 +123,43 @@ def get_snapshot_from_sample_program(
     print("[parent] Waiting on child to exit.")
     assert proc.wait(timeout=TIMEOUT) == 0
 
-    return list(filter_relevant_allocations(snapshot))
-
 
 #
 # Actual tests
 #
-class TestSocketWriter:
+class TestSocketReader:
     @pytest.mark.valgrind
     def test_empty_snapshot_after_free(self, free_port: int, tmp_path: Path) -> None:
-        # GIVEN / WHEN
-        snapshot = get_snapshot_from_sample_program(
+        # GIVEN
+        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
             ALLOCATE_THEN_FREE_THEN_SNAPSHOT,
             tmp_path=tmp_path,
             free_port=free_port,
         )
 
+        # WHEN
+        with reader_at_snapshot_point as reader:
+            unfiltered_snapshot = list(reader.get_current_snapshot(merge_threads=False))
+
         # THEN
+        snapshot = list(filter_relevant_allocations(unfiltered_snapshot))
         assert snapshot == []
 
     @pytest.mark.valgrind
     def test_single_allocation_snapshot(self, free_port: int, tmp_path: Path) -> None:
         # GIVEN / WHEN
-        snapshot = get_snapshot_from_sample_program(
+        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
             ALLOCATE_THEN_SNAPSHOT_THEN_FREE,
             tmp_path=tmp_path,
             free_port=free_port,
         )
 
+        # WHEN
+        with reader_at_snapshot_point as reader:
+            unfiltered_snapshot = list(reader.get_current_snapshot(merge_threads=False))
+
         # THEN
+        snapshot = list(filter_relevant_allocations(unfiltered_snapshot))
         assert len(snapshot) == 1
 
         allocation = snapshot[0]
@@ -165,13 +174,18 @@ class TestSocketWriter:
     @pytest.mark.valgrind
     def test_multi_allocation_snapshot(self, free_port: int, tmp_path: Path) -> None:
         # GIVEN / WHEN
-        snapshot = get_snapshot_from_sample_program(
+        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
             ALLOCATE_MANY_THEN_SNAPSHOT_THEN_FREE_MANY,
             tmp_path=tmp_path,
             free_port=free_port,
         )
 
+        # WHEN
+        with reader_at_snapshot_point as reader:
+            unfiltered_snapshot = list(reader.get_current_snapshot(merge_threads=False))
+
         # THEN
+        snapshot = list(filter_relevant_allocations(unfiltered_snapshot))
         assert len(snapshot) == 1
 
         allocation = snapshot[0]
@@ -182,3 +196,21 @@ class TestSocketWriter:
         assert symbol == "valloc"
         assert filename == "src/bloomberg/pensieve/_pensieve.pyx"
         assert 0 < lineno < 200
+
+    @pytest.mark.valgrind
+    def test_command_line(self, free_port: int, tmp_path: Path) -> None:
+        # GIVEN
+        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
+            ALLOCATE_THEN_FREE_THEN_SNAPSHOT,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        )
+
+        # WHEN
+        with reader_at_snapshot_point as reader:
+            command_line = reader.command_line
+
+        # THEN
+        assert command_line
+        assert command_line.startswith("-c")  # these samples run with `python -c`
+        assert str(free_port) in command_line
