@@ -105,23 +105,28 @@ def run_and_get_reader_at_snapshot_point(
         ]
     )
 
-    with SocketReader(port=free_port) as reader:
-        print("[parent] Waiting on allocations made")
-        with open(allocations_made, "r") as f1:
-            assert f1.read() == "done"
+    try:
+        with SocketReader(port=free_port) as reader:
+            print("[parent] Waiting on allocations made")
+            with open(allocations_made, "r") as f1:
+                assert f1.read() == "done"
 
-        print("[parent] Deferring to caller")
-        # Wait a bit of time, for background thread to recieve + process the records.
-        time.sleep(0.1)
-        yield reader
+            print("[parent] Deferring to caller")
+            # Wait a bit of time, for background thread to recieve + process the records.
+            time.sleep(0.1)
+            yield reader
 
-        print("[parent] Notifying program to continue")
-        with open(snapshot_taken, "w") as f2:
-            f2.write("done")
-        print("[parent] Will close socket reader now.")
-
-    print("[parent] Waiting on child to exit.")
-    assert proc.wait(timeout=TIMEOUT) == 0
+            print("[parent] Notifying program to continue")
+            with open(snapshot_taken, "w") as f2:
+                f2.write("done")
+            print("[parent] Will close socket reader now.")
+    finally:
+        print("[parent] Waiting on child to exit.")
+        try:
+            assert proc.wait(timeout=TIMEOUT) == 0
+        except subprocess.TimeoutExpired:
+            print("[parent] Killing child, after timeout.")
+            proc.kill()
 
 
 #
