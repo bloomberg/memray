@@ -379,7 +379,7 @@ cdef class FileReader:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.close()
 
-    def __del__(self):
+    def __dealloc__(self):
         self._reader.reset()
 
     cdef inline void _populate_allocations(self) except*:
