@@ -131,6 +131,7 @@ def run_till_snapshot_point(
         except subprocess.TimeoutExpired:
             print("[parent] Killing child, after timeout.")
             proc.kill()
+            raise
 
 
 #
