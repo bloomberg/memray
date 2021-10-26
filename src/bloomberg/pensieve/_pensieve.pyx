@@ -469,7 +469,11 @@ cdef class SocketReader:
         self._impl = NULL
 
     def __enter__(self):
-        assert self._impl is NULL
+        if self._impl is not NULL:
+            raise ValueError(
+                "Can not enter the context of a SocketReader object more than "
+                "once, at the same time."
+            )
 
         self._reader = make_shared[RecordReader](
             unique_ptr[SocketSource](new SocketSource(self._port))
@@ -498,7 +502,9 @@ cdef class SocketReader:
         return self._header["command_line"]
 
     def get_current_snapshot(self, *, bool merge_threads):
-        assert self._impl is not NULL
+        if self._impl is NULL:
+            raise ValueError("No active thread to get snapshot from.")
+
         snapshot_allocations = self._impl.Py_GetSnapshotAllocationRecords(merge_threads=merge_threads)
         for elem in snapshot_allocations:
             alloc = AllocationRecord(elem)

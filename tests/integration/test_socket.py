@@ -132,7 +132,73 @@ def run_and_get_reader_at_snapshot_point(
 #
 # Actual tests
 #
-class TestSocketReader:
+class TestSocketReaderErrorHandling:
+    @pytest.mark.valgrind
+    def test_get_current_snapshot_raises_before_context(self, free_port: int) -> None:
+        # GIVEN
+        reader = SocketReader(port=free_port)
+
+        # WHEN / THEN
+        with pytest.raises(ValueError):
+            next(reader.get_current_snapshot(merge_threads=False))
+
+    @pytest.mark.valgrind
+    def test_get_current_snapshot_raises_after_context(
+        self, free_port: int, tmp_path: Path
+    ) -> None:
+        # GIVEN
+        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
+            ALLOCATE_THEN_SNAPSHOT_THEN_FREE,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        )
+
+        # WHEN
+        with reader_at_snapshot_point as reader:
+            pass
+
+        # THEN
+        with pytest.raises(ValueError):
+            next(reader.get_current_snapshot(merge_threads=False))
+
+    @pytest.mark.valgrind
+    def test_get_current_snapshot_first_yield_after_context_raises(
+        self, free_port: int, tmp_path: Path
+    ) -> None:
+        # GIVEN
+        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
+            ALLOCATE_THEN_SNAPSHOT_THEN_FREE,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        )
+
+        # WHEN
+        with reader_at_snapshot_point as reader:
+            snapshot = reader.get_current_snapshot(merge_threads=False)
+
+        # THEN
+        with pytest.raises(ValueError):
+            next(snapshot)
+
+    @pytest.mark.valgrind
+    def test_nested_context_is_diallowed(self, free_port: int, tmp_path: Path) -> None:
+        # GIVEN
+        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
+            ALLOCATE_THEN_FREE_THEN_SNAPSHOT,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        )
+
+        # WHEN
+        with reader_at_snapshot_point as reader:
+            with pytest.raises(
+                ValueError, match="Can not enter (.*)context (.*)more than once"
+            ):
+                with reader:
+                    pass
+
+
+class TestSocketReaderAccess:
     @pytest.mark.valgrind
     def test_empty_snapshot_after_free(self, free_port: int, tmp_path: Path) -> None:
         # GIVEN
