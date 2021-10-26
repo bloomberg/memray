@@ -286,6 +286,36 @@ class TestSocketReaderAccess:
         assert 0 < lineno < 200
 
     @pytest.mark.valgrind
+    def test_multiple_context_entries_does_not_crash(
+        self, free_port: int, tmp_path: Path
+    ) -> None:
+        # GIVEN
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_THEN_FREE_THEN_SNAPSHOT
+        tmp_path_one = tmp_path / "one"
+        tmp_path_one.mkdir()
+        tmp_path_two = tmp_path / "two"
+        tmp_path_two.mkdir()
+
+        # WHEN
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path_one,
+            free_port=free_port,
+        ):
+            pass
+
+        # THEN
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path_two,
+            free_port=free_port,
+        ):
+            pass
+
+    @pytest.mark.valgrind
     def test_command_line(self, free_port: int, tmp_path: Path) -> None:
         # GIVEN
         reader = SocketReader(port=free_port)
