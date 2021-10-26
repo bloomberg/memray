@@ -84,9 +84,13 @@ ALLOCATE_MANY_THEN_SNAPSHOT_THEN_FREE_MANY = textwrap.dedent(
 
 
 @contextmanager
-def run_and_get_reader_at_snapshot_point(
-    program: str, *, tmp_path: Path, free_port: int, **kwargs
-) -> Iterator[SocketReader]:
+def run_till_snapshot_point(
+    program: str,
+    *,
+    reader: SocketReader,
+    tmp_path: Path,
+    free_port: int,
+) -> Iterator[None]:
     allocations_made = tmp_path / "allocations_made.event"
     snapshot_taken = tmp_path / "snapshot_taken.event"
     os.mkfifo(allocations_made)
@@ -106,7 +110,7 @@ def run_and_get_reader_at_snapshot_point(
     )
 
     try:
-        with SocketReader(port=free_port) as reader:
+        with reader:
             print("[parent] Waiting on allocations made")
             with open(allocations_made, "r") as f1:
                 assert f1.read() == "done"
@@ -114,7 +118,7 @@ def run_and_get_reader_at_snapshot_point(
             print("[parent] Deferring to caller")
             # Wait a bit of time, for background thread to recieve + process the records.
             time.sleep(0.1)
-            yield reader
+            yield
 
             print("[parent] Notifying program to continue")
             with open(snapshot_taken, "w") as f2:
@@ -147,14 +151,16 @@ class TestSocketReaderErrorHandling:
         self, free_port: int, tmp_path: Path
     ) -> None:
         # GIVEN
-        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
-            ALLOCATE_THEN_SNAPSHOT_THEN_FREE,
-            tmp_path=tmp_path,
-            free_port=free_port,
-        )
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_THEN_SNAPSHOT_THEN_FREE
 
         # WHEN
-        with reader_at_snapshot_point as reader:
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        ):
             pass
 
         # THEN
@@ -166,14 +172,16 @@ class TestSocketReaderErrorHandling:
         self, free_port: int, tmp_path: Path
     ) -> None:
         # GIVEN
-        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
-            ALLOCATE_THEN_SNAPSHOT_THEN_FREE,
-            tmp_path=tmp_path,
-            free_port=free_port,
-        )
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_THEN_SNAPSHOT_THEN_FREE
 
         # WHEN
-        with reader_at_snapshot_point as reader:
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        ):
             snapshot = reader.get_current_snapshot(merge_threads=False)
 
         # THEN
@@ -183,14 +191,17 @@ class TestSocketReaderErrorHandling:
     @pytest.mark.valgrind
     def test_nested_context_is_diallowed(self, free_port: int, tmp_path: Path) -> None:
         # GIVEN
-        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
-            ALLOCATE_THEN_FREE_THEN_SNAPSHOT,
-            tmp_path=tmp_path,
-            free_port=free_port,
-        )
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_THEN_FREE_THEN_SNAPSHOT
 
         # WHEN
-        with reader_at_snapshot_point as reader:
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        ):
+            # THEN
             with pytest.raises(
                 ValueError, match="Can not enter (.*)context (.*)more than once"
             ):
@@ -202,14 +213,16 @@ class TestSocketReaderAccess:
     @pytest.mark.valgrind
     def test_empty_snapshot_after_free(self, free_port: int, tmp_path: Path) -> None:
         # GIVEN
-        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
-            ALLOCATE_THEN_FREE_THEN_SNAPSHOT,
-            tmp_path=tmp_path,
-            free_port=free_port,
-        )
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_THEN_FREE_THEN_SNAPSHOT
 
         # WHEN
-        with reader_at_snapshot_point as reader:
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        ):
             unfiltered_snapshot = list(reader.get_current_snapshot(merge_threads=False))
 
         # THEN
@@ -218,15 +231,17 @@ class TestSocketReaderAccess:
 
     @pytest.mark.valgrind
     def test_single_allocation_snapshot(self, free_port: int, tmp_path: Path) -> None:
-        # GIVEN / WHEN
-        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
-            ALLOCATE_THEN_SNAPSHOT_THEN_FREE,
-            tmp_path=tmp_path,
-            free_port=free_port,
-        )
+        # GIVEN
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_THEN_SNAPSHOT_THEN_FREE
 
         # WHEN
-        with reader_at_snapshot_point as reader:
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        ):
             unfiltered_snapshot = list(reader.get_current_snapshot(merge_threads=False))
 
         # THEN
@@ -244,15 +259,17 @@ class TestSocketReaderAccess:
 
     @pytest.mark.valgrind
     def test_multi_allocation_snapshot(self, free_port: int, tmp_path: Path) -> None:
-        # GIVEN / WHEN
-        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
-            ALLOCATE_MANY_THEN_SNAPSHOT_THEN_FREE_MANY,
-            tmp_path=tmp_path,
-            free_port=free_port,
-        )
+        # GIVEN
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_MANY_THEN_SNAPSHOT_THEN_FREE_MANY
 
         # WHEN
-        with reader_at_snapshot_point as reader:
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        ):
             unfiltered_snapshot = list(reader.get_current_snapshot(merge_threads=False))
 
         # THEN
@@ -271,14 +288,16 @@ class TestSocketReaderAccess:
     @pytest.mark.valgrind
     def test_command_line(self, free_port: int, tmp_path: Path) -> None:
         # GIVEN
-        reader_at_snapshot_point = run_and_get_reader_at_snapshot_point(
-            ALLOCATE_THEN_FREE_THEN_SNAPSHOT,
-            tmp_path=tmp_path,
-            free_port=free_port,
-        )
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_THEN_FREE_THEN_SNAPSHOT
 
         # WHEN
-        with reader_at_snapshot_point as reader:
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        ):
             command_line = reader.command_line
 
         # THEN
