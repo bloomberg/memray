@@ -466,7 +466,6 @@ cdef class SocketReader:
     cdef _teardown(self):
         with nogil:
             del self._impl
-            self._reader.reset()
         self._impl = NULL
 
     def __enter__(self):
@@ -486,6 +485,7 @@ cdef class SocketReader:
         assert self._impl is not NULL
 
         self._teardown()
+        self._reader.get().close()
 
     def __dealloc__(self):
         if self._impl is not NULL:
