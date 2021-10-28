@@ -419,9 +419,6 @@ class TestReporterSubCommands:
 
 
 class TestLiveSubcommand:
-    @pytest.mark.xfail(
-        reason="There is no graceful exit in the `live` subcommand right now."
-    )
     def test_live_tracking(self, free_port):
 
         # GIVEN
@@ -438,6 +435,8 @@ class TestLiveSubcommand:
                 "json.tool",
                 "--help",
             ],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
         )
 
         client = subprocess.Popen(
@@ -454,7 +453,7 @@ class TestLiveSubcommand:
         # WHEN
         try:
             server.wait(timeout=5)
-            client.communicate(timeout=1)
+            client.communicate(b"q", timeout=1)
         except subprocess.TimeoutExpired:
             server.terminate()
             client.terminate()
