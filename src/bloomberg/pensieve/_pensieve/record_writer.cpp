@@ -24,13 +24,6 @@ RecordWriter::RecordWriter(
 }
 
 bool
-RecordWriter::flush()
-{
-    std::lock_guard<std::mutex> lock(d_mutex);
-    return _flush();
-}
-
-bool
 RecordWriter::_flush()
 {
     if (!d_used_bytes) {
