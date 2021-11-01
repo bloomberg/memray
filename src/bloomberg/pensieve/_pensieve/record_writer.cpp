@@ -2,7 +2,6 @@
 #include <fcntl.h>
 #include <stdexcept>
 
-#include "exceptions.h"
 #include "record_writer.h"
 
 namespace pensieve::tracking_api {
@@ -57,13 +56,10 @@ RecordWriter::writeHeader(bool seek_to_start)
 
     d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     d_header.stats = d_stats;
-    try {
-        writeSimpleType(d_header.magic);
-        writeSimpleType(d_header.version);
-        writeSimpleType(d_header.native_traces);
-        writeSimpleType(d_header.stats);
-        writeString(d_header.command_line.c_str());
-    } catch (const pensieve::exception::IoError&) {
+    if (!writeSimpleType(d_header.magic) or !writeSimpleType(d_header.version)
+        or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.stats)
+        or !writeString(d_header.command_line.c_str()))
+    {
         return false;
     }
 

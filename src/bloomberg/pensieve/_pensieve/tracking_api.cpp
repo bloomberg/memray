@@ -101,7 +101,9 @@ Tracker::Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces
         python_stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
     });
 
-    d_writer->writeHeader(false);
+    if (!d_writer->writeHeader(false)) {
+        throw IoError{"Failed to write output header"};
+    }
     updateModuleCache();
 
     RecursionGuard guard;
@@ -149,9 +151,7 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 
     AllocationRecord
             record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, native_index};
-    try {
-        d_writer->writeRecord(RecordType::ALLOCATION, record);
-    } catch (const IoError&) {
+    if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
@@ -172,9 +172,7 @@ Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
     RecursionGuard guard;
     int lineno = getCurrentPythonLineNumber();
     AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, 0};
-    try {
-        d_writer->writeRecord(RecordType::ALLOCATION, record);
-    } catch (const IoError&) {
+    if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
@@ -216,15 +214,13 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
                 RecordType::SEGMENT_HEADER,
                 SegmentHeader{filename, segments.size(), info->dlpi_addr}))
     {
+        std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
+        Tracker::deactivate();
         return 1;
     }
 
     for (const auto& segment : segments) {
-        try {
-            if (!writer->writeRecordUnsafe(RecordType::SEGMENT, segment)) {
-                return 1;
-            }
-        } catch (const IoError&) {
+        if (!writer->writeRecordUnsafe(RecordType::SEGMENT, segment)) {
             std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
             Tracker::deactivate();
             return 1;
@@ -241,9 +237,7 @@ Tracker::updateModuleCache()
         return;
     }
     auto writer_lock = d_writer->acquireLock();
-    try {
-        d_writer->writeSimpleType(RecordType::MEMORY_MAP_START);
-    } catch (const IoError&) {
+    if (!d_writer->writeSimpleType(RecordType::MEMORY_MAP_START)) {
         std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
@@ -259,9 +253,7 @@ Tracker::registerFrame(const RawFrame& frame)
         pyframe_map_val_t frame_index{
                 frame_id,
                 Frame{frame.function_name, frame.filename, frame.parent_lineno}};
-        try {
-            d_writer->writeRecord(RecordType::FRAME_INDEX, frame_index);
-        } catch (const IoError&) {
+        if (!d_writer->writeRecord(RecordType::FRAME_INDEX, frame_index)) {
             std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
             deactivate();
         }
@@ -274,9 +266,7 @@ Tracker::popFrame(const RawFrame& frame)
 {
     const frame_id_t frame_id = registerFrame(frame);
     const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::POP};
-    try {
-        d_writer->writeRecord(RecordType::FRAME, entry);
-    } catch (const IoError&) {
+    if (!d_writer->writeRecord(RecordType::FRAME, entry)) {
         std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
@@ -287,9 +277,7 @@ Tracker::pushFrame(const RawFrame& frame)
 {
     const frame_id_t frame_id = registerFrame(frame);
     const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::PUSH};
-    try {
-        d_writer->writeRecord(RecordType::FRAME, entry);
-    } catch (const IoError&) {
+    if (!d_writer->writeRecord(RecordType::FRAME, entry)) {
         std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
