@@ -37,7 +37,7 @@ class FileSink : public pensieve::io::Sink
 class SocketSink : public Sink
 {
   public:
-    explicit SocketSink(int port);
+    explicit SocketSink(std::string host, uint16_t port);
     ~SocketSink() override;
 
     SocketSink(SocketSink&) = delete;
@@ -51,7 +51,8 @@ class SocketSink : public Sink
   private:
     void open();
 
-    int d_port;
+    const std::string d_host;
+    uint16_t d_port;
     int d_socket_fd{-1};
     bool d_socket_open{false};
 };

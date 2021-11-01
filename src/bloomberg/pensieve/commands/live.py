@@ -17,6 +17,7 @@ from rich.table import Table
 from bloomberg.pensieve import AllocationRecord
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import SocketReader
+from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._pensieve import size_fmt
 
 KEYS = {
@@ -239,7 +240,10 @@ class LiveCommand:
         )
 
     def run(self, args: argparse.Namespace) -> None:
-        with SocketReader(port=args.port) as reader:
+        port = args.port
+        if port >= 2 ** 16 or port <= 0:
+            raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
+        with SocketReader(port=port) as reader:
             tui = TUI(3, reader.command_line or "???")
 
             def _get_renderable() -> Layout:

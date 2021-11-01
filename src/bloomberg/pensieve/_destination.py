@@ -16,3 +16,4 @@ class FileDestination(Destination):
 @dataclass(frozen=True)
 class SocketDestination(Destination):
     port: int
+    host: typing.Optional[str] = "127.0.0.1"

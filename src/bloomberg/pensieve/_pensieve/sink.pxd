@@ -1,3 +1,4 @@
+from libc.stdint cimport int16_t
 from libcpp.string cimport string
 
 
@@ -9,4 +10,4 @@ cdef extern from "sink.h" namespace "pensieve::io":
         FileSink(const string& file_name) except +IOError
 
     cdef cppclass SocketSink(Sink):
-        SocketSink(int port) except +IOError
+        SocketSink(string host, unsigned int port) except +IOError

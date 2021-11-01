@@ -483,3 +483,44 @@ class TestLiveSubcommand:
         # THEN
         assert b"another shell to see live results\n" in server.stdout.readline()
         server.kill()
+
+    @pytest.mark.parametrize("port", [0, 2 ** 16, 1000000])
+    def test_run_live_tracking_invalid_port(self, port):
+        # GIVEN/WHEN
+        server = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "--live",
+                "--live-port",
+                str(port),
+                "-m",
+                "json.tool",
+                "--help",
+            ],
+            env={"PYTHONUNBUFFERED": "1"},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert "Invalid port" in server.stderr.readline()
+
+    @pytest.mark.parametrize("port", [0, 2 ** 16, 1000000])
+    def test_live_tracking_invalid_port(self, port):
+        # GIVEN/WHEN
+        server = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "live",
+                str(port),
+            ],
+            env={"PYTHONUNBUFFERED": "1"},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert "Invalid port" in server.stderr.readline()

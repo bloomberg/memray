@@ -2,10 +2,12 @@
 #include <cerrno>
 #include <cstdio>
 
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <stdexcept>
 #include <sys/socket.h>
+#include <utility>
 
 #include "exceptions.h"
 #include "sink.h"
@@ -48,8 +50,9 @@ FileSink::~FileSink()
     }
 }
 
-SocketSink::SocketSink(int port)
-: d_port(port)
+SocketSink::SocketSink(std::string host, uint16_t port)
+: d_host(std::move(host))
+, d_port(port)
 {
     open();
 }
@@ -88,52 +91,30 @@ void
 SocketSink::open()
 {
     int sockfd;
-    struct addrinfo hints;
-    struct addrinfo* servinfo;
-    struct addrinfo* p;
     struct sockaddr_storage their_addr;
     socklen_t sin_size;
     int yes = 1;
-    int rv;
 
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;  // bind to all of my IP addresses
+    sockaddr_in si;
+    si.sin_family = AF_INET;
+    si.sin_addr.s_addr = ::inet_addr(d_host.c_str());
+    si.sin_port = htons(d_port);
 
-    std::string port_str = std::to_string(d_port);
-    if ((rv = getaddrinfo(nullptr, port_str.c_str(), &hints, &servinfo)) != 0) {
-        LOG(ERROR) << "Encountered error in 'getaddrinfo' call: " << gai_strerror(rv);
-        throw IoError{"Failed to resolve host IP and port"};
+    if ((sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
+        LOG(ERROR) << "Encountered error in 'socket' call: " << strerror(errno);
+        throw IoError{"Failed to open socket"};
     }
 
-    // loop through all the results and bind to the first we can
-    for (p = servinfo; p != nullptr; p = p->ai_next) {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-            LOG(WARNING) << "Encountered error in 'socket' call: " << strerror(errno);
-            continue;
-        }
-
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-            ::close(sockfd);
-            freeaddrinfo(servinfo);
-            LOG(ERROR) << "Encountered error in 'setsockopt' call: " << strerror(errno);
-            throw IoError{"Failed to set socket options"};
-        }
-
-        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-            ::close(sockfd);
-            LOG(WARNING) << "Encountered error in 'bind' call: " << strerror(errno);
-            continue;
-        }
-
-        break;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+        ::close(sockfd);
+        LOG(ERROR) << "Encountered error in 'setsockopt' call: " << strerror(errno);
+        throw IoError{"Failed to set socket options"};
     }
 
-    freeaddrinfo(servinfo);
-
-    if (p == nullptr) {
-        throw IoError{"Failed to bind to port"};
+    if (bind(sockfd, (sockaddr*)&si, sizeof si) == -1) {
+        ::close(sockfd);
+        LOG(WARNING) << "Encountered error in 'bind' call: " << strerror(errno);
+        throw IoError{"Failed to bind to host and port"};
     }
 
     if (listen(sockfd, 1) == -1) {
