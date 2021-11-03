@@ -2,6 +2,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <netdb.h>
 #include <sstream>
 #include <stdexcept>
@@ -56,6 +57,11 @@ void
 FileSource::_close()
 {
     d_stream.close();
+    if (d_stream.fail()) {
+        // d_file_name might have been already destroyed at this point, so don't
+        // try to print it
+        std::cerr << "Failed to close output file, results might be incomplete" << std::endl;
+    }
 }
 bool
 FileSource::is_open()
