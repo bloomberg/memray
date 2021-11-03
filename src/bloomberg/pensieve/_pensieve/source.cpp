@@ -23,6 +23,9 @@ FileSource::FileSource(const std::string& file_name)
 : d_file_name(file_name)
 {
     d_stream.open(d_file_name, std::ios::binary | std::ios::in);
+    if (!d_stream) {
+        throw IoError{"Could not open file " + file_name + ": " + std::string(strerror(errno))};
+    }
 }
 
 void

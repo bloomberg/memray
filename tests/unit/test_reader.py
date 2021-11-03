@@ -44,3 +44,14 @@ def test_rejects_different_header_version(tmp_path):
     # THEN
     with pytest.raises(OSError, match="incompatible with this version"):
         FileReader(output).get_allocation_records()
+
+
+def test_filereader_fails_to_open_file(tmp_path):
+    """This checks that we throw in the FileSource C++ ctor when we fail to open the stream."""
+    # GIVEN
+    test_file = tmp_path / "test.bin"
+    test_file.touch(mode=000)
+
+    # WHEN/THEN
+    with pytest.raises(OSError, match="Could not open file"):
+        FileReader(test_file)
