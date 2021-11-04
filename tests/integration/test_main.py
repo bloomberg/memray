@@ -524,3 +524,50 @@ class TestLiveSubcommand:
             text=True,
         )
         assert "Invalid port" in server.stderr.readline()
+
+    def test_live_tracking_server_when_client_disconnects(self, free_port, tmp_path):
+        # GIVEN
+        test_file = tmp_path / "test.py"
+        test_file.write_text("import time; time.sleep(5)")
+        server = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "--live-port",
+                str(free_port),
+                "--live",
+                str(test_file),
+            ],
+            env={"PYTHONUNBUFFERED": "1"},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        client = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "live",
+                str(free_port),
+            ],
+            stdin=subprocess.PIPE,
+        )
+
+        # WHEN
+        try:
+            client.communicate(b"q", timeout=3)
+        except subprocess.TimeoutExpired:
+            client.terminate()
+
+        try:
+            _, stderr = server.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            server.terminate()
+            raise
+
+        # THEN
+        assert "Failed to write output, deactivating tracking" in stderr
+        assert "Encountered error in 'send' call:" not in stderr

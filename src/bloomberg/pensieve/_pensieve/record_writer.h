@@ -36,8 +36,6 @@ class RecordWriter
     bool inline writeRecordUnsafe(const RecordType& token, const T& item);
     bool writeHeader(bool seek_to_start);
 
-    bool flush();
-
     std::unique_lock<std::mutex> acquireLock();
 
   private:
