@@ -1,7 +1,9 @@
 import re
+import signal
 import subprocess
 import sys
 import textwrap
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -571,3 +573,38 @@ class TestLiveSubcommand:
         # THEN
         assert "Failed to write output, deactivating tracking" in stderr
         assert "Encountered error in 'send' call:" not in stderr
+
+    def test_live_tracking_server_exits_properly_on_sigint(self):
+        # GIVEN
+        server = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "--live",
+                "-m",
+                "json.tool",
+                "--help",
+            ],
+            env={"PYTHONUNBUFFERED": "1"},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # WHEN
+        server.stdout.readline()  # wait for the startup message
+        time.sleep(0.1)  # ensure that it's waiting on the socket
+
+        server.send_signal(signal.SIGINT)
+        try:
+            _, stderr = server.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            server.kill()
+            raise
+
+        # THEN
+        assert server.returncode == 1
+        assert stderr
+        assert b"Exception ignored" not in stderr
+        assert b"Traceback (most recent call last):" not in stderr
