@@ -153,7 +153,7 @@ cdef class MmapAllocator:
 cdef void* _pthread_worker(void* arg) with gil:
     (<object> arg)()
 
-cdef api void log_with_python(cppstring message, int level):
+cdef api void log_with_python(cppstring message, int level) except*:
     LOGGER.log(level, message)
 
 
