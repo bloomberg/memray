@@ -26,7 +26,12 @@ def _run_tracker(
     args: argparse.Namespace,
     post_run_message: Optional[str] = None,
 ) -> None:
-    with Tracker(destination=destination, native_traces=args.native):
+    try:
+        tracker = Tracker(destination=destination, native_traces=args.native)
+    except OSError as error:
+        raise PensieveCommandError(str(error), exit_code=1)
+
+    with tracker:
         sys.argv[1:] = args.script_args
         try:
             if args.run_as_module:
