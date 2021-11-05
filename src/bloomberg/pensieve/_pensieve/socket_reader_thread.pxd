@@ -9,4 +9,5 @@ cdef extern from "socket_reader_thread.h" namespace "pensieve::socket_thread":
         BackgroundSocketReader(shared_ptr[RecordReader]) except+
 
         void start() except+
+        bool is_active()
         object Py_GetSnapshotAllocationRecords(bool merge_threads)

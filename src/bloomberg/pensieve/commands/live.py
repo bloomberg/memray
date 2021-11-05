@@ -100,15 +100,18 @@ class TUI:
         self._threads: List[int] = []
         self.n_samples = 0
         self.start = datetime.now()
+        self._last_update = datetime.now()
         self._snapshot: Tuple[AllocationRecord, ...] = tuple()
         self._current_memory_size = 0
         self._max_memory_seen = 0
+        self._message = ""
 
         layout = Layout(name="root")
         layout.split(
             Layout(name="header", size=5),
             Layout(name="heap_size", size=2),
             Layout(name="table", ratio=1),
+            Layout(name="message", size=1),
             Layout(name="footer", size=1),
         )
         layout["footer"].update(
@@ -138,7 +141,7 @@ class TUI:
         )
         metadata.add_row(
             f"[b]Samples[/]: {self.n_samples}",
-            f"[b]Duration[/]: {(datetime.now() - self.start).total_seconds()} seconds",
+            f"[b]Duration[/]: {(self._last_update - self.start).total_seconds()} seconds",
         )
 
         body = Table.grid(expand=True)
@@ -199,6 +202,14 @@ class TUI:
         return table
 
     @property
+    def message(self) -> str:
+        return self._message
+
+    @message.setter
+    def message(self, message: str) -> None:
+        self._message = message
+
+    @property
     def current_thread(self) -> int:
         if not self._threads:
             return 0
@@ -214,6 +225,7 @@ class TUI:
         self.layout["header"].update(self.get_header())
         self.layout["heap_size"].update(self.get_heap_size())
         self.layout["table"].update(self.get_body())
+        self.layout["message"].update(self.message)
         return self.layout
 
     def update_snapshot(self, snapshot: Iterable[AllocationRecord]) -> None:
@@ -224,6 +236,7 @@ class TUI:
             self._threads.append(record.tid)
             self._seen_threads.add(record.tid)
         self.n_samples += 1
+        self._last_update = datetime.now()
         self._current_memory_size = sum(record.size for record in self._snapshot)
         self._max_memory_seen = max(self._max_memory_seen, self._current_memory_size)
 
@@ -247,8 +260,12 @@ class LiveCommand:
             tui = TUI(3, reader.command_line or "???")
 
             def _get_renderable() -> Layout:
-                snapshot = reader.get_current_snapshot(merge_threads=False)
-                tui.update_snapshot(snapshot)
+                if not reader.is_active:
+                    tui.message = "[red]Remote has disconnected[/]"
+                else:
+                    snapshot = reader.get_current_snapshot(merge_threads=False)
+                    tui.update_snapshot(snapshot)
+
                 return tui.generate_layout()
 
             with Live(get_renderable=_get_renderable, screen=True):
