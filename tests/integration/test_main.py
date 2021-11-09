@@ -590,6 +590,9 @@ class TestLiveSubcommand:
             env={"PYTHONUNBUFFERED": "1"},
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            # Explicitly reset the signal handler for SIGINT to work around any signal
+            # masking that might happen on Jenkins.
+            preexec_fn=lambda: signal.signal(signal.SIGINT, signal.default_int_handler),
         )
 
         # WHEN
