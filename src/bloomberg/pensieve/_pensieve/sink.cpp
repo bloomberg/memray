@@ -127,7 +127,7 @@ SocketSink::open()
     ::close(sockfd);
     if (d_socket_fd == -1) {
         LOG(ERROR) << "Encountered error in 'accept' call: " << strerror(errno);
-        throw IoError{"accept failed"};
+        throw IoError{strerror(errno)};
     }
 
     d_socket_open = true;
