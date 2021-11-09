@@ -590,6 +590,11 @@ class TestLiveSubcommand:
             env={"PYTHONUNBUFFERED": "1"},
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            # Our Jenkins instance runs with SigIgn: 0000000001001007.
+            # This means that it ignores SIGINT (the second to last bit is 1 in SIGIGN)
+            # and that is inherited by all subprocesses spawned by Jenkins. This is
+            # suboptimal since this test needs to handle SIGINT to actually execute.
+            preexec_fn=lambda: signal.signal(signal.SIGINT, signal.default_int_handler),
         )
 
         # WHEN
