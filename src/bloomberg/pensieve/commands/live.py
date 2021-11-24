@@ -105,6 +105,7 @@ class TUI:
         self._current_memory_size = 0
         self._max_memory_seen = 0
         self._message = ""
+        self.active = True
 
         layout = Layout(name="root")
         layout.split(
@@ -260,11 +261,13 @@ class LiveCommand:
             tui = TUI(3, reader.command_line or "???")
 
             def _get_renderable() -> Layout:
-                if not reader.is_active:
-                    tui.message = "[red]Remote has disconnected[/]"
-                else:
-                    snapshot = reader.get_current_snapshot(merge_threads=False)
+                if tui.active:
+                    snapshot = list(reader.get_current_snapshot(merge_threads=False))
                     tui.update_snapshot(snapshot)
+
+                if not reader.is_active:
+                    tui.active = False
+                    tui.message = "[red]Remote has disconnected[/]"
 
                 return tui.generate_layout()
 
