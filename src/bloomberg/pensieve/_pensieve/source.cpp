@@ -29,22 +29,20 @@ FileSource::FileSource(const std::string& file_name)
     }
 }
 
-void
+bool
 FileSource::read(char* stream, ssize_t length)
 {
-    d_stream.read(stream, length);
-    if (!d_stream) {
-        throw IoError{"Failed to read file"};
-    }
+    return !d_stream.read(stream, length).fail();
 }
 
-void
+bool
 FileSource::getline(std::string& result, char delimiter)
 {
     std::getline(d_stream, result, delimiter);
     if (!d_stream) {
-        throw IoError{"Failed to read file"};
+        return false;
     }
+    return true;
 }
 
 void
@@ -94,11 +92,11 @@ SocketBuf::underflow()
 
     if (bytes_read < 0) {
         LOG(ERROR) << "Encountered error in 'recv' call: " << strerror(errno);
-        throw IoError{"recv call failed: " + std::string(strerror(errno))};
+        return traits_type::eof();
     }
 
     if (bytes_read == 0) {
-        throw IoError{"Connection closed by remote"};
+        return traits_type::eof();
     }
 
     setg(d_buf, d_buf, d_buf + bytes_read);
@@ -112,7 +110,9 @@ SocketBuf::xsgetn(char* destination, std::streamsize length)
     while (needed > 0) {
         if (gptr() == egptr()) {
             // Buffer empty. Get some new data, and throw if we can't.
-            underflow();
+            if (underflow() == traits_type::eof()) {
+                return traits_type::eof();
+            }
         }
 
         std::streamsize available = egptr() - gptr();
@@ -173,10 +173,10 @@ SocketSource::SocketSource(int port)
     d_socket_buf = std::make_unique<SocketBuf>(d_sockfd);
 }
 
-void
+bool
 SocketSource::read(char* result, ssize_t length)
 {
-    d_socket_buf->sgetn(result, length);
+    return d_socket_buf->sgetn(result, length) != SocketBuf::traits_type::eof();
 }
 
 void
@@ -201,17 +201,18 @@ SocketSource::is_open()
     return d_is_open;
 }
 
-void
+bool
 SocketSource::getline(std::string& result, char delimiter)
 {
     char buf;
     while (true) {
         buf = static_cast<char>(d_socket_buf->sbumpc());
-        if (buf == delimiter) {
+        if (buf == delimiter || buf == SocketBuf::traits_type::eof()) {
             break;
         }
         result.push_back(buf);
     }
+    return true;
 }
 
 SocketSource::~SocketSource()

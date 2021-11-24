@@ -14,8 +14,8 @@ class Source
     virtual ~Source(){};
     virtual void close() = 0;
     virtual bool is_open() = 0;
-    virtual void read(char* result, ssize_t length) = 0;
-    virtual void getline(std::string& result, char delimiter) = 0;
+    virtual bool read(char* result, ssize_t length) = 0;
+    virtual bool getline(std::string& result, char delimiter) = 0;
 };
 
 class FileSource : public Source
@@ -30,8 +30,8 @@ class FileSource : public Source
     ~FileSource() override;
     void close() override;
     bool is_open() override;
-    void read(char* result, ssize_t length) override;
-    void getline(std::string& result, char delimiter) override;
+    bool read(char* result, ssize_t length) override;
+    bool getline(std::string& result, char delimiter) override;
 
   private:
     void _close();
@@ -63,8 +63,8 @@ class SocketSource : public Source
     ~SocketSource() override;
     void close() override;
     bool is_open() override;
-    void read(char* result, ssize_t length) override;
-    void getline(std::string& result, char delimiter) override;
+    bool read(char* result, ssize_t length) override;
+    bool getline(std::string& result, char delimiter) override;
 
   private:
     void _close();
