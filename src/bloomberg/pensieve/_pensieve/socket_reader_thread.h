@@ -33,6 +33,7 @@ class BackgroundSocketReader
     ~BackgroundSocketReader();
 
     void start();
+    bool is_active() const;
     PyObject* Py_GetSnapshotAllocationRecords(bool merge_threads);
 };
 

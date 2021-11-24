@@ -18,10 +18,12 @@ BackgroundSocketReader::backgroundThreadWorker()
             break;
         }
 
-        if (got_record) {
-            std::lock_guard<std::mutex> lock(d_mutex);
-            d_aggregator.addAllocation(record);
+        if (!got_record) {
+            d_stop_thread = true;
+            return;
         }
+        std::lock_guard<std::mutex> lock(d_mutex);
+        d_aggregator.addAllocation(record);
     }
 }
 
@@ -50,7 +52,14 @@ BackgroundSocketReader::Py_GetSnapshotAllocationRecords(bool merge_threads)
         std::lock_guard<std::mutex> lock(d_mutex);
         stack_to_allocation = d_aggregator.getSnapshotAllocations(merge_threads);
     }
+
     return api::Py_ListFromSnapshotAllocationRecords(stack_to_allocation);
+}
+
+bool
+BackgroundSocketReader::is_active() const
+{
+    return !d_stop_thread;
 }
 
 }  // namespace pensieve::socket_thread

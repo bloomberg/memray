@@ -92,11 +92,11 @@ SocketBuf::underflow()
 
     if (bytes_read < 0) {
         LOG(ERROR) << "Encountered error in 'recv' call: " << strerror(errno);
-        throw IoError{"recv call failed: " + std::string(strerror(errno))};
+        return traits_type::eof();
     }
 
     if (bytes_read == 0) {
-        throw IoError{"Connection closed by remote"};
+        return traits_type::eof();
     }
 
     setg(d_buf, d_buf, d_buf + bytes_read);
@@ -110,7 +110,9 @@ SocketBuf::xsgetn(char* destination, std::streamsize length)
     while (needed > 0) {
         if (gptr() == egptr()) {
             // Buffer empty. Get some new data, and throw if we can't.
-            underflow();
+            if (underflow() == traits_type::eof()) {
+                return traits_type::eof();
+            }
         }
 
         std::streamsize available = egptr() - gptr();
@@ -205,7 +207,7 @@ SocketSource::getline(std::string& result, char delimiter)
     char buf;
     while (true) {
         buf = static_cast<char>(d_socket_buf->sbumpc());
-        if (buf == delimiter) {
+        if (buf == delimiter || buf == SocketBuf::traits_type::eof()) {
             break;
         }
         result.push_back(buf);
