@@ -29,22 +29,20 @@ FileSource::FileSource(const std::string& file_name)
     }
 }
 
-void
+bool
 FileSource::read(char* stream, ssize_t length)
 {
-    d_stream.read(stream, length);
-    if (!d_stream) {
-        throw IoError{"Failed to read file"};
-    }
+    return !d_stream.read(stream, length).fail();
 }
 
-void
+bool
 FileSource::getline(std::string& result, char delimiter)
 {
     std::getline(d_stream, result, delimiter);
     if (!d_stream) {
-        throw IoError{"Failed to read file"};
+        return false;
     }
+    return true;
 }
 
 void
@@ -173,10 +171,10 @@ SocketSource::SocketSource(int port)
     d_socket_buf = std::make_unique<SocketBuf>(d_sockfd);
 }
 
-void
+bool
 SocketSource::read(char* result, ssize_t length)
 {
-    d_socket_buf->sgetn(result, length);
+    return d_socket_buf->sgetn(result, length) != SocketBuf::traits_type::eof();
 }
 
 void
@@ -201,7 +199,7 @@ SocketSource::is_open()
     return d_is_open;
 }
 
-void
+bool
 SocketSource::getline(std::string& result, char delimiter)
 {
     char buf;
@@ -212,6 +210,7 @@ SocketSource::getline(std::string& result, char delimiter)
         }
         result.push_back(buf);
     }
+    return true;
 }
 
 SocketSource::~SocketSource()

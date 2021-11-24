@@ -62,12 +62,12 @@ class RecordReader
     std::vector<UnresolvedNativeFrame> d_native_frames{};
 
     // Methods
-    void parseFrame();
-    void parseFrameIndex();
-    void parseNativeFrameIndex();
-    AllocationRecord parseAllocationRecord();
-    void parseSegmentHeader();
-    Segment parseSegment();
+    [[nodiscard]] bool parseFrame();
+    [[nodiscard]] bool parseFrameIndex();
+    [[nodiscard]] bool parseNativeFrameIndex();
+    [[nodiscard]] bool parseAllocationRecord(AllocationRecord& record);
+    [[nodiscard]] bool parseSegmentHeader();
+    [[nodiscard]] bool parseSegment(Segment& segment);
 
     void correctAllocationFrame(stack_t& stack, int lineno);
     size_t getAllocationFrameIndex(const AllocationRecord& record);
