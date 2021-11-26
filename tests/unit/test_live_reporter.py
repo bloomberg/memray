@@ -42,7 +42,7 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            f"              PID: {out_str}      CMD:",
+            f"              PID: {out_str}      CMD: ???",
             "(∩｀-´)⊃━☆ﾟ.*…TID: 0x0      Thread 1 of 0",
             "              Samples: 1    Duration: 0.0 seconds",
         ]
