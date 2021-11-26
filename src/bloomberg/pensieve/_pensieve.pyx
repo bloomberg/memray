@@ -503,6 +503,10 @@ cdef class SocketReader:
             return None
         return self._header["command_line"]
 
+    @property
+    def is_active(self):
+        return self._impl.is_active()
+
     def get_current_snapshot(self, *, bool merge_threads):
         if self._impl is NULL:
             raise ValueError("No active thread to get snapshot from.")
