@@ -45,6 +45,7 @@ struct HeaderRecord
     bool native_traces{false};
     TrackerStats stats{};
     std::string command_line;
+    int pid{-1};
 };
 
 struct AllocationRecord

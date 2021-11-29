@@ -445,7 +445,8 @@ cdef class FileReader:
                         total_allocations=stats["n_allocations"],
                         total_frames=stats["n_frames"],
                         peak_memory=self._get_high_watermark().peak_memory,
-                        command_line=self._header["command_line"])
+                        command_line=self._header["command_line"],
+                        pid=self._header["pid"])
 
     @property
     def has_native_traces(self):
@@ -506,6 +507,12 @@ cdef class SocketReader:
     @property
     def is_active(self):
         return self._impl.is_active()
+
+    @property
+    def pid(self):
+        if not self._header:
+            return None
+        return self._header["pid"]
 
     def get_current_snapshot(self, *, bool merge_threads):
         if self._impl is NULL:

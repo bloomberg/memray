@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from bloomberg.pensieve import FileReader
@@ -55,3 +57,16 @@ def test_filereader_fails_to_open_file(tmp_path):
     # WHEN/THEN
     with pytest.raises(OSError, match="Could not open file"):
         FileReader(test_file)
+
+
+def test_read_pid(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+
+    # WHEN
+    with Tracker(output):
+        allocator.valloc(1024)
+
+    # THEN
+    assert FileReader(output).metadata.pid == os.getpid()
