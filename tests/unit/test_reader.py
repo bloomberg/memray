@@ -54,6 +54,13 @@ def test_filereader_fails_to_open_file(tmp_path):
     test_file = tmp_path / "test.bin"
     test_file.touch(mode=000)
 
+    try:
+        test_file.read_text()
+    except OSError:
+        pass
+    else:
+        pytest.skip("The current user can ignore file permissions")
+
     # WHEN/THEN
     with pytest.raises(OSError, match="Could not open file"):
         FileReader(test_file)
