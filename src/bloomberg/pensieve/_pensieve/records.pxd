@@ -29,6 +29,7 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
        bool native_traces
        TrackerStats stats
        string command_line
+       int pid
 
    cdef cppclass Allocation:
        AllocationRecord record

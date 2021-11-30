@@ -18,7 +18,7 @@ RecordWriter::RecordWriter(
 , d_native_traces(native_traces)
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
-    d_header = HeaderRecord{"", d_version, d_native_traces, d_stats, d_command_line};
+    d_header = HeaderRecord{"", d_version, d_native_traces, d_stats, d_command_line, ::getpid()};
     strncpy(d_header.magic, MAGIC, sizeof(MAGIC));
 }
 
@@ -60,6 +60,10 @@ RecordWriter::writeHeader(bool seek_to_start)
         or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.stats)
         or !writeString(d_header.command_line.c_str()))
     {
+        return false;
+    }
+
+    if (!writeSimpleType(d_header.pid)) {
         return false;
     }
 

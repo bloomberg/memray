@@ -10,3 +10,4 @@ class Metadata:
     total_frames: int
     peak_memory: int
     command_line: str
+    pid: int

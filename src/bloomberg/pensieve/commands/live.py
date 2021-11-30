@@ -4,6 +4,7 @@ import termios
 from datetime import datetime
 from typing import Iterable
 from typing import List
+from typing import Optional
 from typing import Set
 from typing import Tuple
 
@@ -90,8 +91,10 @@ def _size_to_color(proportion_of_total: float) -> str:
 
 
 class TUI:
-    def __init__(self, pid: int, cmd_line: str):
-        self.pid = 123
+    def __init__(self, pid: Optional[int], cmd_line: Optional[str]):
+        self.pid = pid or "???"
+        if not cmd_line:
+            cmd_line = "???"
         if len(cmd_line) > 50:
             cmd_line = cmd_line[:50] + "..."
         self.command_line = escape(cmd_line)
@@ -258,7 +261,7 @@ class LiveCommand:
         if port >= 2 ** 16 or port <= 0:
             raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
         with SocketReader(port=port) as reader:
-            tui = TUI(3, reader.command_line or "???")
+            tui = TUI(reader.pid, reader.command_line)
 
             def _get_renderable() -> Layout:
                 if tui.active:

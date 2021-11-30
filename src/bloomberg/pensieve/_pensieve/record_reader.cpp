@@ -39,6 +39,10 @@ RecordReader::readHeader(HeaderRecord& header)
     {
         throw std::ios_base::failure("Failed to read input file.");
     }
+
+    if (!d_input->read(reinterpret_cast<char*>(&header.pid), sizeof(header.pid))) {
+        throw std::ios_base::failure("Failed to read tPID from input file.");
+    }
 }
 
 RecordReader::RecordReader(std::unique_ptr<Source> source)

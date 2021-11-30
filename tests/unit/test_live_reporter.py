@@ -3,6 +3,7 @@ from io import StringIO
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+import pytest
 from rich import print as rprint
 
 from bloomberg.pensieve import AllocatorType
@@ -18,10 +19,16 @@ class FakeDate(MagicMock):
 
 @patch("bloomberg.pensieve.commands.live.datetime", FakeDate)
 class TestTUIHeader:
-    def test_pid(self):
+    @pytest.mark.parametrize(
+        "pid, out_str",
+        [
+            pytest.param(999, 999, id="Valid PID"),
+            pytest.param(None, "???", id="Missing PID"),
+        ],
+    )
+    def test_pid(self, pid, out_str):
 
         # GIVEN
-        pid = 9999
         cmd_line = ""
         snapshot = []
         output = StringIO()
@@ -35,7 +42,7 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD:",
+            f"              PID: {out_str}      CMD: ???",
             "(∩｀-´)⊃━☆ﾟ.*…TID: 0x0      Thread 1 of 0",
             "              Samples: 1    Duration: 0.0 seconds",
         ]
@@ -44,7 +51,7 @@ class TestTUIHeader:
 
     def test_command_line(self):
         # GIVEN
-        pid = 0
+        pid = 123
         cmd_line = "python3 some_command_to_test.py"
         snapshot = []
         output = StringIO()
@@ -67,7 +74,7 @@ class TestTUIHeader:
 
     def test_too_long_command_line_is_trimmed(self):
         # GIVEN
-        pid = 0
+        pid = 123
         cmd_line = "python3 " + "a" * 100
         snapshot = []
         output = StringIO()
@@ -92,7 +99,7 @@ class TestTUIHeader:
     def test_with_no_allocations(self):
 
         # GIVEN
-        pid = 1234
+        pid = 123
         cmd_line = "python3 some_program.py"
         snapshot = []
         output = StringIO()
@@ -115,7 +122,7 @@ class TestTUIHeader:
 
     def test_with_one_allocation(self):
         # GIVEN
-        pid = 1234
+        pid = 123
         cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
@@ -151,7 +158,7 @@ class TestTUIHeader:
 
     def test_with_many_allocations_same_thread(self):
         # GIVEN
-        pid = 1234
+        pid = 123
         cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
@@ -187,7 +194,7 @@ class TestTUIHeader:
 
     def test_with_many_threads_allocation(self):
         # GIVEN
-        pid = 1234
+        pid = 123
         cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
@@ -223,7 +230,7 @@ class TestTUIHeader:
 
     def test_with_many_threads_and_change_current_thread(self):
         # GIVEN
-        pid = 1234
+        pid = 123
         cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
@@ -260,7 +267,7 @@ class TestTUIHeader:
 
     def test_samples(self):
         # GIVEN
-        pid = 1234
+        pid = 123
         cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
@@ -299,7 +306,7 @@ class TestTUIHeader:
 class TestTUIHeapBar:
     def test_single_allocation(self):
         # GIVEN
-        pid = 1234
+        pid = 123
         cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
@@ -710,7 +717,7 @@ class TestTUITable:
 class TestTUILayout:
     def test_with_multiple_allocations(self):
         # GIVEN
-        pid = 1234
+        pid = 123
         cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
