@@ -67,7 +67,7 @@ def readkey() -> str:  # pragma: no cover
         4 characters for combinations with CTRL and ALT: CTRL+ALT+SUPR
     """
     c1 = _readchar()
-    if ord(c1) != 0x1B:  # ESC
+    if not c1 or ord(c1) != 0x1B:  # ESC
         return c1
     c2 = _readchar()
     if ord(c2) != 0x5B:  # [
