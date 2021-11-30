@@ -16,7 +16,6 @@ from rich.table import Column
 from rich.table import Table
 
 from bloomberg.pensieve import AllocationRecord
-from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import SocketReader
 from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._pensieve import size_fmt
@@ -178,7 +177,6 @@ class TUI:
     def get_body(self) -> Table:
         table = Table(
             Column("Location", ratio=5),
-            Column("Allocator", ratio=1),
             Column("Size", ratio=1),
             Column("Allocation Count", ratio=1),
             expand=True,
@@ -199,7 +197,6 @@ class TUI:
             allocation_colors = _size_to_color(record.n_allocations / total_allocations)
             table.add_row(
                 location,
-                str(AllocatorType(record.allocator).name.lower()),
                 f"[{size_color}]{size_fmt(record.size)}[/{size_color}]",
                 f"[{allocation_colors}]{record.n_allocations}[/{allocation_colors}]",
             )
