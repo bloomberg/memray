@@ -40,6 +40,7 @@ BackgroundSocketReader::start()
 
 BackgroundSocketReader::~BackgroundSocketReader()
 {
+    d_record_reader->close();
     d_stop_thread = true;
     d_thread.join();
 }

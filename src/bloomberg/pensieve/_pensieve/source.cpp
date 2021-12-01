@@ -182,8 +182,8 @@ SocketSource::read(char* result, ssize_t length)
 void
 SocketSource::_close()
 {
-    d_socket_buf.reset();
     if (d_is_open) {
+        ::shutdown(d_sockfd, SHUT_RDWR);
         ::close(d_sockfd);
     }
     d_is_open = false;
