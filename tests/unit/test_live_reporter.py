@@ -8,6 +8,8 @@ from rich import print as rprint
 
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve.commands.live import TUI
+from bloomberg.pensieve.commands.live import Location
+from bloomberg.pensieve.commands.live import aggregate_allocations
 from tests.utils import MockAllocationRecord
 
 
@@ -502,11 +504,11 @@ class TestTUITable:
 
         # THEN
         expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓",
-            "┃ Location                                              ┃ Size      ┃ Allocat… ┃",
-            "┃                                                       ┃           ┃ Count    ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩",
-            "└───────────────────────────────────────────────────────┴───────────┴──────────┘",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
+            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
+            "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -538,12 +540,12 @@ class TestTUITable:
 
         # THEN
         expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓",
-            "┃ Location                                              ┃ Size      ┃ Allocat… ┃",
-            "┃                                                       ┃           ┃ Count    ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩",
-            "│ function1 at /src/lel.py:18                           │ 1.000KB   │ 1        │",
-            "└───────────────────────────────────────────────────────┴───────────┴──────────┘",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
+            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
+            "│ function1 at /src/lel.py                      │ 1.000KB  │ 1.000KB │ 1       │",
+            "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -576,16 +578,16 @@ class TestTUITable:
 
         # THEN
         expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓",
-            "┃ Location                                              ┃ Size      ┃ Allocat… ┃",
-            "┃                                                       ┃           ┃ Count    ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩",
-            "│ function4 at /src/lel_4.py:4                          │ 5.000KB   │ 1        │",
-            "│ function3 at /src/lel_3.py:3                          │ 4.000KB   │ 1        │",
-            "│ function2 at /src/lel_2.py:2                          │ 3.000KB   │ 1        │",
-            "│ function1 at /src/lel_1.py:1                          │ 2.000KB   │ 1        │",
-            "│ function0 at /src/lel_0.py:0                          │ 1.000KB   │ 1        │",
-            "└───────────────────────────────────────────────────────┴───────────┴──────────┘",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
+            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
+            "│ function4 at /src/lel_4.py                    │ 5.000KB  │ 5.000KB │ 1       │",
+            "│ function3 at /src/lel_3.py                    │ 4.000KB  │ 4.000KB │ 1       │",
+            "│ function2 at /src/lel_2.py                    │ 3.000KB  │ 3.000KB │ 1       │",
+            "│ function1 at /src/lel_1.py                    │ 2.000KB  │ 2.000KB │ 1       │",
+            "│ function0 at /src/lel_0.py                    │ 1.000KB  │ 1.000KB │ 1       │",
+            "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -618,12 +620,12 @@ class TestTUITable:
 
         # THEN
         expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓",
-            "┃ Location                                              ┃ Size      ┃ Allocat… ┃",
-            "┃                                                       ┃           ┃ Count    ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩",
-            "│ function0 at /src/lel_0.py:0                          │ 1.000KB   │ 1        │",
-            "└───────────────────────────────────────────────────────┴───────────┴──────────┘",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
+            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
+            "│ function0 at /src/lel_0.py                    │ 1.000KB  │ 1.000KB │ 1       │",
+            "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -658,12 +660,12 @@ class TestTUITable:
 
         # THEN
         expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓",
-            "┃ Location                                              ┃ Size      ┃ Allocat… ┃",
-            "┃                                                       ┃           ┃ Count    ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩",
-            "│ function3 at /src/lel_3.py:3                          │ 4.000KB   │ 1        │",
-            "└───────────────────────────────────────────────────────┴───────────┴──────────┘",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
+            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
+            "│ function3 at /src/lel_3.py                    │ 4.000KB  │ 4.000KB │ 1       │",
+            "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -698,16 +700,71 @@ class TestTUITable:
 
         # THEN
         expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓",
-            "┃ Location                                              ┃ Size      ┃ Allocat… ┃",
-            "┃                                                       ┃           ┃ Count    ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩",
-            "│ function4 at /src/lel_4.py:4                          │ 5.000KB   │ 5        │",
-            "│ function3 at /src/lel_3.py:3                          │ 4.000KB   │ 4        │",
-            "│ function2 at /src/lel_2.py:2                          │ 3.000KB   │ 3        │",
-            "│ function1 at /src/lel_1.py:1                          │ 2.000KB   │ 2        │",
-            "│ function0 at /src/lel_0.py:0                          │ 1.000KB   │ 1        │",
-            "└───────────────────────────────────────────────────────┴───────────┴──────────┘",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
+            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
+            "│ function4 at /src/lel_4.py                    │ 5.000KB  │ 5.000KB │ 5       │",
+            "│ function3 at /src/lel_3.py                    │ 4.000KB  │ 4.000KB │ 4       │",
+            "│ function2 at /src/lel_2.py                    │ 3.000KB  │ 3.000KB │ 3       │",
+            "│ function1 at /src/lel_1.py                    │ 2.000KB  │ 2.000KB │ 2       │",
+            "│ function0 at /src/lel_0.py                    │ 1.000KB  │ 1.000KB │ 1       │",
+            "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
+        ]
+        actual = [line.rstrip() for line in output.getvalue().splitlines()]
+        assert actual == expected
+
+    def test_parent_frame_totals(self):
+        # GIVEN
+        pid = 1234
+        cmd_line = "python3 some_program.py"
+        snapshot = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=2,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=20,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("sibling", "fun.py", 16),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+        ]
+
+        output = StringIO()
+        tui = TUI(pid, cmd_line)
+
+        # WHEN
+        tui.update_snapshot(snapshot)
+        rprint(tui.get_body(), file=output)
+
+        # THEN
+        expected = [
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
+            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
+            "│ parent at fun.py                              │ 30.000B  │ 0.000B  │ 3       │",
+            "│ grandparent at fun.py                         │ 30.000B  │ 0.000B  │ 3       │",
+            "│ sibling at fun.py                             │ 20.000B  │ 20.000B │ 1       │",
+            "│ me at fun.py                                  │ 10.000B  │ 10.000B │ 2       │",
+            "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -752,19 +809,119 @@ class TestTUILayout:
             "              Samples: 1    Duration: 0.0 seconds",
             "Current heap size: 15.000KB                         Max heap size seen: 15.000KB",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓",
-            "┃ Location                                              ┃ Size      ┃ Allocat… ┃",
-            "┃                                                       ┃           ┃ Count    ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩",
-            "│ function4 at /src/lel_4.py:4                          │ 5.000KB   │ 5        │",
-            "│ function3 at /src/lel_3.py:3                          │ 4.000KB   │ 4        │",
-            "│ function2 at /src/lel_2.py:2                          │ 3.000KB   │ 3        │",
-            "│ function1 at /src/lel_1.py:1                          │ 2.000KB   │ 2        │",
-            "│ function0 at /src/lel_0.py:0                          │ 1.000KB   │ 1        │",
-            "└───────────────────────────────────────────────────────┴───────────┴──────────┘",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
+            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
+            "│ function4 at /src/lel_4.py                    │ 5.000KB  │ 5.000KB │ 5       │",
+            "│ function3 at /src/lel_3.py                    │ 4.000KB  │ 4.000KB │ 4       │",
+            "│ function2 at /src/lel_2.py                    │ 3.000KB  │ 3.000KB │ 3       │",
+            "│ function1 at /src/lel_1.py                    │ 2.000KB  │ 2.000KB │ 2       │",
+            "│ function0 at /src/lel_0.py                    │ 1.000KB  │ 1.000KB │ 1       │",
+            "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
             " Q  Quit  ←   Previous Thread  →   Next Thread",
         ]
         actual = [
             line.rstrip() for line in output.getvalue().splitlines() if line.rstrip()
         ]
         assert actual == expected
+
+
+class TestAggregateResults:
+    def test_simple_allocations(self):
+        # GIVEN
+        allocation_records = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=2,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=20,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("sibling", "fun.py", 16),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+        ]
+        # WHEN
+        result = aggregate_allocations(allocation_records)
+
+        # THEN
+        grandparent = result[Location(function="grandparent", file="fun.py")]
+        assert grandparent.own_memory == 0
+        assert grandparent.total_memory == 30
+        assert grandparent.n_allocations == 3
+
+        me = result[Location(function="me", file="fun.py")]
+        assert me.own_memory == 10
+        assert me.total_memory == 10
+        assert me.n_allocations == 2
+
+        parent = result[Location(function="parent", file="fun.py")]
+        assert parent.own_memory == 0
+        assert parent.total_memory == 30
+        assert parent.n_allocations == 3
+
+    def test_missing_frames(self):
+        # GIVEN
+        allocation_records = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=2,
+                _stack=[],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=20,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("sibling", "fun.py", 16),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=30,
+                allocator=AllocatorType.MALLOC,
+                stack_id=2,
+                n_allocations=1,
+                _stack=[],
+            ),
+        ]
+        # WHEN
+        result = aggregate_allocations(allocation_records)
+
+        # THEN
+        grandparent = result[Location(function="grandparent", file="fun.py")]
+        assert grandparent.own_memory == 0
+        assert grandparent.total_memory == 20
+        assert grandparent.n_allocations == 1
+
+        me = result[Location(function="???", file="???")]
+        assert me.own_memory == 40
+        assert me.total_memory == 40
+        assert me.n_allocations == 3
