@@ -505,8 +505,8 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
-            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
-            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┃ Location                                      ┃ <Total   ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory>  ┃ Memory  ┃ Count   ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
             "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
         ]
@@ -541,8 +541,8 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
-            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
-            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┃ Location                                      ┃ <Total   ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory>  ┃ Memory  ┃ Count   ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
             "│ function1 at /src/lel.py                      │ 1.000KB  │ 1.000KB │ 1       │",
             "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
@@ -579,8 +579,8 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
-            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
-            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┃ Location                                      ┃ <Total   ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory>  ┃ Memory  ┃ Count   ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
             "│ function4 at /src/lel_4.py                    │ 5.000KB  │ 5.000KB │ 1       │",
             "│ function3 at /src/lel_3.py                    │ 4.000KB  │ 4.000KB │ 1       │",
@@ -621,8 +621,8 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
-            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
-            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┃ Location                                      ┃ <Total   ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory>  ┃ Memory  ┃ Count   ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
             "│ function0 at /src/lel_0.py                    │ 1.000KB  │ 1.000KB │ 1       │",
             "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
@@ -661,8 +661,8 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
-            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
-            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┃ Location                                      ┃ <Total   ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory>  ┃ Memory  ┃ Count   ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
             "│ function3 at /src/lel_3.py                    │ 4.000KB  │ 4.000KB │ 1       │",
             "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
@@ -701,8 +701,8 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
-            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
-            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┃ Location                                      ┃ <Total   ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory>  ┃ Memory  ┃ Count   ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
             "│ function4 at /src/lel_4.py                    │ 5.000KB  │ 5.000KB │ 5       │",
             "│ function3 at /src/lel_3.py                    │ 4.000KB  │ 4.000KB │ 4       │",
@@ -757,8 +757,8 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
-            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
-            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┃ Location                                      ┃ <Total   ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory>  ┃ Memory  ┃ Count   ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
             "│ parent at fun.py                              │ 30.000B  │ 0.000B  │ 3       │",
             "│ grandparent at fun.py                         │ 30.000B  │ 0.000B  │ 3       │",
@@ -810,8 +810,8 @@ class TestTUILayout:
             "Current heap size: 15.000KB                         Max heap size seen: 15.000KB",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",
-            "┃ Location                                      ┃ Total    ┃ Own     ┃ Alloca… ┃",
-            "┃                                               ┃ Memory   ┃ Memory  ┃ Count   ┃",
+            "┃ Location                                      ┃ <Total   ┃ Own     ┃ Alloca… ┃",
+            "┃                                               ┃ Memory>  ┃ Memory  ┃ Count   ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━┩",
             "│ function4 at /src/lel_4.py                    │ 5.000KB  │ 5.000KB │ 5       │",
             "│ function3 at /src/lel_3.py                    │ 4.000KB  │ 4.000KB │ 4       │",
@@ -819,7 +819,7 @@ class TestTUILayout:
             "│ function1 at /src/lel_1.py                    │ 2.000KB  │ 2.000KB │ 2       │",
             "│ function0 at /src/lel_0.py                    │ 1.000KB  │ 1.000KB │ 1       │",
             "└───────────────────────────────────────────────┴──────────┴─────────┴─────────┘",
-            " Q  Quit  ←   Previous Thread  →   Next Thread",
+            " Q  Quit  ←   Previous Thread  →   Next Thread  T  Sort By Total  O  Sort By Own",
         ]
         actual = [
             line.rstrip() for line in output.getvalue().splitlines() if line.rstrip()
