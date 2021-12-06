@@ -49,7 +49,8 @@ def _run_with_socket_output(args: argparse.Namespace) -> None:
         raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
 
     if not args.quiet:
-        print(f"Run 'pensieve live {port}' in another shell to see live results")
+        pensieve_cli = f"pensieve{sys.version_info.major}.{sys.version_info.minor}"
+        print(f"Run '{pensieve_cli} live {port}' in another shell to see live results")
     _run_tracker(destination=SocketDestination(port=port), args=args)
 
 
