@@ -78,6 +78,12 @@ SocketBuf::SocketBuf(int socket_fd)
     setg(d_buf, d_buf, d_buf);
 }
 
+void
+SocketBuf::close()
+{
+    d_open = false;
+}
+
 int
 SocketBuf::underflow()
 {
@@ -91,7 +97,9 @@ SocketBuf::underflow()
     } while (bytes_read < 0 && errno == EINTR);
 
     if (bytes_read < 0) {
-        LOG(ERROR) << "Encountered error in 'recv' call: " << strerror(errno);
+        if (d_open) {
+            LOG(ERROR) << "Encountered error in 'recv' call: " << strerror(errno);
+        }
         return traits_type::eof();
     }
 
@@ -176,17 +184,22 @@ SocketSource::SocketSource(int port)
 bool
 SocketSource::read(char* result, ssize_t length)
 {
+    if (!d_is_open) {
+        return false;
+    }
     return d_socket_buf->sgetn(result, length) != SocketBuf::traits_type::eof();
 }
 
 void
 SocketSource::_close()
 {
-    if (d_is_open) {
-        ::shutdown(d_sockfd, SHUT_RDWR);
-        ::close(d_sockfd);
+    if (!d_is_open) {
+        return;
     }
     d_is_open = false;
+    d_socket_buf->close();
+    ::shutdown(d_sockfd, SHUT_RDWR);
+    ::close(d_sockfd);
 }
 
 void
@@ -208,6 +221,9 @@ SocketSource::getline(std::string& result, char delimiter)
     while (true) {
         buf = static_cast<char>(d_socket_buf->sbumpc());
         if (buf == delimiter || buf == SocketBuf::traits_type::eof()) {
+            if (!d_is_open) {
+                return false;
+            }
             break;
         }
         result.push_back(buf);

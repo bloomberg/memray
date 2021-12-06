@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <fstream>
 #include <string>
@@ -43,12 +44,14 @@ class SocketBuf : public std::streambuf
 {
   public:
     explicit SocketBuf(int socket_fd);
+    void close();
 
   private:
     int underflow() override;
     std::streamsize xsgetn(char_type* s, std::streamsize n) override;
     int d_sockfd{-1};
     char d_buf[MAX_BUF_SIZE];
+    std::atomic<bool> d_open{true};
 };
 
 class SocketSource : public Source
@@ -69,7 +72,7 @@ class SocketSource : public Source
   private:
     void _close();
     int d_sockfd{-1};
-    bool d_is_open{false};
+    std::atomic<bool> d_is_open{false};
     std::unique_ptr<SocketBuf> d_socket_buf;
 };
 

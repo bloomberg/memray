@@ -208,7 +208,7 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
             case RecordType::ALLOCATION: {
                 AllocationRecord record{};
                 if (!parseAllocationRecord(record)) {
-                    LOG(ERROR) << "Failed to parse allocation record";
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse allocation record";
                     return false;
                 }
                 size_t f_index = getAllocationFrameIndex(record);
@@ -220,19 +220,19 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
             }
             case RecordType::FRAME:
                 if (!parseFrame()) {
-                    LOG(ERROR) << "Failed to parse frame";
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame";
                     return false;
                 }
                 break;
             case RecordType::FRAME_INDEX:
                 if (!parseFrameIndex()) {
-                    LOG(ERROR) << "Failed to parse frame index";
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame index";
                     return false;
                 }
                 break;
             case RecordType::NATIVE_TRACE_INDEX:
                 if (!parseNativeFrameIndex()) {
-                    LOG(ERROR) << "Failed to parse native frame index";
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse native frame index";
                     return false;
                 }
                 break;
@@ -243,12 +243,12 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
             }
             case RecordType::SEGMENT_HEADER:
                 if (!parseSegmentHeader()) {
-                    LOG(ERROR) << "Failed to parse segment header";
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse segment header";
                     return false;
                 }
                 break;
             default:
-                LOG(ERROR) << "Invalid record type";
+                if (d_input->is_open()) LOG(ERROR) << "Invalid record type";
                 return false;
         }
     }
