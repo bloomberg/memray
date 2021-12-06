@@ -45,6 +45,8 @@ def _run_tracker(
 
 def _run_with_socket_output(args: argparse.Namespace) -> None:
     port = args.live_port
+    if port is None:
+        port = _get_free_port()
     if not 2 ** 16 > port > 0:
         raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
 
@@ -109,7 +111,7 @@ class RunCommand:
             "--live-port",
             "-p",
             help="Port to use when starting live tracking (default: random free port)",
-            default=_get_free_port(),
+            default=None,
             type=int,
         )
 
