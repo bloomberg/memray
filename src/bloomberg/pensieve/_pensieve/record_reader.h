@@ -51,6 +51,7 @@ class RecordReader
     void readHeader(HeaderRecord& header);
 
     // Data members
+    mutable std::mutex d_mutex;
     std::unique_ptr<pensieve::io::Source> d_input;
     HeaderRecord d_header;
     pyframe_map_t d_frame_map{};

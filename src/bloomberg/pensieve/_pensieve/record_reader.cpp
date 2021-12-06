@@ -97,6 +97,7 @@ RecordReader::parseFrameIndex()
     {
         return false;
     }
+    std::lock_guard<std::mutex> lock(d_mutex);
     auto iterator = d_frame_map.insert(pyframe_val);
     if (!iterator.second) {
         throw std::runtime_error("Two entries with the same ID found!");
@@ -142,6 +143,7 @@ RecordReader::parseSegmentHeader()
         }
         segments.emplace_back(segment);
     }
+    std::lock_guard<std::mutex> lock(d_mutex);
     d_symbol_resolver.addSegments(filename, addr, segments);
     return true;
 }
@@ -185,6 +187,7 @@ RecordReader::correctAllocationFrame(stack_t& stack, int lineno)
             lineno};
     auto [allocation_index, is_new_frame] = d_allocation_frames.getIndex(allocation_frame);
     if (is_new_frame) {
+        std::lock_guard<std::mutex> lock(d_mutex);
         d_frame_map.emplace(allocation_index, allocation_frame);
     }
     stack.back() = allocation_index;
@@ -233,9 +236,11 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
                     return false;
                 }
                 break;
-            case RecordType::MEMORY_MAP_START:
+            case RecordType::MEMORY_MAP_START: {
+                std::lock_guard<std::mutex> lock(d_mutex);
                 d_symbol_resolver.clearSegments();
                 break;
+            }
             case RecordType::SEGMENT_HEADER:
                 if (!parseSegmentHeader()) {
                     LOG(ERROR) << "Failed to parse segment header";
@@ -252,6 +257,8 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
 PyObject*
 RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
 {
+    std::lock_guard<std::mutex> lock(d_mutex);
+
     size_t stacks_obtained = 0;
     FrameTree::index_t current_index = index;
     PyObject* list = PyList_New(0);
@@ -284,6 +291,8 @@ error:
 PyObject*
 RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation, size_t max_stacks)
 {
+    std::lock_guard<std::mutex> lock(d_mutex);
+
     size_t stacks_obtained = 0;
     FrameTree::index_t current_index = index;
     PyObject* list = PyList_New(0);

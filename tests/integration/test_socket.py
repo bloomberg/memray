@@ -8,6 +8,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
+from typing import Set
+from typing import Tuple
 
 import pytest
 
@@ -335,3 +337,66 @@ class TestSocketReaderAccess:
         assert command_line
         assert command_line.startswith("-c")  # these samples run with `python -c`
         assert str(free_port) in command_line
+
+    @pytest.mark.valgrind
+    def test_reading_allocations_while_reading_stack_traces(
+        self, free_port: int, tmp_path: Path
+    ) -> None:
+        """This test exist mainly to give valgrind/helgrind the oportunity to
+        see races between fetching stack traces and the background thread
+        fetching allocations. Therefore no interesting asserts are done in
+        the test itself.
+
+        The test will spawn a tracked process that is constanly creating new
+        functions and code objects so the process is constantly sending new
+        frames to the SocketReader, triggering tons of updates of the internal
+        strcutures inside. We want to check that if we get the stack traces
+        inside the allocations it won't crash/race with fetching new allocations
+        """
+        # GIVEN
+        script = textwrap.dedent(
+            f"""\
+            from bloomberg.pensieve._pensieve import MemoryAllocator
+            from bloomberg.pensieve._pensieve import SocketDestination
+            from bloomberg.pensieve._pensieve import Tracker
+            from itertools import count
+            import textwrap
+
+            def foo(allocator, n):
+                fname = f"blech_{{n}}"
+                namespace = {{}}
+
+                exec(textwrap.dedent(f'''
+                def {{fname}}(allocator):
+                    allocator.valloc(1024)
+                    allocator.free()
+                '''), namespace, namespace)
+
+                func = namespace[fname]
+                func(allocator)
+
+            with Tracker(destination=SocketDestination(port={free_port})):
+                allocator = MemoryAllocator()
+                for n in count(0):
+                    foo(allocator, n)
+        """
+        )
+        code = [
+            sys.executable,
+            "-c",
+            script,
+        ]
+        traces: Set[Tuple[str, str, int]] = set()
+        MAX_TRACES = 10
+
+        # WHEN
+        with subprocess.Popen(code) as proc, SocketReader(port=free_port) as reader:
+            while len(traces) < MAX_TRACES:
+                for allocation in reader.get_current_snapshot(merge_threads=False):
+                    traces.update(allocation.stack_trace())
+
+            proc.terminate()
+
+        # THEN
+        assert len(traces) >= MAX_TRACES
+        proc.returncode == 0
