@@ -29,6 +29,9 @@ KEYS = {
     "CTRL_C": "\x03",
     "LEFT": "\x1b\x5b\x44",
     "RIGHT": "\x1b\x5b\x43",
+    "O": "o",
+    "T": "t",
+    "A": "a",
 }
 
 
@@ -153,6 +156,17 @@ def aggregate_allocations(
 
 
 class TUI:
+    KEY_TO_COLUMN_NAME = {
+        "t": "total_memory",
+        "o": "own_memory",
+        "a": "n_allocations",
+    }
+    KEY_TO_COLUMN_ID = {
+        "t": 1,
+        "o": 2,
+        "a": 3,
+    }
+
     def __init__(self, pid: Optional[int], cmd_line: Optional[str]):
         self.pid = pid or "???"
         if not cmd_line:
@@ -171,6 +185,8 @@ class TUI:
         self._max_memory_seen = 0
         self._message = ""
         self.active = True
+        self._sort_field_name = "total_memory"
+        self._sort_column_id = 1
 
         layout = Layout(name="root")
         layout.split(
@@ -183,7 +199,10 @@ class TUI:
         layout["footer"].update(
             "[bold grey93 on dodger_blue1] Q [/] Quit "
             "[bold grey93 on dodger_blue1] ←  [/] Previous Thread "
-            "[bold grey93 on dodger_blue1] →  [/] Next Thread"
+            "[bold grey93 on dodger_blue1] →  [/] Next Thread "
+            "[bold grey93 on dodger_blue1] T [/] Sort By Total "
+            "[bold grey93 on dodger_blue1] O [/] Sort By Own "
+            "[bold grey93 on dodger_blue1] A [/] Sort By Allocations "
         )
         self.layout = layout
 
@@ -245,12 +264,17 @@ class TUI:
             Column("Allocation Count", ratio=1),
             expand=True,
         )
+        sort_column = table.columns[self._sort_column_id]
+        sort_column.header = f"<{sort_column.header}>"
+
         total_allocations = sum(record.n_allocations for record in self._snapshot)
         allocation_entries = aggregate_allocations(self._snapshot)
 
         for location, result in sorted(
             allocation_entries.items(),
-            key=lambda entry: entry[1].total_memory,
+            key=lambda item: getattr(  # type: ignore[no-any-return]
+                item[1], self._sort_field_name
+            ),
             reverse=True,
         ):
             if self.current_thread not in result.thread_ids:
@@ -311,6 +335,10 @@ class TUI:
         self._current_memory_size = sum(record.size for record in self._snapshot)
         self._max_memory_seen = max(self._max_memory_seen, self._current_memory_size)
 
+    def update_sort_key(self, key: str) -> None:
+        self._sort_field_name = self.KEY_TO_COLUMN_NAME[key]
+        self._sort_column_id = self.KEY_TO_COLUMN_ID[key]
+
 
 class LiveCommand:
     """Remotely monitor allocations in a text-based interface."""
@@ -350,5 +378,7 @@ class LiveCommand:
                         tui.next_thread()
                     elif char in {"q", KEYS["ESC"]}:
                         break
+                    elif char.lower() in TUI.KEY_TO_COLUMN_ID.keys():
+                        tui.update_sort_key(char.lower())
                     elif char == KEYS["CTRL_C"]:
                         raise KeyboardInterrupt()
