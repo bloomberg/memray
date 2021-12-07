@@ -12,6 +12,8 @@
 #include <chrono>
 #include <thread>
 
+#include <Python.h>
+
 #include "exceptions.h"
 #include "logging.h"
 #include "source.h"
@@ -146,6 +148,7 @@ SocketSource::SocketSource(int port)
 
     std::string port_str = std::to_string(port);
     while (curr_address == nullptr) {
+        Py_BEGIN_ALLOW_THREADS;
         if ((rv = ::getaddrinfo(nullptr, port_str.c_str(), &hints, &all_addresses)) != 0) {
             LOG(ERROR) << "Encountered error in 'getaddrinfo' call: " << ::gai_strerror(rv);
             throw IoError{"Failed to resolve host IP and port"};
@@ -174,6 +177,15 @@ SocketSource::SocketSource(int port)
             LOG(DEBUG) << "No connection, sleeping before retrying...";
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
+        Py_END_ALLOW_THREADS;
+        // Give a chance to check for signals arriving so we don't block the main thread.
+        if (PyErr_CheckSignals() < 0) {
+            break;
+        }
+    }
+    if (curr_address == nullptr) {
+        d_is_open = false;
+        return;
     }
 
     freeaddrinfo(all_addresses);

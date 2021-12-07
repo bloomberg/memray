@@ -2,6 +2,7 @@ import argparse
 import sys
 import termios
 from collections import defaultdict
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
 from typing import DefaultDict
@@ -324,6 +325,10 @@ class LiveCommand:
         )
 
     def run(self, args: argparse.Namespace) -> None:
+        with suppress(KeyboardInterrupt):
+            self._run(args)
+
+    def _run(self, args: argparse.Namespace) -> None:
         port = args.port
         if port >= 2 ** 16 or port <= 0:
             raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)

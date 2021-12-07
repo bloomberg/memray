@@ -12,6 +12,21 @@ import pytest
 from bloomberg.pensieve.commands import main
 
 
+def _wait_until_process_blocks(pid: int) -> None:
+    # Signal numbers from https://filippo.io/linux-syscall-table/
+    sleep_syscall = "35"
+    connect_syscall = "42"
+    accept_syscall = "43"
+    syscalls_to_wait = {sleep_syscall, connect_syscall, accept_syscall}
+    current_syscall = ""
+    while True:
+        syscall = Path(f"/proc/{pid}/syscall")
+        current_syscall, *_ = syscall.read_text().split()
+        if current_syscall.strip() in syscalls_to_wait:
+            return
+        time.sleep(0.1)
+
+
 def generate_sample_results(tmp_path, *, native=False):
     results_file = tmp_path / "result.bin"
     subprocess.run(
@@ -597,7 +612,8 @@ class TestLiveSubcommand:
 
         # WHEN
         server.stdout.readline()  # wait for the startup message
-        time.sleep(0.1)  # ensure that it's waiting on the socket
+        # Ensure that it's waiting on the socket
+        _wait_until_process_blocks(server.pid)
 
         server.send_signal(signal.SIGINT)
         try:
@@ -611,3 +627,34 @@ class TestLiveSubcommand:
         assert stderr
         assert b"Exception ignored" not in stderr
         assert b"Traceback (most recent call last):" not in stderr
+
+    def test_live_client_exits_properly_on_sigint_before_connecting(self, free_port):
+
+        # GIVEN
+        client = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "live",
+                str(free_port),
+            ],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            # Explicitly reset the signal handler for SIGINT to work around any signal
+            # masking that might happen on Jenkins.
+            preexec_fn=lambda: signal.signal(signal.SIGINT, signal.default_int_handler),
+        )
+
+        # Ensure that it's waiting on the socket
+        _wait_until_process_blocks(client.pid)
+
+        # WHEN
+        client.send_signal(signal.SIGINT)
+        try:
+            client.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            client.terminate()
+
+        # THEN
+        assert client.returncode == 0
