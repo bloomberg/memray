@@ -1,7 +1,11 @@
 import argparse
 import sys
 import termios
+from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime
+from typing import DefaultDict
+from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import Optional
@@ -26,6 +30,20 @@ KEYS = {
     "LEFT": "\x1b\x5b\x44",
     "RIGHT": "\x1b\x5b\x43",
 }
+
+
+@dataclass(frozen=True, eq=True)
+class Location:
+    function: str
+    file: str
+
+
+@dataclass
+class AllocationEntry:
+    own_memory: int
+    total_memory: int
+    n_allocations: int
+    thread_ids: Set[int]
 
 
 def _readchar() -> str:  # pragma: no cover
@@ -87,6 +105,51 @@ def _size_to_color(proportion_of_total: float) -> str:
         return "green"
     else:
         return "bright_green"
+
+
+def aggregate_allocations(
+    allocations: Iterable[AllocationRecord],
+) -> Dict[Location, AllocationEntry]:
+    """Take allocation records and for each frame contained, record "own"
+    allocations which happened on the frame, and sum up allocations on
+    all of the child frames to calculate "total" allocations."""
+
+    processed_allocations: DefaultDict[Location, AllocationEntry] = defaultdict(
+        lambda: AllocationEntry(
+            own_memory=0, total_memory=0, n_allocations=0, thread_ids=set()
+        )
+    )
+
+    for allocation in allocations:
+        stack_trace = list(allocation.stack_trace())
+        if not stack_trace:
+            frame = processed_allocations[Location(function="???", file="???")]
+            frame.total_memory += allocation.size
+            frame.own_memory += allocation.size
+            frame.n_allocations += allocation.n_allocations
+            frame.thread_ids.add(allocation.tid)
+            continue
+        (function, file_name, _), *caller_frames = stack_trace
+        location = Location(function=function, file=file_name)
+        processed_allocations[location] = AllocationEntry(
+            own_memory=allocation.size,
+            total_memory=allocation.size,
+            n_allocations=allocation.n_allocations,
+            thread_ids={allocation.tid},
+        )
+
+        # Walk upwards and sum totals
+        visited = set()
+        for function, file_name, _ in caller_frames:
+            location = Location(function=function, file=file_name)
+            frame = processed_allocations[location]
+            if location in visited:
+                continue
+            visited.add(location)
+            frame.total_memory += allocation.size
+            frame.n_allocations += allocation.n_allocations
+            frame.thread_ids.add(allocation.tid)
+    return processed_allocations
 
 
 class TUI:
@@ -177,28 +240,35 @@ class TUI:
     def get_body(self) -> Table:
         table = Table(
             Column("Location", ratio=5),
-            Column("Size", ratio=1),
+            Column("Total Memory", ratio=1),
+            Column("Own Memory", ratio=1),
             Column("Allocation Count", ratio=1),
             expand=True,
         )
         total_allocations = sum(record.n_allocations for record in self._snapshot)
-        for record in sorted(self._snapshot, key=lambda r: r.size, reverse=True):
-            if record.tid != self.current_thread:
+        allocation_entries = aggregate_allocations(self._snapshot)
+
+        for location, result in sorted(
+            allocation_entries.items(),
+            key=lambda entry: entry[1].total_memory,
+            reverse=True,
+        ):
+            if self.current_thread not in result.thread_ids:
                 continue
-            stack_trace = list(record.stack_trace(max_stacks=1))
-            location = "???"
-            if stack_trace:
-                function, file, line = stack_trace[0]
-                location = (
-                    f"[bold magenta]{escape(function)}[/] at "
-                    f"[cyan]{escape(file)}[/]:[blue]{line}[/]"
-                )
-            size_color = _size_to_color(record.size / self._current_memory_size)
-            allocation_colors = _size_to_color(record.n_allocations / total_allocations)
+            color_location = (
+                f"[bold magenta]{escape(location.function)}[/] at "
+                f"[cyan]{escape(location.file)}[/]"
+            )
+            total_color = _size_to_color(
+                result.total_memory / self._current_memory_size
+            )
+            own_color = _size_to_color(result.own_memory / self._current_memory_size)
+            allocation_colors = _size_to_color(result.n_allocations / total_allocations)
             table.add_row(
-                location,
-                f"[{size_color}]{size_fmt(record.size)}[/{size_color}]",
-                f"[{allocation_colors}]{record.n_allocations}[/{allocation_colors}]",
+                color_location,
+                f"[{total_color}]{size_fmt(result.total_memory)}[/{total_color}]",
+                f"[{own_color}]{size_fmt(result.own_memory)}[/{own_color}]",
+                f"[{allocation_colors}]{result.n_allocations}[/{allocation_colors}]",
             )
         return table
 

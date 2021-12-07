@@ -210,7 +210,7 @@ class TestFlamegraphSubCommand:
         # THEN
         output_file = tmp_path / "pensieve-flamegraph-result.html"
         assert output_file.exists()
-        assert "json/tool.py" in output_file.read_text()
+        assert "json.tool" in output_file.read_text()
 
     def test_can_generate_reports_with_native_traces(self, tmp_path):
         # GIVEN
@@ -234,7 +234,7 @@ class TestFlamegraphSubCommand:
         # THEN
         output_file = tmp_path / "pensieve-flamegraph-result.html"
         assert output_file.exists()
-        assert "json/tool.py" in output_file.read_text()
+        assert "json.tool" in output_file.read_text()
 
     def test_writes_to_correct_file(self, tmp_path):
         # GIVEN
@@ -259,7 +259,7 @@ class TestFlamegraphSubCommand:
 
         # THEN
         assert output_file.exists()
-        assert "json/tool.py" in output_file.read_text()
+        assert "json.tool" in output_file.read_text()
 
     def test_output_file_already_exists(self, tmp_path, monkeypatch):
         """Check that when the output file is derived form the input name, we fail when there is
@@ -302,7 +302,7 @@ class TestFlamegraphSubCommand:
 
         # THEN
         assert output_file.exists()
-        assert "json/tool.py" in output_file.read_text()
+        assert "json.tool" in output_file.read_text()
 
 
 class TestTableSubCommand:
@@ -328,7 +328,7 @@ class TestTableSubCommand:
         # THEN
         output_file = tmp_path / "pensieve-table-result.html"
         assert output_file.exists()
-        assert "json/tool.py" in output_file.read_text()
+        assert "json.tool" in output_file.read_text()
 
     def test_no_split_threads(self, tmp_path):
         # GIVEN/WHEN/THEN
@@ -417,7 +417,7 @@ class TestReporterSubCommands:
         # THEN
         output_file = tmp_path / f"pensieve-{report}-result.html"
         assert output_file.exists()
-        assert "json/tool.py" in output_file.read_text()
+        assert "json.tool" in output_file.read_text()
 
 
 class TestLiveSubcommand:
