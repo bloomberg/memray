@@ -55,7 +55,7 @@ void
 FileSource::_close()
 {
     d_stream.close();
-    if (d_stream.fail()) {
+    if (d_stream.fail() && !d_stream.eof()) {
         // d_file_name might have been already destroyed at this point, so don't
         // try to print it
         std::cerr << "Failed to close output file, results might be incomplete" << std::endl;
