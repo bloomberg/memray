@@ -571,13 +571,14 @@ class TestLiveSubcommand:
 
         try:
             _, stderr = server.communicate(timeout=5)
-            # THEN
-            assert "Failed to write output, deactivating tracking" in stderr
-            assert "Encountered error in 'send' call:" not in stderr
-        except (subprocess.TimeoutExpired, AssertionError):
+        except subprocess.TimeoutExpired:
             server.terminate()
             server.wait(timeout=3)
             raise
+
+        # THEN
+        assert "Failed to write output, deactivating tracking" in stderr
+        assert "Encountered error in 'send' call:" not in stderr
 
     def test_live_tracking_server_exits_properly_on_sigint(self):
         # GIVEN
