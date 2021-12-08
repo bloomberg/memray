@@ -1,3 +1,5 @@
+import contextlib
+import os
 import re
 import signal
 import subprocess
@@ -10,6 +12,35 @@ from unittest.mock import patch
 import pytest
 
 from bloomberg.pensieve.commands import main
+
+
+@contextlib.contextmanager
+def track_and_wait(output_dir, sleep_after=100):
+    """Creates a test script which does some allocations, and upon leaving the context manager,
+    it blocks until the allocations have completed."""
+
+    fifo = output_dir / "snapshot_taken.event"
+    os.mkfifo(fifo)
+
+    program = textwrap.dedent(
+        f"""\
+        import time
+        from bloomberg.pensieve._pensieve import MemoryAllocator
+        allocator = MemoryAllocator()
+        allocator.valloc(1024)
+        allocator.free()
+        with open("{fifo}", "w") as fifo:
+            fifo.write("done")
+        time.sleep({sleep_after})
+        """
+    )
+    program_file = output_dir / "file.py"
+    program_file.write_text(program)
+    yield program_file
+
+    # Wait until we are tracking
+    with open(fifo, "r") as f:
+        assert f.read() == "done"
 
 
 def _wait_until_process_blocks(pid: int) -> None:
@@ -435,7 +466,7 @@ class TestReporterSubCommands:
         assert "json.tool" in output_file.read_text()
 
 
-class TestLiveSubcommand:
+class TestLiveRemoteSubcommand:
     def test_live_tracking(self, free_port):
 
         # GIVEN
@@ -445,7 +476,7 @@ class TestLiveSubcommand:
                 "-m",
                 "bloomberg.pensieve",
                 "run",
-                "--live",
+                "--live-remote",
                 "--live-port",
                 str(free_port),
                 "-m",
@@ -468,8 +499,9 @@ class TestLiveSubcommand:
         )
 
         # WHEN
+
         try:
-            server.wait(timeout=5)
+            server.communicate(timeout=3)
             client.communicate(b"q", timeout=3)
         except subprocess.TimeoutExpired:
             server.terminate()
@@ -477,6 +509,8 @@ class TestLiveSubcommand:
             server.wait(timeout=3)
             client.wait(timeout=3)
             raise
+
+        server.communicate()
 
         # THEN
         assert server.returncode == 0
@@ -490,7 +524,7 @@ class TestLiveSubcommand:
                 "-m",
                 "bloomberg.pensieve",
                 "run",
-                "--live",
+                "--live-remote",
                 "-m",
                 "json.tool",
                 "--help",
@@ -513,7 +547,7 @@ class TestLiveSubcommand:
                 "-m",
                 "bloomberg.pensieve",
                 "run",
-                "--live",
+                "--live-remote",
                 "--live-port",
                 str(port),
                 "-m",
@@ -549,6 +583,7 @@ class TestLiveSubcommand:
         # GIVEN
         test_file = tmp_path / "test.py"
         test_file.write_text("import time; time.sleep(3)")
+
         server = subprocess.Popen(
             [
                 sys.executable,
@@ -557,7 +592,7 @@ class TestLiveSubcommand:
                 "run",
                 "--live-port",
                 str(free_port),
-                "--live",
+                "--live-remote",
                 str(test_file),
             ],
             env={"PYTHONUNBUFFERED": "1"},
@@ -578,7 +613,7 @@ class TestLiveSubcommand:
 
         # WHEN
         try:
-            client.communicate(b"q", timeout=3)
+            client.communicate(b"q", timeout=10)
         except subprocess.TimeoutExpired:
             client.terminate()
             client.wait(timeout=3)
@@ -603,7 +638,7 @@ class TestLiveSubcommand:
                 "-m",
                 "bloomberg.pensieve",
                 "run",
-                "--live",
+                "--live-remote",
                 "-m",
                 "json.tool",
                 "--help",
@@ -665,3 +700,69 @@ class TestLiveSubcommand:
 
         # THEN
         assert client.returncode == 0
+
+
+class TestLiveSubcommand:
+    def test_live_tracking(self, tmp_path):
+        # GIVEN
+        with track_and_wait(tmp_path) as program_file:
+            server = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "bloomberg.pensieve",
+                    "run",
+                    "--live",
+                    str(program_file),
+                ],
+                stdin=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+            )
+
+        # WHEN
+        try:
+            server.communicate(b"q", timeout=3)
+        except subprocess.TimeoutExpired:
+            server.kill()
+            raise
+
+        # THEN
+        assert server.returncode == 0
+
+    def test_live_tracking_server_exits_properly_on_sigint(self, tmp_path):
+        # GIVEN
+        with track_and_wait(tmp_path) as program_file:
+            server = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "bloomberg.pensieve",
+                    "run",
+                    "--live",
+                    str(program_file),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env={"PYTHONUNBUFFERED": "1"},
+                # Explicitly reset the signal handler for SIGINT to work around any signal
+                # masking that might happen on Jenkins.
+                preexec_fn=lambda: signal.signal(
+                    signal.SIGINT, signal.default_int_handler
+                ),
+            )
+
+        # WHEN
+
+        server.send_signal(signal.SIGINT)
+        try:
+            _, stderr = server.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            server.kill()
+            raise
+
+        # THEN
+        assert server.returncode == 0
+        assert not stderr
+        assert b"Exception ignored" not in stderr
+        assert b"KeyboardInterrupt" not in stderr
