@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import termios
 from collections import defaultdict
@@ -48,6 +49,13 @@ class AllocationEntry:
     total_memory: int
     n_allocations: int
     thread_ids: Set[int]
+
+
+def _get_terminal_lines() -> int:
+    try:
+        return os.get_terminal_size().lines
+    except OSError:
+        return 24
 
 
 def _readchar() -> str:  # pragma: no cover
@@ -188,6 +196,7 @@ class TUI:
         self.active = True
         self._sort_field_name = "total_memory"
         self._sort_column_id = 1
+        self._terminal_size = _get_terminal_lines()
 
         layout = Layout(name="root")
         layout.split(
@@ -271,13 +280,14 @@ class TUI:
         total_allocations = sum(record.n_allocations for record in self._snapshot)
         allocation_entries = aggregate_allocations(self._snapshot)
 
-        for location, result in sorted(
+        sorted_allocations = sorted(
             allocation_entries.items(),
             key=lambda item: getattr(  # type: ignore[no-any-return]
                 item[1], self._sort_field_name
             ),
             reverse=True,
-        ):
+        )[: self._terminal_size]
+        for location, result in sorted_allocations:
             if self.current_thread not in result.thread_ids:
                 continue
             color_location = (
