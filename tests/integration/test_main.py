@@ -459,6 +459,9 @@ class TestLiveSubcommand:
         except subprocess.TimeoutExpired:
             server.terminate()
             client.terminate()
+            server.wait(timeout=3)
+            client.wait(timeout=3)
+            raise
 
         # THEN
         assert server.returncode == 0
@@ -563,6 +566,8 @@ class TestLiveSubcommand:
             client.communicate(b"q", timeout=3)
         except subprocess.TimeoutExpired:
             client.terminate()
+            client.wait(timeout=3)
+            raise
 
         try:
             _, stderr = server.communicate(timeout=5)
@@ -571,6 +576,7 @@ class TestLiveSubcommand:
             assert "Encountered error in 'send' call:" not in stderr
         except (subprocess.TimeoutExpired, AssertionError):
             server.terminate()
+            server.wait(timeout=3)
             raise
 
     def test_live_tracking_server_exits_properly_on_sigint(self):
@@ -603,6 +609,7 @@ class TestLiveSubcommand:
             _, stderr = server.communicate(timeout=5)
         except subprocess.TimeoutExpired:
             server.kill()
+            server.wait(timeout=3)
             raise
 
         # THEN
