@@ -1,4 +1,3 @@
-
 #include <cerrno>
 #include <cstdio>
 
@@ -8,6 +7,8 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <utility>
+
+#include <Python.h>
 
 #include "exceptions.h"
 #include "sink.h"
@@ -123,8 +124,19 @@ SocketSink::open()
 
     LOG(DEBUG) << "Waiting for connections";
     sin_size = sizeof their_addr;
-    d_socket_fd = accept(sockfd, (struct sockaddr*)&their_addr, &sin_size);
+
+    bool async_err = false;
+    do {
+        Py_BEGIN_ALLOW_THREADS;
+        d_socket_fd = accept(sockfd, (struct sockaddr*)&their_addr, &sin_size);
+        Py_END_ALLOW_THREADS;
+    } while (d_socket_fd != 0 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
     ::close(sockfd);
+
+    if (async_err) {
+        return;
+    }
+
     if (d_socket_fd == -1) {
         LOG(ERROR) << "Encountered error in 'accept' call: " << strerror(errno);
         throw IoError{strerror(errno)};

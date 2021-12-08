@@ -5,6 +5,7 @@ import socket
 import sys
 import textwrap
 from contextlib import closing
+from contextlib import suppress
 from typing import Optional
 
 from bloomberg.pensieve import Destination
@@ -53,7 +54,8 @@ def _run_with_socket_output(args: argparse.Namespace) -> None:
     if not args.quiet:
         pensieve_cli = f"pensieve{sys.version_info.major}.{sys.version_info.minor}"
         print(f"Run '{pensieve_cli} live {port}' in another shell to see live results")
-    _run_tracker(destination=SocketDestination(port=port), args=args)
+    with suppress(KeyboardInterrupt):
+        _run_tracker(destination=SocketDestination(port=port), args=args)
 
 
 def _run_with_file_output(args: argparse.Namespace) -> None:

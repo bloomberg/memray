@@ -630,10 +630,10 @@ class TestLiveSubcommand:
             raise
 
         # THEN
-        assert server.returncode == 1
-        assert stderr
+        assert server.returncode == 0
         assert b"Exception ignored" not in stderr
         assert b"Traceback (most recent call last):" not in stderr
+        assert b"Interrupted system call" not in stderr
 
     def test_live_client_exits_properly_on_sigint_before_connecting(self, free_port):
 

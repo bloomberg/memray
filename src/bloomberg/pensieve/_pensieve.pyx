@@ -284,6 +284,18 @@ cdef class Tracker:
     cdef shared_ptr[RecordReader] _reader
     cdef unique_ptr[RecordWriter] _writer
 
+    cdef unique_ptr[Sink] _make_writer(self, destination) except*:
+        # Creating a Sink can raise Python exceptions (if is interrupted by signal
+        # handlers). If this happens, this method will propagate the appropriate exception.
+        if isinstance(destination, FileDestination):
+            return unique_ptr[Sink](new FileSink(os.fsencode(destination.path)))
+
+        elif isinstance(destination, SocketDestination):
+            return unique_ptr[Sink](new SocketSink(destination.host, destination.port))
+        else:
+            raise TypeError("destination must be a SocketDestination or FileDestination")
+
+
     def __cinit__(self, object file_name=None, *, object destination=None, bool native_traces=False):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
@@ -294,19 +306,9 @@ cdef class Tracker:
         if file_name is not None:
             destination = FileDestination(path=file_name)
 
-        if isinstance(destination, FileDestination):
-            self._writer = unique_ptr[RecordWriter](
-                new RecordWriter(unique_ptr[Sink](new FileSink(os.fsencode(destination.path))),
-                                 command_line,
-                                 native_traces))
-
-        elif isinstance(destination, SocketDestination):
-            self._writer = unique_ptr[RecordWriter](
-                new RecordWriter(unique_ptr[Sink](new SocketSink(destination.host, destination.port)),
-                                 command_line,
-                                 native_traces))
-        else:
-            raise TypeError("destination must be a SocketDestination or FileDestination")
+        self._writer = make_unique[RecordWriter](
+                move(self._make_writer(destination)), command_line, native_traces
+            )
 
     @cython.profile(False)
     def __enter__(self):
@@ -471,10 +473,11 @@ cdef class SocketReader:
             del self._impl
         self._impl = NULL
 
-    cdef SocketSource* _make_source(self) except*:
+    cdef unique_ptr[SocketSource] _make_source(self) except*:
         # Creating a SocketSource can raise Python exceptions (if is interrupted by signal
         # handlers). If this happens, this method will propagate the appropiate exception.
-        return (new SocketSource(self._port))
+        cdef int port = self._port
+        return make_unique[SocketSource](port)
 
     def __enter__(self):
         if self._impl is not NULL:
@@ -483,9 +486,7 @@ cdef class SocketReader:
                 "once, at the same time."
             )
 
-        self._reader = make_shared[RecordReader](
-            unique_ptr[SocketSource](self._make_source())
-        )
+        self._reader = make_shared[RecordReader](move(self._make_source()))
         self._header = self._reader.get().getHeader()
 
         self._impl = new BackgroundSocketReader(self._reader)
