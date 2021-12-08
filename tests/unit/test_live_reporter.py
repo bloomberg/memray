@@ -19,6 +19,10 @@ class FakeDate(MagicMock):
         return datetime.datetime(2021, 1, 1)
 
 
+def make_tui(pid=123, cmd="python3 some_program.py"):
+    return TUI(pid=pid, cmd_line=cmd)
+
+
 @patch("bloomberg.pensieve.commands.live.datetime", FakeDate)
 class TestTUIHeader:
     @pytest.mark.parametrize(
@@ -31,10 +35,9 @@ class TestTUIHeader:
     def test_pid(self, pid, out_str):
 
         # GIVEN
-        cmd_line = ""
         snapshot = []
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui(pid=pid, cmd="")
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -53,11 +56,9 @@ class TestTUIHeader:
 
     def test_command_line(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_command_to_test.py"
         snapshot = []
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui(cmd="python3 some_command_to_test.py")
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -76,11 +77,9 @@ class TestTUIHeader:
 
     def test_too_long_command_line_is_trimmed(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 " + "a" * 100
         snapshot = []
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui(cmd="python3 " + "a" * 100)
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -101,11 +100,9 @@ class TestTUIHeader:
     def test_with_no_allocations(self):
 
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_program.py"
         snapshot = []
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -124,8 +121,6 @@ class TestTUIHeader:
 
     def test_with_one_allocation(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -141,7 +136,7 @@ class TestTUIHeader:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -160,8 +155,6 @@ class TestTUIHeader:
 
     def test_with_many_allocations_same_thread(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -177,7 +170,7 @@ class TestTUIHeader:
             for i in range(3)
         ]
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -196,8 +189,6 @@ class TestTUIHeader:
 
     def test_with_many_threads_allocation(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=i,
@@ -213,7 +204,7 @@ class TestTUIHeader:
             for i in range(3)
         ]
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -232,8 +223,6 @@ class TestTUIHeader:
 
     def test_with_many_threads_and_change_current_thread(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=i,
@@ -249,7 +238,7 @@ class TestTUIHeader:
             for i in range(3)
         ]
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -269,8 +258,6 @@ class TestTUIHeader:
 
     def test_samples(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -286,7 +273,7 @@ class TestTUIHeader:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         for _ in range(10):
@@ -308,8 +295,6 @@ class TestTUIHeader:
 class TestTUIHeapBar:
     def test_single_allocation(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -325,7 +310,7 @@ class TestTUIHeapBar:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -341,8 +326,6 @@ class TestTUIHeapBar:
 
     def test_lowering_value(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot1 = [
             MockAllocationRecord(
                 tid=1,
@@ -373,7 +356,7 @@ class TestTUIHeapBar:
 
         output1 = StringIO()
         output2 = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot1)
@@ -398,8 +381,6 @@ class TestTUIHeapBar:
 
     def test_raising_value(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot1 = [
             MockAllocationRecord(
                 tid=1,
@@ -430,7 +411,7 @@ class TestTUIHeapBar:
 
         output1 = StringIO()
         output2 = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot1)
@@ -455,8 +436,6 @@ class TestTUIHeapBar:
 
     def test_allocations_in_multiple_threads(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=i,
@@ -473,7 +452,7 @@ class TestTUIHeapBar:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -491,12 +470,10 @@ class TestTUIHeapBar:
 class TestTUITable:
     def test_no_allocation(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot = []
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -515,8 +492,6 @@ class TestTUITable:
 
     def test_with_one_allocation(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -532,7 +507,7 @@ class TestTUITable:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -552,8 +527,6 @@ class TestTUITable:
 
     def test_multiple_allocations_same_thread(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -570,7 +543,7 @@ class TestTUITable:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -594,8 +567,6 @@ class TestTUITable:
 
     def test_multiple_allocations_different_threads(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=i,
@@ -612,7 +583,7 @@ class TestTUITable:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -632,8 +603,6 @@ class TestTUITable:
 
     def test_multiple_allocations_different_threads_change_thread(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=i,
@@ -650,7 +619,7 @@ class TestTUITable:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -672,8 +641,6 @@ class TestTUITable:
 
     def test_multiple_allocations_different_n_allocations(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -690,7 +657,7 @@ class TestTUITable:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -716,8 +683,6 @@ class TestTUITable:
 
     def test_parent_frame_totals(self):
         # GIVEN
-        pid = 1234
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -748,7 +713,7 @@ class TestTUITable:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)
@@ -774,8 +739,6 @@ class TestTUITable:
 class TestTUILayout:
     def test_with_multiple_allocations(self):
         # GIVEN
-        pid = 123
-        cmd_line = "python3 some_program.py"
         snapshot = [
             MockAllocationRecord(
                 tid=1,
@@ -792,7 +755,7 @@ class TestTUILayout:
         ]
 
         output = StringIO()
-        tui = TUI(pid, cmd_line)
+        tui = make_tui()
 
         # WHEN
         tui.update_snapshot(snapshot)

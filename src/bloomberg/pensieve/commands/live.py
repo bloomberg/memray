@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import termios
 from collections import defaultdict
@@ -25,6 +26,8 @@ from bloomberg.pensieve import SocketReader
 from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._pensieve import size_fmt
 
+MAX_MEMORY_RATIO = 0.95
+
 KEYS = {
     "ESC": "\x1b",
     "CTRL_C": "\x03",
@@ -48,6 +51,16 @@ class AllocationEntry:
     total_memory: int
     n_allocations: int
     thread_ids: Set[int]
+
+
+DEFAULT_TERMINAL_LINES = 24
+
+
+def _get_terminal_lines() -> int:
+    try:
+        return os.get_terminal_size().lines
+    except OSError:
+        return DEFAULT_TERMINAL_LINES
 
 
 def _readchar() -> str:  # pragma: no cover
@@ -112,7 +125,7 @@ def _size_to_color(proportion_of_total: float) -> str:
 
 
 def aggregate_allocations(
-    allocations: Iterable[AllocationRecord],
+    allocations: Iterable[AllocationRecord], memory_threshold: float = float("inf")
 ) -> Dict[Location, AllocationEntry]:
     """Take allocation records and for each frame contained, record "own"
     allocations which happened on the frame, and sum up allocations on
@@ -124,7 +137,12 @@ def aggregate_allocations(
         )
     )
 
+    current_total = 0
     for allocation in allocations:
+        if current_total >= memory_threshold:
+            break
+        current_total += allocation.size
+
         stack_trace = list(allocation.stack_trace())
         if not stack_trace:
             frame = processed_allocations[Location(function="???", file="???")]
@@ -188,6 +206,7 @@ class TUI:
         self.active = True
         self._sort_field_name = "total_memory"
         self._sort_column_id = 1
+        self._terminal_size = _get_terminal_lines()
 
         layout = Layout(name="root")
         layout.split(
@@ -269,15 +288,18 @@ class TUI:
         sort_column.header = f"<{sort_column.header}>"
 
         total_allocations = sum(record.n_allocations for record in self._snapshot)
-        allocation_entries = aggregate_allocations(self._snapshot)
+        allocation_entries = aggregate_allocations(
+            self._snapshot, MAX_MEMORY_RATIO * self._current_memory_size
+        )
 
-        for location, result in sorted(
+        sorted_allocations = sorted(
             allocation_entries.items(),
             key=lambda item: getattr(  # type: ignore[no-any-return]
                 item[1], self._sort_field_name
             ),
             reverse=True,
-        ):
+        )[: self._terminal_size]
+        for location, result in sorted_allocations:
             if self.current_thread not in result.thread_ids:
                 continue
             color_location = (
