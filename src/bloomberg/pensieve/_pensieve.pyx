@@ -471,6 +471,11 @@ cdef class SocketReader:
             del self._impl
         self._impl = NULL
 
+    cdef SocketSource* _make_source(self) except*:
+        # Creating a SocketSource can raise Python exceptions (if is interrupted by signal
+        # handlers). If this happens, this method will propagate the appropiate exception.
+        return (new SocketSource(self._port))
+
     def __enter__(self):
         if self._impl is not NULL:
             raise ValueError(
@@ -479,7 +484,7 @@ cdef class SocketReader:
             )
 
         self._reader = make_shared[RecordReader](
-            unique_ptr[SocketSource](new SocketSource(self._port))
+            unique_ptr[SocketSource](self._make_source())
         )
         self._header = self._reader.get().getHeader()
 
