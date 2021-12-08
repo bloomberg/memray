@@ -455,7 +455,7 @@ class TestLiveSubcommand:
         # WHEN
         try:
             server.wait(timeout=5)
-            client.communicate(b"q", timeout=1)
+            client.communicate(b"q", timeout=3)
         except subprocess.TimeoutExpired:
             server.terminate()
             client.terminate()
