@@ -475,9 +475,10 @@ cdef class SocketReader:
 
     cdef unique_ptr[SocketSource] _make_source(self) except*:
         # Creating a SocketSource can raise Python exceptions (if is interrupted by signal
-        # handlers). If this happens, this method will propagate the appropiate exception.
-        cdef int port = self._port
-        return make_unique[SocketSource](port)
+        # handlers). If this happens, this method will propagate the appropriate exception.
+        # We cannot use make_unique or C++ exceptions from SocketSource() won't be caught.
+        cdef SocketSource* source = new SocketSource(self._port)
+        return unique_ptr[SocketSource](source)
 
     def __enter__(self):
         if self._impl is not NULL:
