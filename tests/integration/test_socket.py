@@ -149,6 +149,23 @@ class TestSocketReaderErrorHandling:
         with pytest.raises(ValueError):
             next(reader.get_current_snapshot(merge_threads=False))
 
+    def test_get_is_active_after_context(self, free_port: int, tmp_path: Path) -> None:
+        # GIVEN
+        reader = SocketReader(port=free_port)
+        program = ALLOCATE_THEN_SNAPSHOT_THEN_FREE
+
+        # WHEN
+        with run_till_snapshot_point(
+            program,
+            reader=reader,
+            tmp_path=tmp_path,
+            free_port=free_port,
+        ):
+            pass
+
+        # THEN
+        assert reader.is_active is False
+
     @pytest.mark.valgrind
     def test_get_current_snapshot_raises_after_context(
         self, free_port: int, tmp_path: Path

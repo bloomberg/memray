@@ -513,6 +513,8 @@ cdef class SocketReader:
 
     @property
     def is_active(self):
+        if self._impl == NULL:
+            return False
         return self._impl.is_active()
 
     @property
