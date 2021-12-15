@@ -146,7 +146,7 @@ class TestSocketReaderErrorHandling:
         reader = SocketReader(port=free_port)
 
         # WHEN / THEN
-        with pytest.raises(ValueError):
+        with pytest.raises(StopIteration):
             next(reader.get_current_snapshot(merge_threads=False))
 
     def test_get_is_active_after_context(self, free_port: int, tmp_path: Path) -> None:
@@ -184,7 +184,7 @@ class TestSocketReaderErrorHandling:
             pass
 
         # THEN
-        with pytest.raises(ValueError):
+        with pytest.raises(StopIteration):
             next(reader.get_current_snapshot(merge_threads=False))
 
     @pytest.mark.valgrind
@@ -205,7 +205,7 @@ class TestSocketReaderErrorHandling:
             snapshot = reader.get_current_snapshot(merge_threads=False)
 
         # THEN
-        with pytest.raises(ValueError):
+        with pytest.raises(StopIteration):
             next(snapshot)
 
     @pytest.mark.valgrind
