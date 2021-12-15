@@ -93,7 +93,11 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
             stdout=subprocess.DEVNULL,
             text=True,
         ) as process:
-            LiveCommand().start_live_interface(port)
+            try:
+                LiveCommand().start_live_interface(port)
+            except (Exception, KeyboardInterrupt) as error:
+                process.terminate()
+                raise error from None
             process.terminate()
             if process.returncode:
                 if process.stderr:
