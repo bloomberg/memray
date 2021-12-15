@@ -9,6 +9,7 @@ from rich import print as rprint
 from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve.commands.live import TUI
 from bloomberg.pensieve.commands.live import Location
+from bloomberg.pensieve.commands.live import MemoryGraph
 from bloomberg.pensieve.commands.live import aggregate_allocations
 from tests.utils import MockAllocationRecord
 
@@ -47,9 +48,12 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            f"              PID: {out_str}      CMD: ???",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x0      Thread 1 of 0",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ─╮",
+            f"(∩｀-´)⊃━☆ﾟ.*…PID: {out_str}      CMD: ???           │          │",
+            "              TID: 0x0      Thread 1 of 0      │          │",
+            "              Samples: 1    Duration: 0.0      │          │",
+            "                            seconds            │          │",
+            "                                               ╰──────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -68,9 +72,12 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD: python3 some_command_to_test.py",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x0      Thread 1 of 0",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ─╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
+            "                            some_command_to_te…│          │",
+            "              TID: 0x0      Thread 1 of 0      │          │",
+            "              Samples: 1    Duration: 0.0      │          │",
+            "                            seconds            ╰──────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -89,10 +96,12 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD: python3",
-            "(∩｀-´)⊃━☆ﾟ.*…              aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...",
-            "              TID: 0x0      Thread 1 of 0",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ─╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
+            "                            aaaaaaaaaaaaaaaaaa…│          │",
+            "              TID: 0x0      Thread 1 of 0      │          │",
+            "              Samples: 1    Duration: 0.0      │          │",
+            "                            seconds            ╰──────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -112,9 +121,12 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD: python3 some_program.py",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x0      Thread 1 of 0",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ─╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
+            "                            some_program.py    │          │",
+            "              TID: 0x0      Thread 1 of 0      │          │",
+            "              Samples: 1    Duration: 0.0      │          │",
+            "                            seconds            ╰──────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -146,9 +158,12 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD: python3 some_program.py",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x1      Thread 1 of 1",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ──────────────────────╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
+            "                            some_program.py    │                             … │",
+            "              TID: 0x1      Thread 1 of 1      │                             … │",
+            "              Samples: 1    Duration: 0.0      │                             … │",
+            "                            seconds            ╰───────────────────────────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -180,9 +195,12 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD: python3 some_program.py",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x1      Thread 1 of 1",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ──────────────────────╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
+            "                            some_program.py    │                             … │",
+            "              TID: 0x1      Thread 1 of 1      │                             … │",
+            "              Samples: 1    Duration: 0.0      │                             … │",
+            "                            seconds            ╰───────────────────────────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -214,9 +232,12 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD: python3 some_program.py",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x0      Thread 1 of 3",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ──────────────────────╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
+            "                            some_program.py    │                             … │",
+            "              TID: 0x0      Thread 1 of 3      │                             … │",
+            "              Samples: 1    Duration: 0.0      │                             … │",
+            "                            seconds            ╰───────────────────────────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -249,9 +270,12 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD: python3 some_program.py",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x1      Thread 2 of 3",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ──────────────────────╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
+            "                            some_program.py    │                             … │",
+            "              TID: 0x1      Thread 2 of 3      │                             … │",
+            "              Samples: 1    Duration: 0.0      │                             … │",
+            "                            seconds            ╰───────────────────────────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
@@ -284,12 +308,255 @@ class TestTUIHeader:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123       CMD: python3 some_program.py",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x1       Thread 1 of 1",
-            "              Samples: 10    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ──────────────────────╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123       CMD: python3      │                             … │",
+            "                             some_program.py   │                             … │",
+            "              TID: 0x1       Thread 1 of 1     │                             … │",
+            "              Samples: 10    Duration: 0.0     │                             … │",
+            "                             seconds           ╰───────────────────────────────╯",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
         assert actual == expected
+
+    def test_plot_with_increasing_allocations(self):
+        # GIVEN
+        snapshot = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("function1", "/src/lel.py", 18),
+                ],
+            )
+        ]
+
+        output = StringIO()
+        tui = make_tui()
+
+        # WHEN
+        for _ in range(50):
+            snapshot.append(
+                MockAllocationRecord(
+                    tid=1,
+                    address=0x1000000,
+                    size=1024,
+                    allocator=AllocatorType.MALLOC,
+                    stack_id=1,
+                    n_allocations=1,
+                    _stack=[
+                        ("function1", "/src/lel.py", 18),
+                    ],
+                )
+            )
+            tui.update_snapshot(snapshot)
+
+        rprint(tui.get_header(), file=output)
+
+        # THEN
+        expected = [
+            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
+            "tracking",
+            "                                               ╭─ Memory ──────────────────────╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123       CMD: python3      │                             … │",
+            "                             some_program.py   │                         ⢀⣀⣀⣠… │",
+            "              TID: 0x1       Thread 1 of 1     │            ⢀⣀⣀⣠⣤⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿… │",
+            "              Samples: 50    Duration: 0.0     │ ⢀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿… │",
+            "                             seconds           ╰───────────────────────────────╯",
+        ]
+        actual = [line.rstrip() for line in output.getvalue().splitlines()]
+        assert actual == expected
+
+
+class TestGraph:
+    def test_empty(self):
+        # GIVEN
+
+        plot = MemoryGraph(50, 4, 0.0, 100.0)
+
+        # WHEN
+
+        graph = plot.graph
+
+        # THEN
+
+        assert plot.maxval == 100.0
+        assert plot.minval == 0
+        assert graph == ("", "", "", "")
+
+    def test_size_of_graph(self):
+        # GIVEN
+        size = 36
+        rows = 10
+
+        plot = MemoryGraph(size, rows, 0.0, 100.0)
+
+        # WHEN
+
+        for point in range(50):
+            plot.add_value(point)
+        graph = plot.graph
+
+        # THEN
+
+        assert len(graph) == rows
+        assert all(len(row) == size for row in graph)
+
+    def test_one_point_lower_than_max(self):
+        # GIVEN
+
+        plot = MemoryGraph(50, 4, 0.0, 100.0)
+
+        # WHEN
+
+        plot.add_value(50.0)
+
+        # THEN
+
+        assert plot.maxval == 100.0
+        assert plot.minval == 0
+        assert plot.graph == (" ", " ", "⢸", "⢸")
+
+    def test_one_point_bigger_than_max(self):
+        # GIVEN
+
+        plot = MemoryGraph(50, 4, 0.0, 100.0)
+
+        # WHEN
+
+        plot.add_value(500.0)
+
+        # THEN
+
+        assert plot.maxval == 100.0
+        assert plot.minval == 0
+        assert plot.graph == ("⢸", "⢸", "⢸", "⢸")
+
+    def test_one_point_bigger_than_max_before_resize(self):
+        # GIVEN
+
+        plot = MemoryGraph(50, 4, 0.0, 100.0)
+
+        # WHEN
+
+        plot.reset_max(1000)
+        plot.add_value(500.0)
+
+        # THEN
+
+        assert plot.maxval == 1000.0
+        assert plot.minval == 0
+        assert plot.graph == (
+            "                                                  ",
+            "                                                  ",
+            "                                                 ⢸",
+            "                                                 ⢸",
+        )
+
+    def test_one_point_bigger_than_max_after_resize(self):
+        # GIVEN
+
+        plot = MemoryGraph(50, 4, 0.0, 100.0)
+
+        # WHEN
+
+        plot.add_value(500.0)
+        plot.reset_max(1000)
+
+        # THEN
+
+        assert plot.maxval == 1000.0
+        assert plot.minval == 0
+        assert plot.graph == (
+            "                                                  ",
+            "                                                  ",
+            "                                                 ⢸",
+            "                                                 ⢸",
+        )
+
+    def test_multiple_points(self):
+        # GIVEN
+
+        plot = MemoryGraph(50, 4, 0.0, 100.0)
+
+        # WHEN
+
+        for point in range(50):
+            plot.add_value(point)
+
+        # THEN
+
+        assert plot.maxval == 100.0
+        assert plot.minval == 0
+        assert plot.graph == (
+            "                                                  ",
+            "                                                  ",
+            "                          ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿",
+            " ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+        )
+
+    def test_multiple_points_with_resize(self):
+        # GIVEN
+
+        plot = MemoryGraph(50, 4, 0.0, 40.0)
+
+        # WHEN
+
+        for point in range(50):
+            plot.add_value(point)
+        plot_before_resize = plot.graph
+        plot.reset_max(100.0)
+        plot_after_resize = plot.graph
+
+        # THEN
+        assert plot_before_resize == (
+            "                               ⢀⣀⣠⣤⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            "                     ⢀⣀⣠⣤⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            "           ⢀⣀⣠⣤⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            " ⢀⣀⣠⣤⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+        )
+        assert plot.maxval == 100.0
+        assert plot.minval == 0
+        assert plot_after_resize == (
+            "                                                  ",
+            "                                                  ",
+            "                          ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿",
+            " ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+        )
+
+    def test_multiple_points_with_resize_with_more_additions(self):
+        # GIVEN
+
+        plot = MemoryGraph(50, 4, 0.0, 15.0)
+
+        # WHEN
+
+        for point in range(25):
+            plot.add_value(point)
+        plot_before_resize = plot.graph
+        plot.reset_max(50.0)
+        for point in range(25, 50):
+            plot.add_value(point)
+        plot_after_resize = plot.graph
+
+        # THEN
+        assert plot_before_resize == (
+            "            ⢀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            "        ⢀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            "    ⢀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            " ⢠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+        )
+        assert plot.maxval == 50.0
+        assert plot.minval == 0
+        assert plot_after_resize == (
+            "                                      ⢀⣀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿",
+            "                          ⢀⣀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            "             ⢀⣀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            " ⢀⣀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+        )
 
 
 class TestTUIHeapBar:
@@ -767,9 +1034,11 @@ class TestTUILayout:
         expected = [
             "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
             "tracking",
-            "              PID: 123      CMD: python3 some_program.py",
-            "(∩｀-´)⊃━☆ﾟ.*…TID: 0x1      Thread 1 of 1",
-            "              Samples: 1    Duration: 0.0 seconds",
+            "                                               ╭─ Memory ──────────────────────╮",
+            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
+            "                            some_program.py    │                             … │",
+            "              TID: 0x1      Thread 1 of 1      │                             … │",
+            "              Samples: 1    Duration: 0.0      │                             … │",
             "Current heap size: 15.000KB                         Max heap size seen: 15.000KB",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓",

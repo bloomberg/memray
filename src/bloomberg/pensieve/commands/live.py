@@ -3,10 +3,13 @@ import os
 import sys
 import termios
 from collections import defaultdict
+from collections import deque
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
+from math import ceil
 from typing import DefaultDict
+from typing import Deque
 from typing import Dict
 from typing import Iterable
 from typing import List
@@ -17,6 +20,7 @@ from typing import Tuple
 from rich.layout import Layout
 from rich.live import Live
 from rich.markup import escape
+from rich.panel import Panel
 from rich.progress_bar import ProgressBar
 from rich.table import Column
 from rich.table import Table
@@ -54,6 +58,73 @@ class AllocationEntry:
 
 
 DEFAULT_TERMINAL_LINES = 24
+
+
+class MemoryGraph:
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        minval: float,
+        maxval: float,
+    ):
+        self._graph: List[Deque[str]] = [deque(maxlen=width) for _ in range(height)]
+        self.width = width
+        self.height = height
+        self.minval = minval
+        self.maxval = maxval
+        self._previous_blocks = [0] * height
+        values = [minval] * (2 * self.width + 1)
+        self._values = deque(values, maxlen=2 * self.width + 1)
+        self.lookup = [
+            [" ", "⢀", "⢠", "⢰", "⢸"],
+            ["⡀", "⣀", "⣠", "⣰", "⣸"],
+            ["⡄", "⣄", "⣤", "⣴", "⣼"],
+            ["⡆", "⣆", "⣦", "⣶", "⣾"],
+            ["⡇", "⣇", "⣧", "⣷", "⣿"],
+        ]
+
+    def _value_to_blocks(self, value: float) -> List[int]:
+        dots_per_block = 4
+        if value < self.minval:
+            n_dots = 0
+        elif value > self.maxval:
+            n_dots = dots_per_block * self.height
+        else:
+            n_dots = ceil(
+                (value - self.minval)
+                / (self.maxval - self.minval)
+                * dots_per_block
+                * self.height
+            )
+        blocks = [dots_per_block] * (n_dots // dots_per_block)
+        if n_dots % dots_per_block > 0:
+            blocks += [n_dots % dots_per_block]
+        blocks += [0] * (self.height - len(blocks))
+        return blocks
+
+    def add_value(self, value: float) -> None:
+        blocks = self._value_to_blocks(value)
+
+        chars = reversed(
+            tuple(self.lookup[i0][i1] for i0, i1 in zip(self._previous_blocks, blocks))
+        )
+
+        for row, char in enumerate(chars):
+            self._graph[row].append(char)
+
+        self._values.append(value)
+        self._previous_blocks = blocks
+
+    def reset_max(self, value: float) -> None:
+        self._graph = [deque(maxlen=self.width) for _ in range(self.height)]
+        self.maxval = value
+        for value in self._values.copy():
+            self.add_value(value)
+
+    @property
+    def graph(self) -> Tuple[str, ...]:
+        return tuple("".join(chars) for chars in self._graph)
 
 
 def _get_terminal_lines() -> int:
@@ -207,10 +278,11 @@ class TUI:
         self._sort_field_name = "total_memory"
         self._sort_column_id = 1
         self._terminal_size = _get_terminal_lines()
+        self.stream = MemoryGraph(50, 4, 0.0, 1024.0)
 
         layout = Layout(name="root")
         layout.split(
-            Layout(name="header", size=5),
+            Layout(name="header", size=7),
             Layout(name="heap_size", size=2),
             Layout(name="table", ratio=1),
             Layout(name="message", size=1),
@@ -239,6 +311,7 @@ class TUI:
         metadata = Table.grid(expand=False, padding=(0, 0, 0, 4))
         metadata.add_column(justify="left", ratio=5)
         metadata.add_column(justify="left", ratio=5)
+        metadata.add_row("")
         metadata.add_row(f"[b]PID[/]: {self.pid}", f"[b]CMD[/]: {self.command_line}")
         metadata.add_row(
             f"[b]TID[/]: {hex(self.current_thread)}",
@@ -249,10 +322,20 @@ class TUI:
             f"[b]Duration[/]: {(self._last_update - self.start).total_seconds()} seconds",
         )
 
+        graph = "\n".join(self.stream.graph)
+        plot = Panel(
+            f"[color({2})]{graph}[/]",
+            title="Memory",
+            title_align="left",
+            border_style="green",
+            expand=False,
+        )
+
         body = Table.grid(expand=True)
         body.add_column(justify="center", ratio=2)
-        body.add_column(justify="center", ratio=10)
-        body.add_row("\n(∩｀-´)⊃━☆ﾟ.*･｡ﾟ\n", metadata)
+        body.add_column(justify="center", ratio=5)
+        body.add_column(justify="left", ratio=5)
+        body.add_row("\n(∩｀-´)⊃━☆ﾟ.*･｡ﾟ\n", metadata, plot)
 
         header.add_row(head)
         header.add_row(body)
@@ -356,7 +439,10 @@ class TUI:
         self.n_samples += 1
         self._last_update = datetime.now()
         self._current_memory_size = sum(record.size for record in self._snapshot)
-        self._max_memory_seen = max(self._max_memory_seen, self._current_memory_size)
+        if self._current_memory_size > self._max_memory_seen:
+            self._max_memory_seen = self._current_memory_size
+            self.stream.reset_max(self._max_memory_seen)
+        self.stream.add_value(self._current_memory_size)
 
     def update_sort_key(self, key: str) -> None:
         self._sort_field_name = self.KEY_TO_COLUMN_NAME[key]
