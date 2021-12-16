@@ -196,7 +196,9 @@ def _size_to_color(proportion_of_total: float) -> str:
 
 
 def aggregate_allocations(
-    allocations: Iterable[AllocationRecord], memory_threshold: float = float("inf")
+    allocations: Iterable[AllocationRecord],
+    memory_threshold: float = float("inf"),
+    native_traces: Optional[bool] = False,
 ) -> Dict[Location, AllocationEntry]:
     """Take allocation records and for each frame contained, record "own"
     allocations which happened on the frame, and sum up allocations on
@@ -214,7 +216,11 @@ def aggregate_allocations(
             break
         current_total += allocation.size
 
-        stack_trace = list(allocation.stack_trace())
+        stack_trace = list(
+            allocation.hybrid_stack_trace()
+            if native_traces
+            else allocation.stack_trace()
+        )
         if not stack_trace:
             frame = processed_allocations[Location(function="???", file="???")]
             frame.total_memory += allocation.size
@@ -257,13 +263,14 @@ class TUI:
         "a": 3,
     }
 
-    def __init__(self, pid: Optional[int], cmd_line: Optional[str]):
+    def __init__(self, pid: Optional[int], cmd_line: Optional[str], native: bool):
         self.pid = pid or "???"
         if not cmd_line:
             cmd_line = "???"
         if len(cmd_line) > 50:
             cmd_line = cmd_line[:50] + "..."
         self.command_line = escape(cmd_line)
+        self._native = native
         self._thread_idx = 0
         self._seen_threads: Set[int] = set()
         self._threads: List[int] = []
@@ -372,7 +379,7 @@ class TUI:
 
         total_allocations = sum(record.n_allocations for record in self._snapshot)
         allocation_entries = aggregate_allocations(
-            self._snapshot, MAX_MEMORY_RATIO * self._current_memory_size
+            self._snapshot, MAX_MEMORY_RATIO * self._current_memory_size, self._native
         )
 
         sorted_allocations = sorted(
@@ -469,7 +476,7 @@ class LiveCommand:
         if port >= 2 ** 16 or port <= 0:
             raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
         with SocketReader(port=port) as reader:
-            tui = TUI(reader.pid, reader.command_line)
+            tui = TUI(reader.pid, reader.command_line, reader.has_native_traces)
 
             def _get_renderable() -> Layout:
                 if tui.active:

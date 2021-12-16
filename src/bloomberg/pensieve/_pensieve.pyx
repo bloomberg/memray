@@ -523,6 +523,12 @@ cdef class SocketReader:
             return None
         return self._header["pid"]
 
+    @property
+    def has_native_traces(self):
+        if not self._header:
+            return False
+        return self._header["native_traces"]
+
     def get_current_snapshot(self, *, bool merge_threads):
         if self._impl is NULL:
             raise ValueError("No active thread to get snapshot from.")

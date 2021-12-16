@@ -20,8 +20,8 @@ class FakeDate(MagicMock):
         return datetime.datetime(2021, 1, 1)
 
 
-def make_tui(pid=123, cmd="python3 some_program.py"):
-    return TUI(pid=pid, cmd_line=cmd)
+def make_tui(pid=123, cmd="python3 some_program.py", native=False):
+    return TUI(pid=pid, cmd_line=cmd, native=native)
 
 
 @patch("bloomberg.pensieve.commands.live.datetime", FakeDate)
@@ -1146,6 +1146,56 @@ class TestAggregateResults:
         ]
         # WHEN
         result = aggregate_allocations(allocation_records)
+
+        # THEN
+        grandparent = result[Location(function="grandparent", file="fun.py")]
+        assert grandparent.own_memory == 0
+        assert grandparent.total_memory == 20
+        assert grandparent.n_allocations == 1
+
+        me = result[Location(function="???", file="???")]
+        assert me.own_memory == 40
+        assert me.total_memory == 40
+        assert me.n_allocations == 3
+
+    def test_native_frames(self):
+        # GIVEN
+        allocation_records = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=2,
+                _stack=[],
+                _hybrid_stack=[],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=20,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _hybrid_stack=[
+                    ("sibling", "fun.c", 16),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=30,
+                allocator=AllocatorType.MALLOC,
+                stack_id=2,
+                n_allocations=1,
+                _hybrid_stack=[],
+            ),
+        ]
+        # WHEN
+        result = aggregate_allocations(allocation_records, native_traces=True)
 
         # THEN
         grandparent = result[Location(function="grandparent", file="fun.py")]
