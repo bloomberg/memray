@@ -469,10 +469,9 @@ class LiveCommand:
 
     def run(self, args: argparse.Namespace) -> None:
         with suppress(KeyboardInterrupt):
-            self._run(args)
+            self.start_live_interface(args.port)
 
-    def _run(self, args: argparse.Namespace) -> None:
-        port = args.port
+    def start_live_interface(self, port: int) -> None:
         if port >= 2 ** 16 or port <= 0:
             raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
         with SocketReader(port=port) as reader:

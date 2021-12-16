@@ -531,7 +531,7 @@ cdef class SocketReader:
 
     def get_current_snapshot(self, *, bool merge_threads):
         if self._impl is NULL:
-            raise ValueError("No active thread to get snapshot from.")
+            return
 
         snapshot_allocations = self._impl.Py_GetSnapshotAllocationRecords(merge_threads=merge_threads)
         for elem in snapshot_allocations:
