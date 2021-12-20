@@ -536,7 +536,8 @@ class TestLiveRemoteSubcommand:
 
         # THEN
         assert b"another shell to see live results\n" in server.stdout.readline()
-        server.kill()
+        server.terminate()
+        server.wait(timeout=3)
 
     @pytest.mark.parametrize("port", [0, 2 ** 16, 1000000])
     def test_run_live_tracking_invalid_port(self, port):
@@ -559,7 +560,11 @@ class TestLiveRemoteSubcommand:
             stderr=subprocess.PIPE,
             text=True,
         )
+
+        # THEN
         assert "Invalid port" in server.stderr.readline()
+        server.terminate()
+        server.wait(timeout=3)
 
     @pytest.mark.parametrize("port", [0, 2 ** 16, 1000000])
     def test_live_tracking_invalid_port(self, port):
@@ -577,7 +582,11 @@ class TestLiveRemoteSubcommand:
             stderr=subprocess.PIPE,
             text=True,
         )
+
+        # THEN
         assert "Invalid port" in server.stderr.readline()
+        server.terminate()
+        server.wait(timeout=3)
 
     def test_live_tracking_server_when_client_disconnects(self, free_port, tmp_path):
         # GIVEN
