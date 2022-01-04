@@ -370,7 +370,9 @@ class TUI:
         table = Table(
             Column("Location", ratio=5),
             Column("Total Memory", ratio=1),
+            Column("Total Memory %", ratio=1),
             Column("Own Memory", ratio=1),
+            Column("Own Memory % ", ratio=1),
             Column("Allocation Count", ratio=1),
             expand=True,
         )
@@ -401,10 +403,14 @@ class TUI:
             )
             own_color = _size_to_color(result.own_memory / self._current_memory_size)
             allocation_colors = _size_to_color(result.n_allocations / total_allocations)
+            percent_total = result.total_memory / self._current_memory_size * 100
+            percent_own = result.own_memory / self._current_memory_size * 100
             table.add_row(
                 color_location,
                 f"[{total_color}]{size_fmt(result.total_memory)}[/{total_color}]",
+                f"[{total_color}]{percent_total:.2f}%[/{total_color}]",
                 f"[{own_color}]{size_fmt(result.own_memory)}[/{own_color}]",
+                f"[{own_color}]{percent_own:.2f}%[/{own_color}]",
                 f"[{allocation_colors}]{result.n_allocations}[/{allocation_colors}]",
             )
         return table
