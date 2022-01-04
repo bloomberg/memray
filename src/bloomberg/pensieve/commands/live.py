@@ -369,11 +369,11 @@ class TUI:
     def get_body(self) -> Table:
         table = Table(
             Column("Location", ratio=5),
-            Column("Total Memory", ratio=1),
-            Column("Total Memory %", ratio=1),
-            Column("Own Memory", ratio=1),
-            Column("Own Memory % ", ratio=1),
-            Column("Allocation Count", ratio=1),
+            Column("Total Memory", ratio=1, justify="right"),
+            Column("Total Memory %", ratio=1, justify="right"),
+            Column("Own Memory", ratio=1, justify="right"),
+            Column("Own Memory % ", ratio=1, justify="right"),
+            Column("Allocation Count", ratio=1, justify="right"),
             expand=True,
         )
         sort_column = table.columns[self._sort_column_id]

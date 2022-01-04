@@ -749,9 +749,9 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃ Own   ┃ Own   ┃ Allo… ┃",
+            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
             "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃ %     ┃       ┃ %     ┃       ┃",
+            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
         ]
@@ -784,11 +784,11 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃ Own   ┃ Own   ┃ Allo… ┃",
+            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
             "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃ %     ┃       ┃ %     ┃       ┃",
+            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function1 at /src/lel.py            │ 1.000… │ 100.… │ 1.00… │ 100.… │ 1     │",
+            "│ function1 at /src/lel.py            │ 1.000… │ 100.… │ 1.00… │ 100.… │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -821,15 +821,15 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃ Own   ┃ Own   ┃ Allo… ┃",
+            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
             "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃ %     ┃       ┃ %     ┃       ┃",
+            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │ 1     │",
-            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │ 1     │",
-            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │ 1     │",
-            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │ 1     │",
-            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │ 1     │",
+            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     1 │",
+            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     1 │",
+            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │     1 │",
+            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │     1 │",
+            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -862,11 +862,11 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃ Own   ┃ Own   ┃ Allo… ┃",
+            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
             "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃ %     ┃       ┃ %     ┃       ┃",
+            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │ 1     │",
+            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -901,11 +901,11 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃ Own   ┃ Own   ┃ Allo… ┃",
+            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
             "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃ %     ┃       ┃ %     ┃       ┃",
+            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │ 1     │",
+            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -940,15 +940,15 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃ Own   ┃ Own   ┃ Allo… ┃",
+            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
             "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃ %     ┃       ┃ %     ┃       ┃",
+            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │ 5     │",
-            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │ 4     │",
-            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │ 3     │",
-            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │ 2     │",
-            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │ 1     │",
+            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     5 │",
+            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     4 │",
+            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │     3 │",
+            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │     2 │",
+            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -995,14 +995,14 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃ Own   ┃ Own   ┃ Allo… ┃",
+            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
             "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃ %     ┃       ┃ %     ┃       ┃",
+            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ parent at fun.py                    │ 30.00… │ 100.… │ 0.00… │ 0.00% │ 3     │",
-            "│ grandparent at fun.py               │ 30.00… │ 100.… │ 0.00… │ 0.00% │ 3     │",
-            "│ sibling at fun.py                   │ 20.00… │ 66.6… │ 20.0… │ 66.6… │ 1     │",
-            "│ me at fun.py                        │ 10.00… │ 33.3… │ 10.0… │ 33.3… │ 2     │",
+            "│ parent at fun.py                    │ 30.00… │ 100.… │ 0.00… │ 0.00% │     3 │",
+            "│ grandparent at fun.py               │ 30.00… │ 100.… │ 0.00… │ 0.00% │     3 │",
+            "│ sibling at fun.py                   │ 20.00… │ 66.6… │ 20.0… │ 66.6… │     1 │",
+            "│ me at fun.py                        │ 10.00… │ 33.3… │ 10.0… │ 33.3… │     2 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
         ]
         actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -1049,15 +1049,15 @@ class TestTUILayout:
             "Current heap size: 15.000KB                         Max heap size seen: 15.000KB",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃ Own   ┃ Own   ┃ Allo… ┃",
+            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
             "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃ %     ┃       ┃ %     ┃       ┃",
+            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │ 5     │",
-            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │ 4     │",
-            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │ 3     │",
-            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │ 2     │",
-            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │ 1     │",
+            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     5 │",
+            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     4 │",
+            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │     3 │",
+            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │     2 │",
+            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
             " Q  Quit  ←   Previous Thread  →   Next Thread  T  Sort By Total  O  Sort By Own",
         ]
