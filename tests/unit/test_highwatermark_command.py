@@ -89,6 +89,24 @@ class TestFilenameValidation:
                 results=os.fspath(results),
             )
 
+    def test_succeeds_when_fallback_output_exists_but_can_overwrite(self, tmp_path):
+        # GIVEN
+        command = HighWatermarkCommand(Mock(), reporter_name="reporter")
+        results = tmp_path / "results.bin"
+        results.touch()
+        (tmp_path / "pensieve-reporter-results.html").touch()
+
+        # WHEN / THEN
+        results_file, output_file = command.validate_filenames(
+            output=None,
+            results=os.fspath(results),
+            exist_ok=True,
+        )
+
+        # THEN
+        assert results_file == results
+        assert output_file is not None
+
     def test_fails_when_given_output_exists(self, tmp_path):
         # GIVEN
         command = HighWatermarkCommand(Mock(), reporter_name="reporter")
@@ -103,6 +121,25 @@ class TestFilenameValidation:
                 output=output,
                 results=os.fspath(results),
             )
+
+    def test_succeeds_when_given_output_exists_but_can_overwrite(self, tmp_path):
+        # GIVEN
+        command = HighWatermarkCommand(Mock(), reporter_name="reporter")
+        results = tmp_path / "results.bin"
+        results.touch()
+        output = tmp_path / "output.html"
+        output.touch()
+
+        # WHEN / THEN
+        results_file, output_file = command.validate_filenames(
+            output=output,
+            results=os.fspath(results),
+            exist_ok=True,
+        )
+
+        # THEN
+        assert results_file == results
+        assert output_file == output
 
 
 class TestReportGeneration:

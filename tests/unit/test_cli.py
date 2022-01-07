@@ -196,6 +196,20 @@ class TestFlamegraphSubCommand:
         assert namespace.output == "output.html"
         assert namespace.show_memory_leaks is True
 
+    def test_parser_takes_force_flag(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(
+            ["results.txt", "--force", "--output", "output.html"]
+        )
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.force is True
+
 
 @pytest.mark.parametrize(
     "input, expected, factory",
