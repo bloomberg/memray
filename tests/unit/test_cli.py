@@ -37,7 +37,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("pensieve-foobar.0.bin"),
+            destination=FileDestination("pensieve-foobar.0.bin", exist_ok=False),
             native_traces=False,
         )
 
@@ -48,7 +48,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("pensieve-foobar.0.bin"),
+            destination=FileDestination("pensieve-foobar.0.bin", exist_ok=False),
             native_traces=True,
         )
 
@@ -58,7 +58,17 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("my_output"),
+            destination=FileDestination("my_output", exist_ok=False),
+            native_traces=False,
+        )
+
+    def test_run_overwrite_output_file(self, getpid_mock, runpy_mock, tracker_mock):
+        assert 0 == main(["run", "-o", "my_output", "-f", "-m", "foobar"])
+        runpy_mock.run_module.assert_called_with(
+            "foobar", run_name="__main__", alter_sys=True
+        )
+        tracker_mock.assert_called_with(
+            destination=FileDestination("my_output", exist_ok=True),
             native_traces=False,
         )
 
@@ -80,7 +90,9 @@ class TestRunSubCommand:
             run_name="__main__",
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("./directory/pensieve-foobar.py.0.bin"),
+            destination=FileDestination(
+                "./directory/pensieve-foobar.py.0.bin", exist_ok=False
+            ),
             native_traces=False,
         )
 

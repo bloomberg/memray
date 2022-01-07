@@ -140,7 +140,7 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
         """
     ).strip()
 
-    destination = FileDestination(path=filename)
+    destination = FileDestination(path=filename, exist_ok=args.force)
     try:
         _run_tracker(
             destination=destination,
@@ -196,6 +196,13 @@ class RunCommand:
             "--quiet",
             help="Don't show any tracking-specific output while running",
             action="store_true",
+        )
+        parser.add_argument(
+            "-f",
+            "--force",
+            help="If the output file already exists, overwrite it",
+            action="store_true",
+            default=False,
         )
         parser.add_argument(
             "-m",

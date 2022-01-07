@@ -20,7 +20,7 @@ class Sink
 class FileSink : public pensieve::io::Sink
 {
   public:
-    FileSink(const std::string& file_name);
+    FileSink(const std::string& file_name, bool exist_ok);
     ~FileSink() override;
     FileSink(FileSink&) = delete;
     FileSink(FileSink&&) = delete;
