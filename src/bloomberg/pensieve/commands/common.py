@@ -41,7 +41,7 @@ class HighWatermarkCommand:
         return results_file.parent / f"pensieve-{self.reporter_name}-{output_name}"
 
     def validate_filenames(
-        self, output: Optional[str], results: str
+        self, output: Optional[str], results: str, exist_ok: bool = False
     ) -> Tuple[Path, Path]:
         """Ensure that the filenames provided by the user are usable."""
         result_path = Path(results)
@@ -53,7 +53,7 @@ class HighWatermarkCommand:
             if output is not None
             else self.determine_output_filename(result_path)
         )
-        if output_file.exists():
+        if not exist_ok and output_file.exists():
             raise PensieveCommandError(
                 f"File already exists, will not overwrite: {output_file}",
                 exit_code=1,
@@ -101,6 +101,7 @@ class HighWatermarkCommand:
         result_path, output_file = self.validate_filenames(
             output=args.output,
             results=args.results,
+            exist_ok=args.force,
         )
         kwargs = {}
         if hasattr(args, "split_threads"):

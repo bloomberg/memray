@@ -31,9 +31,13 @@ FileSink::writeAll(const char* data, size_t length)
     }
     return true;
 }
-FileSink::FileSink(const std::string& file_name)
+FileSink::FileSink(const std::string& file_name, bool exist_ok)
 {
-    d_fd = open(file_name.c_str(), O_CREAT | O_WRONLY | O_CLOEXEC | O_EXCL, 0644);
+    int flags = O_CREAT | O_WRONLY | O_CLOEXEC;
+    if (!exist_ok) {
+        flags |= O_EXCL;
+    }
+    d_fd = open(file_name.c_str(), flags, 0644);
     if (d_fd < 0) {
         throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
     }

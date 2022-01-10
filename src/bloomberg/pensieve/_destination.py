@@ -11,6 +11,7 @@ class Destination:
 @dataclass(frozen=True)
 class FileDestination(Destination):
     path: typing.Union[pathlib.Path, str]
+    exist_ok: bool = False
 
 
 @dataclass(frozen=True)

@@ -23,6 +23,13 @@ class TableCommand(HighWatermarkCommand):
             default=None,
         )
         parser.add_argument(
+            "-f",
+            "--force",
+            help="If the output file already exists, overwrite it",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
             "--leaks",
             help="Show memory leaks, instead of peak memory usage",
             action="store_true",

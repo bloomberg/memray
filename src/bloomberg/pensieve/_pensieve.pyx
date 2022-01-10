@@ -288,7 +288,7 @@ cdef class Tracker:
         # Creating a Sink can raise Python exceptions (if is interrupted by signal
         # handlers). If this happens, this method will propagate the appropriate exception.
         if isinstance(destination, FileDestination):
-            return unique_ptr[Sink](new FileSink(os.fsencode(destination.path)))
+            return unique_ptr[Sink](new FileSink(os.fsencode(destination.path), destination.exist_ok))
 
         elif isinstance(destination, SocketDestination):
             return unique_ptr[Sink](new SocketSink(destination.host, destination.port))
