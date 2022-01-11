@@ -9,6 +9,7 @@ from bloomberg.pensieve import FileDestination
 from bloomberg.pensieve import SocketDestination
 from bloomberg.pensieve.__main__ import main
 from bloomberg.pensieve.commands.flamegraph import FlamegraphCommand
+from bloomberg.pensieve.commands.summary import SummaryCommand
 from bloomberg.pensieve.commands.table import TableCommand
 from bloomberg.pensieve.commands.tree import TreeCommand
 
@@ -488,3 +489,92 @@ class TestTableSubCommand:
         assert namespace.results == "results.txt"
         assert namespace.output == "output.html"
         assert namespace.force is True
+
+
+class TestSummarySubCommand:
+    @staticmethod
+    def get_prepared_parser():
+        parser = argparse.ArgumentParser()
+        command = SummaryCommand()
+        command.prepare_parser(parser)
+
+        return command, parser
+
+    def test_parser_rejects_no_arguments(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args([])
+
+    def test_parser_accepts_single_argument(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.sort_column == 1
+        assert namespace.max_rows is None
+
+    def test_parser_accepts_sort_column_long_form(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "--sort-column", "2"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.sort_column == 2
+        assert namespace.max_rows is None
+
+    def test_parser_accepts_sort_column_sort_form(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "-s", "2"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.sort_column == 2
+        assert namespace.max_rows is None
+
+    @pytest.mark.parametrize("column", [0, 12])
+    def test_parser_rejects_sort_column_incorrect_values(self, column):
+        # GIVEN
+        command, parser = self.get_prepared_parser()
+
+        # WHEN
+        args = parser.parse_args(["results.txt", "--sort-column", str(column)])
+        # THEN
+        with pytest.raises(SystemExit):
+            command.run(args, parser)
+
+    def test_parser_accepts_max_rows_long_form(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "--max-rows", "2"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.sort_column == 1
+        assert namespace.max_rows == 2
+
+    def test_parser_accepts_max_rows_sort_form(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "-r", "2"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.sort_column == 1
+        assert namespace.max_rows == 2
