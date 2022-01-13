@@ -218,7 +218,10 @@ class RunCommand:
             metavar="module",
         )
 
-    def run(self, args: argparse.Namespace) -> None:
+    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+        if args.live_port is not None and not args.live_remote_mode:
+            raise parser.error("The --live-port argument requires --live-remote")
+
         if args.live_mode:
             _run_child_process_and_attach(args)
         elif args.live_remote_mode:
