@@ -47,7 +47,7 @@ class Command(Protocol):
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         ...
 
-    def run(self, args: argparse.Namespace) -> None:
+    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         ...
 
 
@@ -120,7 +120,7 @@ def main(args: Optional[List[str]] = None) -> int:
     )
 
     try:
-        arg_values.entrypoint(arg_values)
+        arg_values.entrypoint(arg_values, parser)
     except PensieveCommandError as e:
         print(e, file=sys.stderr)
         return e.exit_code

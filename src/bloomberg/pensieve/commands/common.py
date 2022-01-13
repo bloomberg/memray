@@ -97,7 +97,7 @@ class HighWatermarkCommand:
                 **kwargs,
             )
 
-    def run(self, args: argparse.Namespace) -> None:
+    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         result_path, output_file = self.validate_filenames(
             output=args.output,
             results=args.results,

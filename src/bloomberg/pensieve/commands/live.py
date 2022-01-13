@@ -473,7 +473,7 @@ class LiveCommand:
             type=int,
         )
 
-    def run(self, args: argparse.Namespace) -> None:
+    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         with suppress(KeyboardInterrupt):
             self.start_live_interface(args.port)
 
