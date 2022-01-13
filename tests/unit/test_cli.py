@@ -1,10 +1,12 @@
 import argparse
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from bloomberg.pensieve import FileDestination
+from bloomberg.pensieve import SocketDestination
 from bloomberg.pensieve.__main__ import main
 from bloomberg.pensieve.commands.flamegraph import FlamegraphCommand
 from bloomberg.pensieve.commands.table import TableCommand
@@ -95,6 +97,76 @@ class TestRunSubCommand:
             ),
             native_traces=False,
         )
+
+    @patch("bloomberg.pensieve.commands.run.subprocess.Popen")
+    @patch("bloomberg.pensieve.commands.run.LiveCommand")
+    def test_run_with_live(
+        self, live_command_mock, popen_mock, getpid_mock, runpy_mock, tracker_mock
+    ):
+        getpid_mock.return_value = 0
+        popen_mock().__enter__().returncode = 0
+        with patch("bloomberg.pensieve.commands.run._get_free_port", return_value=1234):
+            assert 0 == main(["run", "--live", "./directory/foobar.py", "arg1", "arg2"])
+        popen_mock.assert_called_with(
+            [
+                sys.executable,
+                "-c",
+                "from bloomberg.pensieve.commands.run import _child_process;"
+                '_child_process(1234,False,False,False,"./directory/foobar.py",'
+                "['arg1', 'arg2'])",
+            ],
+            stderr=-1,
+            stdout=-3,
+            text=True,
+        )
+        live_command_mock().start_live_interface.assert_called_with(1234)
+
+    def test_run_with_live_remote(self, getpid_mock, runpy_mock, tracker_mock):
+        getpid_mock.return_value = 0
+        with patch("bloomberg.pensieve.commands.run._get_free_port", return_value=1234):
+            assert 0 == main(
+                ["run", "--live-remote", "./directory/foobar.py", "arg1", "arg2"]
+            )
+        runpy_mock.run_path.assert_called_with(
+            "./directory/foobar.py",
+            run_name="__main__",
+        )
+        tracker_mock.assert_called_with(
+            destination=SocketDestination(port=1234, host="127.0.0.1"),
+            native_traces=False,
+        )
+
+    def test_run_with_live_remote_and_live_port(
+        self, getpid_mock, runpy_mock, tracker_mock
+    ):
+        getpid_mock.return_value = 0
+        assert 0 == main(
+            [
+                "run",
+                "--live-remote",
+                "--live-port=1111",
+                "./directory/foobar.py",
+                "arg1",
+                "arg2",
+            ]
+        )
+        runpy_mock.run_path.assert_called_with(
+            "./directory/foobar.py",
+            run_name="__main__",
+        )
+        tracker_mock.assert_called_with(
+            destination=SocketDestination(port=1111, host="127.0.0.1"),
+            native_traces=False,
+        )
+
+    def test_run_with_live_port_but_not_live_remote(
+        self, getpid_mock, runpy_mock, tracker_mock, capsys
+    ):
+        with pytest.raises(SystemExit):
+            main(["run", "--live-port", "1234", "./directory/foobar.py"])
+
+        captured = capsys.readouterr()
+        assert "The --live-port argument requires --live-remote" in captured.err
 
 
 class TestFlamegraphSubCommand:
