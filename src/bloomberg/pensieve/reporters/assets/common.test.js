@@ -226,9 +226,10 @@ describe("Filter uninteresting frames", () => {
     });
   });
   test("Filter uninteresting when first child is not interesting", () => {
-    data.children[0].interesting = false;
+    const copied_data = JSON.parse(JSON.stringify(data));
+    copied_data.children[0].interesting = false;
 
-    const result = filterUninteresting(data);
+    const result = filterUninteresting(copied_data);
     expect(result).toStrictEqual({
       interesting: true,
       n_allocations: 10,
@@ -298,5 +299,37 @@ describe("Filter uninteresting frames", () => {
         },
       ],
     });
+  });
+  test("Filter uninteresting doesn't modify data", () => {
+    let data = {
+      interesting: true,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          interesting: true,
+          n_allocations: 5,
+          value: 50,
+          children: [
+            {
+              interesting: false,
+              n_allocations: 2,
+              value: 20,
+              children: [
+                {
+                  interesting: false,
+                  n_allocations: 1,
+                  value: 10,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    let copied_data = JSON.parse(JSON.stringify(data));
+    filterUninteresting(copied_data);
+    expect(copied_data).toStrictEqual(data);
   });
 });
