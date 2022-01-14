@@ -10,6 +10,7 @@ from bloomberg.pensieve import SocketDestination
 from bloomberg.pensieve.__main__ import main
 from bloomberg.pensieve.commands.flamegraph import FlamegraphCommand
 from bloomberg.pensieve.commands.table import TableCommand
+from bloomberg.pensieve.commands.tree import TreeCommand
 
 
 def test_no_args_passed(capsys):
@@ -315,3 +316,175 @@ def test_determine_output(input, expected, factory):
 
     # WHEN/THEN
     assert command.determine_output_filename(Path(input)) == Path(expected)
+
+
+class TestTreeSubCommand:
+    @staticmethod
+    def get_prepared_parser():
+        parser = argparse.ArgumentParser()
+        command = TreeCommand()
+        command.prepare_parser(parser)
+
+        return command, parser
+
+    def test_parser_rejects_no_arguments(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args([])
+
+    def test_parser_rejects_when_no_results_provided(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--biggest_allocs", "5"])
+
+    def test_parser_accepts_single_argument(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.biggest_allocs == 10
+
+    def test_parser_acceps_biggest_allocs_short_form(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "-b", "5"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.biggest_allocs == 5
+
+    def test_parser_acceps_biggest_allocs_long_form(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "--biggest-allocs", "5"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.biggest_allocs == 5
+
+
+class TestTableSubCommand:
+    @staticmethod
+    def get_prepared_parser():
+        parser = argparse.ArgumentParser()
+        command = TableCommand()
+        command.prepare_parser(parser)
+
+        return command, parser
+
+    def test_parser_rejects_no_arguments(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args([])
+
+    def test_parser_rejects_when_no_results_provided(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--leaks"])
+
+    def test_parser_accepts_single_argument(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.show_memory_leaks is False
+
+    def test_parser_accepts_short_form_output_1(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "-o", "output.html"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+
+    def test_parser_accepts_short_form_output_2(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["-o", "output.html", "results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+
+    def test_parser_accepts_long_form_output_1(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt", "--output", "output.html"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+
+    def test_parser_accepts_long_form_output_2(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["--output", "output.html", "results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+
+    def test_parser_takes_memory_leaks_as_a_flag(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(
+            ["results.txt", "--leaks", "--output", "output.html"]
+        )
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is True
+
+    def test_parser_takes_force_flag(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(
+            ["results.txt", "--force", "--output", "output.html"]
+        )
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.force is True
