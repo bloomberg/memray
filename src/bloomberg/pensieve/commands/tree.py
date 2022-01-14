@@ -22,7 +22,7 @@ class TreeCommand:
             default=10,
         )
 
-    def run(self, args: argparse.Namespace) -> None:
+    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
             raise PensieveCommandError(f"No such file: {args.results}", exit_code=1)
