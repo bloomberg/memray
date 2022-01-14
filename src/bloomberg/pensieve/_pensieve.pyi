@@ -19,6 +19,8 @@ from ._metadata import Metadata
 PythonStackElement = Tuple[str, str, int]
 NativeStackElement = Tuple[str, str, int]
 
+def set_log_level(level: int) -> None: ...
+
 class AllocationRecord:
     @property
     def address(self) -> int: ...

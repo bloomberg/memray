@@ -1,2 +1,2 @@
 cdef extern from "logging.h" namespace "pensieve":
-    void initializePythonLoggerInterface()
+    void setLogThreshold(int)

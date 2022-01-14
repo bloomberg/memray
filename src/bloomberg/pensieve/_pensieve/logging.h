@@ -16,7 +16,10 @@ enum logLevel {
 };
 
 void
-logWithPython(const std::string& message, int level);
+logToStderr(const std::string& message, int level);
+
+void
+setLogThreshold(int threshold);
 
 class LOG
 {
@@ -33,7 +36,7 @@ class LOG
     // Destructors
     ~LOG()
     {
-        logWithPython(buffer.str(), msgLevel);
+        logToStderr(buffer.str(), msgLevel);
     };
 
     // Operators
@@ -49,9 +52,6 @@ class LOG
     std::ostringstream buffer;
     logLevel msgLevel = DEBUG;
 };
-
-void
-initializePythonLoggerInterface();
 
 }  // namespace pensieve
 

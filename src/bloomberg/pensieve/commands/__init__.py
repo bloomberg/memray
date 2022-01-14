@@ -12,6 +12,7 @@ except ImportError:
 
 from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._errors import PensieveError
+from bloomberg.pensieve._pensieve import set_log_level
 
 from . import flamegraph
 from . import live
@@ -113,11 +114,7 @@ def main(args: Optional[List[str]] = None) -> int:
 
     parser = get_argument_parser()
     arg_values = parser.parse_args(args=args)
-
-    logging.basicConfig(
-        level=determine_logging_level_from_verbosity(arg_values.verbose),
-        format="%(levelname)s(%(funcName)s): %(message)s",
-    )
+    set_log_level(determine_logging_level_from_verbosity(arg_values.verbose))
 
     try:
         arg_values.entrypoint(arg_values, parser)

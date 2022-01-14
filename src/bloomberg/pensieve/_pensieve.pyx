@@ -1,4 +1,3 @@
-import logging
 import os
 import pathlib
 import sys
@@ -23,7 +22,7 @@ from _pensieve.alloc cimport posix_memalign
 from _pensieve.alloc cimport pvalloc
 from _pensieve.alloc cimport realloc
 from _pensieve.alloc cimport valloc
-from _pensieve.logging cimport initializePythonLoggerInterface
+from _pensieve.logging cimport setLogThreshold
 from _pensieve.pthread cimport pthread_create
 from _pensieve.pthread cimport pthread_join
 from _pensieve.pthread cimport pthread_t
@@ -59,9 +58,6 @@ from ._destination import FileDestination
 from ._destination import SocketDestination
 from ._metadata import Metadata
 
-initializePythonLoggerInterface()
-
-LOGGER = logging.getLogger(__file__)
 
 cdef unique_ptr[NativeTracker] _TRACKER
 
@@ -153,8 +149,18 @@ cdef class MmapAllocator:
 cdef void* _pthread_worker(void* arg) with gil:
     (<object> arg)()
 
-cdef api void log_with_python(cppstring message, int level) except*:
-    LOGGER.log(level, message)
+
+def set_log_level(int level):
+    """Configure which log messages will be printed to stderr by pensieve.
+
+    By default, only log records of severity `logging.WARNING` or higher will
+    be printed, but you can adjust this threshold.
+
+    Args:
+        level (int): The lowest severity level that a log record can have and
+            still be printed.
+    """
+    setLogThreshold(level)
 
 
 cpdef enum AllocatorType:

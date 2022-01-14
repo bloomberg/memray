@@ -1,33 +1,38 @@
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
-#include "../_pensieve_api.h"
 #include "logging.h"
 
 namespace pensieve {
 
-static int LOGGER_INITIALIZED = false;
+static int LOG_THRESHOLD = static_cast<int>(logLevel::WARNING);
 
-void
-initializePythonLoggerInterface()
+static const char*
+prefixFromLogLevel(int level)
 {
-    import_bloomberg__pensieve___pensieve();
-    LOGGER_INITIALIZED = true;
+    if (level >= CRITICAL) return "Pensieve CRITICAL: ";
+    if (level >= ERROR) return "Pensieve ERROR: ";
+    if (level >= WARNING) return "Pensieve WARNING: ";
+    if (level >= INFO) return "Pensieve INFO: ";
+    if (level >= DEBUG) return "Pensieve DEBUG: ";
+    return "Pensieve TRACE: ";
 }
 
 void
-logWithPython(const std::string& message, int level)
+setLogThreshold(int threshold)
 {
-    if (!LOGGER_INITIALIZED) {
-        throw std::runtime_error("Logger is not initialized");
+    LOG_THRESHOLD = threshold;
+}
+
+void
+logToStderr(const std::string& message, int level)
+{
+    if (level < LOG_THRESHOLD) {
+        return;
     }
 
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
-    if (!PyErr_Occurred() && Py_IsInitialized()) {
-        log_with_python(message, level);
-    }
-    PyGILState_Release(gstate);
+    std::cerr << prefixFromLogLevel(level) << message << std::endl;
 }
 
 }  // namespace pensieve
