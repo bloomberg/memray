@@ -99,8 +99,9 @@ export function filterUninteresting(root) {
       for (const child of node.children) {
         result.push(...filterChildren(child));
       }
-      node.children = result;
-      result = [node];
+      let new_node = _.clone(node);
+      new_node.children = result;
+      result = [new_node];
     }
     return result;
   }
