@@ -441,6 +441,9 @@ cdef class FileReader:
             yield alloc
         reader_ptr.close()
 
+    def dump_all_records(self):
+        self._get_reader().dumpAllRecords()
+
     @property
     def metadata(self):
         def millis_to_dt(millis) -> datetime:

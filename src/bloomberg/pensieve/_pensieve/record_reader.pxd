@@ -18,3 +18,4 @@ cdef extern from "record_reader.h" namespace "pensieve::api":
         object Py_GetNativeStackFrame(int frame_id, size_t generation, size_t max_stacks) except+
         size_t totalAllocations()
         HeaderRecord getHeader()
+        object dumpAllRecords() except+
