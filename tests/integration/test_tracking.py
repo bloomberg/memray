@@ -136,13 +136,25 @@ def test_tracking_with_SIGKILL(tmpdir):
         output = "{output}"
 
         with Tracker(output) as tracker:
-            allocator.valloc(1024)
+            num_flushes = 0
+            last_size = os.stat(output).st_size
+
+            # Loop until two flushes occur, since the first flush might include
+            # a frame record but not an allocation record.
+            while num_flushes < 2:
+                allocator.valloc(1024)
+                new_size = os.stat(output).st_size
+                if new_size != last_size:
+                    last_size = new_size
+                    num_flushes += 1
+
+            # Kill ourselves without letting the tracker clean itself up.
             os.kill(os.getpid(), signal.SIGKILL)
     """
     )
 
     # WHEN
-    process = subprocess.run([sys.executable, "-c", subprocess_code])
+    process = subprocess.run([sys.executable, "-c", subprocess_code], timeout=5)
 
     # THEN
     assert process.returncode == -signal.SIGKILL
@@ -153,7 +165,7 @@ def test_tracking_with_SIGKILL(tmpdir):
         for record in filter_relevant_allocations(records)
         if record.allocator == AllocatorType.VALLOC
     ]
-    (allocation,) = vallocs
+    (allocation, *rest) = vallocs
     assert allocation.size == 1024
 
 
