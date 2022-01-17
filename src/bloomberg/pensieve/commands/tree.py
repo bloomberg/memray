@@ -16,6 +16,7 @@ class TreeCommand:
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("results", help="Results of the tracker run")
         parser.add_argument(
+            "-b",
             "--biggest-allocs",
             help="Show n biggest allocations (defaults to 10)",
             type=int,
