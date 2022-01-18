@@ -260,11 +260,10 @@ Tracker::registerFrame(const RawFrame& frame)
 }
 
 void
-Tracker::popFrame(const RawFrame& frame)
+Tracker::popFrame()
 {
-    const frame_id_t frame_id = registerFrame(frame);
-    const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::POP};
-    if (!d_writer->writeRecord(RecordType::FRAME, entry)) {
+    const FramePop entry{thread_id()};
+    if (!d_writer->writeRecord(RecordType::FRAME_POP, entry)) {
         std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
@@ -274,8 +273,8 @@ void
 Tracker::pushFrame(const RawFrame& frame)
 {
     const frame_id_t frame_id = registerFrame(frame);
-    const FrameSeqEntry entry{frame_id, thread_id(), FrameAction::PUSH};
-    if (!d_writer->writeRecord(RecordType::FRAME, entry)) {
+    const FramePush entry{frame_id, thread_id()};
+    if (!d_writer->writeRecord(RecordType::FRAME_PUSH, entry)) {
         std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
@@ -319,24 +318,28 @@ PyTraceFunction(
         return 0;
     }
 
-    const char* function = PyUnicode_AsUTF8(frame->f_code->co_name);
-    if (function == nullptr) {
-        return -1;
-    }
-    const char* filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
-    if (filename == nullptr) {
-        return -1;
-    }
-    int parent_lineno = getCurrentPythonLineNumber();
     switch (what) {
-        case PyTrace_CALL:
+        case PyTrace_CALL: {
+            const char* function = PyUnicode_AsUTF8(frame->f_code->co_name);
+            if (function == nullptr) {
+                return -1;
+            }
+
+            const char* filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
+            if (filename == nullptr) {
+                return -1;
+            }
+
+            int parent_lineno = getCurrentPythonLineNumber();
+
             current_frame = frame;
             python_stack.push_back(frame);
             Tracker::getTracker()->pushFrame({function, filename, parent_lineno});
             break;
+        }
         case PyTrace_RETURN: {
             if (!python_stack.empty()) {
-                Tracker::getTracker()->popFrame({function, filename, parent_lineno});
+                Tracker::getTracker()->popFrame();
                 python_stack.pop_back();
             } else {
                 // If we have reached the top of the stack it means that we are returning
