@@ -19,6 +19,39 @@ using namespace tracking_api;
 using namespace io;
 using namespace exception;
 
+namespace {  // unnamed
+
+const char*
+allocatorName(hooks::Allocator allocator)
+{
+    switch (allocator) {
+        case hooks::Allocator::MALLOC:
+            return "malloc";
+        case hooks::Allocator::FREE:
+            return "free";
+        case hooks::Allocator::CALLOC:
+            return "calloc";
+        case hooks::Allocator::REALLOC:
+            return "realloc";
+        case hooks::Allocator::POSIX_MEMALIGN:
+            return "posix_memalign";
+        case hooks::Allocator::MEMALIGN:
+            return "memalign";
+        case hooks::Allocator::VALLOC:
+            return "valloc";
+        case hooks::Allocator::PVALLOC:
+            return "pvalloc";
+        case hooks::Allocator::MMAP:
+            return "mmap";
+        case hooks::Allocator::MUNMAP:
+            return "munmap";
+    }
+
+    return nullptr;
+}
+
+}  // unnamed namespace
+
 void
 RecordReader::readHeader(HeaderRecord& header)
 {
@@ -329,6 +362,142 @@ HeaderRecord
 RecordReader::getHeader() const noexcept
 {
     return d_header;
+}
+
+PyObject*
+RecordReader::dumpAllRecords()
+{
+    printf("HEADER: magic=%.*s version=%d native_traces=%s"
+           " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
+           " pid=%d command_line=%s\n",
+           (int)sizeof(d_header.magic),
+           d_header.magic,
+           d_header.version,
+           d_header.native_traces ? "true" : "false",
+           d_header.stats.n_allocations,
+           d_header.stats.n_frames,
+           d_header.stats.start_time,
+           d_header.stats.end_time,
+           d_header.pid,
+           d_header.command_line.c_str());
+
+    while (true) {
+        if (0 != PyErr_CheckSignals()) {
+            return NULL;
+        }
+
+        RecordType record_type;
+        if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(RecordType))) {
+            Py_RETURN_NONE;
+        }
+
+        switch (record_type) {
+            case RecordType::ALLOCATION: {
+                printf("ALLOCATION ");
+
+                AllocationRecord record;
+                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                    Py_RETURN_NONE;
+                }
+
+                const char* allocator = allocatorName(record.allocator);
+
+                std::string unknownAllocator;
+                if (!allocator) {
+                    unknownAllocator =
+                            "<unknown allocator " + std::to_string((int)record.allocator) + ">";
+                    allocator = unknownAllocator.c_str();
+                }
+
+                printf("tid=%lu address=%p size=%zd allocator=%s"
+                       " py_lineno=%d native_frame_id=%zd\n",
+                       record.tid,
+                       (void*)record.address,
+                       record.size,
+                       allocator,
+                       record.py_lineno,
+                       record.native_frame_id);
+            } break;
+            case RecordType::FRAME: {
+                printf("FRAME_ACTION ");
+
+                FrameSeqEntry record;
+                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("tid=%lu action=%s frame_id=%zd\n",
+                       record.tid,
+                       record.action == 0 ? "PUSH" : "POP",
+                       record.frame_id);
+            } break;
+            case RecordType::FRAME_INDEX: {
+                printf("FRAME_ID ");
+
+                tracking_api::pyframe_map_val_t record;
+                if (!d_input->read(reinterpret_cast<char*>(&record.first), sizeof(record.first))
+                    || !d_input->getline(record.second.function_name, '\0')
+                    || !d_input->getline(record.second.filename, '\0')
+                    || !d_input->read(
+                            reinterpret_cast<char*>(&record.second.parent_lineno),
+                            sizeof(record.second.parent_lineno)))
+                {
+                    Py_RETURN_NONE;
+                }
+
+                printf("frame_id=%zd function_name=%s filename=%s parent_lineno=%d\n",
+                       record.first,
+                       record.second.function_name.c_str(),
+                       record.second.filename.c_str(),
+                       record.second.parent_lineno);
+            } break;
+            case RecordType::NATIVE_TRACE_INDEX: {
+                printf("NATIVE_FRAME_ID ");
+
+                UnresolvedNativeFrame record;
+                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("ip=%p index=%u\n", (void*)record.ip, record.index);
+            } break;
+            case RecordType::MEMORY_MAP_START: {
+                printf("MEMORY_MAP_START\n");
+            } break;
+            case RecordType::SEGMENT_HEADER: {
+                printf("SEGMENT_HEADER ");
+
+                std::string filename;
+                size_t num_segments;
+                uintptr_t addr;
+                if (!d_input->getline(filename, '\0')
+                    || !d_input->read(reinterpret_cast<char*>(&num_segments), sizeof(num_segments))
+                    || !d_input->read(reinterpret_cast<char*>(&addr), sizeof(addr)))
+                {
+                    Py_RETURN_NONE;
+                }
+
+                printf("filename=%s num_segments=%zd addr=%p\n",
+                       filename.c_str(),
+                       num_segments,
+                       (void*)addr);
+            } break;
+            case RecordType::SEGMENT: {
+                printf("SEGMENT ");
+
+                Segment record;
+                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("%p %lu\n", (void*)record.vaddr, record.memsz);
+            } break;
+            default: {
+                printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);
+                Py_RETURN_NONE;
+            } break;
+        }
+    }
 }
 
 }  // namespace pensieve::api

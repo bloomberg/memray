@@ -1,5 +1,6 @@
 import contextlib
 import os
+import pty
 import re
 import signal
 import subprocess
@@ -262,6 +263,92 @@ class TestRunSubcommand:
             assert str(out_file) not in proc.stdout
         else:
             assert str(out_file) in proc.stdout
+
+
+class TestParseSubcommand:
+    def test_successful_parse(self, tmp_path):
+        # GIVEN
+        record_types = [
+            "ALLOCATION",
+            "FRAME_ACTION",
+            "FRAME_ID",
+            "NATIVE_FRAME_ID",
+            "MEMORY_MAP_START",
+            "SEGMENT_HEADER",
+            "SEGMENT",
+        ]
+        record_count_by_type = dict.fromkeys(record_types, 0)
+        results_file = generate_sample_results(tmp_path, native=True)
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "parse",
+                str(results_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+
+        # THEN
+        header, *records = proc.stdout.splitlines()
+
+        for record in records:
+            record_count_by_type[record.partition(" ")[0]] += 1
+
+        for record_type, count in record_count_by_type.items():
+            assert count > 0
+
+    def test_error_when_stdout_is_a_tty(self, tmp_path):
+        # GIVEN
+        results_file = generate_sample_results(tmp_path, native=True)
+        _, controlled = pty.openpty()
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "parse",
+                str(results_file),
+            ],
+            stdout=controlled,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=str(tmp_path),
+        )
+
+        # THEN
+        assert "You must redirect stdout" in proc.stderr
+        assert proc.returncode == 1
+
+    def test_error_when_input_file_does_not_exist(self, tmp_path):
+        # GIVEN
+        results_file = tmp_path / "does/not/exist"
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "parse",
+                results_file,
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+
+        # THEN
+        assert "Reason: No such file" in proc.stderr
+        assert proc.returncode == 1
 
 
 class TestFlamegraphSubCommand:

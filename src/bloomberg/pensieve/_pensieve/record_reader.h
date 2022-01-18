@@ -40,6 +40,7 @@ class RecordReader
 
     bool nextAllocationRecord(Allocation* allocation);
     HeaderRecord getHeader() const noexcept;
+    PyObject* dumpAllRecords();
 
   private:
     // Aliases

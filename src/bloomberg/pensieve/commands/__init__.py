@@ -16,6 +16,7 @@ from bloomberg.pensieve._pensieve import set_log_level
 
 from . import flamegraph
 from . import live
+from . import parse
 from . import run
 from . import table
 from . import tree
@@ -58,6 +59,7 @@ _COMMANDS: List[Command] = [
     table.TableCommand(),
     live.LiveCommand(),
     tree.TreeCommand(),
+    parse.ParseCommand(),
 ]
 
 
