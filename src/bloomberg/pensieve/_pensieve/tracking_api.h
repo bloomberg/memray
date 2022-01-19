@@ -193,6 +193,7 @@ class Tracker
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);
+    void emitPythonFramePushes();
 };
 
 }  // namespace pensieve::tracking_api

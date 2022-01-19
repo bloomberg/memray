@@ -72,11 +72,18 @@ thread_id()
 
 static const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
 
+struct LazilyEmittedPythonFrame
+{
+    PyFrameObject* frame;
+    RawFrame raw_frame_record;
+    bool emitted;
+};
+
 static thread_local bool python_stack_constructed = false;
 
 struct PythonStackTracker
 {
-    std::vector<PyFrameObject*> stack;
+    std::vector<LazilyEmittedPythonFrame> stack;
 
     PythonStackTracker()
     {
@@ -102,7 +109,7 @@ getCurrentPythonLineNumber()
     assert(entry_frame == nullptr || Py_REFCNT(entry_frame) > 0);
     PyFrameObject* the_python_stack =
             (python_stack_constructed && python_stack_tracker.stack.size()
-                     ? python_stack_tracker.stack.back()
+                     ? python_stack_tracker.stack.back().frame
                      : entry_frame);
     return the_python_stack ? PyFrame_GetLineNumber(the_python_stack) : 0;
 }
@@ -142,6 +149,26 @@ Tracker::~Tracker()
     d_writer.reset();
     d_instance = nullptr;
 }
+
+void
+Tracker::emitPythonFramePushes()
+{
+    if (!python_stack_constructed) {
+        return;
+    }
+
+    auto last_emitted_rit = std::find_if(
+            python_stack_tracker.stack.rbegin(),
+            python_stack_tracker.stack.rend(),
+            [](auto& f) { return f.emitted; });
+
+    for (auto to_emit = last_emitted_rit.base(); to_emit != python_stack_tracker.stack.end(); to_emit++)
+    {
+        pushFrame(to_emit->raw_frame_record);
+        to_emit->emitted = true;
+    }
+}
+
 void
 Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 {
@@ -175,6 +202,8 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
     }
     RecursionGuard guard;
     int lineno = getCurrentPythonLineNumber();
+
+    emitPythonFramePushes();
 
     size_t native_index = 0;
     if (d_unwind_native_frames) {
@@ -230,6 +259,9 @@ Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
     }
     RecursionGuard guard;
     int lineno = getCurrentPythonLineNumber();
+
+    emitPythonFramePushes();
+
     AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, 0};
     if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
@@ -391,13 +423,14 @@ PyTraceFunction(
 
             int parent_lineno = getCurrentPythonLineNumber();
 
-            python_stack_tracker.stack.push_back(frame);
-            Tracker::getTracker()->pushFrame({function, filename, parent_lineno});
+            python_stack_tracker.stack.push_back({frame, {function, filename, parent_lineno}, false});
             break;
         }
         case PyTrace_RETURN: {
             if (!python_stack_tracker.stack.empty()) {
-                Tracker::getTracker()->popFrame();
+                if (python_stack_tracker.stack.back().emitted) {
+                    Tracker::getTracker()->popFrame();
+                }
                 python_stack_tracker.stack.pop_back();
             } else {
                 // If we have reached the top of the stack it means that we are returning
