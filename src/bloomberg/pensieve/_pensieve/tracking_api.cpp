@@ -93,7 +93,6 @@ struct PythonStackTracker
 std::atomic<bool> Tracker::d_active = false;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 static thread_local PyFrameObject* entry_frame = nullptr;
-static thread_local PyFrameObject* current_frame = nullptr;
 static thread_local PythonStackTracker python_stack_tracker{};
 thread_local size_t NativeTrace::MAX_SIZE{64};
 
@@ -101,7 +100,10 @@ static inline int
 getCurrentPythonLineNumber()
 {
     assert(entry_frame == nullptr || Py_REFCNT(entry_frame) > 0);
-    PyFrameObject* the_python_stack = current_frame ? current_frame : entry_frame;
+    PyFrameObject* the_python_stack =
+            (python_stack_constructed && python_stack_tracker.stack.size()
+                     ? python_stack_tracker.stack.back()
+                     : entry_frame);
     return the_python_stack ? PyFrame_GetLineNumber(the_python_stack) : 0;
 }
 
@@ -389,7 +391,6 @@ PyTraceFunction(
 
             int parent_lineno = getCurrentPythonLineNumber();
 
-            current_frame = frame;
             python_stack_tracker.stack.push_back(frame);
             Tracker::getTracker()->pushFrame({function, filename, parent_lineno});
             break;
@@ -404,7 +405,6 @@ PyTraceFunction(
                 // to unset the entry frame to avoid incorrectly using it once is freed.
                 entry_frame = nullptr;
             }
-            current_frame = python_stack_tracker.stack.empty() ? nullptr : python_stack_tracker.stack.back();
             break;
         }
         default:
@@ -426,7 +426,6 @@ install_trace_function()
     }
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
     entry_frame = PyEval_GetFrame();
-    current_frame = nullptr;
     python_stack_tracker.stack.clear();
 }
 
