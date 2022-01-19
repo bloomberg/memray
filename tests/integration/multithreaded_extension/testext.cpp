@@ -39,6 +39,26 @@ void join_threads()
     }
 }
 
+static void cleanup_handler(void* arg) {
+  void* data = valloc(sizeof(int));
+  free(data);
+}
+
+static void* create_tls_in_thread(void *arg) {
+  pthread_key_t thread_specific_storage;
+  pthread_key_create(&thread_specific_storage, cleanup_handler);
+  pthread_setspecific(thread_specific_storage, (void*)12);
+  pthread_exit(NULL);
+  return NULL;
+}
+
+void valloc_on_thread_exit() {
+  pthread_t thread_id;
+  void *result;
+  pthread_create(&thread_id, NULL, create_tls_in_thread, NULL);
+  pthread_join(thread_id, &result);
+}
+
 PyObject*
 run(PyObject*, PyObject*)
 {
@@ -47,8 +67,18 @@ run(PyObject*, PyObject*)
     Py_RETURN_NONE;
 }
 
+PyObject*
+run_valloc_at_exit(PyObject*, PyObject*)
+{
+    valloc_on_thread_exit();
+    Py_RETURN_NONE;
+}
+
+
+
 static PyMethodDef methods[] = {
         {"run", run, METH_NOARGS, "Run a bunch of threads"},
+        {"run_valloc_at_exit", run_valloc_at_exit, METH_NOARGS, "Run valloc while exiting a thread"},
         {NULL, NULL, 0, NULL},
 };
 
