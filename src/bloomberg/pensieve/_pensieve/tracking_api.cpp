@@ -72,11 +72,29 @@ thread_id()
 
 static const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
 
+static thread_local bool python_stack_constructed = false;
+
+struct PythonStackTracker
+{
+    std::vector<PyFrameObject*> stack;
+
+    PythonStackTracker()
+    {
+        stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
+        python_stack_constructed = true;
+    }
+
+    ~PythonStackTracker()
+    {
+        python_stack_constructed = false;
+    }
+};
+
 std::atomic<bool> Tracker::d_active = false;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 static thread_local PyFrameObject* entry_frame = nullptr;
 static thread_local PyFrameObject* current_frame = nullptr;
-static thread_local std::vector<PyFrameObject*> python_stack{};
+static thread_local PythonStackTracker python_stack_tracker{};
 thread_local size_t NativeTrace::MAX_SIZE{64};
 
 static inline int
@@ -98,7 +116,6 @@ Tracker::Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces
         hooks::ensureAllHooksAreValid();
         pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
         NativeTrace::setup();
-        python_stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
     });
 
     if (!d_writer->writeHeader(false)) {
@@ -115,7 +132,9 @@ Tracker::~Tracker()
 {
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
-    python_stack.clear();
+    if (python_stack_constructed) {
+        python_stack_tracker.stack.clear();
+    }
     d_patcher.restore_symbols();
     d_writer->writeHeader(true);
     d_writer.reset();
@@ -125,11 +144,30 @@ void
 Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 {
     // IMPORTANT!
-    // This function can get called when libc and libpthread are deallocating
-    // the memory associated by threads and thread local storage variables so it's
-    // important that no TLS variables with non-trivial destructors are used in this
-    // function or any function called from here.
-
+    // If a TLS variable has not been constructed, accessing it will cause it
+    // to be constructed. That's normally great, but we need to prevent that
+    // from happening for `python_stack_tracker` in this function.
+    //
+    // This function can get called when libc and libpthread are allocating or
+    // deallocating the memory owned by thread local variables, which can
+    // happen before `python_stack_tracker` has been constructed for the
+    // thread, or after it has already been destroyed. If it has already been
+    // destroyed and we access it, libpthread will construct a new vector for
+    // `python_stack_tracker.stack`, and register the destructor to be called
+    // later, and then go on to free the memory that the vector was just
+    // constructed into without calling the destructor. Later on, the
+    // destructor will fire and try to destroy already-freed memory as though
+    // it is still a vector, most likely causing heap corruption.
+    //
+    // To prevent this, we track if `python_stack_tracker` already exists for
+    // a thread using the POD TLS variable `python_stack_constructed`. We set
+    // that TLS variable from the `python_stack_tracker` constructor when the
+    // vector is created, and unset it from the destructor. We avoid accessing
+    // `python_stack_tracker` unless that variable is set, to avoid ever lazily
+    // creating the vector inside this function or any function it calls.
+    //
+    // This approach can result in the `bool` being lazily constructed, but
+    // that doesn't cause the same problem because it has a trivial destructor.
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
     }
@@ -161,11 +199,30 @@ void
 Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
 {
     // IMPORTANT!
-    // This function can get called when libc and libpthread are deallocating
-    // the memory associated by threads and thread local storage variables so it's
-    // important that no TLS variables with non-trivial destructors are used in this
-    // function or any function called from here.
-
+    // If a TLS variable has not been constructed, accessing it will cause it
+    // to be constructed. That's normally great, but we need to prevent that
+    // from happening for `python_stack_tracker` in this function.
+    //
+    // This function can get called when libc and libpthread are allocating or
+    // deallocating the memory owned by thread local variables, which can
+    // happen before `python_stack_tracker` has been constructed for the
+    // thread, or after it has already been destroyed. If it has already been
+    // destroyed and we access it, libpthread will construct a new vector for
+    // `python_stack_tracker.stack`, and register the destructor to be called
+    // later, and then go on to free the memory that the vector was just
+    // constructed into without calling the destructor. Later on, the
+    // destructor will fire and try to destroy already-freed memory as though
+    // it is still a vector, most likely causing heap corruption.
+    //
+    // To prevent this, we track if `python_stack_tracker` already exists for
+    // a thread using the POD TLS variable `python_stack_constructed`. We set
+    // that TLS variable from the `python_stack_tracker` constructor when the
+    // vector is created, and unset it from the destructor. We avoid accessing
+    // `python_stack_tracker` unless that variable is set, to avoid ever lazily
+    // creating the vector inside this function or any function it calls.
+    //
+    // This approach can result in the `bool` being lazily constructed, but
+    // that doesn't cause the same problem because it has a trivial destructor.
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
     }
@@ -333,21 +390,21 @@ PyTraceFunction(
             int parent_lineno = getCurrentPythonLineNumber();
 
             current_frame = frame;
-            python_stack.push_back(frame);
+            python_stack_tracker.stack.push_back(frame);
             Tracker::getTracker()->pushFrame({function, filename, parent_lineno});
             break;
         }
         case PyTrace_RETURN: {
-            if (!python_stack.empty()) {
+            if (!python_stack_tracker.stack.empty()) {
                 Tracker::getTracker()->popFrame();
-                python_stack.pop_back();
+                python_stack_tracker.stack.pop_back();
             } else {
                 // If we have reached the top of the stack it means that we are returning
                 // to frames that we never saw being pushed in the first place, so we need
                 // to unset the entry frame to avoid incorrectly using it once is freed.
                 entry_frame = nullptr;
             }
-            current_frame = python_stack.empty() ? nullptr : python_stack.back();
+            current_frame = python_stack_tracker.stack.empty() ? nullptr : python_stack_tracker.stack.back();
             break;
         }
         default:
@@ -370,7 +427,7 @@ install_trace_function()
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
     entry_frame = PyEval_GetFrame();
     current_frame = nullptr;
-    python_stack.clear();
+    python_stack_tracker.stack.clear();
 }
 
 }  // namespace pensieve::tracking_api
