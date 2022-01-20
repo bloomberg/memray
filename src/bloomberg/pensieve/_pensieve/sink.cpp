@@ -33,7 +33,7 @@ FileSink::writeAll(const char* data, size_t length)
 }
 FileSink::FileSink(const std::string& file_name, bool exist_ok)
 {
-    int flags = O_CREAT | O_WRONLY | O_CLOEXEC;
+    int flags = O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC;
     if (!exist_ok) {
         flags |= O_EXCL;
     }

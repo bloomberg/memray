@@ -139,7 +139,8 @@ class TestRunSubcommand:
     def test_run_overwrite_output_file(self, tmp_path):
         # GIVEN
         out_file = tmp_path / "result.bin"
-        out_file.write_bytes(b"oops")
+        out_file.write_bytes(b"oops" * 1024 * 1024)
+        assert out_file.stat().st_size == 4 * 1024 * 1024
         assert out_file.read_bytes()[:4] == b"oops"
 
         # WHEN
@@ -164,7 +165,7 @@ class TestRunSubcommand:
         # THEN
         assert "usage: python -m json.tool" in proc.stdout
         assert proc.returncode == 0
-        assert out_file.stat().st_size > 0
+        assert 0 < out_file.stat().st_size < 4 * 1024 * 1024
         assert out_file.read_bytes()[:4] != b"oops"
 
     def test_run_file_with_args(self, tmp_path):
