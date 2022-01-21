@@ -112,7 +112,7 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& it
 }
 
 template<>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyframe_map_val_t& item)
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyrawframe_map_val_t& item)
 {
     if (!_flush()) {
         return false;
@@ -120,7 +120,7 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyfra
 
     d_stats.n_frames += 1;
     return writeSimpleType(token) && writeSimpleType(item.first)
-           && writeString(item.second.function_name.c_str()) && writeString(item.second.filename.c_str())
+           && writeString(item.second.function_name) && writeString(item.second.filename)
            && writeSimpleType(item.second.parent_lineno);
 }
 

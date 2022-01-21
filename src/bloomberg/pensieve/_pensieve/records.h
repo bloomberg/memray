@@ -193,6 +193,7 @@ class FrameCollection
     std::unordered_map<FrameType, frame_id_t, typename FrameType::Hash> d_frame_map{};
 };
 
+using pyrawframe_map_val_t = std::pair<frame_id_t, RawFrame>;
 using pyframe_map_val_t = std::pair<frame_id_t, Frame>;
 using pyframe_map_t = std::unordered_map<pyframe_map_val_t::first_type, pyframe_map_val_t::second_type>;
 

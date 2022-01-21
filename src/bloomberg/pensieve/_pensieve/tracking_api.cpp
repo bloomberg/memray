@@ -250,9 +250,7 @@ Tracker::registerFrame(const RawFrame& frame)
 {
     const auto [frame_id, is_new_frame] = d_frames.getIndex(frame);
     if (is_new_frame) {
-        pyframe_map_val_t frame_index{
-                frame_id,
-                Frame{frame.function_name, frame.filename, frame.parent_lineno}};
+        pyrawframe_map_val_t frame_index{frame_id, frame};
         if (!d_writer->writeRecord(RecordType::FRAME_INDEX, frame_index)) {
             std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
             deactivate();
