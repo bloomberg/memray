@@ -55,7 +55,7 @@ class NativeTrace
 
     NativeTrace()
     {
-        d_data.reserve(MAX_SIZE);
+        d_data.resize(MAX_SIZE);
     };
 
     auto begin() const
@@ -78,8 +78,10 @@ class NativeTrace
     {
         size_t size = unwind(d_data.data());
         if (size == MAX_SIZE) {
+            d_data.resize(0);
             size = exact_unwind();
             MAX_SIZE = MAX_SIZE * 2 > size ? MAX_SIZE * 2 : size;
+            d_data.resize(MAX_SIZE);
         }
         d_size = size > skip ? size - skip : 0;
         d_skip = skip;
