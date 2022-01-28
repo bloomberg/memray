@@ -241,3 +241,34 @@ def test_native_dlopen(tmpdir, monkeypatch):
         if event.address == alloc.address and event.allocator == AllocatorType.FREE
     ]
     assert len(frees) >= 1
+
+
+@pytest.mark.valgrind
+def test_valloc_at_thread_exit(tmpdir, monkeypatch):
+    """Test tracking allocations that happen while a thread is shutting down"""
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "multithreaded_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_MULTITHREADED_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from testext import run_valloc_at_exit  # type: ignore
+
+        with Tracker(output):
+            run_valloc_at_exit()
+
+    # THEN
+    records = list(FileReader(output).get_allocation_records())
+    assert records
+
+    vallocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+    assert len(vallocs) == 1
