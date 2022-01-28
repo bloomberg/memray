@@ -7,10 +7,10 @@ import pytest
 from rich import print as rprint
 
 from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve.commands.live import TUI
-from bloomberg.pensieve.commands.live import Location
-from bloomberg.pensieve.commands.live import MemoryGraph
-from bloomberg.pensieve.commands.live import aggregate_allocations
+from bloomberg.pensieve.reporters.tui import TUI
+from bloomberg.pensieve.reporters.tui import Location
+from bloomberg.pensieve.reporters.tui import MemoryGraph
+from bloomberg.pensieve.reporters.tui import aggregate_allocations
 from tests.utils import MockAllocationRecord
 
 
@@ -33,7 +33,7 @@ def make_tui(pid=123, cmd="python3 some_program.py", native=False):
     return TUI(pid=pid, cmd_line=cmd, native=native)
 
 
-@patch("bloomberg.pensieve.commands.live.datetime", FakeDate)
+@patch("bloomberg.pensieve.reporters.tui.datetime", FakeDate)
 class TestTUIHeader:
     @pytest.mark.parametrize(
         "pid, out_str",
@@ -1018,7 +1018,7 @@ class TestTUITable:
         assert actual == expected
 
 
-@patch("bloomberg.pensieve.commands.live.datetime", FakeDate)
+@patch("bloomberg.pensieve.reporters.tui.datetime", FakeDate)
 class TestTUILayout:
     def test_with_multiple_allocations(self):
         # GIVEN
