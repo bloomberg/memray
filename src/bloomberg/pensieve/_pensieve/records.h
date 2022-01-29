@@ -161,6 +161,7 @@ struct FramePush
 struct FramePop
 {
     thread_id_t tid;
+    uint8_t count;
 };
 
 struct UnresolvedNativeFrame

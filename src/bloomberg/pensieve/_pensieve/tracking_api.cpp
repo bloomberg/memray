@@ -84,6 +84,7 @@ static thread_local bool python_stack_constructed = false;
 struct PythonStackTracker
 {
     std::vector<LazilyEmittedPythonFrame> stack;
+    uint32_t num_pending_pops = 0;
 
     PythonStackTracker()
     {
@@ -156,6 +157,9 @@ Tracker::emitPythonFramePushes()
     if (!python_stack_constructed) {
         return;
     }
+
+    popFrames(python_stack_tracker.num_pending_pops);
+    python_stack_tracker.num_pending_pops = 0;
 
     auto last_emitted_rit = std::find_if(
             python_stack_tracker.stack.rbegin(),
@@ -351,12 +355,17 @@ Tracker::registerFrame(const RawFrame& frame)
 }
 
 void
-Tracker::popFrame()
+Tracker::popFrames(uint32_t count)
 {
-    const FramePop entry{thread_id()};
-    if (!d_writer->writeRecord(RecordType::FRAME_POP, entry)) {
-        std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
-        deactivate();
+    while (count) {
+        uint8_t to_pop = (count > 255 ? 255 : count);
+        count -= to_pop;
+
+        const FramePop entry{thread_id(), to_pop};
+        if (!d_writer->writeRecord(RecordType::FRAME_POP, entry)) {
+            std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
+            deactivate();
+        }
     }
 }
 
@@ -429,9 +438,14 @@ PyTraceFunction(
         case PyTrace_RETURN: {
             if (!python_stack_tracker.stack.empty()) {
                 if (python_stack_tracker.stack.back().emitted) {
-                    Tracker::getTracker()->popFrame();
+                    python_stack_tracker.num_pending_pops += 1;
                 }
                 python_stack_tracker.stack.pop_back();
+
+                if (python_stack_tracker.stack.empty()) {
+                    Tracker::getTracker()->popFrames(python_stack_tracker.num_pending_pops);
+                    python_stack_tracker.num_pending_pops = 0;
+                }
             } else {
                 // If we have reached the top of the stack it means that we are returning
                 // to frames that we never saw being pushed in the first place, so we need

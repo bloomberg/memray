@@ -119,7 +119,10 @@ RecordReader::parseFramePop()
     thread_id_t tid = record.tid;
 
     assert(!d_stack_traces[tid].empty());
-    d_stack_traces[tid].pop_back();
+    while (record.count) {
+        --record.count;
+        d_stack_traces[tid].pop_back();
+    }
     return true;
 }
 
@@ -448,7 +451,7 @@ RecordReader::dumpAllRecords()
                     Py_RETURN_NONE;
                 }
 
-                printf("tid=%lu\n", record.tid);
+                printf("tid=%lu count=%u\n", record.tid, record.count);
             } break;
             case RecordType::FRAME_INDEX: {
                 printf("FRAME_ID ");

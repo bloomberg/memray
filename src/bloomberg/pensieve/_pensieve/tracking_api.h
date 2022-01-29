@@ -174,7 +174,7 @@ class Tracker
 
     // RawFrame stack interface
     void pushFrame(const RawFrame& frame);
-    void popFrame();
+    void popFrames(uint32_t count);
 
     // Interface to activate/deactivate the tracking
     static const std::atomic<bool>& isActive();
