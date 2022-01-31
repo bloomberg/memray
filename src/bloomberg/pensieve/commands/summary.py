@@ -30,9 +30,7 @@ class SummaryCommand:
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         max_cols = SummaryReporter.N_COLUMNS
         if args.sort_column < 1 or args.sort_column > max_cols:
-            parser.error(
-                f"The --sort-column argument must be between 1 and {max_cols}"
-            )
+            parser.error(f"The --sort-column argument must be between 1 and {max_cols}")
 
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
