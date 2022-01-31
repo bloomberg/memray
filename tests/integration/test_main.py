@@ -658,7 +658,7 @@ class TestLiveRemoteSubcommand:
         server.terminate()
         server.wait(timeout=3)
 
-    @pytest.mark.parametrize("port", [0, 2 ** 16, 1000000])
+    @pytest.mark.parametrize("port", [0, 2**16, 1000000])
     def test_run_live_tracking_invalid_port(self, port):
         # GIVEN/WHEN
         server = subprocess.Popen(
@@ -685,7 +685,7 @@ class TestLiveRemoteSubcommand:
         server.terminate()
         server.wait(timeout=3)
 
-    @pytest.mark.parametrize("port", [0, 2 ** 16, 1000000])
+    @pytest.mark.parametrize("port", [0, 2**16, 1000000])
     def test_live_tracking_invalid_port(self, port):
         # GIVEN/WHEN
         server = subprocess.Popen(

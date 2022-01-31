@@ -73,7 +73,7 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
     port = args.live_port
     if port is None:
         port = _get_free_port()
-    if not 2 ** 16 > port > 0:
+    if not 2**16 > port > 0:
         raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
 
     arguments = (
@@ -109,7 +109,7 @@ def _run_with_socket_output(args: argparse.Namespace) -> None:
     port = args.live_port
     if port is None:
         port = _get_free_port()
-    if not 2 ** 16 > port > 0:
+    if not 2**16 > port > 0:
         raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
 
     if not args.quiet:
