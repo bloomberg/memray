@@ -2,11 +2,8 @@ black
 flake8
 isort
 mypy
-sphinx
-sphinx-autobuild
-sphinx-argparse
-furo
 bump2version
 towncrier
 check-manifest
 types-Jinja2
+-r requirements-docs.txt
