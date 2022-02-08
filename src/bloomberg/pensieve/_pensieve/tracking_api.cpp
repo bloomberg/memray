@@ -177,7 +177,9 @@ PythonStackTracker::emitPendingPushes()
             });
 
     for (auto to_emit = last_emitted_rit.base(); to_emit != stack_holder.stack.end(); to_emit++) {
-        Tracker::getTracker()->pushFrame(to_emit->raw_frame_record);
+        if (!Tracker::getTracker()->pushFrame(to_emit->raw_frame_record)) {
+            break;
+        }
         to_emit->emitted = true;
     }
 }
@@ -397,7 +399,7 @@ Tracker::registerFrame(const RawFrame& frame)
     return frame_id;
 }
 
-void
+bool
 Tracker::popFrames(uint32_t count)
 {
     while (count) {
@@ -408,11 +410,13 @@ Tracker::popFrames(uint32_t count)
         if (!d_writer->writeRecord(RecordType::FRAME_POP, entry)) {
             std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
             deactivate();
+            return false;
         }
     }
+    return true;
 }
 
-void
+bool
 Tracker::pushFrame(const RawFrame& frame)
 {
     const frame_id_t frame_id = registerFrame(frame);
@@ -420,7 +424,9 @@ Tracker::pushFrame(const RawFrame& frame)
     if (!d_writer->writeRecord(RecordType::FRAME_PUSH, entry)) {
         std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
+        return false;
     }
+    return true;
 }
 
 void
