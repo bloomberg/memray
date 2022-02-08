@@ -70,50 +70,165 @@ thread_id()
 
 // Tracker interface
 
-static const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
-
-struct LazilyEmittedPythonFrame
+// If a TLS variable has not been constructed, accessing it will cause it to be
+// constructed. That's normally great, but we need to prevent that from
+// happening unexpectedly for the TLS vector owned by this class.
+//
+// Methods of this class can be called during thread teardown. It's possible
+// that, after the TLS vector for a dying thread has already been destroyed,
+// libpthread makes a call to free() that calls into our Tracker, and if it
+// does, we must prevent it touching the vector again and re-constructing it.
+// Otherwise, it would be re-constructed immediately but its destructor would
+// be added to this thread's list of finalizers after all the finalizers for
+// the thread already ran.  If that happens, the vector will be free()d before
+// its destructor runs. Worse, its destructor will remain on the list of
+// finalizers for the current thread's pthread struct, and its destructor will
+// later be run on that already free()d memory if this thread's pthread struct
+// is ever reused. When that happens it tends to cause heap corruption, because
+// another vector is placed at the same location as the original one, and the
+// vector destructor runs twice on it (once for the newly created vector, and
+// once for the vector that had been created before the thread died and the
+// pthread struct was reused).
+//
+// To prevent that, we guard all accesses of the vector by first checking
+// a bool that tells us whether the vector has been constructed and not yet
+// destroyed. This bool is set from the constructor that creates the vector,
+// and unset from the destructor that destroys the vector.
+//
+// This can result in the bool being constructed during thread teardown, but
+// that doesn't cause the same problem because bool has a trivial destructor.
+class PythonStackTracker
 {
-    PyFrameObject* frame;
-    RawFrame raw_frame_record;
-    bool emitted;
+  private:
+    struct LazilyEmittedFrame
+    {
+        PyFrameObject* frame;
+        RawFrame raw_frame_record;
+        bool emitted;
+    };
+
+    struct PythonStackTrackerState
+    {
+        std::vector<LazilyEmittedFrame> stack;
+
+        PythonStackTrackerState()
+        {
+            const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
+            stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
+            stack_constructed = true;
+        }
+
+        ~PythonStackTrackerState()
+        {
+            stack_constructed = false;
+        }
+    };
+
+  public:
+    static void reset(PyFrameObject* current_frame);
+    static void emitPendingPops();
+    static void emitPendingPushes();
+    static int getCurrentPythonLineNumber();
+    static void pushPythonFrame(
+            PyFrameObject* frame,
+            const char* function,
+            const char* file_name,
+            int parent_lineno);
+    static void popPythonFrame();
+
+  private:
+    static thread_local uint32_t num_pending_pops;
+    static thread_local PyFrameObject* entry_frame;
+    static thread_local bool stack_constructed;
+    static thread_local PythonStackTrackerState stack_holder;
 };
 
-static thread_local bool python_stack_constructed = false;
+thread_local uint32_t PythonStackTracker::num_pending_pops{};
+thread_local PyFrameObject* PythonStackTracker::entry_frame{};
+thread_local bool PythonStackTracker::stack_constructed{};
+thread_local PythonStackTracker::PythonStackTrackerState PythonStackTracker::stack_holder{};
 
-struct PythonStackTracker
+void
+PythonStackTracker::reset(PyFrameObject* current_frame)
 {
-    std::vector<LazilyEmittedPythonFrame> stack;
-    uint32_t num_pending_pops = 0;
+    entry_frame = current_frame;
+    if (stack_constructed) {
+        stack_holder.stack.clear();
+    }
+}
 
-    PythonStackTracker()
-    {
-        stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
-        python_stack_constructed = true;
+inline void
+PythonStackTracker::emitPendingPops()
+{
+    Tracker::getTracker()->popFrames(num_pending_pops);
+    num_pending_pops = 0;
+}
+
+void
+PythonStackTracker::emitPendingPushes()
+{
+    if (!stack_constructed) {
+        return;
     }
 
-    ~PythonStackTracker()
-    {
-        python_stack_constructed = false;
+    auto last_emitted_rit =
+            std::find_if(stack_holder.stack.rbegin(), stack_holder.stack.rend(), [](auto& f) {
+                return f.emitted;
+            });
+
+    for (auto to_emit = last_emitted_rit.base(); to_emit != stack_holder.stack.end(); to_emit++) {
+        Tracker::getTracker()->pushFrame(to_emit->raw_frame_record);
+        to_emit->emitted = true;
     }
-};
+}
 
-std::atomic<bool> Tracker::d_active = false;
-std::atomic<Tracker*> Tracker::d_instance = nullptr;
-static thread_local PyFrameObject* entry_frame = nullptr;
-static thread_local PythonStackTracker python_stack_tracker{};
-thread_local size_t NativeTrace::MAX_SIZE{64};
-
-static inline int
-getCurrentPythonLineNumber()
+inline int
+PythonStackTracker::getCurrentPythonLineNumber()
 {
     assert(entry_frame == nullptr || Py_REFCNT(entry_frame) > 0);
     PyFrameObject* the_python_stack =
-            (python_stack_constructed && python_stack_tracker.stack.size()
-                     ? python_stack_tracker.stack.back().frame
-                     : entry_frame);
+            (stack_constructed && !stack_holder.stack.empty() ? stack_holder.stack.back().frame
+                                                              : entry_frame);
     return the_python_stack ? PyFrame_GetLineNumber(the_python_stack) : 0;
 }
+
+void
+PythonStackTracker::pushPythonFrame(
+        PyFrameObject* frame,
+        const char* function,
+        const char* filename,
+        int parent_lineno)
+{
+    // Note: This will cause stack_constructed to become true if it isn't already.
+    stack_holder.stack.push_back({frame, {function, filename, parent_lineno}, false});
+}
+
+void
+PythonStackTracker::popPythonFrame()
+{
+    if (stack_constructed && !stack_holder.stack.empty()) {
+        if (stack_holder.stack.back().emitted) {
+            num_pending_pops += 1;
+            assert(num_pending_pops != 0);  // Ensure we didn't overflow.
+        }
+        stack_holder.stack.pop_back();
+
+        if (stack_holder.stack.empty()) {
+            // Every frame we've pushed has been popped. Emit pending pops now
+            // in case the thread is exiting and we don't get another chance.
+            emitPendingPops();
+        }
+    } else {
+        // If we have reached the top of the stack it means that we are returning
+        // to frames that we never saw being pushed in the first place, so we need
+        // to unset the entry frame to avoid incorrectly using it once is freed.
+        entry_frame = nullptr;
+    }
+}
+
+std::atomic<bool> Tracker::d_active = false;
+std::atomic<Tracker*> Tracker::d_instance = nullptr;
+thread_local size_t NativeTrace::MAX_SIZE{64};
 
 Tracker::Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces)
 : d_writer(std::move(record_writer))
@@ -142,9 +257,7 @@ Tracker::~Tracker()
 {
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
-    if (python_stack_constructed) {
-        python_stack_tracker.stack.clear();
-    }
+    PythonStackTracker::reset(nullptr);
     d_patcher.restore_symbols();
     d_writer->writeHeader(true);
     d_writer.reset();
@@ -152,62 +265,16 @@ Tracker::~Tracker()
 }
 
 void
-Tracker::emitPythonFramePushes()
-{
-    if (!python_stack_constructed) {
-        return;
-    }
-
-    popFrames(python_stack_tracker.num_pending_pops);
-    python_stack_tracker.num_pending_pops = 0;
-
-    auto last_emitted_rit = std::find_if(
-            python_stack_tracker.stack.rbegin(),
-            python_stack_tracker.stack.rend(),
-            [](auto& f) { return f.emitted; });
-
-    for (auto to_emit = last_emitted_rit.base(); to_emit != python_stack_tracker.stack.end(); to_emit++)
-    {
-        pushFrame(to_emit->raw_frame_record);
-        to_emit->emitted = true;
-    }
-}
-
-void
 Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 {
-    // IMPORTANT!
-    // If a TLS variable has not been constructed, accessing it will cause it
-    // to be constructed. That's normally great, but we need to prevent that
-    // from happening for `python_stack_tracker` in this function.
-    //
-    // This function can get called when libc and libpthread are allocating or
-    // deallocating the memory owned by thread local variables, which can
-    // happen before `python_stack_tracker` has been constructed for the
-    // thread, or after it has already been destroyed. If it has already been
-    // destroyed and we access it, libpthread will construct a new vector for
-    // `python_stack_tracker.stack`, and register the destructor to be called
-    // later, and then go on to free the memory that the vector was just
-    // constructed into without calling the destructor. Later on, the
-    // destructor will fire and try to destroy already-freed memory as though
-    // it is still a vector, most likely causing heap corruption.
-    //
-    // To prevent this, we track if `python_stack_tracker` already exists for
-    // a thread using the POD TLS variable `python_stack_constructed`. We set
-    // that TLS variable from the `python_stack_tracker` constructor when the
-    // vector is created, and unset it from the destructor. We avoid accessing
-    // `python_stack_tracker` unless that variable is set, to avoid ever lazily
-    // creating the vector inside this function or any function it calls.
-    //
-    // This approach can result in the `bool` being lazily constructed, but
-    // that doesn't cause the same problem because it has a trivial destructor.
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
     }
     RecursionGuard guard;
-    int lineno = getCurrentPythonLineNumber();
+    int lineno = PythonStackTracker::getCurrentPythonLineNumber();
 
-    emitPythonFramePushes();
+    PythonStackTracker::emitPendingPops();
+    PythonStackTracker::emitPendingPushes();
 
     size_t native_index = 0;
     if (d_unwind_native_frames) {
@@ -233,38 +300,14 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 void
 Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
 {
-    // IMPORTANT!
-    // If a TLS variable has not been constructed, accessing it will cause it
-    // to be constructed. That's normally great, but we need to prevent that
-    // from happening for `python_stack_tracker` in this function.
-    //
-    // This function can get called when libc and libpthread are allocating or
-    // deallocating the memory owned by thread local variables, which can
-    // happen before `python_stack_tracker` has been constructed for the
-    // thread, or after it has already been destroyed. If it has already been
-    // destroyed and we access it, libpthread will construct a new vector for
-    // `python_stack_tracker.stack`, and register the destructor to be called
-    // later, and then go on to free the memory that the vector was just
-    // constructed into without calling the destructor. Later on, the
-    // destructor will fire and try to destroy already-freed memory as though
-    // it is still a vector, most likely causing heap corruption.
-    //
-    // To prevent this, we track if `python_stack_tracker` already exists for
-    // a thread using the POD TLS variable `python_stack_constructed`. We set
-    // that TLS variable from the `python_stack_tracker` constructor when the
-    // vector is created, and unset it from the destructor. We avoid accessing
-    // `python_stack_tracker` unless that variable is set, to avoid ever lazily
-    // creating the vector inside this function or any function it calls.
-    //
-    // This approach can result in the `bool` being lazily constructed, but
-    // that doesn't cause the same problem because it has a trivial destructor.
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
     }
     RecursionGuard guard;
-    int lineno = getCurrentPythonLineNumber();
+    int lineno = PythonStackTracker::getCurrentPythonLineNumber();
 
-    emitPythonFramePushes();
+    PythonStackTracker::emitPendingPops();
+    PythonStackTracker::emitPendingPushes();
 
     AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, 0};
     if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
@@ -430,28 +473,13 @@ PyTraceFunction(
                 return -1;
             }
 
-            int parent_lineno = getCurrentPythonLineNumber();
+            int parent_lineno = PythonStackTracker::getCurrentPythonLineNumber();
 
-            python_stack_tracker.stack.push_back({frame, {function, filename, parent_lineno}, false});
+            PythonStackTracker::pushPythonFrame(frame, function, filename, parent_lineno);
             break;
         }
         case PyTrace_RETURN: {
-            if (!python_stack_tracker.stack.empty()) {
-                if (python_stack_tracker.stack.back().emitted) {
-                    python_stack_tracker.num_pending_pops += 1;
-                }
-                python_stack_tracker.stack.pop_back();
-
-                if (python_stack_tracker.stack.empty()) {
-                    Tracker::getTracker()->popFrames(python_stack_tracker.num_pending_pops);
-                    python_stack_tracker.num_pending_pops = 0;
-                }
-            } else {
-                // If we have reached the top of the stack it means that we are returning
-                // to frames that we never saw being pushed in the first place, so we need
-                // to unset the entry frame to avoid incorrectly using it once is freed.
-                entry_frame = nullptr;
-            }
+            PythonStackTracker::popPythonFrame();
             break;
         }
         default:
@@ -472,8 +500,7 @@ install_trace_function()
         return;
     }
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
-    entry_frame = PyEval_GetFrame();
-    python_stack_tracker.stack.clear();
+    PythonStackTracker::reset(PyEval_GetFrame());
 }
 
 }  // namespace pensieve::tracking_api
