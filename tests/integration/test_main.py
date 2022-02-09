@@ -606,6 +606,8 @@ class TestLiveRemoteSubcommand:
             stdout=subprocess.PIPE,
         )
 
+        _wait_until_process_blocks(server.pid)
+
         client = subprocess.Popen(
             [
                 sys.executable,
@@ -728,6 +730,9 @@ class TestLiveRemoteSubcommand:
             stderr=subprocess.PIPE,
             text=True,
         )
+
+        _wait_until_process_blocks(server.pid)
+
         client = subprocess.Popen(
             [
                 sys.executable,
