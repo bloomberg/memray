@@ -64,7 +64,8 @@ class RecordReader
     std::vector<UnresolvedNativeFrame> d_native_frames{};
 
     // Methods
-    [[nodiscard]] bool parseFrame();
+    [[nodiscard]] bool parseFramePush();
+    [[nodiscard]] bool parseFramePop();
     [[nodiscard]] bool parseFrameIndex();
     [[nodiscard]] bool parseNativeFrameIndex();
     [[nodiscard]] bool parseAllocationRecord(AllocationRecord& record);

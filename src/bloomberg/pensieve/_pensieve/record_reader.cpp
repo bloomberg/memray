@@ -97,22 +97,31 @@ RecordReader::isOpen() const noexcept
 }
 
 bool
-RecordReader::parseFrame()
+RecordReader::parseFramePush()
 {
-    FrameSeqEntry frame_seq_entry{};
-    if (!d_input->read(reinterpret_cast<char*>(&frame_seq_entry), sizeof(FrameSeqEntry))) {
+    FramePush record{};
+    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
         return false;
     }
-    thread_id_t tid = frame_seq_entry.tid;
+    thread_id_t tid = record.tid;
 
-    switch (frame_seq_entry.action) {
-        case PUSH:
-            d_stack_traces[tid].push_back(frame_seq_entry.frame_id);
-            break;
-        case POP:
-            assert(!d_stack_traces[tid].empty());
-            d_stack_traces[tid].pop_back();
-            break;
+    d_stack_traces[tid].push_back(record.frame_id);
+    return true;
+}
+
+bool
+RecordReader::parseFramePop()
+{
+    FramePop record{};
+    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+        return false;
+    }
+    thread_id_t tid = record.tid;
+
+    assert(!d_stack_traces[tid].empty());
+    while (record.count) {
+        --record.count;
+        d_stack_traces[tid].pop_back();
     }
     return true;
 }
@@ -251,9 +260,15 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
                         .native_segment_generation = d_symbol_resolver.currentSegmentGeneration()};
                 return true;
             }
-            case RecordType::FRAME:
-                if (!parseFrame()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame";
+            case RecordType::FRAME_PUSH:
+                if (!parseFramePush()) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame push";
+                    return false;
+                }
+                break;
+            case RecordType::FRAME_POP:
+                if (!parseFramePop()) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame pop";
                     return false;
                 }
                 break;
@@ -367,7 +382,7 @@ RecordReader::getHeader() const noexcept
 PyObject*
 RecordReader::dumpAllRecords()
 {
-    printf("HEADER: magic=%.*s version=%d native_traces=%s"
+    printf("HEADER magic=%.*s version=%d native_traces=%s"
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
            " pid=%d command_line=%s\n",
            (int)sizeof(d_header.magic),
@@ -418,18 +433,25 @@ RecordReader::dumpAllRecords()
                        record.py_lineno,
                        record.native_frame_id);
             } break;
-            case RecordType::FRAME: {
-                printf("FRAME_ACTION ");
+            case RecordType::FRAME_PUSH: {
+                printf("FRAME_PUSH ");
 
-                FrameSeqEntry record;
+                FramePush record;
                 if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
                     Py_RETURN_NONE;
                 }
 
-                printf("tid=%lu action=%s frame_id=%zd\n",
-                       record.tid,
-                       record.action == 0 ? "PUSH" : "POP",
-                       record.frame_id);
+                printf("tid=%lu frame_id=%zd\n", record.tid, record.frame_id);
+            } break;
+            case RecordType::FRAME_POP: {
+                printf("FRAME_POP ");
+
+                FramePop record;
+                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("tid=%lu count=%u\n", record.tid, record.count);
             } break;
             case RecordType::FRAME_INDEX: {
                 printf("FRAME_ID ");

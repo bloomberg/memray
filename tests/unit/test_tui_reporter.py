@@ -14,15 +14,6 @@ from bloomberg.pensieve.reporters.tui import aggregate_allocations
 from tests.utils import MockAllocationRecord
 
 
-@pytest.fixture(autouse=True)
-def use_80_columns(monkeypatch):
-    """Override the COLUMNS environment variable to 80.
-
-    This matches the assumed terminal width that is hardcoded in the tests.
-    """
-    monkeypatch.setenv("COLUMNS", "80")
-
-
 class FakeDate(MagicMock):
     @classmethod
     def now(cls):

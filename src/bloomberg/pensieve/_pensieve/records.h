@@ -14,7 +14,7 @@
 namespace pensieve::tracking_api {
 
 const char MAGIC[] = "pensieve";
-const int CURRENT_HEADER_VERSION = 3;
+const int CURRENT_HEADER_VERSION = 4;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
@@ -23,11 +23,12 @@ using millis_t = long long;
 enum class RecordType {
     ALLOCATION = 1,
     FRAME_INDEX = 2,
-    FRAME = 3,
+    FRAME_PUSH = 3,
     NATIVE_TRACE_INDEX = 4,
     MEMORY_MAP_START = 5,
     SEGMENT_HEADER = 6,
     SEGMENT = 7,
+    FRAME_POP = 8,
 };
 
 struct TrackerStats
@@ -67,8 +68,6 @@ struct Allocation
 
     PyObject* toPythonObject() const;
 };
-
-enum FrameAction { PUSH, POP };
 
 struct SegmentHeader
 {
@@ -153,11 +152,16 @@ struct Frame
     };
 };
 
-struct FrameSeqEntry
+struct FramePush
 {
     frame_id_t frame_id;
     thread_id_t tid;
-    FrameAction action;
+};
+
+struct FramePop
+{
+    thread_id_t tid;
+    uint8_t count;
 };
 
 struct UnresolvedNativeFrame
