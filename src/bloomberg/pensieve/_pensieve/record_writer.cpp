@@ -73,7 +73,9 @@ RecordWriter::writeHeader(bool seek_to_start)
 std::unique_lock<std::mutex>
 RecordWriter::acquireLock()
 {
-    return std::unique_lock<std::mutex>(d_mutex);
+    auto lock = std::unique_lock<std::mutex>(d_mutex);
+    _flush();
+    return lock;
 }
 
 }  // namespace pensieve::tracking_api
