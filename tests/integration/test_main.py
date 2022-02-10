@@ -208,6 +208,19 @@ class TestRunSubcommand:
         assert "Arg: arg1" in proc.stdout
         assert out_file.exists()
 
+    @pytest.mark.parametrize("option", [None, "--live", "--live-remote"])
+    def test_run_file_that_is_not_python(self, capsys, option):
+        """Execute a non-Python script and make sure that we raise a good error"""
+
+        # GIVEN / WHEN
+        assert main(["run", *([option] if option else ()), sys.executable]) == 1
+
+        # THEN
+        captured = capsys.readouterr()
+        assert (
+            captured.err.strip() == "Only Python files can be executed under pensieve"
+        )
+
     @patch("bloomberg.pensieve.commands.run.os.getpid")
     def test_run_file_exists(self, getpid, tmp_path, monkeypatch, capsys):
         # GIVEN / WHEN

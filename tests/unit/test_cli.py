@@ -9,6 +9,7 @@ from bloomberg.pensieve import FileDestination
 from bloomberg.pensieve import SocketDestination
 from bloomberg.pensieve.__main__ import main
 from bloomberg.pensieve.commands.flamegraph import FlamegraphCommand
+from bloomberg.pensieve.commands.run import RunCommand
 from bloomberg.pensieve.commands.summary import SummaryCommand
 from bloomberg.pensieve.commands.table import TableCommand
 from bloomberg.pensieve.commands.tree import TreeCommand
@@ -23,18 +24,23 @@ def test_no_args_passed(capsys):
     assert "error: the following arguments are required:" in captured.err
 
 
+@patch.object(RunCommand, "validate_target_file")
 @patch("bloomberg.pensieve.commands.run.Tracker")
 @patch("bloomberg.pensieve.commands.run.runpy")
 @patch("bloomberg.pensieve.commands.run.os.getpid")
 class TestRunSubCommand:
-    def test_run_without_arguments(self, getpid_mock, runpy_mock, tracker_mock, capsys):
+    def test_run_without_arguments(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
+    ):
         with pytest.raises(SystemExit):
             main(["run"])
 
         captured = capsys.readouterr()
         assert "usage: pensieve run [-m module | file] [args]" in captured.err
 
-    def test_run_default_output(self, getpid_mock, runpy_mock, tracker_mock):
+    def test_run_default_output(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
         getpid_mock.return_value = 0
         assert 0 == main(["run", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
@@ -45,7 +51,9 @@ class TestRunSubCommand:
             native_traces=False,
         )
 
-    def test_run_with_native_mode(self, getpid_mock, runpy_mock, tracker_mock):
+    def test_run_with_native_mode(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
         getpid_mock.return_value = 0
         assert 0 == main(["run", "--native", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
@@ -56,7 +64,9 @@ class TestRunSubCommand:
             native_traces=True,
         )
 
-    def test_run_override_output(self, getpid_mock, runpy_mock, tracker_mock):
+    def test_run_override_output(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
         assert 0 == main(["run", "--output", "my_output", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
@@ -66,7 +76,9 @@ class TestRunSubCommand:
             native_traces=False,
         )
 
-    def test_run_overwrite_output_file(self, getpid_mock, runpy_mock, tracker_mock):
+    def test_run_overwrite_output_file(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
         assert 0 == main(["run", "-o", "my_output", "-f", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
@@ -76,19 +88,23 @@ class TestRunSubCommand:
             native_traces=False,
         )
 
-    def test_run_module(self, getpid_mock, runpy_mock, tracker_mock):
+    def test_run_module(self, getpid_mock, runpy_mock, tracker_mock, validate_mock):
         assert 0 == main(["run", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(
             "foobar", run_name="__main__", alter_sys=True
         )
 
-    def test_run_file(self, getpid_mock, runpy_mock, tracker_mock):
-        assert 0 == main(["run", "foobar.py", "arg1", "arg2"])
+    def test_run_file(self, getpid_mock, runpy_mock, tracker_mock, validate_mock):
+        with patch.object(RunCommand, "validate_target_file"):
+            assert 0 == main(["run", "foobar.py", "arg1", "arg2"])
         runpy_mock.run_path.assert_called_with("foobar.py", run_name="__main__")
 
-    def test_run_relative_file(self, getpid_mock, runpy_mock, tracker_mock):
+    def test_run_relative_file(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
         getpid_mock.return_value = 0
-        assert 0 == main(["run", "./directory/foobar.py", "arg1", "arg2"])
+        with patch.object(RunCommand, "validate_target_file"):
+            assert 0 == main(["run", "./directory/foobar.py", "arg1", "arg2"])
         runpy_mock.run_path.assert_called_with(
             "./directory/foobar.py",
             run_name="__main__",
@@ -103,7 +119,13 @@ class TestRunSubCommand:
     @patch("bloomberg.pensieve.commands.run.subprocess.Popen")
     @patch("bloomberg.pensieve.commands.run.LiveCommand")
     def test_run_with_live(
-        self, live_command_mock, popen_mock, getpid_mock, runpy_mock, tracker_mock
+        self,
+        live_command_mock,
+        popen_mock,
+        getpid_mock,
+        runpy_mock,
+        tracker_mock,
+        validate_mock,
     ):
         getpid_mock.return_value = 0
         popen_mock().__enter__().returncode = 0
@@ -123,7 +145,9 @@ class TestRunSubCommand:
         )
         live_command_mock().start_live_interface.assert_called_with(1234)
 
-    def test_run_with_live_remote(self, getpid_mock, runpy_mock, tracker_mock):
+    def test_run_with_live_remote(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
         getpid_mock.return_value = 0
         with patch("bloomberg.pensieve.commands.run._get_free_port", return_value=1234):
             assert 0 == main(
@@ -139,7 +163,7 @@ class TestRunSubCommand:
         )
 
     def test_run_with_live_remote_and_live_port(
-        self, getpid_mock, runpy_mock, tracker_mock
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
     ):
         getpid_mock.return_value = 0
         assert 0 == main(
@@ -162,7 +186,7 @@ class TestRunSubCommand:
         )
 
     def test_run_with_live_port_but_not_live_remote(
-        self, getpid_mock, runpy_mock, tracker_mock, capsys
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
     ):
         with pytest.raises(SystemExit):
             main(["run", "--live-port", "1234", "./directory/foobar.py"])
