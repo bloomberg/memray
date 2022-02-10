@@ -59,6 +59,14 @@ class TestFrameFiltering:
                 True,
             ],
             [("somefunc", "myapp.py", 100), True],
+            [
+                (
+                    "_PyEval_CompileCode",
+                    "/opt/bb/src/python/python3.8/Include/code.h",
+                    100,
+                ),
+                False,
+            ],
         ],
     )
     def test_frame_interesting(self, frame, expected):

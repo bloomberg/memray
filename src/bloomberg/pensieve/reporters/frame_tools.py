@@ -7,7 +7,7 @@ File = str
 Lineno = int
 StackFrame = Tuple[Symbol, File, Lineno]
 
-RE_CPYTHON_PATHS = re.compile(r"(Objects|Modules|Python|cpython).*\.[c|h]$")
+RE_CPYTHON_PATHS = re.compile(r"(Include|Objects|Modules|Python|cpython).*\.[c|h]$")
 
 SYMBOL_IGNORELIST = {
     "PyObject_Call",
