@@ -14,6 +14,8 @@ import pytest
 
 from bloomberg.pensieve.commands import main
 
+TIMEOUT = 10
+
 
 @contextlib.contextmanager
 def track_and_wait(output_dir, sleep_after=100):
@@ -607,6 +609,8 @@ class TestLiveRemoteSubcommand:
             stdout=subprocess.PIPE,
         )
 
+        _wait_until_process_blocks(server.pid)
+
         client = subprocess.Popen(
             [
                 sys.executable,
@@ -621,13 +625,13 @@ class TestLiveRemoteSubcommand:
         # WHEN
 
         try:
-            server.communicate(timeout=3)
-            client.communicate(b"q", timeout=3)
+            server.communicate(timeout=TIMEOUT)
+            client.communicate(b"q", timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             server.terminate()
             client.terminate()
-            server.wait(timeout=3)
-            client.wait(timeout=3)
+            server.wait(timeout=TIMEOUT)
+            client.wait(timeout=TIMEOUT)
             raise
 
         server.communicate()
@@ -657,7 +661,7 @@ class TestLiveRemoteSubcommand:
         # THEN
         assert b"another shell to see live results\n" in server.stdout.readline()
         server.terminate()
-        server.wait(timeout=3)
+        server.wait(timeout=TIMEOUT)
 
     @pytest.mark.parametrize("port", [0, 2**16, 1000000])
     def test_run_live_tracking_invalid_port(self, port):
@@ -684,7 +688,7 @@ class TestLiveRemoteSubcommand:
         # THEN
         assert "Invalid port" in server.stderr.readline()
         server.terminate()
-        server.wait(timeout=3)
+        server.wait(timeout=TIMEOUT)
 
     @pytest.mark.parametrize("port", [0, 2**16, 1000000])
     def test_live_tracking_invalid_port(self, port):
@@ -706,7 +710,7 @@ class TestLiveRemoteSubcommand:
         # THEN
         assert "Invalid port" in server.stderr.readline()
         server.terminate()
-        server.wait(timeout=3)
+        server.wait(timeout=TIMEOUT)
 
     def test_live_tracking_server_when_client_disconnects(self, free_port, tmp_path):
         # GIVEN
@@ -729,6 +733,9 @@ class TestLiveRemoteSubcommand:
             stderr=subprocess.PIPE,
             text=True,
         )
+
+        _wait_until_process_blocks(server.pid)
+
         client = subprocess.Popen(
             [
                 sys.executable,
@@ -742,17 +749,17 @@ class TestLiveRemoteSubcommand:
 
         # WHEN
         try:
-            client.communicate(b"q", timeout=10)
+            client.communicate(b"q", timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             client.terminate()
-            client.wait(timeout=3)
+            client.wait(timeout=TIMEOUT)
             raise
 
         try:
-            _, stderr = server.communicate(timeout=5)
+            _, stderr = server.communicate(timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             server.terminate()
-            server.wait(timeout=3)
+            server.wait(timeout=TIMEOUT)
             raise
 
         # THEN
@@ -786,10 +793,10 @@ class TestLiveRemoteSubcommand:
 
         server.send_signal(signal.SIGINT)
         try:
-            _, stderr = server.communicate(timeout=5)
+            _, stderr = server.communicate(timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             server.kill()
-            server.wait(timeout=3)
+            server.wait(timeout=TIMEOUT)
             raise
 
         # THEN
@@ -822,7 +829,7 @@ class TestLiveRemoteSubcommand:
         # WHEN
         client.send_signal(signal.SIGINT)
         try:
-            client.wait(timeout=5)
+            client.wait(timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             client.terminate()
 
@@ -850,7 +857,7 @@ class TestLiveSubcommand:
 
         # WHEN
         try:
-            server.communicate(b"q", timeout=3)
+            server.communicate(b"q", timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             server.kill()
             raise
@@ -884,7 +891,7 @@ class TestLiveSubcommand:
 
         server.send_signal(signal.SIGINT)
         try:
-            _, stderr = server.communicate(timeout=5)
+            _, stderr = server.communicate(timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             server.kill()
             raise
