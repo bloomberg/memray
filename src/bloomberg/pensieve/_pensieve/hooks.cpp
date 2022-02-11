@@ -67,38 +67,16 @@ allocatorKind(const Allocator& allocator)
     __builtin_unreachable();
 }
 
-SymbolHook<decltype(&::malloc)> malloc("malloc", &::malloc);
-SymbolHook<decltype(&::free)> free("free", &::free);
-SymbolHook<decltype(&::calloc)> calloc("calloc", &::calloc);
-SymbolHook<decltype(&::realloc)> realloc("realloc", &::realloc);
-SymbolHook<decltype(&::posix_memalign)> posix_memalign("posix_memalign", &::posix_memalign);
-SymbolHook<decltype(&::memalign)> memalign("memalign", &::memalign);
-SymbolHook<decltype(&::valloc)> valloc("valloc", &::valloc);
-SymbolHook<decltype(&::pvalloc)> pvalloc("pvalloc", &::pvalloc);
-SymbolHook<decltype(&::dlopen)> dlopen("dlopen", &::dlopen);
-SymbolHook<decltype(&::dlclose)> dlclose("dlclose", &::dlclose);
-SymbolHook<decltype(&::mmap)> mmap("mmap", &::mmap);
-SymbolHook<decltype(&::mmap64)> mmap64("mmap64", &::mmap64);
-SymbolHook<decltype(&::munmap)> munmap("munmap", &::munmap);
-SymbolHook<decltype(&::PyGILState_Ensure)> PyGILState_Ensure("PyGILState_Ensure", &::PyGILState_Ensure);
+#define FOR_EACH_HOOKED_FUNCTION(f) SymbolHook<decltype(&::f)> f(#f, &::f);
+PENSIEVE_HOOKED_FUNCTIONS
+#undef FOR_EACH_HOOKED_FUNCTION
 
 void
 ensureAllHooksAreValid()
 {
-    malloc.ensureValidOriginalSymbol();
-    free.ensureValidOriginalSymbol();
-    calloc.ensureValidOriginalSymbol();
-    realloc.ensureValidOriginalSymbol();
-    posix_memalign.ensureValidOriginalSymbol();
-    memalign.ensureValidOriginalSymbol();
-    valloc.ensureValidOriginalSymbol();
-    pvalloc.ensureValidOriginalSymbol();
-    dlopen.ensureValidOriginalSymbol();
-    dlclose.ensureValidOriginalSymbol();
-    mmap.ensureValidOriginalSymbol();
-    mmap64.ensureValidOriginalSymbol();
-    munmap.ensureValidOriginalSymbol();
-    PyGILState_Ensure.ensureValidOriginalSymbol();
+#define FOR_EACH_HOOKED_FUNCTION(f) f.ensureValidOriginalSymbol();
+    PENSIEVE_HOOKED_FUNCTIONS
+#undef FOR_EACH_HOOKED_FUNCTION
 }
 
 }  // namespace pensieve::hooks

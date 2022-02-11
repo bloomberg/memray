@@ -88,27 +88,14 @@ overwrite_elf_table(
         const auto index = ELF_R_SYM(relocation.r_info);
         const char* symname = symbols.getSymbolNameByIndex(index);
         auto symbol_addr = relocation.r_offset + base_addr;
-#define TRY_HOOK(hookname)                                                                              \
+#define FOR_EACH_HOOKED_FUNCTION(hookname)                                                              \
     if (strcmp(hooks::hookname.d_symbol, symname) == 0) {                                               \
         patch_symbol(hooks::hookname, &intercept::hookname, symname, symbol_addr, restore_original);    \
         continue;                                                                                       \
     }
-        TRY_HOOK(malloc);
-        TRY_HOOK(free);
-        TRY_HOOK(calloc);
-        TRY_HOOK(realloc);
-        TRY_HOOK(posix_memalign);
-        TRY_HOOK(memalign);
-        TRY_HOOK(valloc);
-        TRY_HOOK(pvalloc);
-        TRY_HOOK(dlopen);
-        TRY_HOOK(dlclose);
-        TRY_HOOK(mmap);
-        TRY_HOOK(mmap64);
-        TRY_HOOK(munmap);
-        TRY_HOOK(PyGILState_Ensure);
+        PENSIEVE_HOOKED_FUNCTIONS
     }
-#undef TRY_HOOK
+#undef FOR_EACH_HOOKED_FUNCTION
 }
 
 static void

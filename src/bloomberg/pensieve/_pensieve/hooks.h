@@ -13,6 +13,22 @@
 
 #include "logging.h"
 
+#define PENSIEVE_HOOKED_FUNCTIONS                                                                       \
+    FOR_EACH_HOOKED_FUNCTION(malloc)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(free)                                                                      \
+    FOR_EACH_HOOKED_FUNCTION(calloc)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(realloc)                                                                   \
+    FOR_EACH_HOOKED_FUNCTION(posix_memalign)                                                            \
+    FOR_EACH_HOOKED_FUNCTION(memalign)                                                                  \
+    FOR_EACH_HOOKED_FUNCTION(valloc)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(pvalloc)                                                                   \
+    FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
+    FOR_EACH_HOOKED_FUNCTION(mmap)                                                                      \
+    FOR_EACH_HOOKED_FUNCTION(mmap64)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(munmap)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)
+
 namespace pensieve::hooks {
 
 struct symbol_query
@@ -91,20 +107,9 @@ enum class AllocatorKind {
 AllocatorKind
 allocatorKind(const Allocator& allocator);
 
-extern SymbolHook<decltype(&::malloc)> malloc;
-extern SymbolHook<decltype(&::free)> free;
-extern SymbolHook<decltype(&::calloc)> calloc;
-extern SymbolHook<decltype(&::realloc)> realloc;
-extern SymbolHook<decltype(&::posix_memalign)> posix_memalign;
-extern SymbolHook<decltype(&::memalign)> memalign;
-extern SymbolHook<decltype(&::valloc)> valloc;
-extern SymbolHook<decltype(&::pvalloc)> pvalloc;
-extern SymbolHook<decltype(&::dlopen)> dlopen;
-extern SymbolHook<decltype(&::dlclose)> dlclose;
-extern SymbolHook<decltype(&::mmap)> mmap;
-extern SymbolHook<decltype(&::mmap64)> mmap64;
-extern SymbolHook<decltype(&::munmap)> munmap;
-extern SymbolHook<decltype(&::PyGILState_Ensure)> PyGILState_Ensure;
+#define FOR_EACH_HOOKED_FUNCTION(f) extern SymbolHook<decltype(&::f)> f;
+PENSIEVE_HOOKED_FUNCTIONS
+#undef FOR_EACH_HOOKED_FUNCTION
 
 }  // namespace pensieve::hooks
 
