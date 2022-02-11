@@ -8,6 +8,7 @@
 #include "elf_utils.h"
 #include <dlfcn.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 
 #include <Python.h>
 
@@ -27,6 +28,7 @@
     FOR_EACH_HOOKED_FUNCTION(mmap)                                                                      \
     FOR_EACH_HOOKED_FUNCTION(mmap64)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(munmap)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(prctl)                                                                     \
     FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)
 
 namespace pensieve::hooks {
@@ -152,6 +154,9 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noe
 
 int
 munmap(void* addr, size_t length) noexcept;
+
+int
+prctl(int option, ...) noexcept;
 
 PyGILState_STATE
 PyGILState_Ensure() noexcept;

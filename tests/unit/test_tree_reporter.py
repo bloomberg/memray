@@ -25,7 +25,7 @@ class TestCollapseTree:
             value=10,
             children={},
             n_allocations=0,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -245,7 +245,7 @@ class TestTreeReporter:
             value=0,
             children={},
             n_allocations=0,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -282,7 +282,7 @@ class TestTreeReporter:
                     value=1022976,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[],
                 ),
@@ -291,7 +291,7 @@ class TestTreeReporter:
                     value=1021952,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[],
                 ),
@@ -300,13 +300,13 @@ class TestTreeReporter:
                     value=1020928,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[],
                 ),
             },
             n_allocations=3,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -344,7 +344,7 @@ class TestTreeReporter:
                     value=1024,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[
                         Frame(
@@ -352,7 +352,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -361,7 +361,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -369,7 +369,7 @@ class TestTreeReporter:
                 )
             },
             n_allocations=1,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -405,7 +405,7 @@ class TestTreeReporter:
                     value=1024,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[
                         Frame(
@@ -413,7 +413,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -422,7 +422,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -430,7 +430,7 @@ class TestTreeReporter:
                 )
             },
             n_allocations=1,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -483,7 +483,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -492,13 +492,13 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
                     },
                     n_allocations=2,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[
                         Frame(
@@ -506,7 +506,7 @@ class TestTreeReporter:
                             value=2048,
                             children={},
                             n_allocations=2,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         )
@@ -514,7 +514,7 @@ class TestTreeReporter:
                 )
             },
             n_allocations=2,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -567,7 +567,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[
                                 Frame(
@@ -575,7 +575,7 @@ class TestTreeReporter:
                                     value=1024,
                                     children={},
                                     n_allocations=1,
-                                    thread_id=1,
+                                    thread_id="0x1",
                                     interesting=True,
                                     group=[],
                                 )
@@ -586,7 +586,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[
                                 Frame(
@@ -594,7 +594,7 @@ class TestTreeReporter:
                                     value=1024,
                                     children={},
                                     n_allocations=1,
-                                    thread_id=1,
+                                    thread_id="0x1",
                                     interesting=True,
                                     group=[],
                                 )
@@ -602,13 +602,13 @@ class TestTreeReporter:
                         ),
                     },
                     n_allocations=2,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[],
                 )
             },
             n_allocations=2,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -648,7 +648,7 @@ class TestTreeReporter:
                     value=1024,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[
                         Frame(
@@ -656,7 +656,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -665,7 +665,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -674,7 +674,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -683,7 +683,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -692,7 +692,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -701,7 +701,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -709,7 +709,7 @@ class TestTreeReporter:
                 )
             },
             n_allocations=1,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -758,7 +758,7 @@ class TestTreeReporter:
                     value=1024,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[
                         Frame(
@@ -766,7 +766,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -775,7 +775,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -786,7 +786,7 @@ class TestTreeReporter:
                     value=1024,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[
                         Frame(
@@ -794,7 +794,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -803,7 +803,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         ),
@@ -811,7 +811,7 @@ class TestTreeReporter:
                 ),
             },
             n_allocations=2,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -860,7 +860,7 @@ class TestTreeReporter:
                     value=2048,
                     children={},
                     n_allocations=2,
-                    thread_id=2,
+                    thread_id="0x2",
                     interesting=True,
                     group=[
                         Frame(
@@ -868,7 +868,7 @@ class TestTreeReporter:
                             value=2048,
                             children={},
                             n_allocations=2,
-                            thread_id=2,
+                            thread_id="0x2",
                             interesting=True,
                             group=[],
                         ),
@@ -877,7 +877,7 @@ class TestTreeReporter:
                             value=2048,
                             children={},
                             n_allocations=2,
-                            thread_id=2,
+                            thread_id="0x2",
                             interesting=True,
                             group=[],
                         ),
@@ -885,7 +885,7 @@ class TestTreeReporter:
                 )
             },
             n_allocations=2,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -934,7 +934,7 @@ class TestTreeReporter:
                     value=2048,
                     children={},
                     n_allocations=2,
-                    thread_id=-1,
+                    thread_id="merged thread",
                     interesting=True,
                     group=[
                         Frame(
@@ -942,7 +942,7 @@ class TestTreeReporter:
                             value=2048,
                             children={},
                             n_allocations=2,
-                            thread_id=-1,
+                            thread_id="merged thread",
                             interesting=True,
                             group=[],
                         ),
@@ -951,7 +951,7 @@ class TestTreeReporter:
                             value=2048,
                             children={},
                             n_allocations=2,
-                            thread_id=-1,
+                            thread_id="merged thread",
                             interesting=True,
                             group=[],
                         ),
@@ -959,7 +959,7 @@ class TestTreeReporter:
                 )
             },
             n_allocations=2,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )
@@ -1000,7 +1000,7 @@ class TestTreeReporter:
                     value=1024,
                     children={},
                     n_allocations=1,
-                    thread_id=1,
+                    thread_id="0x1",
                     interesting=True,
                     group=[
                         Frame(
@@ -1008,7 +1008,7 @@ class TestTreeReporter:
                             value=1024,
                             children={},
                             n_allocations=1,
-                            thread_id=1,
+                            thread_id="0x1",
                             interesting=True,
                             group=[],
                         )
@@ -1016,7 +1016,7 @@ class TestTreeReporter:
                 )
             },
             n_allocations=1,
-            thread_id=0,
+            thread_id="",
             interesting=True,
             group=[],
         )

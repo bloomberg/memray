@@ -14,7 +14,7 @@
 namespace pensieve::tracking_api {
 
 const char MAGIC[] = "pensieve";
-const int CURRENT_HEADER_VERSION = 4;
+const int CURRENT_HEADER_VERSION = 5;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
@@ -29,6 +29,7 @@ enum class RecordType {
     SEGMENT_HEADER = 6,
     SEGMENT = 7,
     FRAME_POP = 8,
+    THREAD_RECORD = 9,
 };
 
 struct TrackerStats
@@ -200,5 +201,11 @@ class FrameCollection
 using pyrawframe_map_val_t = std::pair<frame_id_t, RawFrame>;
 using pyframe_map_val_t = std::pair<frame_id_t, Frame>;
 using pyframe_map_t = std::unordered_map<pyframe_map_val_t::first_type, pyframe_map_val_t::second_type>;
+
+struct ThreadRecord
+{
+    thread_id_t tid;
+    const char* name;
+};
 
 }  // namespace pensieve::tracking_api

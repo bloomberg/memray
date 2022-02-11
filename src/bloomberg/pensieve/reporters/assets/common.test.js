@@ -17,7 +17,7 @@ describe("Flame graph tooltip generation", () => {
     const data = {
       location: ["foo", "foo.py", "10"],
       n_allocations: 3,
-      thread_id: -1,
+      thread_id: "merged thread",
     };
     expect(makeTooltipString(data, "1KiB", true)).toBe(
       "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations"
@@ -28,36 +28,36 @@ describe("Flame graph tooltip generation", () => {
     const data = {
       location: ["foo", "foo.py", "10"],
       n_allocations: 3,
-      thread_id: 1,
+      thread_id: "0x1",
     };
     expect(makeTooltipString(data, "1KiB", false)).toBe(
-      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 1"
+      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 0x1"
     );
   });
   test("Generate label with single allocation", () => {
     const data = {
       location: ["foo", "foo.py", "10"],
       n_allocations: 1,
-      thread_id: 1,
+      thread_id: "0x1",
     };
     expect(makeTooltipString(data, "1KiB", false)).toBe(
-      "File foo.py, line 10 in foo<br>1KiB total<br>1 allocation<br>Thread ID: 1"
+      "File foo.py, line 10 in foo<br>1KiB total<br>1 allocation<br>Thread ID: 0x1"
     );
   });
 });
 
 describe("Filter threads", () => {
   const data = {
-    thread_id: 0,
+    thread_id: "0x0",
     children: [
       {
-        thread_id: 1,
+        thread_id: "0x1",
         children: [
           {
-            thread_id: 1,
+            thread_id: "0x1",
             children: [
               {
-                thread_id: 1,
+                thread_id: "0x1",
                 children: [],
               },
             ],
@@ -65,25 +65,25 @@ describe("Filter threads", () => {
         ],
       },
       {
-        thread_id: 2,
+        thread_id: "0x2",
         children: [],
       },
     ],
   };
 
   test("Filter a single thread", () => {
-    const result = filterChildThreads(data, 1);
+    const result = filterChildThreads(data, "0x1");
     expect(result).toStrictEqual({
-      thread_id: 0,
+      thread_id: "0x0",
       children: [
         {
-          thread_id: 1,
+          thread_id: "0x1",
           children: [
             {
-              thread_id: 1,
+              thread_id: "0x1",
               children: [
                 {
-                  thread_id: 1,
+                  thread_id: "0x1",
                   children: [],
                 },
               ],
@@ -94,12 +94,12 @@ describe("Filter threads", () => {
     });
   });
   test("Filter multiple threads", () => {
-    const result = filterChildThreads(data, 2);
+    const result = filterChildThreads(data, "0x2");
     expect(result).toStrictEqual({
-      thread_id: 0,
+      thread_id: "0x0",
       children: [
         {
-          thread_id: 2,
+          thread_id: "0x2",
           children: [],
         },
       ],
@@ -109,13 +109,13 @@ describe("Filter threads", () => {
     expect(
       filterChildThreads(
         {
-          thread_id: 0,
+          thread_id: "0x0",
           children: [],
         },
         2
       )
     ).toStrictEqual({
-      thread_id: 0,
+      thread_id: "0x0",
       children: [],
     });
   });
@@ -123,22 +123,22 @@ describe("Filter threads", () => {
 
 describe("Recalculate allocations in root node", () => {
   const data = {
-    thread_id: 0,
+    thread_id: "0x0",
     n_allocations: 100,
     value: 100,
     children: [
       {
-        thread_id: 1,
+        thread_id: "0x1",
         n_allocations: 5,
         value: 50,
         children: [
           {
-            thread_id: 1,
+            thread_id: "0x1",
             n_allocations: 3,
             value: 30,
             children: [
               {
-                thread_id: 1,
+                thread_id: "0x1",
                 n_allocations: 1,
                 value: 10,
                 children: [],
@@ -148,7 +148,7 @@ describe("Recalculate allocations in root node", () => {
         ],
       },
       {
-        thread_id: 1,
+        thread_id: "0x1",
         n_allocations: 1,
         value: 10,
         children: [],

@@ -135,4 +135,13 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const Segme
            && writeSimpleType(item.addr);
 }
 
+template<>
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const ThreadRecord& record)
+{
+    if (!_flush()) {
+        return false;
+    }
+    return writeSimpleType(token) && writeSimpleType(record.tid) && writeString(record.name);
+}
+
 }  // namespace pensieve::tracking_api

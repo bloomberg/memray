@@ -66,14 +66,14 @@ class FlameGraphReporter:
             "value": 0,
             "children": {},
             "n_allocations": 0,
-            "thread_id": 0,
+            "thread_id": "0x0",
             "interesting": True,
         }
 
         unique_threads = set()
         for record in allocations:
             size = record.size
-            thread_id = record.tid
+            thread_id = record.thread_name
 
             data["value"] += size
             data["n_allocations"] += record.n_allocations
@@ -102,7 +102,7 @@ class FlameGraphReporter:
                     break
 
         transformed_data = with_converted_children_dict(data)
-        transformed_data["unique_threads"] = list(unique_threads)
+        transformed_data["unique_threads"] = sorted(unique_threads)
         return cls(transformed_data)
 
     def render(

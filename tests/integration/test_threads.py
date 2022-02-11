@@ -5,7 +5,11 @@ from bloomberg.pensieve import AllocatorType
 from bloomberg.pensieve import FileReader
 from bloomberg.pensieve import Tracker
 from bloomberg.pensieve._test import MemoryAllocator
+from bloomberg.pensieve._test import set_thread_name
 from tests.utils import filter_relevant_allocations
+
+HERE = Path(__file__).parent
+TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 
 
 def allocating_function(allocator, flag_event, wait_event):
@@ -55,3 +59,36 @@ def test_thread_allocations_after_tracker_is_deactivated(tmpdir):
         record for record in relevant_records if record.allocator == AllocatorType.FREE
     ]
     assert len(frees) == 1
+
+
+def test_thread_name(tmpdir):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    allocator = MemoryAllocator()
+
+    def allocating_function():
+        set_thread_name("my thread name")
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    with Tracker(output):
+        t = threading.Thread(target=allocating_function)
+        t.start()
+        t.join()
+
+    # THEN
+    relevant_records = list(
+        filter_relevant_allocations(FileReader(output).get_allocation_records())
+    )
+    assert len(relevant_records) == 2
+
+    vallocs = [
+        record
+        for record in relevant_records
+        if record.allocator == AllocatorType.VALLOC
+    ]
+    assert len(vallocs) == 1
+    (valloc,) = vallocs
+    assert valloc.size == 1234
+    assert "my thread name" in valloc.thread_name

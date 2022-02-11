@@ -171,6 +171,7 @@ class Tracker
     void trackDeallocation(void* ptr, size_t size, hooks::Allocator func);
     void invalidate_module_cache();
     void updateModuleCache();
+    void registerThreadName(const char* name);
 
     // RawFrame stack interface
     bool pushFrame(const RawFrame& frame);

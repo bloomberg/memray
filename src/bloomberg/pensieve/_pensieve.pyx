@@ -65,6 +65,15 @@ cdef unique_ptr[NativeTracker] _TRACKER
 # This code is at the top so that tests which rely on line numbers don't have to
 # be updated every time a line change is introduced in the core pensieve code.
 
+cdef extern from "sys/prctl.h":
+    int prctl(int, char*, char*, char*, char*)
+
+
+def set_thread_name(new_name):
+    cdef int PR_SET_NAME = 15
+    return prctl(PR_SET_NAME, new_name, NULL, NULL, NULL)
+
+
 cdef class MemoryAllocator:
     cdef void* ptr
 
@@ -231,6 +240,15 @@ cdef class AllocationRecord:
     @property
     def n_allocations(self):
         return self._tuple[5]
+
+    @property
+    def thread_name(self):
+        if self.tid == -1:
+            return "merged thread"
+        assert self._reader.get() != NULL, "Cannot get thread name without reader."
+        cdef object name = self._reader.get().getThreadName(self.tid)
+        thread_id = hex(self.tid)
+        return f"{thread_id} ({name})" if name else f"{thread_id}"
 
     def stack_trace(self, max_stacks=None):
         assert self._reader.get() != NULL, "Cannot get stack trace without reader."

@@ -89,8 +89,8 @@ function onResize() {
 }
 
 function onFilterThread() {
-  const thread_id = parseInt(this.dataset.thread, 10);
-  if (thread_id === -1) {
+  const thread_id = this.dataset.thread;
+  if (thread_id === "-0x1") {
     // Reset
     filteredChart.unRegisterFilter(FILTER_THREAD);
   } else {

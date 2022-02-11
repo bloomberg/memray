@@ -385,6 +385,15 @@ Tracker::updateModuleCache()
     dl_iterate_phdr(&dl_iterate_phdr_callback, d_writer.get());
 }
 
+void
+Tracker::registerThreadName(const char* name)
+{
+    if (!d_writer->writeRecord(RecordType::THREAD_RECORD, ThreadRecord{thread_id(), name})) {
+        std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
+        deactivate();
+    }
+}
+
 frame_id_t
 Tracker::registerFrame(const RawFrame& frame)
 {

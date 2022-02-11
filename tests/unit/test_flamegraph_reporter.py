@@ -43,16 +43,16 @@ class TestFlameGraphReporter:
         # THEN
         assert {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 1024,
             "n_allocations": 1,
-            "unique_threads": [1],
+            "unique_threads": ["0x1"],
             "interesting": True,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["grandparent", "fun.py", "4"],
                     "value": 1024,
                     "n_allocations": 1,
@@ -60,7 +60,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "parent at fun.py:8",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["parent", "fun.py", "8"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -68,7 +68,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "children": [],
@@ -108,16 +108,16 @@ class TestFlameGraphReporter:
         # THEN
         assert reporter.data == {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 1024,
             "n_allocations": 1,
-            "unique_threads": [1],
+            "unique_threads": ["0x1"],
             "interesting": True,
             "children": [
                 {
                     "name": "grandparent at fun.c:4",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["grandparent", "fun.c", "4"],
                     "value": 1024,
                     "n_allocations": 1,
@@ -125,7 +125,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "parent at fun.pyx:8",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["parent", "fun.pyx", "8"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -133,7 +133,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "children": [],
@@ -186,16 +186,16 @@ class TestFlameGraphReporter:
         # THEN
         assert reporter.data == {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
-            "unique_threads": [1],
+            "unique_threads": ["0x1"],
             "interesting": True,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["grandparent", "fun.py", "4"],
                     "value": 2048,
                     "n_allocations": 2,
@@ -203,7 +203,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "parent at fun.py:8",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["parent", "fun.py", "8"],
                             "value": 2048,
                             "n_allocations": 2,
@@ -211,7 +211,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -220,7 +220,7 @@ class TestFlameGraphReporter:
                                 },
                                 {
                                     "name": "sibling at fun.py:16",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["sibling", "fun.py", "16"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -300,16 +300,16 @@ class TestFlameGraphReporter:
         # THEN
         assert reporter.data == {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
-            "unique_threads": [1],
+            "unique_threads": ["0x1"],
             "interesting": True,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["grandparent", "fun.py", "4"],
                     "value": 2048,
                     "n_allocations": 2,
@@ -317,7 +317,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "parent_one at fun.py:8",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["parent_one", "fun.py", "8"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -325,7 +325,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["me", "fun.py", "12"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -336,7 +336,7 @@ class TestFlameGraphReporter:
                         },
                         {
                             "name": "parent_two at fun.py:10",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["parent_two", "fun.py", "10"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -344,7 +344,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "sibling at fun.py:16",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["sibling", "fun.py", "16"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -388,16 +388,16 @@ class TestFlameGraphReporter:
         # THEN
         assert reporter.data == {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 1024,
             "n_allocations": 1,
-            "unique_threads": [1],
+            "unique_threads": ["0x1"],
             "interesting": True,
             "children": [
                 {
                     "name": "main at recursive.py:5",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["main", "recursive.py", "5"],
                     "value": 1024,
                     "n_allocations": 1,
@@ -405,7 +405,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "two at recursive.py:20",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["two", "recursive.py", "20"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -413,7 +413,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "one at recursive.py:10",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["one", "recursive.py", "10"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -421,7 +421,7 @@ class TestFlameGraphReporter:
                                     "children": [
                                         {
                                             "name": "two at recursive.py:20",
-                                            "thread_id": 1,
+                                            "thread_id": "0x1",
                                             "location": ["two", "recursive.py", "20"],
                                             "value": 1024,
                                             "n_allocations": 1,
@@ -429,7 +429,7 @@ class TestFlameGraphReporter:
                                             "children": [
                                                 {
                                                     "name": "one at recursive.py:10",
-                                                    "thread_id": 1,
+                                                    "thread_id": "0x1",
                                                     "location": [
                                                         "one",
                                                         "recursive.py",
@@ -441,7 +441,7 @@ class TestFlameGraphReporter:
                                                     "children": [
                                                         {
                                                             "name": "two at recursive.py:20",  # noqa
-                                                            "thread_id": 1,
+                                                            "thread_id": "0x1",
                                                             "location": [
                                                                 "two",
                                                                 "recursive.py",
@@ -453,7 +453,7 @@ class TestFlameGraphReporter:
                                                             "children": [
                                                                 {
                                                                     "name": "one at recursive.py:9",  # noqa
-                                                                    "thread_id": 1,
+                                                                    "thread_id": "0x1",
                                                                     "location": [
                                                                         "one",
                                                                         "recursive.py",
@@ -518,16 +518,16 @@ class TestFlameGraphReporter:
         # THEN
         assert reporter.data == {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
-            "unique_threads": [1],
+            "unique_threads": ["0x1"],
             "interesting": True,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
@@ -535,7 +535,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -543,7 +543,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -556,7 +556,7 @@ class TestFlameGraphReporter:
                 },
                 {
                     "name": "foo1 at /src/lel.py:2",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["foo1", "/src/lel.py", "2"],
                     "value": 1024,
                     "n_allocations": 1,
@@ -564,7 +564,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "bar1 at /src/lel.py:5",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["bar1", "/src/lel.py", "5"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -572,7 +572,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "baz1 at /src/lel.py:8",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["baz1", "/src/lel.py", "8"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -625,16 +625,16 @@ class TestFlameGraphReporter:
         # THEN
         assert reporter.data == {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
-            "unique_threads": [1, 2],
+            "unique_threads": ["0x1", "0x2"],
             "interesting": True,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
@@ -642,7 +642,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -650,7 +650,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
-                                    "thread_id": 1,
+                                    "thread_id": "0x1",
                                     "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -663,7 +663,7 @@ class TestFlameGraphReporter:
                 },
                 {
                     "name": "foo2 at /src/lel.py:12",
-                    "thread_id": 2,
+                    "thread_id": "0x2",
                     "location": ["foo2", "/src/lel.py", "12"],
                     "value": 1024,
                     "n_allocations": 1,
@@ -671,7 +671,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
-                            "thread_id": 2,
+                            "thread_id": "0x2",
                             "location": ["bar2", "/src/lel.py", "15"],
                             "value": 1024,
                             "n_allocations": 1,
@@ -679,7 +679,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
-                                    "thread_id": 2,
+                                    "thread_id": "0x2",
                                     "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 1024,
                                     "n_allocations": 1,
@@ -732,16 +732,16 @@ class TestFlameGraphReporter:
         # THEN
         assert reporter.data == {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 2048,
             "n_allocations": 2,
-            "unique_threads": [-1],
+            "unique_threads": ["merged thread"],
             "interesting": True,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
-                    "thread_id": -1,
+                    "thread_id": "merged thread",
                     "location": ["foo2", "/src/lel.py", "12"],
                     "value": 2048,
                     "n_allocations": 2,
@@ -749,7 +749,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
-                            "thread_id": -1,
+                            "thread_id": "merged thread",
                             "location": ["bar2", "/src/lel.py", "15"],
                             "value": 2048,
                             "n_allocations": 2,
@@ -757,7 +757,7 @@ class TestFlameGraphReporter:
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
-                                    "thread_id": -1,
+                                    "thread_id": "merged thread",
                                     "location": ["baz2", "/src/lel.py", "18"],
                                     "value": 2048,
                                     "n_allocations": 2,
@@ -802,16 +802,16 @@ class TestFlameGraphReporter:
         # THEN
         assert {
             "name": "<root>",
-            "thread_id": 0,
+            "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
             "value": 1024,
             "n_allocations": 1,
-            "unique_threads": [1],
+            "unique_threads": ["0x1"],
             "interesting": True,
             "children": [
                 {
                     "name": "parent at fun.py:8",
-                    "thread_id": 1,
+                    "thread_id": "0x1",
                     "location": ["parent", "fun.py", "8"],
                     "value": 1024,
                     "n_allocations": 1,
@@ -819,7 +819,7 @@ class TestFlameGraphReporter:
                     "children": [
                         {
                             "name": "me at fun.py:12",
-                            "thread_id": 1,
+                            "thread_id": "0x1",
                             "location": ["me", "fun.py", "12"],
                             "value": 1024,
                             "children": [],
@@ -868,6 +868,6 @@ class TestFlameGraphReporter:
             "n_allocations": 1,
             "interesting": True,
             "name": "<STACK TOO DEEP>",
-            "thread_id": 1,
+            "thread_id": "0x1",
             "value": 1024,
         }

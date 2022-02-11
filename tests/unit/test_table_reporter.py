@@ -33,7 +33,7 @@ class TestTableReporter:
         # THEN
         assert table.data == [
             {
-                "tid": 1,
+                "tid": "0x1",
                 "size": 1024,
                 "allocator": "malloc",
                 "n_allocations": 1,
@@ -63,7 +63,7 @@ class TestTableReporter:
         # THEN
         assert table.data == [
             {
-                "tid": 1,
+                "tid": "0x1",
                 "size": 1024,
                 "allocator": "malloc",
                 "n_allocations": 1,
@@ -104,14 +104,14 @@ class TestTableReporter:
         # THEN
         assert table.data == [
             {
-                "tid": 1,
+                "tid": "0x1",
                 "size": 1024,
                 "allocator": "malloc",
                 "n_allocations": 1,
                 "stack_trace": "me at foo.py:12",
             },
             {
-                "tid": 1,
+                "tid": "0x1",
                 "size": 2048,
                 "allocator": "valloc",
                 "n_allocations": 10,
@@ -139,7 +139,7 @@ class TestTableReporter:
         # THEN
         assert table.data == [
             {
-                "tid": 1,
+                "tid": "0x1",
                 "size": 1024,
                 "allocator": "malloc",
                 "n_allocations": 1,

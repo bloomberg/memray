@@ -41,6 +41,7 @@ class RecordReader
     bool nextAllocationRecord(Allocation* allocation);
     HeaderRecord getHeader() const noexcept;
     PyObject* dumpAllRecords();
+    std::string getThreadName(thread_id_t tid);
 
   private:
     // Aliases
@@ -62,6 +63,7 @@ class RecordReader
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
+    std::unordered_map<thread_id_t, std::string> d_thread_names;
 
     // Methods
     [[nodiscard]] bool parseFramePush();
@@ -71,6 +73,7 @@ class RecordReader
     [[nodiscard]] bool parseAllocationRecord(AllocationRecord& record);
     [[nodiscard]] bool parseSegmentHeader();
     [[nodiscard]] bool parseSegment(Segment& segment);
+    [[nodiscard]] bool parseThreadRecord();
 
     void correctAllocationFrame(stack_t& stack, int lineno);
     size_t getAllocationFrameIndex(const AllocationRecord& record);

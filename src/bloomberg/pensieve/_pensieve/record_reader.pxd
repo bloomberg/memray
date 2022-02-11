@@ -3,6 +3,7 @@ from _pensieve.records cimport HeaderRecord
 from _pensieve.source cimport Source
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
+from libcpp.string cimport string
 from libcpp.vector cimport vector
 
 
@@ -19,3 +20,4 @@ cdef extern from "record_reader.h" namespace "pensieve::api":
         size_t totalAllocations()
         HeaderRecord getHeader()
         object dumpAllRecords() except+
+        string getThreadName(long int tid) except+

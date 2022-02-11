@@ -28,7 +28,7 @@ class Frame:
     value: int
     children: Dict[StackElement, "Frame"] = field(default_factory=dict)
     n_allocations: int = 0
-    thread_id: int = 0
+    thread_id: str = ""
     interesting: bool = True
     group: List["Frame"] = field(default_factory=list)
 
@@ -63,13 +63,10 @@ class TreeReporter:
         native_traces: bool,
     ) -> "TreeReporter":
         data = Frame(location=ROOT_NODE, value=0)
-        unique_threads = set()
         for record in sorted(allocations, key=lambda alloc: alloc.size, reverse=True)[
             :biggest_allocs
         ]:
             size = record.size
-            thread_id = record.tid
-
             data.value += size
             data.n_allocations += record.n_allocations
 
@@ -89,8 +86,7 @@ class TreeReporter:
                 current_frame = current_frame.children[stack_frame]
                 current_frame.value += size
                 current_frame.n_allocations += record.n_allocations
-                current_frame.thread_id = thread_id
-                unique_threads.add(thread_id)
+                current_frame.thread_id = record.thread_name
 
                 if index > MAX_STACKS:
                     break

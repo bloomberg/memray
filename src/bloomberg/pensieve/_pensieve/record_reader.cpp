@@ -204,6 +204,19 @@ RecordReader::parseSegment(Segment& segment)
     return true;
 }
 
+bool
+RecordReader::parseThreadRecord()
+{
+    thread_id_t tid;
+    std::string name;
+    if (!d_input->read(reinterpret_cast<char*>(&tid), sizeof(thread_id_t))
+        || !d_input->getline(name, '\0')) {
+        return false;
+    }
+    d_thread_names[tid] = name;
+    return true;
+}
+
 size_t
 RecordReader::getAllocationFrameIndex(const AllocationRecord& record)
 {
@@ -295,6 +308,13 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
                     return false;
                 }
                 break;
+            case RecordType::THREAD_RECORD: {
+                if (!parseThreadRecord()) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse thread record";
+                    return false;
+                }
+                break;
+            }
             default:
                 if (d_input->is_open()) LOG(ERROR) << "Invalid record type";
                 return false;
@@ -377,6 +397,16 @@ HeaderRecord
 RecordReader::getHeader() const noexcept
 {
     return d_header;
+}
+
+std::string
+RecordReader::getThreadName(thread_id_t tid)
+{
+    auto it = d_thread_names.find(tid);
+    if (it != d_thread_names.end()) {
+        return it->second;
+    }
+    return "";
 }
 
 PyObject*
@@ -513,6 +543,18 @@ RecordReader::dumpAllRecords()
                 }
 
                 printf("%p %lu\n", (void*)record.vaddr, record.memsz);
+            } break;
+            case RecordType::THREAD_RECORD: {
+                printf("THREAD ");
+
+                thread_id_t tid;
+                std::string name;
+                if (!d_input->read(reinterpret_cast<char*>(&tid), sizeof(thread_id_t))
+                    || !d_input->getline(name, '\0')) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("%ld %s\n", tid, name.c_str());
             } break;
             default: {
                 printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);

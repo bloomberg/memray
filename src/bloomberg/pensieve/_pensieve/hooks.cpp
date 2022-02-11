@@ -228,6 +228,27 @@ dlclose(void* handle) noexcept
     return ret;
 }
 
+int
+prctl(int option, ...) noexcept
+{
+    unsigned long args[4];
+    va_list arguments;
+    va_start(arguments, option);
+    for (int i = 0; i < 4; i++) {
+        args[i] = va_arg(arguments, unsigned long);
+    }
+    va_end(arguments);
+
+    if (option == PR_SET_NAME) {
+        char* name = reinterpret_cast<char*>(args[0]);
+        tracking_api::Tracker::getTracker()->registerThreadName(name);
+    }
+
+    unsigned long ret = hooks::prctl(option, args[0], args[1], args[2], args[3]);
+
+    return ret;
+}
+
 PyGILState_STATE
 PyGILState_Ensure() noexcept
 {
