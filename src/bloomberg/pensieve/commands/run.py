@@ -1,6 +1,8 @@
 import argparse
+import ast
 import contextlib
 import os
+import pathlib
 import runpy
 import socket
 import subprocess
@@ -218,9 +220,23 @@ class RunCommand:
             metavar="module",
         )
 
+    def validate_target_file(self, args: argparse.Namespace) -> None:
+        """Ensure we are running a Python file"""
+        if args.run_as_module:
+            return
+        try:
+            source = pathlib.Path(args.script).read_bytes()
+            ast.parse(source)
+        except (SyntaxError, ValueError):
+            raise PensieveCommandError(
+                "Only Python files can be executed under pensieve", exit_code=1
+            )
+
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         if args.live_port is not None and not args.live_remote_mode:
             parser.error("The --live-port argument requires --live-remote")
+
+        self.validate_target_file(args)
 
         if args.live_mode:
             _run_child_process_and_attach(args)
