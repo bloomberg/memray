@@ -17,6 +17,22 @@ from bloomberg.pensieve.commands import main
 TIMEOUT = 10
 
 
+@pytest.fixture
+def simple_test_file(tmp_path):
+    code_file = tmp_path / "code.py"
+    program = textwrap.dedent(
+        """\
+        from bloomberg.pensieve._pensieve import MemoryAllocator
+        print("Allocating some memory!")
+        allocator = MemoryAllocator()
+        allocator.valloc(1024)
+        allocator.free()
+        """
+    )
+    code_file.write_text(program)
+    yield code_file
+
+
 @contextlib.contextmanager
 def track_and_wait(output_dir, sleep_after=100):
     """Creates a test script which does some allocations, and upon leaving the context manager,
@@ -61,7 +77,7 @@ def _wait_until_process_blocks(pid: int) -> None:
         time.sleep(0.1)
 
 
-def generate_sample_results(tmp_path, *, native=False):
+def generate_sample_results(tmp_path, code, *, native=False):
     results_file = tmp_path / "result.bin"
     subprocess.run(
         [
@@ -72,20 +88,18 @@ def generate_sample_results(tmp_path, *, native=False):
             *(["--native"] if native else []),
             "--output",
             str(results_file),
-            "-m",
-            "json.tool",
-            "-h",
+            str(code),
         ],
         cwd=str(tmp_path),
         check=True,
         capture_output=True,
         text=True,
     )
-    return results_file
+    return results_file, code
 
 
 class TestRunSubcommand:
-    def test_run(self, tmp_path):
+    def test_run(self, tmp_path, simple_test_file):
         # GIVEN / WHEN
         proc = subprocess.run(
             [
@@ -93,9 +107,7 @@ class TestRunSubcommand:
                 "-m",
                 "bloomberg.pensieve",
                 "run",
-                "-m",
-                "json.tool",
-                "-h",
+                str(simple_test_file),
             ],
             check=True,
             capture_output=True,
@@ -104,14 +116,14 @@ class TestRunSubcommand:
         )
 
         # THEN
-        assert "usage: python -m json.tool" in proc.stdout
+        assert "Allocating some memory!" in proc.stdout
         assert proc.returncode == 0
         assert "example commands" in proc.stdout
 
         out_file = re.search("Writing profile results into (.*)", proc.stdout).group(1)
         assert (tmp_path / out_file).exists()
 
-    def test_run_override_output(self, tmp_path):
+    def test_run_override_output(self, tmp_path, simple_test_file):
         # GIVEN
         out_file = tmp_path / "result.bin"
 
@@ -124,9 +136,7 @@ class TestRunSubcommand:
                 "run",
                 "--output",
                 str(out_file),
-                "-m",
-                "json.tool",
-                "-h",
+                str(simple_test_file),
             ],
             check=True,
             capture_output=True,
@@ -134,11 +144,11 @@ class TestRunSubcommand:
         )
 
         # THEN
-        assert "usage: python -m json.tool" in proc.stdout
+        assert "Allocating some memory!" in proc.stdout
         assert proc.returncode == 0
         assert out_file.exists()
 
-    def test_run_overwrite_output_file(self, tmp_path):
+    def test_run_overwrite_output_file(self, tmp_path, simple_test_file):
         # GIVEN
         out_file = tmp_path / "result.bin"
         out_file.write_bytes(b"oops" * 1024 * 1024)
@@ -155,9 +165,7 @@ class TestRunSubcommand:
                 "--force",
                 "--output",
                 str(out_file),
-                "-m",
-                "json.tool",
-                "-h",
+                str(simple_test_file),
             ],
             check=True,
             capture_output=True,
@@ -165,7 +173,7 @@ class TestRunSubcommand:
         )
 
         # THEN
-        assert "usage: python -m json.tool" in proc.stdout
+        assert "Allocating some memory!" in proc.stdout
         assert proc.returncode == 0
         assert 0 < out_file.stat().st_size < 4 * 1024 * 1024
         assert out_file.read_bytes()[:4] != b"oops"
@@ -249,7 +257,7 @@ class TestRunSubcommand:
         )
 
     @pytest.mark.parametrize("quiet", [True, False])
-    def test_quiet(self, quiet, tmp_path):
+    def test_quiet(self, quiet, tmp_path, simple_test_file):
         # GIVEN
         out_file = tmp_path / "result.bin"
 
@@ -263,9 +271,7 @@ class TestRunSubcommand:
                 *(["-q"] if quiet else []),
                 "--output",
                 str(out_file),
-                "-m",
-                "json.tool",
-                "-h",
+                str(simple_test_file),
             ],
             check=True,
             capture_output=True,
@@ -282,7 +288,7 @@ class TestRunSubcommand:
 
 
 class TestParseSubcommand:
-    def test_successful_parse(self, tmp_path):
+    def test_successful_parse(self, tmp_path, simple_test_file):
         # GIVEN
         record_types = [
             "ALLOCATION",
@@ -295,7 +301,9 @@ class TestParseSubcommand:
             "SEGMENT",
         ]
         record_count_by_type = dict.fromkeys(record_types, 0)
-        results_file = generate_sample_results(tmp_path, native=True)
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
 
         # WHEN
         proc = subprocess.run(
@@ -321,9 +329,11 @@ class TestParseSubcommand:
         for record_type, count in record_count_by_type.items():
             assert count > 0
 
-    def test_error_when_stdout_is_a_tty(self, tmp_path):
+    def test_error_when_stdout_is_a_tty(self, tmp_path, simple_test_file):
         # GIVEN
-        results_file = generate_sample_results(tmp_path, native=True)
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
         _, controlled = pty.openpty()
 
         # WHEN
@@ -369,9 +379,11 @@ class TestParseSubcommand:
 
 
 class TestFlamegraphSubCommand:
-    def test_reads_from_correct_file(self, tmp_path):
+    def test_reads_from_correct_file(self, tmp_path, simple_test_file):
         # GIVEN
-        results_file = generate_sample_results(tmp_path)
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
 
         # WHEN
         subprocess.run(
@@ -391,11 +403,13 @@ class TestFlamegraphSubCommand:
         # THEN
         output_file = tmp_path / "pensieve-flamegraph-result.html"
         assert output_file.exists()
-        assert "json.tool" in output_file.read_text()
+        assert str(source_file) in output_file.read_text()
 
-    def test_can_generate_reports_with_native_traces(self, tmp_path):
+    def test_can_generate_reports_with_native_traces(self, tmp_path, simple_test_file):
         # GIVEN
-        results_file = generate_sample_results(tmp_path, native=True)
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
 
         # WHEN
         subprocess.run(
@@ -415,11 +429,13 @@ class TestFlamegraphSubCommand:
         # THEN
         output_file = tmp_path / "pensieve-flamegraph-result.html"
         assert output_file.exists()
-        assert "json.tool" in output_file.read_text()
+        assert str(source_file) in output_file.read_text()
 
-    def test_writes_to_correct_file(self, tmp_path):
+    def test_writes_to_correct_file(self, tmp_path, simple_test_file):
         # GIVEN
-        results_file = generate_sample_results(tmp_path)
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
         output_file = tmp_path / "output.html"
 
         # WHEN
@@ -440,16 +456,18 @@ class TestFlamegraphSubCommand:
 
         # THEN
         assert output_file.exists()
-        assert "json.tool" in output_file.read_text()
+        assert str(source_file) in output_file.read_text()
 
-    def test_output_file_already_exists(self, tmp_path, monkeypatch):
+    def test_output_file_already_exists(self, tmp_path, simple_test_file, monkeypatch):
         """Check that when the output file is derived form the input name, we fail when there is
         already a file with the same name as the output."""
 
         # GIVEN
         monkeypatch.chdir(tmp_path)
         # This will generate "result.bin"
-        results_file = generate_sample_results(tmp_path)
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
         output_file = tmp_path / "pensieve-flamegraph-result.html"
         output_file.touch()
 
@@ -459,9 +477,11 @@ class TestFlamegraphSubCommand:
         # THEN
         assert ret != 0
 
-    def test_split_threads_subcommand(self, tmp_path):
+    def test_split_threads_subcommand(self, tmp_path, simple_test_file):
         # GIVEN
-        results_file = generate_sample_results(tmp_path)
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
         output_file = tmp_path / "output.html"
 
         # WHEN
@@ -483,13 +503,15 @@ class TestFlamegraphSubCommand:
 
         # THEN
         assert output_file.exists()
-        assert "json.tool" in output_file.read_text()
+        assert str(source_file) in output_file.read_text()
 
 
 class TestTableSubCommand:
-    def test_reads_from_correct_file(self, tmp_path):
+    def test_reads_from_correct_file(self, tmp_path, simple_test_file):
         # GIVEN
-        results_file = generate_sample_results(tmp_path)
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
 
         # WHEN
         subprocess.run(
@@ -509,7 +531,7 @@ class TestTableSubCommand:
         # THEN
         output_file = tmp_path / "pensieve-table-result.html"
         assert output_file.exists()
-        assert "json.tool" in output_file.read_text()
+        assert str(source_file) in output_file.read_text()
 
     def test_no_split_threads(self, tmp_path):
         # GIVEN/WHEN/THEN
@@ -576,8 +598,10 @@ class TestReporterSubCommands:
         )
 
     @pytest.mark.parametrize("report", ["flamegraph", "table"])
-    def test_report_leaks_argument(self, tmp_path, report):
-        results_file = generate_sample_results(tmp_path)
+    def test_report_leaks_argument(self, tmp_path, simple_test_file, report):
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
         output_file = tmp_path / "output.html"
 
         # WHEN
@@ -598,11 +622,11 @@ class TestReporterSubCommands:
         # THEN
         output_file = tmp_path / f"pensieve-{report}-result.html"
         assert output_file.exists()
-        assert "json.tool" in output_file.read_text()
+        assert str(source_file) in output_file.read_text()
 
 
 class TestLiveRemoteSubcommand:
-    def test_live_tracking(self, free_port):
+    def test_live_tracking(self, tmp_path, simple_test_file, free_port):
 
         # GIVEN
         server = subprocess.Popen(
@@ -614,9 +638,7 @@ class TestLiveRemoteSubcommand:
                 "--live-remote",
                 "--live-port",
                 str(free_port),
-                "-m",
-                "json.tool",
-                "--help",
+                str(simple_test_file),
             ],
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -653,7 +675,7 @@ class TestLiveRemoteSubcommand:
         assert server.returncode == 0
         assert client.returncode == 0
 
-    def test_live_tracking_waits_for_client(self):
+    def test_live_tracking_waits_for_client(self, simple_test_file):
         # GIVEN/WHEN
         server = subprocess.Popen(
             [
@@ -662,9 +684,7 @@ class TestLiveRemoteSubcommand:
                 "bloomberg.pensieve",
                 "run",
                 "--live-remote",
-                "-m",
-                "json.tool",
-                "--help",
+                str(simple_test_file),
             ],
             env={"PYTHONUNBUFFERED": "1"},
             stdout=subprocess.PIPE,
@@ -677,7 +697,7 @@ class TestLiveRemoteSubcommand:
         server.wait(timeout=TIMEOUT)
 
     @pytest.mark.parametrize("port", [0, 2**16, 1000000])
-    def test_run_live_tracking_invalid_port(self, port):
+    def test_run_live_tracking_invalid_port(self, simple_test_file, port):
         # GIVEN/WHEN
         server = subprocess.Popen(
             [
@@ -688,9 +708,7 @@ class TestLiveRemoteSubcommand:
                 "--live-remote",
                 "--live-port",
                 str(port),
-                "-m",
-                "json.tool",
-                "--help",
+                str(simple_test_file),
             ],
             env={"PYTHONUNBUFFERED": "1"},
             stdout=subprocess.PIPE,
@@ -778,7 +796,7 @@ class TestLiveRemoteSubcommand:
         # THEN
         assert "Encountered error in 'send' call:" not in stderr
 
-    def test_live_tracking_server_exits_properly_on_sigint(self):
+    def test_live_tracking_server_exits_properly_on_sigint(self, simple_test_file):
         # GIVEN
         server = subprocess.Popen(
             [
@@ -787,9 +805,7 @@ class TestLiveRemoteSubcommand:
                 "bloomberg.pensieve",
                 "run",
                 "--live-remote",
-                "-m",
-                "json.tool",
-                "--help",
+                str(simple_test_file),
             ],
             env={"PYTHONUNBUFFERED": "1"},
             stdout=subprocess.PIPE,
