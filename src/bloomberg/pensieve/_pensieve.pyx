@@ -309,6 +309,7 @@ cdef class AllocationRecord:
 
 cdef class Tracker:
     cdef bool _native_traces
+    cdef unsigned int _memory_interval_ms
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
     cdef shared_ptr[RecordReader] _reader
@@ -326,12 +327,14 @@ cdef class Tracker:
             raise TypeError("destination must be a SocketDestination or FileDestination")
 
 
-    def __cinit__(self, object file_name=None, *, object destination=None, bool native_traces=False):
+    def __cinit__(self, object file_name=None, *, object destination=None,
+                  bool native_traces=False, unsigned int memory_interval_ms = 10):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
         cdef cppstring command_line = " ".join(sys.argv)
         self._native_traces = native_traces
+        self._memory_interval_ms = memory_interval_ms
 
         if file_name is not None:
             destination = FileDestination(path=file_name)
@@ -355,7 +358,7 @@ cdef class Tracker:
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
-        _TRACKER.reset(new NativeTracker(move(writer), self._native_traces))
+        _TRACKER.reset(new NativeTracker(move(writer), self._native_traces, self._memory_interval_ms))
         return self
 
     def __del__(self):
@@ -389,6 +392,14 @@ cdef class FileReader:
             raise IOError(f"No such file: {self._path}")
         self._reader = make_shared[RecordReader](unique_ptr[FileSource](new FileSource(self._path)))
         self._header: dict = self._reader.get().getHeader()
+        self._populate_allocations()
+
+    cdef void _populate_allocations(self):
+        cdef RecordReader* reader = self._get_reader()
+        while reader.nextRecord() not in (
+                RecordResult.RecordResultEndOfFile,
+                RecordResult.RecordResultError):
+            continue
 
     cdef RecordReader* _get_reader(self) except *:
         if self._reader.get() == NULL:
