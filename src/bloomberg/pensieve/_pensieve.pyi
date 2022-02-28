@@ -6,6 +6,7 @@ from typing import Callable
 from typing import Iterable
 from typing import Iterator
 from typing import List
+from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 from typing import Type
@@ -18,6 +19,7 @@ from ._metadata import Metadata
 
 PythonStackElement = Tuple[str, str, int]
 NativeStackElement = Tuple[str, str, int]
+MemoryRecord = NamedTuple("MemoryRecord", [("time", int), ("rss", int)])
 
 def set_log_level(level: int) -> None: ...
 
@@ -79,6 +81,7 @@ class FileReader:
     def get_leaked_allocation_records(
         self, merge_threads: bool
     ) -> Iterable[AllocationRecord]: ...
+    def get_memory_records(self) -> Iterable[MemoryRecord]: ...
     def dump_all_records(self) -> None: ...
     def __enter__(self) -> Any: ...
     def __exit__(

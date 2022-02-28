@@ -87,6 +87,19 @@ RecordReader::RecordReader(std::unique_ptr<Source> source)
 : d_input(std::move(source))
 {
     readHeader(d_header);
+
+    // Reserve some space for the different containers
+    TrackerStats& stats = d_header.stats;
+    d_allocation_records.reserve(stats.n_allocations);
+    d_frame_map.reserve(stats.n_frames);
+    long int n_memory_records_approx = 2048;
+    if (stats.end_time > 0) {
+        n_memory_records_approx = (stats.end_time - stats.start_time) / 10;
+        assert(n_memory_records_approx >= 0);
+    }
+    d_memory_records.reserve(n_memory_records_approx);
+    d_thread_names.reserve(16);
+    d_native_frames.reserve(d_header.native_traces ? 2048 : 0);
 }
 
 void
@@ -109,8 +122,11 @@ RecordReader::parseFramePush()
         return false;
     }
     thread_id_t tid = record.tid;
-
-    d_stack_traces[tid].push_back(record.frame_id);
+    auto [it, inserted] = d_stack_traces.emplace(tid, stack_t{});
+    if (inserted) {
+        it->second.reserve(1024);
+    }
+    it->second.push_back(record.frame_id);
     return true;
 }
 
@@ -164,9 +180,18 @@ RecordReader::parseNativeFrameIndex()
 }
 
 bool
-RecordReader::parseAllocationRecord(AllocationRecord& record)
+RecordReader::parseAllocationRecord()
 {
-    return d_input->read(reinterpret_cast<char*>(&record), sizeof(AllocationRecord));
+    AllocationRecord record;
+    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(AllocationRecord))) {
+        return false;
+    }
+    size_t f_index = getAllocationFrameIndex(record);
+    d_allocation_records.emplace_back(Allocation{
+            .record = record,
+            .frame_index = f_index,
+            .native_segment_generation = d_symbol_resolver.currentSegmentGeneration()});
+    return true;
 }
 
 bool
@@ -222,6 +247,17 @@ RecordReader::parseThreadRecord()
     return true;
 }
 
+bool
+RecordReader::parseMemoryRecord()
+{
+    MemoryRecord record;
+    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+        return false;
+    }
+    d_memory_records.emplace_back(std::move(record));
+    return true;
+}
+
 size_t
 RecordReader::getAllocationFrameIndex(const AllocationRecord& record)
 {
@@ -253,53 +289,52 @@ RecordReader::correctAllocationFrame(stack_t& stack, int lineno)
     stack.back() = allocation_index;
 }
 
-// Python public APIs
-
-bool
-RecordReader::nextAllocationRecord(Allocation* allocation)
+RecordReader::RecordResult
+RecordReader::nextRecord()
 {
     while (true) {
         RecordType record_type;
         if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(RecordType))) {
-            return false;
+            return RecordResult::END_OF_FILE;
         }
 
         switch (record_type) {
             case RecordType::ALLOCATION: {
-                AllocationRecord record{};
-                if (!parseAllocationRecord(record)) {
+                if (!parseAllocationRecord()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse allocation record";
-                    return false;
+                    return RecordResult::ERROR;
                 }
-                size_t f_index = getAllocationFrameIndex(record);
-                *allocation = Allocation{
-                        .record = record,
-                        .frame_index = f_index,
-                        .native_segment_generation = d_symbol_resolver.currentSegmentGeneration()};
-                return true;
+                return RecordResult::ALLOCATION_RECORD;
+            }
+            case RecordType::MEMORY_RECORD: {
+                if (!parseMemoryRecord()) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse memory record";
+                    return RecordResult::ERROR;
+                }
+                return RecordResult::MEMORY_RECORD;
             }
             case RecordType::FRAME_PUSH:
                 if (!parseFramePush()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame push";
-                    return false;
+                    return RecordResult::ERROR;
                 }
                 break;
             case RecordType::FRAME_POP:
                 if (!parseFramePop()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame pop";
-                    return false;
+                    return RecordResult::ERROR;
                 }
                 break;
             case RecordType::FRAME_INDEX:
                 if (!parseFrameIndex()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame index";
-                    return false;
+                    return RecordResult::ERROR;
                 }
                 break;
             case RecordType::NATIVE_TRACE_INDEX:
                 if (!parseNativeFrameIndex()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse native frame index";
-                    return false;
+                    return RecordResult::ERROR;
                 }
                 break;
             case RecordType::MEMORY_MAP_START: {
@@ -310,22 +345,24 @@ RecordReader::nextAllocationRecord(Allocation* allocation)
             case RecordType::SEGMENT_HEADER:
                 if (!parseSegmentHeader()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse segment header";
-                    return false;
+                    return RecordResult::ERROR;
                 }
                 break;
             case RecordType::THREAD_RECORD: {
                 if (!parseThreadRecord()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse thread record";
-                    return false;
+                    return RecordResult::ERROR;
                 }
                 break;
             }
             default:
                 if (d_input->is_open()) LOG(ERROR) << "Invalid record type";
-                return false;
+                return RecordResult::ERROR;
         }
     }
 }
+
+// Python public APIs
 
 PyObject*
 RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
@@ -412,6 +449,25 @@ RecordReader::getThreadName(thread_id_t tid)
         return it->second;
     }
     return "";
+}
+
+void
+RecordReader::clearRecords() noexcept
+{
+    d_allocation_records.clear();
+    d_memory_records.clear();
+}
+
+allocations_t&
+RecordReader::allocationRecords() noexcept
+{
+    return d_allocation_records;
+}
+
+std::vector<MemoryRecord>&
+RecordReader::memoryRecords() noexcept
+{
+    return d_memory_records;
 }
 
 PyObject*
@@ -576,6 +632,15 @@ RecordReader::dumpAllRecords()
                 }
 
                 printf("%ld %s\n", tid, name.c_str());
+            } break;
+            case RecordType::MEMORY_RECORD: {
+                printf("MEMORY RECORD ");
+                MemoryRecord record;
+                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("time=%ld memory=%lu\n", record.ms_since_epoch, record.rss);
             } break;
             default: {
                 printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);

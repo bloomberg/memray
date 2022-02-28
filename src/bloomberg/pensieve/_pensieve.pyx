@@ -1,3 +1,4 @@
+import collections
 import os
 import pathlib
 import sys
@@ -27,6 +28,7 @@ from _pensieve.pthread cimport pthread_create
 from _pensieve.pthread cimport pthread_join
 from _pensieve.pthread cimport pthread_t
 from _pensieve.record_reader cimport RecordReader
+from _pensieve.record_reader cimport RecordResult
 from _pensieve.record_writer cimport RecordWriter
 from _pensieve.records cimport Allocation as NativeAllocation
 from _pensieve.sink cimport FileSink
@@ -307,6 +309,8 @@ cdef class AllocationRecord:
                 f"allocations={self.n_allocations}>")
 
 
+MemoryRecord = collections.namedtuple("MemoryRecord", "time rss")
+
 cdef class Tracker:
     cdef bool _native_traces
     cdef unsigned int _memory_interval_ms
@@ -381,7 +385,6 @@ cdef class FileReader:
     cdef cppstring _path
 
     cdef shared_ptr[RecordReader] _reader
-    cdef vector[NativeAllocation] _native_allocations
     cdef unique_ptr[HighWatermark] _high_watermark
     cdef bool _closed
     cdef object _header
@@ -426,20 +429,10 @@ cdef class FileReader:
 
     def __dealloc__(self):
         self._reader.reset()
-
-    cdef inline void _populate_allocations(self) except*:
-        if self._native_allocations.size() != 0:
-            return
-
-        cdef RecordReader * reader = self._get_reader()
-        cdef NativeAllocation native_allocation
-        total_allocations = self._header["stats"]["n_allocations"]
-        self._native_allocations.reserve(total_allocations)
-        while reader.nextAllocationRecord(&native_allocation):
-            self._native_allocations.push_back(move(native_allocation))
-
+    
     def _yield_allocations(self, size_t index, merge_threads):
-        for elem in Py_GetSnapshotAllocationRecords(self._native_allocations, index, merge_threads):
+        for elem in Py_GetSnapshotAllocationRecords(
+            self._get_reader().allocationRecords(), index, merge_threads):
             alloc = AllocationRecord(elem)
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
@@ -448,7 +441,8 @@ cdef class FileReader:
     cdef inline HighWatermark* _get_high_watermark(self) except*:
         if self._high_watermark == NULL:
             self._populate_allocations()
-            self._high_watermark = make_unique[HighWatermark](getHighWatermark(self._native_allocations))
+            self._high_watermark = make_unique[HighWatermark](
+                getHighWatermark(self._get_reader().allocationRecords()))
         return self._high_watermark.get()
 
     def get_high_watermark_allocation_records(self, merge_threads=True):
@@ -460,23 +454,24 @@ cdef class FileReader:
     def get_leaked_allocation_records(self, merge_threads=True):
         self._ensure_reader_is_open()
         self._populate_allocations()
-        cdef size_t snapshot_index = self._native_allocations.size() - 1
+        cdef size_t snapshot_index = self._get_reader().allocationRecords().size() - 1
         yield from self._yield_allocations(snapshot_index, merge_threads)
 
     def get_allocation_records(self):
-        cdef shared_ptr[RecordReader] reader = make_shared[RecordReader](
-            unique_ptr[FileSource](new FileSource(self._path))
-        )
-        cdef NativeAllocation native_allocation
-        cdef RecordReader* reader_ptr = reader.get()
-
-        while reader_ptr.nextAllocationRecord(&native_allocation):
-            alloc = AllocationRecord(native_allocation.toPythonObject())
-            (<AllocationRecord> alloc)._reader = reader
+        for record in self._get_reader().allocationRecords():
+            alloc = AllocationRecord(record.toPythonObject())
+            (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
-        reader_ptr.close()
+    
+    def get_memory_records(self):
+        # First, parse the entire file to get all possible memory records
+        self._populate_allocations()
+        # Now, yield all available memory records 
+        for record in self._get_reader().memoryRecords():
+            yield MemoryRecord(record.time, record.rss)
 
     def dump_all_records(self):
+        self._reader = make_shared[RecordReader](unique_ptr[FileSource](new FileSource(self._path)))
         self._get_reader().dumpAllRecords()
 
     @property

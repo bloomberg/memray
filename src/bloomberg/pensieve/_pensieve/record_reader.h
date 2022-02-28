@@ -28,6 +28,12 @@ using allocations_t = std::vector<Allocation>;
 class RecordReader
 {
   public:
+    enum class RecordResult {
+        ALLOCATION_RECORD,
+        MEMORY_RECORD,
+        ERROR,
+        END_OF_FILE,
+    };
     explicit RecordReader(std::unique_ptr<pensieve::io::Source> source);
     void close() noexcept;
     bool isOpen() const noexcept;
@@ -38,16 +44,18 @@ class RecordReader
             size_t generation,
             size_t max_stacks = std::numeric_limits<size_t>::max());
 
-    bool nextAllocationRecord(Allocation* allocation);
+    RecordResult nextRecord();
     HeaderRecord getHeader() const noexcept;
     PyObject* dumpAllRecords();
     std::string getThreadName(thread_id_t tid);
+    void clearRecords() noexcept;
+    allocations_t& allocationRecords() noexcept;
+    std::vector<MemoryRecord>& memoryRecords() noexcept;
 
   private:
     // Aliases
     using stack_t = std::vector<frame_id_t>;
     using stack_traces_t = std::unordered_map<thread_id_t, stack_t>;
-    using allocations_t = std::vector<Allocation>;
 
     // Private methods
     void readHeader(HeaderRecord& header);
@@ -64,16 +72,19 @@ class RecordReader
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
     std::unordered_map<thread_id_t, std::string> d_thread_names;
+    allocations_t d_allocation_records;
+    std::vector<MemoryRecord> d_memory_records;
 
     // Methods
     [[nodiscard]] bool parseFramePush();
     [[nodiscard]] bool parseFramePop();
     [[nodiscard]] bool parseFrameIndex();
     [[nodiscard]] bool parseNativeFrameIndex();
-    [[nodiscard]] bool parseAllocationRecord(AllocationRecord& record);
+    [[nodiscard]] bool parseAllocationRecord();
     [[nodiscard]] bool parseSegmentHeader();
     [[nodiscard]] bool parseSegment(Segment& segment);
     [[nodiscard]] bool parseThreadRecord();
+    [[nodiscard]] bool parseMemoryRecord();
 
     void correctAllocationFrame(stack_t& stack, int lineno);
     size_t getAllocationFrameIndex(const AllocationRecord& record);
