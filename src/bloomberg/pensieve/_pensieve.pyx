@@ -54,6 +54,7 @@ from libcpp.vector cimport vector
 
 import typing
 
+from ._destination import Destination
 from ._destination import FileDestination
 from ._destination import SocketDestination
 from ._metadata import Metadata
