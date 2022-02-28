@@ -288,7 +288,7 @@ class TestRunSubcommand:
 
 
 class TestParseSubcommand:
-    def test_successful_parse(self, tmp_path, simple_test_file):
+    def test_successful_parse(self, tmp_path):
         # GIVEN
         record_types = [
             "ALLOCATION",
@@ -299,11 +299,24 @@ class TestParseSubcommand:
             "MEMORY_MAP_START",
             "SEGMENT_HEADER",
             "SEGMENT",
+            "MEMORY",
         ]
-        record_count_by_type = dict.fromkeys(record_types, 0)
-        results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+        code_file = tmp_path / "code.py"
+        program = textwrap.dedent(
+            """\
+            import time
+            from bloomberg.pensieve._pensieve import MemoryAllocator
+            print("Allocating some memory!")
+            allocator = MemoryAllocator()
+            allocator.valloc(1024)
+            allocator.free()
+            # Give it time to generate some memory records
+            time.sleep(0.1)
+            """
         )
+        code_file.write_text(program)
+        record_count_by_type = dict.fromkeys(record_types, 0)
+        results_file, _ = generate_sample_results(tmp_path, code_file, native=True)
 
         # WHEN
         proc = subprocess.run(
@@ -321,12 +334,12 @@ class TestParseSubcommand:
         )
 
         # THEN
-        header, *records = proc.stdout.splitlines()
+        _, *records = proc.stdout.splitlines()
 
         for record in records:
             record_count_by_type[record.partition(" ")[0]] += 1
 
-        for record_type, count in record_count_by_type.items():
+        for _, count in record_count_by_type.items():
             assert count > 0
 
     def test_error_when_stdout_is_a_tty(self, tmp_path, simple_test_file):

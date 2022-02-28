@@ -468,7 +468,7 @@ cdef class FileReader:
         self._populate_allocations()
         # Now, yield all available memory records 
         for record in self._get_reader().memoryRecords():
-            yield MemoryRecord(record.time, record.rss)
+            yield MemoryRecord(record.ms_since_epoch, record.rss)
 
     def dump_all_records(self):
         self._reader = make_shared[RecordReader](unique_ptr[FileSource](new FileSource(self._path)))
