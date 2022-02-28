@@ -910,3 +910,41 @@ class TestHeader:
         assert metadata.total_allocations == peak.n_allocations
         assert metadata.command_line == "python -m pytest"
         assert metadata.peak_memory == 1024 * 100
+
+    @pytest.mark.parametrize(
+        "allocator, allocator_name",
+        [
+            ("malloc", "malloc"),
+            ("pymalloc", "pymalloc"),
+            ("pymalloc_debug", "pymalloc debug"),
+        ],
+    )
+    def test_header_allocator(self, allocator, allocator_name, tmpdir):
+        # GIVEN
+        output = Path(tmpdir) / "test.bin"
+
+        # WHEN
+
+        subprocess_code = textwrap.dedent(
+            f"""
+        from bloomberg.pensieve import Tracker
+        from bloomberg.pensieve._test import MemoryAllocator
+        allocator = MemoryAllocator()
+
+        with Tracker('{output}'):
+            allocator.valloc(1024)
+            allocator.free()
+        """
+        )
+
+        subprocess.run(
+            [sys.executable, "-c", subprocess_code],
+            timeout=5,
+            env={"PYTHONMALLOC": allocator},
+        )
+
+        reader = FileReader(output)
+        metadata = reader.metadata
+
+        # THEN
+        assert metadata.python_allocator == allocator_name

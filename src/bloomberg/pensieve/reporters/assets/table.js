@@ -43,6 +43,9 @@ function main() {
     const searchTerm = $("#searchTerm").val();
     table.search(searchTerm).draw();
   });
+  // Enable tooltips
+  $('[data-toggle-second="tooltip"]').tooltip();
+  $('[data-toggle="tooltip"]').tooltip();
 }
 
 document.addEventListener("DOMContentLoaded", main);

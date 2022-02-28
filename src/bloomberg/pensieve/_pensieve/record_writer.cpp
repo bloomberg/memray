@@ -8,6 +8,29 @@ namespace pensieve::tracking_api {
 
 using namespace std::chrono;
 
+static PythonAllocatorType
+getPythonAllocator()
+{
+#if PY_VERSION_HEX >= 0x03080000
+    const char* name = _PyMem_GetCurrentAllocatorName();
+#elif PY_VERSION_HEX >= 0x03070000
+    const char* name = _PyMem_GetAllocatorsName();
+#else
+    const char* name = "";
+#endif
+    std::string allocator_name = name != NULL ? name : "";
+    if (allocator_name == "pymalloc") {
+        return PythonAllocatorType::PYTHONALLOCATOR_PYMALLOC;
+    }
+    if (allocator_name == "pymalloc_debug") {
+        return PythonAllocatorType::PYTHONALLOCATOR_PYMALLOC_DEBUG;
+    }
+    if (allocator_name == "malloc") {
+        return PythonAllocatorType::PYTHONALLOCATOR_MALLOC;
+    }
+    return PythonAllocatorType::PYTHONALLOCATOR_OTHER;
+}
+
 RecordWriter::RecordWriter(
         std::unique_ptr<pensieve::io::Sink> sink,
         const std::string& command_line,
@@ -18,7 +41,14 @@ RecordWriter::RecordWriter(
 , d_native_traces(native_traces)
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
-    d_header = HeaderRecord{"", d_version, d_native_traces, d_stats, d_command_line, ::getpid()};
+    d_header = HeaderRecord{
+            "",
+            d_version,
+            d_native_traces,
+            d_stats,
+            d_command_line,
+            ::getpid(),
+            getPythonAllocator()};
     strncpy(d_header.magic, MAGIC, sizeof(MAGIC));
 }
 
@@ -58,15 +88,11 @@ RecordWriter::writeHeader(bool seek_to_start)
     d_header.stats = d_stats;
     if (!writeSimpleType(d_header.magic) or !writeSimpleType(d_header.version)
         or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.stats)
-        or !writeString(d_header.command_line.c_str()))
+        or !writeString(d_header.command_line.c_str()) or !writeSimpleType(d_header.pid)
+        or !writeSimpleType(d_header.python_allocator))
     {
         return false;
     }
-
-    if (!writeSimpleType(d_header.pid)) {
-        return false;
-    }
-
     return true;
 }
 

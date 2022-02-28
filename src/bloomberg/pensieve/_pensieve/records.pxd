@@ -30,6 +30,7 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
        TrackerStats stats
        string command_line
        int pid
+       int python_allocator
 
    cdef cppclass Allocation:
        AllocationRecord record

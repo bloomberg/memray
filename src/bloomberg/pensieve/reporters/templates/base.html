@@ -19,6 +19,24 @@
       <span class="navbar-brand mb-0 mr-2 h1">pensieve</span> {{ title }}
     </a>
     <div class="form-inline">
+      {% if metadata.python_allocator == 'pymalloc' %}
+      <div class="mr-3">
+        <span class="badge badge-primary" data-toggle="tooltip" data-placement="bottom"
+        title=" The pymalloc allocator holds pools of memory and only allocates
+        when all these pools are used. This means that allocations reported when
+        pymalloc is active will reflect only the allocations that happen when
+        the pools are full. <b>This is what happens at runtime</b> so it is fully
+        representative of a normal application but <b>the number of allocations
+        and the size may not correspond with the number of Python objects
+        created</b> (as pymalloc is reusing memory)."
+        data-html="true">
+        Python Allocator: {{metadata.python_allocator}}</span>
+      </div>
+      {% else %}
+      <div class="mr-3">
+        <span class="badge badge-success">Python Allocator: {{metadata.python_allocator}}</span>
+      </div>
+      {% endif %}
       <div class="btn-toolbar">
         {% block topbar_buttons %}
         {% endblock topbar_buttons %}
@@ -35,6 +53,23 @@
   <main class="container-fluid">
     <div class="row">
       <div class="col bg-light py-3">
+        {% if show_memory_leaks and metadata.python_allocator == "pymalloc" %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+          <p><strong>Report generated using "--leaks" using pymalloc
+              allocator</strong></p>
+          <p>This report for memory leaks was generated with the
+            pymalloc allocator active. This can show confusing results because
+            the Python allocator doesn't necessarily release memory to
+            the system when Python objects are deallocated and these can still
+            appear as "leaks". If you want to exclude these, you can run your
+            application with the `PYTHONMALLOC=malloc` environment variable set.
+          </p>
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        {% endif %}
+
         {% block content %}
         [penseive debug] Please place your content here.
         {% endblock content %}
@@ -59,6 +94,7 @@
           Total number of allocations: {{ metadata.total_allocations }}<br>
           Total number of frames seen: {{ metadata.total_frames }}<br>
           Peak memory usage: {{ metadata.peak_memory | filesizeformat }}<br>
+          Python allocator: {{ metadata.python_allocator }}<br>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>

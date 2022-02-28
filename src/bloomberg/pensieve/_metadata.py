@@ -11,3 +11,4 @@ class Metadata:
     peak_memory: int
     command_line: str
     pid: int
+    python_allocator: str

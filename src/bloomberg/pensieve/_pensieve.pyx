@@ -184,6 +184,11 @@ cpdef enum AllocatorType:
     MMAP = 9
     MUNMAP = 10
 
+cpdef enum PythonAllocatorType:
+    PYTHON_ALLOCATOR_PYMALLOC = 1
+    PYTHON_ALLOCATOR_PYMALLOC_DEBUG = 2
+    PYTHON_ALLOCATOR_MALLOC = 3
+    PYTHON_ALLOCATOR_OTHER = 4
 
 def size_fmt(num, suffix='B'):
     for unit in ['','K','M','G','T','P','E','Z']:
@@ -469,13 +474,21 @@ cdef class FileReader:
                 microsecond=millis % 1000 * 1000)
 
         stats = self._header["stats"]
+        allocator_id_to_name = {
+            PythonAllocatorType.PYTHON_ALLOCATOR_PYMALLOC: "pymalloc",
+            PythonAllocatorType.PYTHON_ALLOCATOR_PYMALLOC_DEBUG: "pymalloc debug",
+            PythonAllocatorType.PYTHON_ALLOCATOR_MALLOC: "malloc",
+            PythonAllocatorType.PYTHON_ALLOCATOR_OTHER: "unknown",
+        }
+        python_allocator = allocator_id_to_name[self._header["python_allocator"]]
         return Metadata(start_time=millis_to_dt(stats["start_time"]),
                         end_time=millis_to_dt(stats["end_time"]),
                         total_allocations=stats["n_allocations"],
                         total_frames=stats["n_frames"],
                         peak_memory=self._get_high_watermark().peak_memory,
                         command_line=self._header["command_line"],
-                        pid=self._header["pid"])
+                        pid=self._header["pid"],
+                        python_allocator=python_allocator)
 
     @property
     def has_native_traces(self):

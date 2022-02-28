@@ -46,3 +46,7 @@
   border-radius: 2px;
   padding: 2px 4px;
 }
+
+.tooltip-inner {
+  max-width: 300px;
+}

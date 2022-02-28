@@ -40,6 +40,13 @@ struct TrackerStats
     millis_t end_time{};
 };
 
+enum PythonAllocatorType {
+    PYTHONALLOCATOR_PYMALLOC = 1,
+    PYTHONALLOCATOR_PYMALLOC_DEBUG = 2,
+    PYTHONALLOCATOR_MALLOC = 3,
+    PYTHONALLOCATOR_OTHER = 4,
+};
+
 struct HeaderRecord
 {
     char magic[sizeof(MAGIC)];
@@ -48,6 +55,7 @@ struct HeaderRecord
     TrackerStats stats{};
     std::string command_line;
     int pid{-1};
+    PythonAllocatorType python_allocator;
 };
 
 struct AllocationRecord

@@ -76,6 +76,11 @@ RecordReader::readHeader(HeaderRecord& header)
     if (!d_input->read(reinterpret_cast<char*>(&header.pid), sizeof(header.pid))) {
         throw std::ios_base::failure("Failed to read tPID from input file.");
     }
+    if (!d_input->read(
+                reinterpret_cast<char*>(&header.python_allocator),
+                sizeof(header.python_allocator))) {
+        throw std::ios_base::failure("Failed to read Python allocator type from input file.");
+    }
 }
 
 RecordReader::RecordReader(std::unique_ptr<Source> source)
@@ -412,9 +417,24 @@ RecordReader::getThreadName(thread_id_t tid)
 PyObject*
 RecordReader::dumpAllRecords()
 {
+    std::string python_allocator;
+    switch (d_header.python_allocator) {
+        case PythonAllocatorType::PYTHONALLOCATOR_PYMALLOC:
+            python_allocator = "pymalloc";
+            break;
+        case PythonAllocatorType::PYTHONALLOCATOR_PYMALLOC_DEBUG:
+            python_allocator = "pymalloc debug";
+            break;
+        case PythonAllocatorType::PYTHONALLOCATOR_MALLOC:
+            python_allocator = "pymalloc";
+            break;
+        case PythonAllocatorType::PYTHONALLOCATOR_OTHER:
+            python_allocator = "other";
+            break;
+    }
     printf("HEADER magic=%.*s version=%d native_traces=%s"
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
-           " pid=%d command_line=%s\n",
+           " pid=%d command_line=%s python_allocator=%s\n",
            (int)sizeof(d_header.magic),
            d_header.magic,
            d_header.version,
@@ -424,7 +444,8 @@ RecordReader::dumpAllRecords()
            d_header.stats.start_time,
            d_header.stats.end_time,
            d_header.pid,
-           d_header.command_line.c_str());
+           d_header.command_line.c_str(),
+           python_allocator.c_str());
 
     while (true) {
         if (0 != PyErr_CheckSignals()) {
