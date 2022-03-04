@@ -470,10 +470,6 @@ cdef class FileReader:
         for record in self._get_reader().memoryRecords():
             yield MemoryRecord(record.ms_since_epoch, record.rss)
 
-    def dump_all_records(self):
-        self._reader = make_shared[RecordReader](unique_ptr[FileSource](new FileSource(self._path)))
-        self._get_reader().dumpAllRecords()
-
     @property
     def metadata(self):
         def millis_to_dt(millis) -> datetime:
@@ -500,6 +496,16 @@ cdef class FileReader:
     @property
     def has_native_traces(self):
         return self._header["native_traces"]
+
+
+def dump_all_records(object file_name):
+    cdef str path = str(file_name)
+    if not pathlib.Path(path).exists():
+        raise IOError(f"No such file: {path}")
+
+    cdef shared_ptr[RecordReader] _reader = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(path)))
+    _reader.get().dumpAllRecords()
 
 
 cdef class SocketReader:
