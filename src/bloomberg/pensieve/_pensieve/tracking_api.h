@@ -239,6 +239,10 @@ class Tracker
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
             unsigned int memory_interval);
+
+    static void prepareFork();
+    static void parentFork();
+    static void childFork();
 };
 
 }  // namespace pensieve::tracking_api

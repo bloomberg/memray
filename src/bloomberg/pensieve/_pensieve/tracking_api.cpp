@@ -37,29 +37,6 @@ struct RecursionGuard
 
 PENSIEVE_FAST_TLS thread_local bool RecursionGuard::isActive = false;
 
-void
-
-prepare_fork()
-{
-    // Don't do any custom track_allocation handling while inside fork
-    RecursionGuard::isActive = true;
-}
-
-void
-parent_fork()
-{
-    // We can continue tracking
-    RecursionGuard::isActive = false;
-}
-
-void
-child_fork()
-{
-    // TODO: allow children to be tracked
-    RecursionGuard::isActive = true;
-    pensieve::tracking_api::Tracker::getTracker()->deactivate();
-}
-
 std::string
 get_executable()
 {
@@ -268,7 +245,7 @@ Tracker::Tracker(
     static std::once_flag once;
     call_once(once, [] {
         hooks::ensureAllHooksAreValid();
-        pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
+        pthread_atfork(&prepareFork, &parentFork, &childFork);
         NativeTrace::setup();
     });
 
@@ -385,6 +362,28 @@ Tracker::BackgroundThread::stop()
         } catch (const std::system_error&) {
         }
     }
+}
+
+void
+Tracker::prepareFork()
+{
+    // Don't do any custom track_allocation handling while inside fork
+    RecursionGuard::isActive = true;
+}
+
+void
+Tracker::parentFork()
+{
+    // We can continue tracking
+    RecursionGuard::isActive = false;
+}
+
+void
+Tracker::childFork()
+{
+    // TODO: allow children to be tracked
+    RecursionGuard::isActive = true;
+    pensieve::tracking_api::Tracker::getTracker()->deactivate();
 }
 
 void
