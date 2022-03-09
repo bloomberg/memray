@@ -56,7 +56,9 @@ FileSink::FileSink(const std::string& file_name, bool exist_ok)
     if (!exist_ok) {
         flags |= O_EXCL;
     }
-    d_fd = open(file_name.c_str(), flags, 0644);
+    do {
+        d_fd = ::open(file_name.c_str(), flags, 0644);
+    } while (d_fd < 0 && errno == EINTR);
     if (d_fd < 0) {
         throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
     }
