@@ -133,6 +133,7 @@ class PythonStackTracker
             const char* file_name,
             int parent_lineno);
     static void popPythonFrame();
+    static void resetInChildProcess() noexcept;
 
   private:
     PENSIEVE_FAST_TLS static thread_local uint32_t num_pending_pops;
@@ -224,6 +225,18 @@ PythonStackTracker::popPythonFrame()
         // to frames that we never saw being pushed in the first place, so we need
         // to unset the entry frame to avoid incorrectly using it once is freed.
         entry_frame = nullptr;
+    }
+}
+
+void
+PythonStackTracker::resetInChildProcess() noexcept
+{
+    // Nothing has been emitted to the output file in this child process yet.
+    num_pending_pops = 0;
+    if (stack_constructed) {
+        for (auto& e : stack_holder.stack) {
+            e.emitted = false;
+        }
     }
 }
 
