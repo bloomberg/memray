@@ -30,6 +30,7 @@ enum class RecordType {
     SEGMENT = 7,
     FRAME_POP = 8,
     THREAD_RECORD = 9,
+    MEMORY_RECORD = 10,
 };
 
 struct TrackerStats
@@ -56,6 +57,12 @@ struct HeaderRecord
     std::string command_line;
     int pid{-1};
     PythonAllocatorType python_allocator;
+};
+
+struct MemoryRecord
+{
+    unsigned long int ms_since_epoch;
+    size_t rss;
 };
 
 struct AllocationRecord

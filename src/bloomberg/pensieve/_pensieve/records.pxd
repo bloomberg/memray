@@ -37,3 +37,7 @@ cdef extern from "records.h" namespace "pensieve::tracking_api":
        size_t frame_index
        size_t n_allocations
        object toPythonObject()
+
+   struct MemoryRecord:
+       unsigned long int ms_since_epoch
+       size_t rss

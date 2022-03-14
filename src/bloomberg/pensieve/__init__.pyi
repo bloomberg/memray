@@ -7,3 +7,4 @@ from ._pensieve import AllocatorType as AllocatorType
 from ._pensieve import FileReader as FileReader
 from ._pensieve import SocketReader as SocketReader
 from ._pensieve import Tracker as Tracker
+from ._pensieve import dump_all_records as dump_all_records

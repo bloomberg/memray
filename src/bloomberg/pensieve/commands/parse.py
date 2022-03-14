@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from bloomberg.pensieve import FileReader
+from bloomberg.pensieve import dump_all_records
 from bloomberg.pensieve._errors import PensieveCommandError
 
 
@@ -19,7 +19,7 @@ class ParseCommand:
             )
 
         try:
-            FileReader(args.results).dump_all_records()
+            dump_all_records(args.results)
         except OSError as e:
             raise PensieveCommandError(
                 f"Failed to parse allocation records in {args.results}\nReason: {e}",

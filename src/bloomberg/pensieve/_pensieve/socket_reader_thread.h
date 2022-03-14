@@ -14,6 +14,8 @@ namespace pensieve::socket_thread {
 class BackgroundSocketReader
 {
   private:
+    using RecordResult = api::RecordReader::RecordResult;
+
     std::atomic<bool> d_stop_thread{false};
     std::mutex d_mutex;
     std::shared_ptr<api::RecordReader> d_record_reader;

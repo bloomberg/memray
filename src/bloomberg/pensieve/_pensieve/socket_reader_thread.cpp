@@ -5,25 +5,36 @@ namespace pensieve::socket_thread {
 void
 BackgroundSocketReader::backgroundThreadWorker()
 {
-    api::Allocation record;
-    bool got_record = false;
     while (true) {
         if (d_stop_thread) {
             break;
         }
 
-        got_record = d_record_reader->nextAllocationRecord(&record);
+        const auto record_type = d_record_reader->nextRecord();
 
         if (d_stop_thread) {
             break;
         }
 
-        if (!got_record) {
-            d_stop_thread = true;
-            return;
+        switch (record_type) {
+            case RecordResult::ALLOCATION_RECORD: {
+                std::lock_guard<std::mutex> lock(d_mutex);
+                const auto& record = d_record_reader->allocationRecords().back();
+                d_aggregator.addAllocation(record);
+                // Clear the records in the reader to avoid growing memory indefinitely
+                d_record_reader->clearRecords();
+                break;
+            }
+
+            case RecordResult::MEMORY_RECORD: {
+                break;
+            }
+            case RecordResult::END_OF_FILE:
+            case RecordResult::ERROR: {
+                d_stop_thread = true;
+                return;
+            }
         }
-        std::lock_guard<std::mutex> lock(d_mutex);
-        d_aggregator.addAllocation(record);
     }
 }
 

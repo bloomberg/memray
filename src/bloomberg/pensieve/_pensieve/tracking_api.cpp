@@ -3,6 +3,7 @@
 #include <link.h>
 #include <mutex>
 #include <unistd.h>
+#include <utility>
 
 #include <Python.h>
 
@@ -14,6 +15,7 @@
 #include "tracking_api.h"
 
 using namespace pensieve::exception;
+using namespace std::chrono_literals;
 
 namespace {
 void
@@ -232,7 +234,10 @@ std::atomic<bool> Tracker::d_active = false;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 thread_local size_t NativeTrace::MAX_SIZE{64};
 
-Tracker::Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces)
+Tracker::Tracker(
+        std::unique_ptr<RecordWriter> record_writer,
+        bool native_traces,
+        unsigned int memory_interval)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
 {
@@ -253,17 +258,109 @@ Tracker::Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces
     RecursionGuard guard;
     tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
     d_patcher.overwrite_symbols();
+
+    d_background_thread = std::make_unique<BackgroundThread>(d_writer, memory_interval);
+    d_background_thread->start();
+
     tracking_api::Tracker::activate();
 }
+
 Tracker::~Tracker()
 {
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
+    d_background_thread->stop();
     PythonStackTracker::reset(nullptr);
     d_patcher.restore_symbols();
     d_writer->writeHeader(true);
     d_writer.reset();
     d_instance = nullptr;
+}
+
+Tracker::BackgroundThread::BackgroundThread(
+        std::shared_ptr<RecordWriter> record_writer,
+        unsigned int memory_interval)
+: d_writer(std::move(record_writer))
+, d_memory_interval(memory_interval)
+{
+    d_procs_statm.open("/proc/self/statm");
+    if (!d_procs_statm) {
+        throw IoError{"Failed to open /proc/self/statm"};
+    }
+}
+
+unsigned long int
+Tracker::BackgroundThread::timeElapsed()
+{
+    std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch());
+    return ms.count();
+}
+
+size_t
+Tracker::BackgroundThread::getRSS() const
+{
+    static long pagesize = sysconf(_SC_PAGE_SIZE);
+    constexpr int max_unsigned_long_chars = std::numeric_limits<unsigned long>::digits10 + 1;
+    constexpr int bufsize = (max_unsigned_long_chars + sizeof(' ')) * 2;
+    char buffer[bufsize];
+    d_procs_statm.read(buffer, sizeof(buffer) - 1);
+    buffer[d_procs_statm.gcount()] = '\0';
+    d_procs_statm.clear();
+    d_procs_statm.seekg(0);
+
+    size_t rss;
+    if (sscanf(buffer, "%*u %zu", &rss) != 1) {
+        std::cerr << "WARNING: Failed to read RSS value from /proc/self/statm" << std::endl;
+        d_procs_statm.close();
+        return 0;
+    }
+
+    return rss * pagesize;
+}
+
+void
+Tracker::BackgroundThread::start()
+{
+    assert(d_thread.get_id() == std::thread::id());
+    d_thread = std::thread([&]() {
+        RecursionGuard::isActive = true;
+        while (true) {
+            {
+                std::unique_lock<std::mutex> lock(d_mutex);
+                d_cv.wait_for(lock, d_memory_interval * 1ms, [this]() { return d_stop; });
+                if (d_stop) {
+                    break;
+                }
+            }
+            size_t rss = getRSS();
+            if (rss == 0) {
+                Tracker::deactivate();
+                break;
+            }
+            if (!d_writer->writeRecord(RecordType::MEMORY_RECORD, MemoryRecord{timeElapsed(), rss})) {
+                std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+                Tracker::deactivate();
+                break;
+            }
+        }
+    });
+}
+
+void
+Tracker::BackgroundThread::stop()
+{
+    {
+        std::scoped_lock<std::mutex> lock(d_mutex);
+        d_stop = true;
+        d_cv.notify_one();
+    }
+    if (d_thread.joinable()) {
+        try {
+            d_thread.join();
+        } catch (const std::system_error&) {
+        }
+    }
 }
 
 void

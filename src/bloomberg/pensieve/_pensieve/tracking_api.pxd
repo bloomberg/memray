@@ -8,7 +8,10 @@ cdef extern from "tracking_api.h" namespace "pensieve::tracking_api":
     void install_trace_function() except*
 
     cdef cppclass Tracker:
-        Tracker(unique_ptr[RecordWriter] record_writer, bool native_traces) except+
+        Tracker(unique_ptr[RecordWriter] record_writer,
+                bool native_traces,
+                unsigned int memory_interval
+                ) except+
 
         @staticmethod
         Tracker* getTracker()

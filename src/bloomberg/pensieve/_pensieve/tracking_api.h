@@ -1,10 +1,13 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
 #include <cstddef>
+#include <fstream>
 #include <iterator>
 #include <memory>
 #include <string>
+#include <thread>
 #include <unordered_set>
 
 #include <unwind.h>
@@ -155,7 +158,10 @@ class Tracker
 {
   public:
     // Constructors
-    explicit Tracker(std::unique_ptr<RecordWriter> record_writer, bool native_traces);
+    explicit Tracker(
+            std::unique_ptr<RecordWriter> record_writer,
+            bool native_traces,
+            unsigned int memory_interval);
     ~Tracker();
 
     Tracker(Tracker& other) = delete;
@@ -183,18 +189,43 @@ class Tracker
     static void deactivate();
 
   private:
+    class BackgroundThread
+    {
+      public:
+        // Constructors
+        BackgroundThread(std::shared_ptr<RecordWriter> record_writer, unsigned int memory_interval);
+
+        // Methods
+        void start();
+        void stop();
+
+      private:
+        // Data members
+        std::shared_ptr<RecordWriter> d_writer;
+        bool d_stop{false};
+        unsigned int d_memory_interval;
+        std::mutex d_mutex;
+        std::condition_variable d_cv;
+        std::thread d_thread;
+        mutable std::ifstream d_procs_statm;
+
+        // Methods
+        size_t getRSS() const;
+        static unsigned long int timeElapsed();
+    };
+
     // Data members
     FrameCollection<RawFrame> d_frames{0, 2};
     static std::atomic<bool> d_active;
     static std::atomic<Tracker*> d_instance;
-    std::unique_ptr<RecordWriter> d_writer;
+    std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     bool d_unwind_native_frames;
     elf::SymbolPatcher d_patcher;
+    std::unique_ptr<BackgroundThread> d_background_thread;
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);
-    void emitPythonFramePushes();
 };
 
 }  // namespace pensieve::tracking_api

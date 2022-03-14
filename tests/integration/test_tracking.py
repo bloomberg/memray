@@ -6,6 +6,7 @@ import subprocess
 import sys
 import textwrap
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -948,3 +949,47 @@ class TestHeader:
 
         # THEN
         assert metadata.python_allocator == allocator_name
+
+
+class TestMemoryRecords:
+    @pytest.mark.valgrind
+    def test_memory_records_are_written(self, tmp_path):
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            allocator.valloc(1234)
+            time.sleep(0.11)
+            allocator.free()
+
+        memory_records = list(FileReader(output).get_memory_records())
+
+        assert memory_records
+        assert all(record.rss > 0 for record in memory_records)
+        assert sorted(memory_records, key=lambda r: r.time) == memory_records
+        assert all(
+            _next.time - prev.time >= 10
+            for prev, _next in zip(memory_records, memory_records[1:])
+        )
+
+    def test_memory_records_tick_interval(self, tmp_path):
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output, memory_interval_ms=20):
+            allocator.valloc(1234)
+            time.sleep(0.11)
+
+        memory_records = list(FileReader(output).get_memory_records())
+
+        assert len(memory_records)
+        assert all(record.rss > 0 for record in memory_records)
+        assert sorted(memory_records, key=lambda r: r.time) == memory_records
+        assert all(
+            _next.time - prev.time >= 20
+            for prev, _next in zip(memory_records, memory_records[1:])
+        )
