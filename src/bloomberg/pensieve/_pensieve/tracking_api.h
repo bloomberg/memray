@@ -164,10 +164,6 @@ class Tracker
 {
   public:
     // Constructors
-    explicit Tracker(
-            std::unique_ptr<RecordWriter> record_writer,
-            bool native_traces,
-            unsigned int memory_interval);
     ~Tracker();
 
     Tracker(Tracker& other) = delete;
@@ -176,6 +172,11 @@ class Tracker
     void operator=(Tracker&&) = delete;
 
     // Interface to get the tracker instance
+    static PyObject* createTracker(
+            std::unique_ptr<RecordWriter> record_writer,
+            bool native_traces,
+            unsigned int memory_interval);
+    static PyObject* destroyTracker();
     static Tracker* getTracker();
 
     // Allocation tracking interface
@@ -223,6 +224,7 @@ class Tracker
     // Data members
     FrameCollection<RawFrame> d_frames{0, 2};
     static std::atomic<bool> d_active;
+    static std::unique_ptr<Tracker> d_instance_owner;
     static std::atomic<Tracker*> d_instance;
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
@@ -232,6 +234,11 @@ class Tracker
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);
+
+    explicit Tracker(
+            std::unique_ptr<RecordWriter> record_writer,
+            bool native_traces,
+            unsigned int memory_interval);
 };
 
 }  // namespace pensieve::tracking_api

@@ -251,6 +251,7 @@ PythonStackTracker::popPythonFrame()
 }
 
 std::atomic<bool> Tracker::d_active = false;
+std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 PENSIEVE_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
 
@@ -261,6 +262,7 @@ Tracker::Tracker(
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
 {
+    // Note: this must be set before the hooks are installed.
     d_instance = this;
 
     static std::once_flag once;
@@ -294,6 +296,8 @@ Tracker::~Tracker()
     d_patcher.restore_symbols();
     d_writer->writeHeader(true);
     d_writer.reset();
+
+    // Note: this must not be unset before the hooks are uninstalled.
     d_instance = nullptr;
 }
 
@@ -571,6 +575,27 @@ const std::atomic<bool>&
 Tracker::isActive()
 {
     return Tracker::d_active;
+}
+
+// Static methods managing the singleton
+
+PyObject*
+Tracker::createTracker(
+        std::unique_ptr<RecordWriter> record_writer,
+        bool native_traces,
+        unsigned int memory_interval)
+{
+    // Note: the GIL is used for synchronization of the singleton
+    d_instance_owner.reset(new Tracker(std::move(record_writer), native_traces, memory_interval));
+    Py_RETURN_NONE;
+}
+
+PyObject*
+Tracker::destroyTracker()
+{
+    // Note: the GIL is used for synchronization of the singleton
+    d_instance_owner.reset();
+    Py_RETURN_NONE;
 }
 
 Tracker*
