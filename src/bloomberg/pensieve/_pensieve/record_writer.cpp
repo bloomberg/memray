@@ -79,4 +79,17 @@ RecordWriter::acquireLock()
     return std::unique_lock<std::mutex>(d_mutex);
 }
 
+std::unique_ptr<RecordWriter>
+RecordWriter::cloneInChildProcess()
+{
+    std::unique_ptr<io::Sink> new_sink = d_sink->cloneInChildProcess();
+    if (!new_sink) {
+        return {};
+    }
+    return std::make_unique<RecordWriter>(
+            std::move(new_sink),
+            d_header.command_line,
+            d_header.native_traces);
+}
+
 }  // namespace pensieve::tracking_api

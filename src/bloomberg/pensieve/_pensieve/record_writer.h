@@ -37,6 +37,7 @@ class RecordWriter
     bool writeHeader(bool seek_to_start);
 
     std::unique_lock<std::mutex> acquireLock();
+    std::unique_ptr<RecordWriter> cloneInChildProcess();
 
   private:
     // Data members

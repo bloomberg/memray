@@ -251,6 +251,7 @@ Tracker::Tracker(
         unsigned int memory_interval)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
+, d_memory_interval(memory_interval)
 {
     // Note: this must be set before the hooks are installed.
     d_instance = this;
@@ -394,9 +395,42 @@ Tracker::parentFork()
 void
 Tracker::childFork()
 {
-    // TODO: allow children to be tracked
-    RecursionGuard::isActive = true;
-    pensieve::tracking_api::Tracker::getTracker()->deactivate();
+    // Reset thread-local state.
+    PythonStackTracker::resetInChildProcess();
+
+    // Intentionally leak any old tracker. Its destructor cannot be called,
+    // because it would try to destroy mutexes that might be locked by threads
+    // that no longer exist, and to join a background thread that no longer
+    // exists, and potentially to flush buffered output to a socket it no
+    // longer owns. Note that d_instance_owner is always set after d_instance
+    // and unset before d_instance.
+    (void)d_instance_owner.release();
+
+    Tracker* old_tracker = d_instance;
+
+    // If we inherited an active tracker, try to clone its record writer.
+    std::unique_ptr<RecordWriter> new_writer;
+    if (old_tracker && old_tracker->isActive()) {
+        new_writer = old_tracker->d_writer->cloneInChildProcess();
+    }
+
+    if (!new_writer) {
+        // We either have no tracker, or a deactivated tracker, or a tracker
+        // with a sink that can't be cloned. Unset our singleton and bail out.
+        // Note that the old tracker's hooks may still be installed. This is
+        // OK, as long as they always check the (static) isActive() flag before
+        // calling any methods on the now null tracker singleton.
+        d_instance = nullptr;
+        RecursionGuard::isActive = false;
+        return;
+    }
+
+    // Re-enable tracking with a brand new tracker.
+    d_instance_owner.reset(new Tracker(
+            std::move(new_writer),
+            old_tracker->d_unwind_native_frames,
+            old_tracker->d_memory_interval));
+    RecursionGuard::isActive = false;
 }
 
 void

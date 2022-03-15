@@ -20,6 +20,24 @@ namespace pensieve::io {
 
 using namespace pensieve::exception;
 
+namespace {  // unnamed
+
+std::string
+removeSuffix(const std::string& s, const std::string& suffix)
+{
+    if (s.size() < suffix.size()) {
+        return s;  // Too short to end with suffix.
+    }
+
+    if (0 != s.compare(s.size() - suffix.size(), std::string::npos, suffix)) {
+        return s;  // Long enough, but doesn't end with suffix.
+    }
+
+    return s.substr(0, s.size() - suffix.size());
+}
+
+}  // unnamed namespace
+
 bool
 FileSink::writeAll(const char* data, size_t length)
 {
@@ -51,6 +69,7 @@ FileSink::writeAll(const char* data, size_t length)
 }
 
 FileSink::FileSink(const std::string& file_name, bool exist_ok)
+: d_fileNameStem(removeSuffix(file_name, "." + std::to_string(::getpid())))
 {
     int flags = O_CREAT | O_RDWR | O_TRUNC | O_CLOEXEC;
     if (!exist_ok) {
@@ -144,6 +163,13 @@ FileSink::bytesBeyondBufferNeedle()
     return bytesBeyondBuffer - positionWithinBuffer;
 }
 
+std::unique_ptr<Sink>
+FileSink::cloneInChildProcess()
+{
+    std::string file_name = d_fileNameStem + "." + std::to_string(::getpid());
+    return std::make_unique<FileSink>(file_name, true);
+}
+
 FileSink::~FileSink()
 {
     if (d_buffer) {
@@ -215,6 +241,16 @@ bool
 SocketSink::seek(__attribute__((unused)) off_t offset, __attribute__((unused)) int whence)
 {
     return false;
+}
+
+std::unique_ptr<Sink>
+SocketSink::cloneInChildProcess()
+{
+    // We can't clone ourselves. We can't start a new TCP stream and block
+    // waiting for a client, and we can't create a new sink that shares the
+    // same socket because the client would see writes from all processes
+    // interleaved.
+    return {};
 }
 
 SocketSink::~SocketSink()

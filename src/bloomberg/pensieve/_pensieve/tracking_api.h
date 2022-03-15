@@ -226,9 +226,11 @@ class Tracker
     static std::atomic<bool> d_active;
     static std::unique_ptr<Tracker> d_instance_owner;
     static std::atomic<Tracker*> d_instance;
+
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     bool d_unwind_native_frames;
+    unsigned int d_memory_interval;
     elf::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
 
