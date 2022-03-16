@@ -28,6 +28,7 @@ def test_allocations_with_multiprocessing(tmpdir):
         allocator.valloc(1234)
         allocator.free()
 
+    # THEN
     relevant_records = list(
         filter_relevant_allocations(FileReader(output).get_allocation_records())
     )
@@ -46,3 +47,24 @@ def test_allocations_with_multiprocessing(tmpdir):
         record for record in relevant_records if record.allocator == AllocatorType.FREE
     ]
     assert len(frees) == 1
+
+    child_files = Path(tmpdir).glob("test.bin.*")
+    child_records = []
+    for child_file in child_files:
+        child_records.extend(
+            filter_relevant_allocations(FileReader(child_file).get_allocation_records())
+        )
+
+    child_vallocs = [
+        record for record in child_records if record.allocator == AllocatorType.VALLOC
+    ]
+
+    child_frees = [
+        record for record in child_records if record.allocator == AllocatorType.FREE
+    ]
+
+    num_expected = 5000 + 4000 + 3000 + 2000 + 1000 + 100 + 10 + 1
+    assert len(child_vallocs) == num_expected
+    assert len(child_frees) == num_expected
+    for valloc in child_vallocs:
+        assert valloc.size == 1234
