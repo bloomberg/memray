@@ -31,7 +31,17 @@ class FileSink : public pensieve::io::Sink
     bool seek(off_t offset, int whence) override;
 
   private:
+    bool grow(size_t needed);
+    bool slideWindow();
+    size_t bytesBeyondBufferNeedle();
+
     int d_fd{-1};
+    size_t d_fileSize{0};
+    const size_t BUFFER_SIZE{16 * 1024 * 1024};  // 16 MiB
+    size_t d_bufferOffset{0};
+    char* d_buffer{nullptr};
+    char* d_bufferEnd{nullptr};  // exclusive
+    char* d_bufferNeedle{nullptr};
 };
 
 class SocketSink : public Sink
