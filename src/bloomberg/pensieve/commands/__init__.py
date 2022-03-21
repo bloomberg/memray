@@ -18,6 +18,7 @@ from . import flamegraph
 from . import live
 from . import parse
 from . import run
+from . import stats
 from . import summary
 from . import table
 from . import tree
@@ -62,6 +63,7 @@ _COMMANDS: List[Command] = [
     tree.TreeCommand(),
     parse.ParseCommand(),
     summary.SummaryCommand(),
+    stats.StatsCommand(),
 ]
 
 
