@@ -299,6 +299,9 @@ RecordReader::nextRecord()
         }
 
         switch (record_type) {
+            case RecordType::UNINITIALIZED: {
+                // Skip it. All remaining bytes should be 0.
+            } break;
             case RecordType::ALLOCATION: {
                 if (!parseAllocationRecord()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse allocation record";
@@ -514,6 +517,9 @@ RecordReader::dumpAllRecords()
         }
 
         switch (record_type) {
+            case RecordType::UNINITIALIZED: {
+                // Skip it. All remaining bytes should be 0.
+            } break;
             case RecordType::ALLOCATION: {
                 printf("ALLOCATION ");
 
