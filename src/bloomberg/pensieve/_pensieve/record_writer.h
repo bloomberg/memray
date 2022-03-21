@@ -39,37 +39,15 @@ class RecordWriter
     std::unique_lock<std::mutex> acquireLock();
 
   private:
-    // Constants
-    static const size_t BUFFER_CAPACITY = PIPE_BUF;
-
     // Data members
     int d_version{CURRENT_HEADER_VERSION};
-    unsigned d_used_bytes{0};
-    std::unique_ptr<char[]> d_buffer{nullptr};
     std::unique_ptr<pensieve::io::Sink> d_sink;
     std::mutex d_mutex;
     HeaderRecord d_header{};
     const std::string& d_command_line;
     bool d_native_traces;
     TrackerStats d_stats{};
-
-    // Methods
-    inline size_t availableSpace() const noexcept;
-    inline char* bufferNeedle() const noexcept;
-    bool _flush();
 };
-
-inline size_t
-RecordWriter::availableSpace() const noexcept
-{
-    return BUFFER_CAPACITY - d_used_bytes;
-}
-
-inline char*
-RecordWriter::bufferNeedle() const noexcept
-{
-    return d_buffer.get() + d_used_bytes;
-}
 
 template<typename T>
 bool inline RecordWriter::writeSimpleType(T&& item)
@@ -92,32 +70,20 @@ bool inline RecordWriter::writeRecord(const RecordType& token, const T& item)
 template<typename T>
 bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& item)
 {
-    constexpr const size_t total = sizeof(RecordType) + sizeof(T);
     static_assert(
             std::is_trivially_copyable<T>::value,
             "Called writeRecord on binary records which cannot be trivially copied");
-    static_assert(total < BUFFER_CAPACITY, "cannot write lineno larger than d_buffer capacity");
 
-    if (total > availableSpace() && !_flush()) {
-        return false;
-    }
     if (token == RecordType::ALLOCATION) {
         d_stats.n_allocations += 1;
     }
-    ::memcpy(bufferNeedle(), reinterpret_cast<const void*>(&token), sizeof(RecordType));
-    d_used_bytes += sizeof(RecordType);
-    ::memcpy(bufferNeedle(), reinterpret_cast<const void*>(&item), sizeof(T));
-    d_used_bytes += sizeof(T);
-    return true;
+    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(RecordType))
+           && d_sink->writeAll(reinterpret_cast<const char*>(&item), sizeof(T));
 }
 
 template<>
 bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyrawframe_map_val_t& item)
 {
-    if (!_flush()) {
-        return false;
-    }
-
     d_stats.n_frames += 1;
     return writeSimpleType(token) && writeSimpleType(item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
@@ -127,10 +93,6 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyraw
 template<>
 bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const SegmentHeader& item)
 {
-    if (!_flush()) {
-        return false;
-    }
-
     return writeSimpleType(token) && writeString(item.filename) && writeSimpleType(item.num_segments)
            && writeSimpleType(item.addr);
 }
@@ -138,9 +100,6 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const Segme
 template<>
 bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const ThreadRecord& record)
 {
-    if (!_flush()) {
-        return false;
-    }
     return writeSimpleType(token) && writeSimpleType(record.tid) && writeString(record.name);
 }
 

@@ -35,8 +35,7 @@ RecordWriter::RecordWriter(
         std::unique_ptr<pensieve::io::Sink> sink,
         const std::string& command_line,
         bool native_traces)
-: d_buffer(new char[BUFFER_CAPACITY]{0})
-, d_sink(std::move(sink))
+: d_sink(std::move(sink))
 , d_command_line(command_line)
 , d_native_traces(native_traces)
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
@@ -53,29 +52,9 @@ RecordWriter::RecordWriter(
 }
 
 bool
-RecordWriter::_flush()
-{
-    if (!d_used_bytes) {
-        return true;
-    }
-
-    if (!d_sink->writeAll(d_buffer.get(), d_used_bytes)) {
-        return false;
-    }
-
-    d_used_bytes = 0;
-
-    return true;
-}
-
-bool
 RecordWriter::writeHeader(bool seek_to_start)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
-    if (!_flush()) {
-        return false;
-    }
-
     if (seek_to_start) {
         // If we can't seek to the beginning to the stream (e.g. dealing with a socket), just give
         // up.
@@ -99,9 +78,7 @@ RecordWriter::writeHeader(bool seek_to_start)
 std::unique_lock<std::mutex>
 RecordWriter::acquireLock()
 {
-    auto lock = std::unique_lock<std::mutex>(d_mutex);
-    _flush();
-    return lock;
+    return std::unique_lock<std::mutex>(d_mutex);
 }
 
 }  // namespace pensieve::tracking_api
