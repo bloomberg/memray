@@ -158,13 +158,45 @@ FileSink::~FileSink()
 SocketSink::SocketSink(std::string host, uint16_t port)
 : d_host(std::move(host))
 , d_port(port)
+, d_buffer(new char[BUFFER_SIZE])
+, d_bufferNeedle(d_buffer.get())
 {
     open();
+}
+
+size_t
+SocketSink::freeSpaceInBuffer()
+{
+    return BUFFER_SIZE - (d_bufferNeedle - d_buffer.get());
 }
 
 bool
 SocketSink::writeAll(const char* data, size_t length)
 {
+    while (freeSpaceInBuffer() < length) {
+        size_t toWrite = freeSpaceInBuffer();
+        memcpy(d_bufferNeedle, data, toWrite);
+        d_bufferNeedle += toWrite;
+        data += toWrite;
+        length -= toWrite;
+        if (!flush()) {
+            return false;
+        }
+    }
+
+    memcpy(d_bufferNeedle, data, length);
+    d_bufferNeedle += length;
+    return true;
+}
+
+bool
+SocketSink::flush()
+{
+    const char* data = d_buffer.get();
+    size_t length = d_bufferNeedle - data;
+
+    d_bufferNeedle = d_buffer.get();
+
     while (length) {
         ssize_t ret = ::send(d_socket_fd, data, length, 0);
         if (ret < 0 && errno != EINTR) {
@@ -186,6 +218,7 @@ SocketSink::seek(__attribute__((unused)) off_t offset, __attribute__((unused)) i
 SocketSink::~SocketSink()
 {
     if (d_socket_open) {
+        flush();
         ::close(d_socket_fd);
         d_socket_open = false;
     }

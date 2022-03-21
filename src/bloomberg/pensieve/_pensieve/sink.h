@@ -52,19 +52,25 @@ class SocketSink : public Sink
 
     SocketSink(SocketSink&) = delete;
     SocketSink(SocketSink&&) = delete;
-    void operator=(const FileSink&) = delete;
-    void operator=(const FileSink&&) = delete;
+    void operator=(const SocketSink&) = delete;
+    void operator=(const SocketSink&&) = delete;
 
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
 
   private:
+    size_t freeSpaceInBuffer();
     void open();
+    bool flush();
 
     const std::string d_host;
     uint16_t d_port;
     int d_socket_fd{-1};
     bool d_socket_open{false};
+
+    const size_t BUFFER_SIZE{PIPE_BUF};
+    std::unique_ptr<char[]> d_buffer{nullptr};
+    char* d_bufferNeedle{nullptr};
 };
 
 }  // namespace pensieve::io
