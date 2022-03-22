@@ -13,6 +13,7 @@ cdef extern from "tracking_api.h" namespace "pensieve::tracking_api":
             unique_ptr[RecordWriter] record_writer,
             bool native_traces,
             unsigned int memory_interval,
+            bool follow_fork,
         ) except+
 
         @staticmethod

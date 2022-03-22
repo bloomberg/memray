@@ -78,3 +78,10 @@ def test_no_destination_arg():
     ):
         with Tracker():
             pass
+
+
+def test_follow_fork_with_socket_destination():
+    # GIVEN
+    with pytest.raises(RuntimeError, match="follow_fork requires an output file"):
+        with Tracker(destination=SocketDestination(port=1234), follow_fork=True):
+            pass

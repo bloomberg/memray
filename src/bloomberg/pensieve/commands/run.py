@@ -32,12 +32,16 @@ def _run_tracker(
     destination: Destination,
     args: argparse.Namespace,
     post_run_message: Optional[str] = None,
+    follow_fork: bool = False,
 ) -> None:
     sys.argv = [args.script, *args.script_args]
     if args.run_as_module:
         sys.argv.insert(0, "-m")
     try:
-        tracker = Tracker(destination=destination, native_traces=args.native)
+        kwargs = {}
+        if follow_fork:
+            kwargs["follow_fork"] = True
+        tracker = Tracker(destination=destination, native_traces=args.native, **kwargs)
     except OSError as error:
         raise PensieveCommandError(str(error), exit_code=1)
 
@@ -148,6 +152,7 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
             destination=destination,
             args=args,
             post_run_message=example_report_generation_message,
+            follow_fork=args.follow_fork,
         )
     except OSError as error:
         raise PensieveCommandError(str(error), exit_code=1)
@@ -194,6 +199,12 @@ class RunCommand:
             default=False,
         )
         parser.add_argument(
+            "--follow-fork",
+            action="store_true",
+            help="Record allocations in child processes forked from the tracked script",
+            default=False,
+        )
+        parser.add_argument(
             "-q",
             "--quiet",
             help="Don't show any tracking-specific output while running",
@@ -235,6 +246,8 @@ class RunCommand:
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         if args.live_port is not None and not args.live_remote_mode:
             parser.error("The --live-port argument requires --live-remote")
+        if args.follow_fork is True and (args.live_mode or args.live_remote_mode):
+            parser.error("--follow-fork cannot be used with the live TUI")
 
         self.validate_target_file(args)
 

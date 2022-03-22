@@ -248,10 +248,12 @@ PENSIEVE_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
-        unsigned int memory_interval)
+        unsigned int memory_interval,
+        bool follow_fork)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
 , d_memory_interval(memory_interval)
+, d_follow_fork(follow_fork)
 {
     // Note: this must be set before the hooks are installed.
     d_instance = this;
@@ -410,7 +412,7 @@ Tracker::childFork()
 
     // If we inherited an active tracker, try to clone its record writer.
     std::unique_ptr<RecordWriter> new_writer;
-    if (old_tracker && old_tracker->isActive()) {
+    if (old_tracker && old_tracker->isActive() && old_tracker->d_follow_fork) {
         new_writer = old_tracker->d_writer->cloneInChildProcess();
     }
 
@@ -429,7 +431,8 @@ Tracker::childFork()
     d_instance_owner.reset(new Tracker(
             std::move(new_writer),
             old_tracker->d_unwind_native_frames,
-            old_tracker->d_memory_interval));
+            old_tracker->d_memory_interval,
+            old_tracker->d_follow_fork));
     RecursionGuard::isActive = false;
 }
 
@@ -629,10 +632,12 @@ PyObject*
 Tracker::createTracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
-        unsigned int memory_interval)
+        unsigned int memory_interval,
+        bool follow_fork)
 {
     // Note: the GIL is used for synchronization of the singleton
-    d_instance_owner.reset(new Tracker(std::move(record_writer), native_traces, memory_interval));
+    d_instance_owner.reset(
+            new Tracker(std::move(record_writer), native_traces, memory_interval, follow_fork));
     Py_RETURN_NONE;
 }
 

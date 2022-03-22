@@ -175,7 +175,8 @@ class Tracker
     static PyObject* createTracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
-            unsigned int memory_interval);
+            unsigned int memory_interval,
+            bool follow_fork);
     static PyObject* destroyTracker();
     static Tracker* getTracker();
 
@@ -231,6 +232,7 @@ class Tracker
     FrameTree d_native_trace_tree;
     bool d_unwind_native_frames;
     unsigned int d_memory_interval;
+    bool d_follow_fork;
     elf::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
 
@@ -240,7 +242,8 @@ class Tracker
     explicit Tracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
-            unsigned int memory_interval);
+            unsigned int memory_interval,
+            bool follow_fork);
 
     static void prepareFork();
     static void parentFork();

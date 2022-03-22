@@ -311,6 +311,7 @@ MemoryRecord = collections.namedtuple("MemoryRecord", "time rss")
 cdef class Tracker:
     cdef bool _native_traces
     cdef unsigned int _memory_interval_ms
+    cdef bool _follow_fork
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
     cdef shared_ptr[RecordReader] _reader
@@ -329,16 +330,21 @@ cdef class Tracker:
 
 
     def __cinit__(self, object file_name=None, *, object destination=None,
-                  bool native_traces=False, unsigned int memory_interval_ms = 10):
+                  bool native_traces=False, unsigned int memory_interval_ms = 10,
+                  bool follow_fork=False):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
         cdef cppstring command_line = " ".join(sys.argv)
         self._native_traces = native_traces
         self._memory_interval_ms = memory_interval_ms
+        self._follow_fork = follow_fork
 
         if file_name is not None:
             destination = FileDestination(path=file_name)
+
+        if follow_fork and not isinstance(destination, FileDestination):
+            raise RuntimeError("follow_fork requires an output file")
 
         self._writer = make_unique[RecordWriter](
                 move(self._make_writer(destination)), command_line, native_traces
@@ -359,7 +365,12 @@ cdef class Tracker:
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
-        NativeTracker.createTracker(move(writer), self._native_traces, self._memory_interval_ms)
+        NativeTracker.createTracker(
+            move(writer),
+            self._native_traces,
+            self._memory_interval_ms,
+            self._follow_fork,
+        )
         return self
 
     def __del__(self):
