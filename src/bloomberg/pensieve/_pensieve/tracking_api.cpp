@@ -8,7 +8,6 @@
 #include <Python.h>
 
 #include "exceptions.h"
-#include "guards.h"
 #include "hooks.h"
 #include "record_writer.h"
 #include "records.h"
@@ -18,6 +17,26 @@ using namespace pensieve::exception;
 using namespace std::chrono_literals;
 
 namespace {
+
+struct RecursionGuard
+{
+    RecursionGuard()
+    : wasLocked(isActive)
+    {
+        isActive = true;
+    }
+
+    ~RecursionGuard()
+    {
+        isActive = wasLocked;
+    }
+
+    const bool wasLocked;
+    __attribute__((tls_model("local-dynamic"))) static thread_local bool isActive;
+};
+
+__attribute__((tls_model("local-dynamic"))) thread_local bool RecursionGuard::isActive = false;
+
 void
 
 prepare_fork()
