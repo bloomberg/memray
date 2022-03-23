@@ -14,5 +14,5 @@ struct RecursionGuard
     }
 
     const bool wasLocked;
-    static thread_local bool isActive;
+    __attribute__((tls_model("local-dynamic"))) static thread_local bool isActive;
 };

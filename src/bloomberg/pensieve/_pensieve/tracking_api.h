@@ -108,7 +108,7 @@ class NativeTrace
     }
 
   private:
-    static thread_local size_t MAX_SIZE;
+    __attribute__((tls_model("local-dynamic"))) static thread_local size_t MAX_SIZE;
     __attribute__((always_inline)) static inline int unwind(frame_id_t* data)
     {
         return unw_backtrace((void**)data, MAX_SIZE);

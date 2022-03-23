@@ -1,3 +1,3 @@
 #include "guards.h"
 
-thread_local bool RecursionGuard::isActive = false;
+__attribute__((tls_model("local-dynamic"))) thread_local bool RecursionGuard::isActive = false;

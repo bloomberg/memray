@@ -139,16 +139,16 @@ class PythonStackTracker
     static void popPythonFrame();
 
   private:
-    static thread_local uint32_t num_pending_pops;
-    static thread_local PyFrameObject* entry_frame;
-    static thread_local bool stack_constructed;
-    static thread_local PythonStackTrackerState stack_holder;
+    __attribute__((tls_model("local-dynamic"))) static thread_local uint32_t num_pending_pops;
+    __attribute__((tls_model("local-dynamic"))) static thread_local PyFrameObject* entry_frame;
+    __attribute__((tls_model("local-dynamic"))) static thread_local bool stack_constructed;
+    __attribute__((tls_model("local-dynamic"))) static thread_local PythonStackTrackerState stack_holder;
 };
 
-thread_local uint32_t PythonStackTracker::num_pending_pops{};
-thread_local PyFrameObject* PythonStackTracker::entry_frame{};
-thread_local bool PythonStackTracker::stack_constructed{};
-thread_local PythonStackTracker::PythonStackTrackerState PythonStackTracker::stack_holder{};
+__attribute__((tls_model("local-dynamic"))) thread_local uint32_t PythonStackTracker::num_pending_pops{};
+__attribute__((tls_model("local-dynamic"))) thread_local PyFrameObject* PythonStackTracker::entry_frame{};
+__attribute__((tls_model("local-dynamic"))) thread_local bool PythonStackTracker::stack_constructed{};
+__attribute__((tls_model("local-dynamic"))) thread_local PythonStackTracker::PythonStackTrackerState PythonStackTracker::stack_holder{};
 
 void
 PythonStackTracker::reset(PyFrameObject* current_frame)
@@ -232,7 +232,7 @@ PythonStackTracker::popPythonFrame()
 
 std::atomic<bool> Tracker::d_active = false;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
-thread_local size_t NativeTrace::MAX_SIZE{64};
+__attribute__((tls_model("local-dynamic"))) thread_local size_t NativeTrace::MAX_SIZE{64};
 
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
