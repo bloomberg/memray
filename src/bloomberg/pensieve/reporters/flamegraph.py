@@ -3,9 +3,11 @@ import linecache
 import sys
 from typing import Any
 from typing import Dict
+from typing import Iterable
 from typing import Iterator
 from typing import TextIO
 
+from bloomberg.pensieve import MemoryRecord
 from bloomberg.pensieve import Metadata
 from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve.reporters.frame_tools import StackFrame
@@ -52,13 +54,23 @@ def create_framegraph_node_from_stack_frame(stack_frame: StackFrame) -> Dict[str
 
 
 class FlameGraphReporter:
-    def __init__(self, data: Dict[str, Any]):
+    def __init__(
+        self,
+        data: Dict[str, Any],
+        *,
+        memory_records: Iterable[MemoryRecord],
+    ) -> None:
         super().__init__()
         self.data = data
+        self.memory_records = memory_records
 
     @classmethod
     def from_snapshot(
-        cls, allocations: Iterator[AllocationRecord], *, native_traces: bool
+        cls,
+        allocations: Iterator[AllocationRecord],
+        *,
+        memory_records: Iterable[MemoryRecord],
+        native_traces: bool,
     ) -> "FlameGraphReporter":
         data: Dict[str, Any] = {
             "name": "<root>",
@@ -103,7 +115,7 @@ class FlameGraphReporter:
 
         transformed_data = with_converted_children_dict(data)
         transformed_data["unique_threads"] = sorted(unique_threads)
-        return cls(transformed_data)
+        return cls(transformed_data, memory_records=memory_records)
 
     def render(
         self,
@@ -116,6 +128,7 @@ class FlameGraphReporter:
             kind="flamegraph",
             data=self.data,
             metadata=metadata,
+            memory_records=self.memory_records,
             show_memory_leaks=show_memory_leaks,
             merge_threads=merge_threads,
         )

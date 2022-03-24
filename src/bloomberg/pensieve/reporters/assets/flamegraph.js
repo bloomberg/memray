@@ -1,11 +1,14 @@
 import {
   debounced,
+  initMemoryGraph,
   filterChildThreads,
   filterUninteresting,
   humanFileSize,
   makeTooltipString,
   sumAllocations,
+  resizeMemoryGraph,
 } from "./common";
+window.resizeMemoryGraph = resizeMemoryGraph;
 
 const FILTER_UNINTERESTING = "filter_uninteresting";
 const FILTER_THREAD = "filter_thread";
@@ -238,6 +241,7 @@ function drawChart(chart_data) {
 
 // Main entrypoint
 function main() {
+  initMemoryGraph(memory_records);
   initThreadsDropdown(data, merge_threads);
 
   // Create the flamegraph renderer

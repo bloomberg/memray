@@ -6,7 +6,7 @@ from tests.utils import MockAllocationRecord
 class TestTableReporter:
     def test_empty_report(self):
         # GIVEN / WHEN
-        table = TableReporter.from_snapshot([], native_traces=False)
+        table = TableReporter.from_snapshot([], memory_records=[], native_traces=False)
 
         # THEN
         assert table.data == []
@@ -28,7 +28,9 @@ class TestTableReporter:
         ]
 
         # WHEN
-        table = TableReporter.from_snapshot(peak_allocations, native_traces=False)
+        table = TableReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
 
         # THEN
         assert table.data == [
@@ -58,7 +60,9 @@ class TestTableReporter:
         ]
 
         # WHEN
-        table = TableReporter.from_snapshot(peak_allocations, native_traces=True)
+        table = TableReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=True
+        )
 
         # THEN
         assert table.data == [
@@ -99,7 +103,9 @@ class TestTableReporter:
         ]
 
         # WHEN
-        table = TableReporter.from_snapshot(peak_allocations, native_traces=False)
+        table = TableReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
 
         # THEN
         assert table.data == [
@@ -134,7 +140,9 @@ class TestTableReporter:
         ]
 
         # WHEN
-        table = TableReporter.from_snapshot(peak_allocations, native_traces=False)
+        table = TableReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
 
         # THEN
         assert table.data == [

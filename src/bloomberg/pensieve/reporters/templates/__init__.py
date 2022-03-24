@@ -7,6 +7,7 @@ from typing import Union
 
 import jinja2
 
+from bloomberg.pensieve import MemoryRecord
 from bloomberg.pensieve import Metadata
 
 
@@ -28,6 +29,7 @@ def render_report(
     kind: str,
     data: Union[Dict[str, Any], Iterable[Dict[str, Any]]],
     metadata: Metadata,
+    memory_records: Iterable[MemoryRecord],
     show_memory_leaks: bool,
     merge_threads: bool,
 ) -> str:
@@ -40,6 +42,7 @@ def render_report(
         title=title,
         data=data,
         metadata=metadata,
+        memory_records=memory_records,
         show_memory_leaks=show_memory_leaks,
         merge_threads=merge_threads,
     )

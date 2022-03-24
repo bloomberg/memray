@@ -1,10 +1,12 @@
 import html
 from typing import Any
 from typing import Dict
+from typing import Iterable
 from typing import Iterator
 from typing import List
 from typing import TextIO
 
+from bloomberg.pensieve import MemoryRecord
 from bloomberg.pensieve import Metadata
 from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve._pensieve import AllocatorType
@@ -12,13 +14,23 @@ from bloomberg.pensieve.reporters.templates import render_report
 
 
 class TableReporter:
-    def __init__(self, data: List[Dict[str, Any]]):
+    def __init__(
+        self,
+        data: List[Dict[str, Any]],
+        *,
+        memory_records: Iterable[MemoryRecord],
+    ):
         super().__init__()
         self.data = data
+        self.memory_records = memory_records
 
     @classmethod
     def from_snapshot(
-        cls, allocations: Iterator[AllocationRecord], *, native_traces: bool
+        cls,
+        allocations: Iterator[AllocationRecord],
+        *,
+        memory_records: Iterable[MemoryRecord],
+        native_traces: bool,
     ) -> "TableReporter":
 
         result = []
@@ -44,7 +56,7 @@ class TableReporter:
                 )
             )
 
-        return cls(result)
+        return cls(result, memory_records=memory_records)
 
     def render(
         self,
@@ -56,6 +68,7 @@ class TableReporter:
             kind="table",
             data=self.data,
             metadata=metadata,
+            memory_records=self.memory_records,
             show_memory_leaks=show_memory_leaks,
             merge_threads=True,
         )

@@ -12,7 +12,9 @@ from tests.utils import filter_relevant_allocations
 
 class TestFlameGraphReporter:
     def test_works_with_no_allocations(self):
-        reporter = FlameGraphReporter.from_snapshot([], native_traces=False)
+        reporter = FlameGraphReporter.from_snapshot(
+            [], memory_records=[], native_traces=False
+        )
         assert reporter.data["name"] == "<root>"
         assert reporter.data["value"] == 0
         assert reporter.data["children"] == []
@@ -37,7 +39,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -102,7 +104,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=True
+            peak_allocations, memory_records=[], native_traces=True
         )
 
         # THEN
@@ -180,7 +182,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -248,7 +250,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -294,7 +296,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -382,7 +384,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -512,7 +514,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -619,7 +621,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -726,7 +728,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -796,7 +798,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
@@ -848,7 +850,7 @@ class TestFlameGraphReporter:
 
         # WHEN
         reporter = FlameGraphReporter.from_snapshot(
-            peak_allocations, native_traces=False
+            peak_allocations, memory_records=[], native_traces=False
         )
 
         # THEN
