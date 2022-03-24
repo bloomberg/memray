@@ -31,7 +31,17 @@ class FileSink : public pensieve::io::Sink
     bool seek(off_t offset, int whence) override;
 
   private:
+    bool grow(size_t needed);
+    bool slideWindow();
+    size_t bytesBeyondBufferNeedle();
+
     int d_fd{-1};
+    size_t d_fileSize{0};
+    const size_t BUFFER_SIZE{16 * 1024 * 1024};  // 16 MiB
+    size_t d_bufferOffset{0};
+    char* d_buffer{nullptr};
+    char* d_bufferEnd{nullptr};  // exclusive
+    char* d_bufferNeedle{nullptr};
 };
 
 class SocketSink : public Sink
@@ -42,19 +52,25 @@ class SocketSink : public Sink
 
     SocketSink(SocketSink&) = delete;
     SocketSink(SocketSink&&) = delete;
-    void operator=(const FileSink&) = delete;
-    void operator=(const FileSink&&) = delete;
+    void operator=(const SocketSink&) = delete;
+    void operator=(const SocketSink&&) = delete;
 
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
 
   private:
+    size_t freeSpaceInBuffer();
     void open();
+    bool flush();
 
     const std::string d_host;
     uint16_t d_port;
     int d_socket_fd{-1};
     bool d_socket_open{false};
+
+    const size_t BUFFER_SIZE{PIPE_BUF};
+    std::unique_ptr<char[]> d_buffer{nullptr};
+    char* d_bufferNeedle{nullptr};
 };
 
 }  // namespace pensieve::io

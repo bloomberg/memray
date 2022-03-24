@@ -21,6 +21,7 @@ using thread_id_t = unsigned long;
 using millis_t = long long;
 
 enum class RecordType {
+    UNINITIALIZED = 0,
     ALLOCATION = 1,
     FRAME_INDEX = 2,
     FRAME_PUSH = 3,

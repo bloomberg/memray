@@ -5,7 +5,10 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <stdexcept>
+#include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <utility>
 
 #include <Python.h>
@@ -20,20 +23,36 @@ using namespace pensieve::exception;
 bool
 FileSink::writeAll(const char* data, size_t length)
 {
-    while (length) {
-        ssize_t ret = ::write(d_fd, data, length);
-        if (ret < 0 && errno != EINTR) {
+    // If the file isn't big enough for all this data, grow it.
+    size_t maxWritableWithoutGrowing = bytesBeyondBufferNeedle();
+    if (maxWritableWithoutGrowing < length) {
+        if (!grow(length - maxWritableWithoutGrowing)) {
             return false;
-        } else if (ret >= 0) {
-            data += ret;
-            length -= ret;
         }
+        assert(bytesBeyondBufferNeedle() >= length);
+    }
+
+    while (length) {
+        if (d_bufferNeedle == d_bufferEnd) {
+            // We've reached the end of our window. Slide it forward.
+            if (!seek(d_bufferOffset + (d_bufferEnd - d_buffer), SEEK_SET)) {
+                return false;
+            }
+        }
+
+        size_t available = d_bufferEnd - d_bufferNeedle;
+        size_t toCopy = std::min(available, length);
+        memcpy(d_bufferNeedle, data, toCopy);
+        d_bufferNeedle += toCopy;
+        data += toCopy;
+        length -= toCopy;
     }
     return true;
 }
+
 FileSink::FileSink(const std::string& file_name, bool exist_ok)
 {
-    int flags = O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC;
+    int flags = O_CREAT | O_RDWR | O_TRUNC | O_CLOEXEC;
     if (!exist_ok) {
         flags |= O_EXCL;
     }
@@ -42,14 +61,95 @@ FileSink::FileSink(const std::string& file_name, bool exist_ok)
         throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
     }
 }
+
 bool
 FileSink::seek(off_t offset, int whence)
 {
-    return -1 != lseek(d_fd, offset, whence);
+    // Don't allow seeking relative to the current offset. We move the offset
+    // when we grow the file, and don't move it when we write, so users can't
+    // possibly know what the offset is.
+    if (whence != SEEK_SET && whence != SEEK_END) {
+        errno = EINVAL;
+        return false;
+    }
+
+    // Convert offset to an absolute position, if it isn't already
+    if (whence != SEEK_SET) {
+        offset = lseek(d_fd, offset, whence);
+    }
+
+    if (offset < 0) {
+        errno = EINVAL;
+        return false;
+    }
+
+    // Free our existing buffer, if any
+    if (d_buffer && 0 != munmap(d_buffer, BUFFER_SIZE)) {
+        return false;
+    }
+
+    // Note: It is OK to map beyond the end of the file,
+    //       though not to write beyond the end.
+    d_buffer = static_cast<char*>(mmap(d_buffer, BUFFER_SIZE, PROT_WRITE, MAP_SHARED, d_fd, offset));
+    if (d_buffer == MAP_FAILED) {
+        d_buffer = nullptr;
+        return false;
+    }
+    d_bufferNeedle = d_buffer;
+    d_bufferOffset = offset;
+
+    size_t bytesRemaining = d_fileSize - offset;
+    d_bufferEnd = d_buffer + std::min(bytesRemaining, BUFFER_SIZE);
+
+    return true;
+}
+
+bool
+FileSink::grow(size_t needed)
+{
+    // Grow to next multiple of 4KiB that is strictly > 110% of current size + needed
+    size_t new_size = (d_fileSize + needed) * 1.1;
+    new_size = (new_size / 4096 + 1) * 4096;
+    assert(new_size > d_fileSize);  // check for overflow
+
+    // Seek to 1 byte before the new size
+    off_t offset = lseek(d_fd, new_size - 1, SEEK_SET);
+    if (offset == -1) {
+        return false;
+    }
+
+    // Then write 1 byte.
+    ssize_t rc;
+    do {
+        rc = write(d_fd, "\0", 1);
+    } while (rc < 0 && errno == EINTR);
+
+    if (rc < 0) {
+        return false;
+    }
+
+    d_fileSize = new_size;
+    assert(static_cast<off_t>(d_fileSize) == lseek(d_fd, 0, SEEK_END));
+
+    return true;
+}
+
+size_t
+FileSink::bytesBeyondBufferNeedle()
+{
+    size_t bytesBeyondBuffer = d_fileSize - d_bufferOffset;
+    size_t positionWithinBuffer = d_bufferNeedle - d_buffer;
+    return bytesBeyondBuffer - positionWithinBuffer;
 }
 
 FileSink::~FileSink()
 {
+    if (d_buffer) {
+        if (0 != munmap(d_buffer, BUFFER_SIZE)) {
+            LOG(ERROR) << "Failed to unmap output file: " << strerror(errno);
+        }
+        d_buffer = d_bufferNeedle = d_bufferEnd = nullptr;
+    }
     if (d_fd != -1) {
         ::close(d_fd);
     }
@@ -58,13 +158,45 @@ FileSink::~FileSink()
 SocketSink::SocketSink(std::string host, uint16_t port)
 : d_host(std::move(host))
 , d_port(port)
+, d_buffer(new char[BUFFER_SIZE])
+, d_bufferNeedle(d_buffer.get())
 {
     open();
+}
+
+size_t
+SocketSink::freeSpaceInBuffer()
+{
+    return BUFFER_SIZE - (d_bufferNeedle - d_buffer.get());
 }
 
 bool
 SocketSink::writeAll(const char* data, size_t length)
 {
+    while (freeSpaceInBuffer() < length) {
+        size_t toWrite = freeSpaceInBuffer();
+        memcpy(d_bufferNeedle, data, toWrite);
+        d_bufferNeedle += toWrite;
+        data += toWrite;
+        length -= toWrite;
+        if (!flush()) {
+            return false;
+        }
+    }
+
+    memcpy(d_bufferNeedle, data, length);
+    d_bufferNeedle += length;
+    return true;
+}
+
+bool
+SocketSink::flush()
+{
+    const char* data = d_buffer.get();
+    size_t length = d_bufferNeedle - data;
+
+    d_bufferNeedle = d_buffer.get();
+
     while (length) {
         ssize_t ret = ::send(d_socket_fd, data, length, 0);
         if (ret < 0 && errno != EINTR) {
@@ -86,6 +218,7 @@ SocketSink::seek(__attribute__((unused)) off_t offset, __attribute__((unused)) i
 SocketSink::~SocketSink()
 {
     if (d_socket_open) {
+        flush();
         ::close(d_socket_fd);
         d_socket_open = false;
     }

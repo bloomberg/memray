@@ -537,16 +537,16 @@ class TestHighWatermark:
         with munmap in one go."""
 
         # GIVEN
-        # Ensure we have a long enough free buffer for the contiguous mmap's. We also
-        # need to make sure the allocation addresses are page-aligned later, and mmap
-        # does that # for us. We can then use the pointer from this allocation for the
-        # actual test.
-        buf = MmapAllocator(8 * PAGE_SIZE)
-        buf.munmap(8 * PAGE_SIZE)
-
-        # WHEN
         output = tmp_path / "test.bin"
         with Tracker(output):
+            # Ensure we have a long enough free buffer for the contiguous
+            # mmap's. We also need to make sure the allocation addresses are
+            # page-aligned later, and mmap does that for us. We can then use
+            # the pointer from this allocation for the actual test.
+            buf = MmapAllocator(8 * PAGE_SIZE)
+            buf.munmap(8 * PAGE_SIZE)
+
+            # WHEN
             # Allocate 2 contiguous chunks of 4 pages (8 pages in total) and free them
             # with a single munmap
             alloc1 = MmapAllocator(4 * PAGE_SIZE, buf.address)
@@ -570,15 +570,16 @@ class TestHighWatermark:
         """Allocate multiple contiguous mmap'd regions and then with multiple munmap's, each
         deallocating several mmap'd areas in one go."""
         # GIVEN
-        # Ensure we have a long enough free buffer for the contiguous mmap's. We also
-        # need to make sure the allocation addresses are page-aligned later, and mmap does that
-        # for us. We can then use the pointer from this allocation for the actual test.
-        buf = MmapAllocator(8 * PAGE_SIZE)
-        buf.munmap(8 * PAGE_SIZE)
-
-        # WHEN
         output = tmp_path / "test.bin"
         with Tracker(output):
+            # Ensure we have a long enough free buffer for the contiguous
+            # mmap's. We also need to make sure the allocation addresses are
+            # page-aligned later, and mmap does that for us. We can then use
+            # the pointer from this allocation for the actual test.
+            buf = MmapAllocator(8 * PAGE_SIZE)
+            buf.munmap(8 * PAGE_SIZE)
+
+            # WHEN
             alloc1 = MmapAllocator(2 * PAGE_SIZE, buf.address)
             MmapAllocator(2 * PAGE_SIZE, buf.address + (2 * PAGE_SIZE))
             MmapAllocator(2 * PAGE_SIZE, buf.address + (4 * PAGE_SIZE))
