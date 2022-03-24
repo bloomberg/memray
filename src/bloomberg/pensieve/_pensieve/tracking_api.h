@@ -23,6 +23,12 @@
 #include "record_writer.h"
 #include "records.h"
 
+#ifdef PENSIEVE_TLS_MODEL
+#    define PENSIEVE_FAST_TLS __attribute__((tls_model(PENSIEVE_TLS_MODEL)))
+#else
+#    define PENSIEVE_FAST_TLS
+#endif
+
 namespace pensieve::tracking_api {
 
 // Trace function interface
@@ -108,7 +114,7 @@ class NativeTrace
     }
 
   private:
-    __attribute__((tls_model("local-dynamic"))) static thread_local size_t MAX_SIZE;
+    PENSIEVE_FAST_TLS static thread_local size_t MAX_SIZE;
     __attribute__((always_inline)) static inline int unwind(frame_id_t* data)
     {
         return unw_backtrace((void**)data, MAX_SIZE);

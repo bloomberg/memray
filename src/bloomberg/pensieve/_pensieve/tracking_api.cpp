@@ -32,10 +32,10 @@ struct RecursionGuard
     }
 
     const bool wasLocked;
-    __attribute__((tls_model("local-dynamic"))) static thread_local bool isActive;
+    PENSIEVE_FAST_TLS static thread_local bool isActive;
 };
 
-__attribute__((tls_model("local-dynamic"))) thread_local bool RecursionGuard::isActive = false;
+PENSIEVE_FAST_TLS thread_local bool RecursionGuard::isActive = false;
 
 void
 
@@ -158,16 +158,17 @@ class PythonStackTracker
     static void popPythonFrame();
 
   private:
-    __attribute__((tls_model("local-dynamic"))) static thread_local uint32_t num_pending_pops;
-    __attribute__((tls_model("local-dynamic"))) static thread_local PyFrameObject* entry_frame;
-    __attribute__((tls_model("local-dynamic"))) static thread_local bool stack_constructed;
-    __attribute__((tls_model("local-dynamic"))) static thread_local PythonStackTrackerState stack_holder;
+    PENSIEVE_FAST_TLS static thread_local uint32_t num_pending_pops;
+    PENSIEVE_FAST_TLS static thread_local PyFrameObject* entry_frame;
+    PENSIEVE_FAST_TLS static thread_local bool stack_constructed;
+    PENSIEVE_FAST_TLS static thread_local PythonStackTrackerState stack_holder;
 };
 
-__attribute__((tls_model("local-dynamic"))) thread_local uint32_t PythonStackTracker::num_pending_pops{};
-__attribute__((tls_model("local-dynamic"))) thread_local PyFrameObject* PythonStackTracker::entry_frame{};
-__attribute__((tls_model("local-dynamic"))) thread_local bool PythonStackTracker::stack_constructed{};
-__attribute__((tls_model("local-dynamic"))) thread_local PythonStackTracker::PythonStackTrackerState PythonStackTracker::stack_holder{};
+PENSIEVE_FAST_TLS thread_local uint32_t PythonStackTracker::num_pending_pops{};
+PENSIEVE_FAST_TLS thread_local PyFrameObject* PythonStackTracker::entry_frame{};
+PENSIEVE_FAST_TLS thread_local bool PythonStackTracker::stack_constructed{};
+PENSIEVE_FAST_TLS thread_local PythonStackTracker::PythonStackTrackerState
+        PythonStackTracker::stack_holder{};
 
 void
 PythonStackTracker::reset(PyFrameObject* current_frame)
@@ -251,7 +252,7 @@ PythonStackTracker::popPythonFrame()
 
 std::atomic<bool> Tracker::d_active = false;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
-__attribute__((tls_model("local-dynamic"))) thread_local size_t NativeTrace::MAX_SIZE{64};
+PENSIEVE_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
 
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
