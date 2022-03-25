@@ -261,8 +261,11 @@ Tracker::Tracker(
     static std::once_flag once;
     call_once(once, [] {
         hooks::ensureAllHooksAreValid();
-        pthread_atfork(&prepareFork, &parentFork, &childFork);
         NativeTrace::setup();
+
+        // We must do this last so that a child can't inherit an environment
+        // where only half of our one-time setup is done.
+        pthread_atfork(&prepareFork, &parentFork, &childFork);
     });
 
     if (!d_writer->writeHeader(false)) {
