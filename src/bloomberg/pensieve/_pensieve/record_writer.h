@@ -44,8 +44,6 @@ class RecordWriter
     std::unique_ptr<pensieve::io::Sink> d_sink;
     std::mutex d_mutex;
     HeaderRecord d_header{};
-    const std::string& d_command_line;
-    bool d_native_traces;
     TrackerStats d_stats{};
 };
 

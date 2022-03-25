@@ -36,16 +36,14 @@ RecordWriter::RecordWriter(
         const std::string& command_line,
         bool native_traces)
 : d_sink(std::move(sink))
-, d_command_line(command_line)
-, d_native_traces(native_traces)
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
     d_header = HeaderRecord{
             "",
             d_version,
-            d_native_traces,
+            native_traces,
             d_stats,
-            d_command_line,
+            command_line,
             ::getpid(),
             getPythonAllocator()};
     strncpy(d_header.magic, MAGIC, sizeof(MAGIC));
