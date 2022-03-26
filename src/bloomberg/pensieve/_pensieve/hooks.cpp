@@ -88,7 +88,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 {
     assert(hooks::mmap);
     void* ptr = hooks::mmap(addr, length, prot, flags, fd, offset);
-    tracking_api::Tracker::getTracker()->trackAllocation(ptr, length, hooks::Allocator::MMAP);
+    tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
     return ptr;
 }
 
@@ -97,7 +97,7 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noe
 {
     assert(hooks::mmap64);
     void* ptr = hooks::mmap64(addr, length, prot, flags, fd, offset);
-    tracking_api::Tracker::getTracker()->trackAllocation(ptr, length, hooks::Allocator::MMAP);
+    tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
     return ptr;
 }
 
@@ -105,7 +105,7 @@ int
 munmap(void* addr, size_t length) noexcept
 {
     assert(hooks::munmap);
-    tracking_api::Tracker::getTracker()->trackDeallocation(addr, length, hooks::Allocator::MUNMAP);
+    tracking_api::Tracker::trackDeallocation(addr, length, hooks::Allocator::MUNMAP);
     return hooks::munmap(addr, length);
 }
 
@@ -115,7 +115,7 @@ malloc(size_t size) noexcept
     assert(hooks::malloc);
 
     void* ptr = hooks::malloc(size);
-    tracking_api::Tracker::getTracker()->trackAllocation(ptr, size, hooks::Allocator::MALLOC);
+    tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::MALLOC);
     return ptr;
 }
 
@@ -126,7 +126,7 @@ free(void* ptr) noexcept
 
     // We need to call our API before we call the real free implementation
     // to make sure that the pointer is not reused in-between.
-    tracking_api::Tracker::getTracker()->trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+    tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
 
     hooks::free(ptr);
 }
@@ -138,8 +138,8 @@ realloc(void* ptr, size_t size) noexcept
 
     void* ret = hooks::realloc(ptr, size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackDeallocation(ptr, 0, hooks::Allocator::FREE);
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::REALLOC);
+        tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::REALLOC);
     }
     return ret;
 }
@@ -151,7 +151,7 @@ calloc(size_t num, size_t size) noexcept
 
     void* ret = hooks::calloc(num, size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, num * size, hooks::Allocator::CALLOC);
+        tracking_api::Tracker::trackAllocation(ret, num * size, hooks::Allocator::CALLOC);
     }
     return ret;
 }
@@ -163,10 +163,7 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
 
     int ret = hooks::posix_memalign(memptr, alignment, size);
     if (!ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(
-                *memptr,
-                size,
-                hooks::Allocator::POSIX_MEMALIGN);
+        tracking_api::Tracker::trackAllocation(*memptr, size, hooks::Allocator::POSIX_MEMALIGN);
     }
     return ret;
 }
@@ -178,7 +175,7 @@ memalign(size_t alignment, size_t size) noexcept
 
     void* ret = hooks::memalign(alignment, size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::MEMALIGN);
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::MEMALIGN);
     }
     return ret;
 }
@@ -190,7 +187,7 @@ valloc(size_t size) noexcept
 
     void* ret = hooks::valloc(size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::VALLOC);
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::VALLOC);
     }
     return ret;
 }
@@ -202,7 +199,7 @@ pvalloc(size_t size) noexcept
 
     void* ret = hooks::pvalloc(size);
     if (ret) {
-        tracking_api::Tracker::getTracker()->trackAllocation(ret, size, hooks::Allocator::PVALLOC);
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::PVALLOC);
     }
     return ret;
 }
@@ -213,7 +210,7 @@ dlopen(const char* filename, int flag) noexcept
     assert(hooks::dlopen);
 
     void* ret = hooks::dlopen(filename, flag);
-    if (ret) tracking_api::Tracker::getTracker()->invalidate_module_cache();
+    if (ret) tracking_api::Tracker::invalidate_module_cache();
     return ret;
 }
 
@@ -224,7 +221,7 @@ dlclose(void* handle) noexcept
 
     int ret = hooks::dlclose(handle);
     tracking_api::NativeTrace::flushCache();
-    if (!ret) tracking_api::Tracker::getTracker()->invalidate_module_cache();
+    if (!ret) tracking_api::Tracker::invalidate_module_cache();
     return ret;
 }
 
@@ -241,7 +238,7 @@ prctl(int option, ...) noexcept
 
     if (option == PR_SET_NAME) {
         char* name = reinterpret_cast<char*>(args[0]);
-        tracking_api::Tracker::getTracker()->registerThreadName(name);
+        tracking_api::Tracker::registerThreadName(name);
     }
 
     unsigned long ret = hooks::prctl(option, args[0], args[1], args[2], args[3]);

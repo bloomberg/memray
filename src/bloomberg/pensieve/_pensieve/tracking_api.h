@@ -181,11 +181,47 @@ class Tracker
     static Tracker* getTracker();
 
     // Allocation tracking interface
-    void trackAllocation(void* ptr, size_t size, hooks::Allocator func);
-    void trackDeallocation(void* ptr, size_t size, hooks::Allocator func);
-    void invalidate_module_cache();
-    void updateModuleCache();
-    void registerThreadName(const char* name);
+    __attribute__((always_inline)) inline static void
+    trackAllocation(void* ptr, size_t size, hooks::Allocator func)
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->trackAllocationImpl(ptr, size, func);
+        }
+    }
+
+    __attribute__((always_inline)) inline static void
+    trackDeallocation(void* ptr, size_t size, hooks::Allocator func)
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->trackDeallocationImpl(ptr, size, func);
+        }
+    }
+
+    __attribute__((always_inline)) inline static void invalidate_module_cache()
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->invalidate_module_cache_impl();
+        }
+    }
+
+    __attribute__((always_inline)) inline static void updateModuleCache()
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->updateModuleCacheImpl();
+        }
+    }
+
+    __attribute__((always_inline)) inline static void registerThreadName(const char* name)
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->registerThreadNameImpl(name);
+        }
+    }
 
     // RawFrame stack interface
     bool pushFrame(const RawFrame& frame);
@@ -238,6 +274,12 @@ class Tracker
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);
+
+    void trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func);
+    void trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func);
+    void invalidate_module_cache_impl();
+    void updateModuleCacheImpl();
+    void registerThreadNameImpl(const char* name);
 
     explicit Tracker(
             std::unique_ptr<RecordWriter> record_writer,

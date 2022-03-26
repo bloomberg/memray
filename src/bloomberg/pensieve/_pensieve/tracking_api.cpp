@@ -440,7 +440,7 @@ Tracker::childFork()
 }
 
 void
-Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
+Tracker::trackAllocationImpl(void* ptr, size_t size, const hooks::Allocator func)
 {
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
@@ -473,7 +473,7 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 }
 
 void
-Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
+Tracker::trackDeallocationImpl(void* ptr, size_t size, const hooks::Allocator func)
 {
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
@@ -492,7 +492,7 @@ Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
 }
 
 void
-Tracker::invalidate_module_cache()
+Tracker::invalidate_module_cache_impl()
 {
     RecursionGuard guard;
     d_patcher.overwrite_symbols();
@@ -544,7 +544,7 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
 }
 
 void
-Tracker::updateModuleCache()
+Tracker::updateModuleCacheImpl()
 {
     if (!d_unwind_native_frames) {
         return;
@@ -559,7 +559,7 @@ Tracker::updateModuleCache()
 }
 
 void
-Tracker::registerThreadName(const char* name)
+Tracker::registerThreadNameImpl(const char* name)
 {
     if (!d_writer->writeRecord(RecordType::THREAD_RECORD, ThreadRecord{thread_id(), name})) {
         std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
