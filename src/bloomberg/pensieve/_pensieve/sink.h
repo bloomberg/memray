@@ -15,6 +15,7 @@ class Sink
     virtual ~Sink(){};
     virtual bool writeAll(const char* data, size_t length) = 0;
     virtual bool seek(off_t offset, int whence) = 0;
+    virtual std::unique_ptr<Sink> cloneInChildProcess() = 0;
 };
 
 class FileSink : public pensieve::io::Sink
@@ -29,12 +30,14 @@ class FileSink : public pensieve::io::Sink
 
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
+    std::unique_ptr<Sink> cloneInChildProcess() override;
 
   private:
     bool grow(size_t needed);
     bool slideWindow();
     size_t bytesBeyondBufferNeedle();
 
+    std::string d_fileNameStem;
     int d_fd{-1};
     size_t d_fileSize{0};
     const size_t BUFFER_SIZE{16 * 1024 * 1024};  // 16 MiB
@@ -57,6 +60,7 @@ class SocketSink : public Sink
 
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
+    std::unique_ptr<Sink> cloneInChildProcess() override;
 
   private:
     size_t freeSpaceInBuffer();

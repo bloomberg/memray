@@ -194,6 +194,42 @@ class TestRunSubCommand:
         captured = capsys.readouterr()
         assert "The --live-port argument requires --live-remote" in captured.err
 
+    def test_run_with_follow_fork(
+        self,
+        getpid_mock,
+        runpy_mock,
+        tracker_mock,
+        validate_mock,
+    ):
+        getpid_mock.return_value = 0
+        assert 0 == main(["run", "--follow-fork", "-m", "foobar"])
+        runpy_mock.run_module.assert_called_with(
+            "foobar", run_name="__main__", alter_sys=True
+        )
+        tracker_mock.assert_called_with(
+            destination=FileDestination("pensieve-foobar.0.bin", exist_ok=False),
+            native_traces=False,
+            follow_fork=True,
+        )
+
+    def test_run_with_follow_fork_and_live_mode(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
+    ):
+        with pytest.raises(SystemExit):
+            main(["run", "--live", "--follow-fork", "./directory/foobar.py"])
+
+        captured = capsys.readouterr()
+        assert "--follow-fork cannot be used with" in captured.err
+
+    def test_run_with_follow_fork_and_live_remote_mode(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
+    ):
+        with pytest.raises(SystemExit):
+            main(["run", "--live-remote", "--follow-fork", "./directory/foobar.py"])
+
+        captured = capsys.readouterr()
+        assert "--follow-fork cannot be used with" in captured.err
+
 
 class TestFlamegraphSubCommand:
     @staticmethod

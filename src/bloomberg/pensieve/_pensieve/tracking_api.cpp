@@ -37,29 +37,6 @@ struct RecursionGuard
 
 PENSIEVE_FAST_TLS thread_local bool RecursionGuard::isActive = false;
 
-void
-
-prepare_fork()
-{
-    // Don't do any custom track_allocation handling while inside fork
-    RecursionGuard::isActive = true;
-}
-
-void
-parent_fork()
-{
-    // We can continue tracking
-    RecursionGuard::isActive = false;
-}
-
-void
-child_fork()
-{
-    // TODO: allow children to be tracked
-    RecursionGuard::isActive = true;
-    pensieve::tracking_api::Tracker::getTracker()->deactivate();
-}
-
 std::string
 get_executable()
 {
@@ -156,6 +133,7 @@ class PythonStackTracker
             const char* file_name,
             int parent_lineno);
     static void popPythonFrame();
+    static void resetInChildProcess() noexcept;
 
   private:
     PENSIEVE_FAST_TLS static thread_local uint32_t num_pending_pops;
@@ -250,24 +228,44 @@ PythonStackTracker::popPythonFrame()
     }
 }
 
+void
+PythonStackTracker::resetInChildProcess() noexcept
+{
+    // Nothing has been emitted to the output file in this child process yet.
+    num_pending_pops = 0;
+    if (stack_constructed) {
+        for (auto& e : stack_holder.stack) {
+            e.emitted = false;
+        }
+    }
+}
+
 std::atomic<bool> Tracker::d_active = false;
+std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 PENSIEVE_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
 
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
-        unsigned int memory_interval)
+        unsigned int memory_interval,
+        bool follow_fork)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
+, d_memory_interval(memory_interval)
+, d_follow_fork(follow_fork)
 {
+    // Note: this must be set before the hooks are installed.
     d_instance = this;
 
     static std::once_flag once;
     call_once(once, [] {
         hooks::ensureAllHooksAreValid();
-        pthread_atfork(&prepare_fork, &parent_fork, &child_fork);
         NativeTrace::setup();
+
+        // We must do this last so that a child can't inherit an environment
+        // where only half of our one-time setup is done.
+        pthread_atfork(&prepareFork, &parentFork, &childFork);
     });
 
     if (!d_writer->writeHeader(false)) {
@@ -294,6 +292,8 @@ Tracker::~Tracker()
     d_patcher.restore_symbols();
     d_writer->writeHeader(true);
     d_writer.reset();
+
+    // Note: this must not be unset before the hooks are uninstalled.
     d_instance = nullptr;
 }
 
@@ -384,7 +384,63 @@ Tracker::BackgroundThread::stop()
 }
 
 void
-Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
+Tracker::prepareFork()
+{
+    // Don't do any custom track_allocation handling while inside fork
+    RecursionGuard::isActive = true;
+}
+
+void
+Tracker::parentFork()
+{
+    // We can continue tracking
+    RecursionGuard::isActive = false;
+}
+
+void
+Tracker::childFork()
+{
+    // Reset thread-local state.
+    PythonStackTracker::resetInChildProcess();
+
+    // Intentionally leak any old tracker. Its destructor cannot be called,
+    // because it would try to destroy mutexes that might be locked by threads
+    // that no longer exist, and to join a background thread that no longer
+    // exists, and potentially to flush buffered output to a socket it no
+    // longer owns. Note that d_instance_owner is always set after d_instance
+    // and unset before d_instance.
+    (void)d_instance_owner.release();
+
+    Tracker* old_tracker = d_instance;
+
+    // If we inherited an active tracker, try to clone its record writer.
+    std::unique_ptr<RecordWriter> new_writer;
+    if (old_tracker && old_tracker->isActive() && old_tracker->d_follow_fork) {
+        new_writer = old_tracker->d_writer->cloneInChildProcess();
+    }
+
+    if (!new_writer) {
+        // We either have no tracker, or a deactivated tracker, or a tracker
+        // with a sink that can't be cloned. Unset our singleton and bail out.
+        // Note that the old tracker's hooks may still be installed. This is
+        // OK, as long as they always check the (static) isActive() flag before
+        // calling any methods on the now null tracker singleton.
+        d_instance = nullptr;
+        RecursionGuard::isActive = false;
+        return;
+    }
+
+    // Re-enable tracking with a brand new tracker.
+    d_instance_owner.reset(new Tracker(
+            std::move(new_writer),
+            old_tracker->d_unwind_native_frames,
+            old_tracker->d_memory_interval,
+            old_tracker->d_follow_fork));
+    RecursionGuard::isActive = false;
+}
+
+void
+Tracker::trackAllocationImpl(void* ptr, size_t size, const hooks::Allocator func)
 {
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
@@ -417,7 +473,7 @@ Tracker::trackAllocation(void* ptr, size_t size, const hooks::Allocator func)
 }
 
 void
-Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
+Tracker::trackDeallocationImpl(void* ptr, size_t size, const hooks::Allocator func)
 {
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
@@ -436,7 +492,7 @@ Tracker::trackDeallocation(void* ptr, size_t size, const hooks::Allocator func)
 }
 
 void
-Tracker::invalidate_module_cache()
+Tracker::invalidate_module_cache_impl()
 {
     RecursionGuard guard;
     d_patcher.overwrite_symbols();
@@ -488,7 +544,7 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
 }
 
 void
-Tracker::updateModuleCache()
+Tracker::updateModuleCacheImpl()
 {
     if (!d_unwind_native_frames) {
         return;
@@ -503,7 +559,7 @@ Tracker::updateModuleCache()
 }
 
 void
-Tracker::registerThreadName(const char* name)
+Tracker::registerThreadNameImpl(const char* name)
 {
     if (!d_writer->writeRecord(RecordType::THREAD_RECORD, ThreadRecord{thread_id(), name})) {
         std::cerr << "pensieve: Failed to write output, deactivating tracking" << std::endl;
@@ -571,6 +627,29 @@ const std::atomic<bool>&
 Tracker::isActive()
 {
     return Tracker::d_active;
+}
+
+// Static methods managing the singleton
+
+PyObject*
+Tracker::createTracker(
+        std::unique_ptr<RecordWriter> record_writer,
+        bool native_traces,
+        unsigned int memory_interval,
+        bool follow_fork)
+{
+    // Note: the GIL is used for synchronization of the singleton
+    d_instance_owner.reset(
+            new Tracker(std::move(record_writer), native_traces, memory_interval, follow_fork));
+    Py_RETURN_NONE;
+}
+
+PyObject*
+Tracker::destroyTracker()
+{
+    // Note: the GIL is used for synchronization of the singleton
+    d_instance_owner.reset();
+    Py_RETURN_NONE;
 }
 
 Tracker*

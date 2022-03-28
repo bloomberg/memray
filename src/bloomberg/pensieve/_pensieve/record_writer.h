@@ -37,6 +37,7 @@ class RecordWriter
     bool writeHeader(bool seek_to_start);
 
     std::unique_lock<std::mutex> acquireLock();
+    std::unique_ptr<RecordWriter> cloneInChildProcess();
 
   private:
     // Data members
@@ -44,8 +45,6 @@ class RecordWriter
     std::unique_ptr<pensieve::io::Sink> d_sink;
     std::mutex d_mutex;
     HeaderRecord d_header{};
-    const std::string& d_command_line;
-    bool d_native_traces;
     TrackerStats d_stats{};
 };
 

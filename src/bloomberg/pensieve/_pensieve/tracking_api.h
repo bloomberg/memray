@@ -164,10 +164,6 @@ class Tracker
 {
   public:
     // Constructors
-    explicit Tracker(
-            std::unique_ptr<RecordWriter> record_writer,
-            bool native_traces,
-            unsigned int memory_interval);
     ~Tracker();
 
     Tracker(Tracker& other) = delete;
@@ -176,14 +172,56 @@ class Tracker
     void operator=(Tracker&&) = delete;
 
     // Interface to get the tracker instance
+    static PyObject* createTracker(
+            std::unique_ptr<RecordWriter> record_writer,
+            bool native_traces,
+            unsigned int memory_interval,
+            bool follow_fork);
+    static PyObject* destroyTracker();
     static Tracker* getTracker();
 
     // Allocation tracking interface
-    void trackAllocation(void* ptr, size_t size, hooks::Allocator func);
-    void trackDeallocation(void* ptr, size_t size, hooks::Allocator func);
-    void invalidate_module_cache();
-    void updateModuleCache();
-    void registerThreadName(const char* name);
+    __attribute__((always_inline)) inline static void
+    trackAllocation(void* ptr, size_t size, hooks::Allocator func)
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->trackAllocationImpl(ptr, size, func);
+        }
+    }
+
+    __attribute__((always_inline)) inline static void
+    trackDeallocation(void* ptr, size_t size, hooks::Allocator func)
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->trackDeallocationImpl(ptr, size, func);
+        }
+    }
+
+    __attribute__((always_inline)) inline static void invalidate_module_cache()
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->invalidate_module_cache_impl();
+        }
+    }
+
+    __attribute__((always_inline)) inline static void updateModuleCache()
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->updateModuleCacheImpl();
+        }
+    }
+
+    __attribute__((always_inline)) inline static void registerThreadName(const char* name)
+    {
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->registerThreadNameImpl(name);
+        }
+    }
 
     // RawFrame stack interface
     bool pushFrame(const RawFrame& frame);
@@ -223,15 +261,35 @@ class Tracker
     // Data members
     FrameCollection<RawFrame> d_frames{0, 2};
     static std::atomic<bool> d_active;
+    static std::unique_ptr<Tracker> d_instance_owner;
     static std::atomic<Tracker*> d_instance;
+
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     bool d_unwind_native_frames;
+    unsigned int d_memory_interval;
+    bool d_follow_fork;
     elf::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);
+
+    void trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func);
+    void trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func);
+    void invalidate_module_cache_impl();
+    void updateModuleCacheImpl();
+    void registerThreadNameImpl(const char* name);
+
+    explicit Tracker(
+            std::unique_ptr<RecordWriter> record_writer,
+            bool native_traces,
+            unsigned int memory_interval,
+            bool follow_fork);
+
+    static void prepareFork();
+    static void parentFork();
+    static void childFork();
 };
 
 }  // namespace pensieve::tracking_api
