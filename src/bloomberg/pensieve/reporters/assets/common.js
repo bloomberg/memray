@@ -13,7 +13,15 @@ export function initMemoryGraph(memory_records) {
   var data = [trace];
 
   var layout = {
+    xaxis: {
+      title: {
+        text: "Time",
+      },
+    },
     yaxis: {
+      title: {
+        text: "Resident Size",
+      },
       tickformat: ".4~s",
       exponentformat: "B",
       ticksuffix: "B",
