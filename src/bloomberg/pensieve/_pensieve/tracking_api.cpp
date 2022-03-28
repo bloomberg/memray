@@ -436,7 +436,7 @@ Tracker::childFork()
 }
 
 void
-Tracker::trackAllocationImpl(void* ptr, size_t size, const hooks::Allocator func)
+Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
 {
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
@@ -469,7 +469,7 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, const hooks::Allocator func
 }
 
 void
-Tracker::trackDeallocationImpl(void* ptr, size_t size, const hooks::Allocator func)
+Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
 {
     if (RecursionGuard::isActive || !Tracker::isActive()) {
         return;
