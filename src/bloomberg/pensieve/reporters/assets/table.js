@@ -1,6 +1,9 @@
-import { humanFileSize } from "./common";
+import { humanFileSize, initMemoryGraph, resizeMemoryGraph } from "./common";
+window.resizeMemoryGraph = resizeMemoryGraph;
 
 function main() {
+  initMemoryGraph(memory_records);
+
   const columns = [
     {
       title: "Thread ID",
@@ -49,3 +52,4 @@ function main() {
 }
 
 document.addEventListener("DOMContentLoaded", main);
+resizeMemoryGraph();

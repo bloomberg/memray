@@ -11,6 +11,7 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
+from bloomberg.pensieve import MemoryRecord
 from bloomberg.pensieve._errors import PensieveCommandError
 from bloomberg.pensieve._pensieve import AllocationRecord
 from bloomberg.pensieve._pensieve import FileReader
@@ -19,7 +20,11 @@ from bloomberg.pensieve.reporters import BaseReporter
 
 class ReporterFactory(Protocol):
     def __call__(
-        self, allocations: Iterable[AllocationRecord], *, native_traces: bool
+        self,
+        allocations: Iterable[AllocationRecord],
+        *,
+        memory_records: Iterable[MemoryRecord],
+        native_traces: bool,
     ) -> BaseReporter:
         ...
 
@@ -77,8 +82,11 @@ class HighWatermarkCommand:
                 snapshot = reader.get_high_watermark_allocation_records(
                     merge_threads=merge_threads if merge_threads is not None else True
                 )
+            memory_records = tuple(reader.get_memory_records())
             reporter = self.reporter_factory(
-                snapshot, native_traces=reader.has_native_traces
+                snapshot,
+                memory_records=memory_records,
+                native_traces=reader.has_native_traces,
             )
         except OSError as e:
             raise PensieveCommandError(

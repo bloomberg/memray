@@ -1,5 +1,72 @@
 import _ from "lodash";
 
+export function initMemoryGraph(memory_records) {
+  const x = memory_records.map((a) => new Date(a[0]));
+  const y = memory_records.map((a) => a[1]);
+
+  var trace = {
+    x,
+    y,
+    mode: "lines",
+  };
+
+  var data = [trace];
+
+  var layout = {
+    xaxis: {
+      title: {
+        text: "Time",
+      },
+    },
+    yaxis: {
+      title: {
+        text: "Resident Size",
+      },
+      tickformat: ".4~s",
+      exponentformat: "B",
+      ticksuffix: "B",
+    },
+  };
+
+  var layout_small = {
+    height: 40,
+    margin: {
+      l: 0,
+      r: 0,
+      b: 0,
+      t: 0,
+      pad: 4,
+    },
+    plot_bgcolor: "#343a40", // this matches the color of bg-dark in our navbar
+    yaxis: {
+      tickformat: ".4~s",
+      exponentformat: "B",
+      ticksuffix: "B",
+    },
+  };
+  var config = {
+    responsive: true,
+  };
+  var config_small = {
+    responsive: true,
+    displayModeBar: false,
+  };
+
+  Plotly.newPlot("memoryGraph", data, layout, config);
+  Plotly.newPlot("smallMemoryGraph", data, layout_small, config_small);
+
+  document.getElementById("smallMemoryGraph").onclick(() => {
+    resizeMemoryGraph();
+  });
+}
+
+export function resizeMemoryGraph() {
+  setTimeout(() => {
+    Plotly.Plots.resize("memoryGraph");
+    Plotly.Plots.resize("smallMemoryGraph");
+  }, 100);
+}
+
 export function humanFileSize(bytes, dp = 1) {
   if (Math.abs(bytes) < 1024) {
     return bytes + " B";

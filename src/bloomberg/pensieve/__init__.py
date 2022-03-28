@@ -4,6 +4,7 @@ from ._pensieve import AllocatorType
 from ._pensieve import Destination
 from ._pensieve import FileDestination
 from ._pensieve import FileReader
+from ._pensieve import MemoryRecord
 from ._pensieve import SocketDestination
 from ._pensieve import SocketReader
 from ._pensieve import Tracker
@@ -15,6 +16,7 @@ from ._version import __version__
 __all__ = [
     "AllocationRecord",
     "AllocatorType",
+    "MemoryRecord",
     "dump_all_records",
     "start_thread_trace",
     "Tracker",

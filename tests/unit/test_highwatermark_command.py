@@ -161,10 +161,13 @@ class TestReportGeneration:
             )
 
         # THEN
-        assert reader_mock.mock_calls == [
+        calls = [
             call(os.fspath(result_path)),
             call().get_high_watermark_allocation_records(merge_threads=merge_threads),
+            call().get_memory_records(),
         ]
+        reader_mock.assert_has_calls(calls)
+
         reporter_factory_mock.assert_called_once()
         reporter_factory_mock().render.assert_called_once()
 
@@ -186,9 +189,12 @@ class TestReportGeneration:
             )
 
         # THEN
-        assert reader_mock.mock_calls == [
+        calls = [
             call(os.fspath(result_path)),
             call().get_leaked_allocation_records(merge_threads=merge_threads),
+            call().get_memory_records(),
         ]
+        reader_mock.assert_has_calls(calls)
+
         reporter_factory_mock.assert_called_once()
         reporter_factory_mock().render.assert_called_once()
