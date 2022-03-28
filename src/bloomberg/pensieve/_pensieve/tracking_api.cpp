@@ -2,6 +2,7 @@
 #include <limits.h>
 #include <link.h>
 #include <mutex>
+#include <type_traits>
 #include <unistd.h>
 #include <utility>
 
@@ -88,13 +89,13 @@ thread_id()
 // once for the vector that had been created before the thread died and the
 // pthread struct was reused).
 //
-// To prevent that, we guard all accesses of the vector by first checking
-// a bool that tells us whether the vector has been constructed and not yet
-// destroyed. This bool is set from the constructor that creates the vector,
-// and unset from the destructor that destroys the vector.
+// To prevent that, we only create the vector in one method (pushPythonFrame).
+// All other methods access a pointer called `d_stack` that is set to the TLS
+// stack when it is created by pushPythonFrame, and set to a null pointer when
+// the TLS stack is destroyed.
 //
-// This can result in the bool being constructed during thread teardown, but
-// that doesn't cause the same problem because bool has a trivial destructor.
+// This can result in this class being constructed during thread teardown, but
+// that doesn't cause the same problem because it has a trivial destructor.
 class PythonStackTracker
 {
   private:
@@ -105,78 +106,56 @@ class PythonStackTracker
         bool emitted;
     };
 
-    struct PythonStackTrackerState
-    {
-        std::vector<LazilyEmittedFrame> stack;
-
-        PythonStackTrackerState()
-        {
-            const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
-            stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
-            stack_constructed = true;
-        }
-
-        ~PythonStackTrackerState()
-        {
-            stack_constructed = false;
-        }
-    };
-
   public:
-    static void reset(PyFrameObject* current_frame);
-    static void emitPendingPops();
-    static void emitPendingPushes();
-    static int getCurrentPythonLineNumber();
-    static void pushPythonFrame(
+    void reset(PyFrameObject* current_frame);
+    void emitPendingPops();
+    void emitPendingPushes();
+    int getCurrentPythonLineNumber();
+    void pushPythonFrame(
             PyFrameObject* frame,
             const char* function,
             const char* file_name,
             int parent_lineno);
-    static void popPythonFrame();
-    static void resetInChildProcess() noexcept;
+    void popPythonFrame();
+    void resetInChildProcess() noexcept;
 
   private:
-    PENSIEVE_FAST_TLS static thread_local uint32_t num_pending_pops;
-    PENSIEVE_FAST_TLS static thread_local PyFrameObject* entry_frame;
-    PENSIEVE_FAST_TLS static thread_local bool stack_constructed;
-    PENSIEVE_FAST_TLS static thread_local PythonStackTrackerState stack_holder;
+    uint32_t d_num_pending_pops{};
+    PyFrameObject* d_entry_frame{};
+    std::vector<LazilyEmittedFrame>* d_stack{};
 };
 
-PENSIEVE_FAST_TLS thread_local uint32_t PythonStackTracker::num_pending_pops{};
-PENSIEVE_FAST_TLS thread_local PyFrameObject* PythonStackTracker::entry_frame{};
-PENSIEVE_FAST_TLS thread_local bool PythonStackTracker::stack_constructed{};
-PENSIEVE_FAST_TLS thread_local PythonStackTracker::PythonStackTrackerState
-        PythonStackTracker::stack_holder{};
+// See giant comment above.
+static_assert(std::is_trivially_destructible<PythonStackTracker>::value);
+PENSIEVE_FAST_TLS thread_local PythonStackTracker t_python_stack_tracker;
 
 void
 PythonStackTracker::reset(PyFrameObject* current_frame)
 {
-    entry_frame = current_frame;
-    if (stack_constructed) {
-        stack_holder.stack.clear();
+    d_entry_frame = current_frame;
+    if (d_stack) {
+        d_stack->clear();
     }
 }
 
 inline void
 PythonStackTracker::emitPendingPops()
 {
-    Tracker::getTracker()->popFrames(num_pending_pops);
-    num_pending_pops = 0;
+    Tracker::getTracker()->popFrames(d_num_pending_pops);
+    d_num_pending_pops = 0;
 }
 
 void
 PythonStackTracker::emitPendingPushes()
 {
-    if (!stack_constructed) {
+    if (!d_stack) {
         return;
     }
 
     auto last_emitted_rit =
-            std::find_if(stack_holder.stack.rbegin(), stack_holder.stack.rend(), [](auto& f) {
-                return f.emitted;
-            });
+            std::find_if(d_stack->rbegin(), d_stack->rend(), [](auto& f) { return f.emitted; });
 
-    for (auto to_emit = last_emitted_rit.base(); to_emit != stack_holder.stack.end(); to_emit++) {
+    for (auto to_emit = last_emitted_rit.base(); to_emit != d_stack->end(); to_emit++) {
         if (!Tracker::getTracker()->pushFrame(to_emit->raw_frame_record)) {
             break;
         }
@@ -187,10 +166,9 @@ PythonStackTracker::emitPendingPushes()
 inline int
 PythonStackTracker::getCurrentPythonLineNumber()
 {
-    assert(entry_frame == nullptr || Py_REFCNT(entry_frame) > 0);
+    assert(d_entry_frame == nullptr || Py_REFCNT(d_entry_frame) > 0);
     PyFrameObject* the_python_stack =
-            (stack_constructed && !stack_holder.stack.empty() ? stack_holder.stack.back().frame
-                                                              : entry_frame);
+            (d_stack && !d_stack->empty() ? d_stack->back().frame : d_entry_frame);
     return the_python_stack ? PyFrame_GetLineNumber(the_python_stack) : 0;
 }
 
@@ -201,21 +179,39 @@ PythonStackTracker::pushPythonFrame(
         const char* filename,
         int parent_lineno)
 {
-    // Note: This will cause stack_constructed to become true if it isn't already.
-    stack_holder.stack.push_back({frame, {function, filename, parent_lineno}, false});
+    struct StackCreator
+    {
+        std::vector<LazilyEmittedFrame> stack;
+
+        StackCreator()
+        {
+            const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
+            stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
+            t_python_stack_tracker.d_stack = &stack;
+        }
+        ~StackCreator()
+        {
+            t_python_stack_tracker.d_stack = nullptr;
+        }
+    };
+
+    PENSIEVE_FAST_TLS static thread_local StackCreator t_stack_creator;
+
+    t_stack_creator.stack.push_back({frame, {function, filename, parent_lineno}, false});
+    assert(d_stack);  // The above call sets d_stack if it wasn't already set.
 }
 
 void
 PythonStackTracker::popPythonFrame()
 {
-    if (stack_constructed && !stack_holder.stack.empty()) {
-        if (stack_holder.stack.back().emitted) {
-            num_pending_pops += 1;
-            assert(num_pending_pops != 0);  // Ensure we didn't overflow.
+    if (d_stack && !d_stack->empty()) {
+        if (d_stack->back().emitted) {
+            d_num_pending_pops += 1;
+            assert(d_num_pending_pops != 0);  // Ensure we didn't overflow.
         }
-        stack_holder.stack.pop_back();
+        d_stack->pop_back();
 
-        if (stack_holder.stack.empty()) {
+        if (d_stack->empty()) {
             // Every frame we've pushed has been popped. Emit pending pops now
             // in case the thread is exiting and we don't get another chance.
             emitPendingPops();
@@ -224,7 +220,7 @@ PythonStackTracker::popPythonFrame()
         // If we have reached the top of the stack it means that we are returning
         // to frames that we never saw being pushed in the first place, so we need
         // to unset the entry frame to avoid incorrectly using it once is freed.
-        entry_frame = nullptr;
+        d_entry_frame = nullptr;
     }
 }
 
@@ -232,10 +228,10 @@ void
 PythonStackTracker::resetInChildProcess() noexcept
 {
     // Nothing has been emitted to the output file in this child process yet.
-    num_pending_pops = 0;
-    if (stack_constructed) {
-        for (auto& e : stack_holder.stack) {
-            e.emitted = false;
+    d_num_pending_pops = 0;
+    if (d_stack) {
+        for (auto it = d_stack->begin(); it != d_stack->end(); it++) {
+            it->emitted = false;
         }
     }
 }
@@ -288,7 +284,7 @@ Tracker::~Tracker()
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
     d_background_thread->stop();
-    PythonStackTracker::reset(nullptr);
+    t_python_stack_tracker.reset(nullptr);
     d_patcher.restore_symbols();
     d_writer->writeHeader(true);
     d_writer.reset();
@@ -401,7 +397,7 @@ void
 Tracker::childFork()
 {
     // Reset thread-local state.
-    PythonStackTracker::resetInChildProcess();
+    t_python_stack_tracker.resetInChildProcess();
 
     // Intentionally leak any old tracker. Its destructor cannot be called,
     // because it would try to destroy mutexes that might be locked by threads
@@ -446,10 +442,10 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, const hooks::Allocator func
         return;
     }
     RecursionGuard guard;
-    int lineno = PythonStackTracker::getCurrentPythonLineNumber();
+    int lineno = t_python_stack_tracker.getCurrentPythonLineNumber();
 
-    PythonStackTracker::emitPendingPops();
-    PythonStackTracker::emitPendingPushes();
+    t_python_stack_tracker.emitPendingPops();
+    t_python_stack_tracker.emitPendingPushes();
 
     size_t native_index = 0;
     if (d_unwind_native_frames) {
@@ -479,10 +475,10 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, const hooks::Allocator fu
         return;
     }
     RecursionGuard guard;
-    int lineno = PythonStackTracker::getCurrentPythonLineNumber();
+    int lineno = t_python_stack_tracker.getCurrentPythonLineNumber();
 
-    PythonStackTracker::emitPendingPops();
-    PythonStackTracker::emitPendingPushes();
+    t_python_stack_tracker.emitPendingPops();
+    t_python_stack_tracker.emitPendingPushes();
 
     AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, 0};
     if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
@@ -684,13 +680,13 @@ PyTraceFunction(
                 return -1;
             }
 
-            int parent_lineno = PythonStackTracker::getCurrentPythonLineNumber();
+            int parent_lineno = t_python_stack_tracker.getCurrentPythonLineNumber();
 
-            PythonStackTracker::pushPythonFrame(frame, function, filename, parent_lineno);
+            t_python_stack_tracker.pushPythonFrame(frame, function, filename, parent_lineno);
             break;
         }
         case PyTrace_RETURN: {
-            PythonStackTracker::popPythonFrame();
+            t_python_stack_tracker.popPythonFrame();
             break;
         }
         default:
@@ -711,7 +707,7 @@ install_trace_function()
         return;
     }
     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
-    PythonStackTracker::reset(PyEval_GetFrame());
+    t_python_stack_tracker.reset(PyEval_GetFrame());
 }
 
 }  // namespace pensieve::tracking_api
