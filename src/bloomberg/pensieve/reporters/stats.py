@@ -89,13 +89,8 @@ def get_histogram_databins(data: List[int], bins: int) -> List[Tuple[int, int]]:
     it = map(math.log, filter(lambda number: number != 0, data))
     step = ((high - low) / bins) or low
 
-    steps = []
-    x = low + step
-    while x <= high:
-        # real value in bytes instead of log value for histogram
-        steps.append(int(math.exp(x)))
-        x += step
-
+    # Determine the upper bound in bytes for each bin
+    steps = [int(math.exp(low + step * (i + 1))) for i in range(bins)]
     dist = Counter((x - low) // step for x in it)
     return [(steps[b], dist[b]) for b in range(bins)]
 
