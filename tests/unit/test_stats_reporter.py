@@ -242,6 +242,38 @@ def test_get_histogram_databins():
     assert expected_output == actual_output
 
 
+def test_get_histogram_databins_rounding():
+    """Data chosen to provoke a floating point rounding error.
+
+    In particular, so that:
+
+        log(low) + sum([(log(high) - log(low)) / bins] * bins) > log(high)
+    """
+    # GIVEN
+    input_data = [
+        32,
+        1050856,
+    ]
+    expected_output = [
+        (90, 1),
+        (256, 0),
+        (724, 0),
+        (2049, 0),
+        (5798, 0),
+        (16405, 0),
+        (46411, 0),
+        (131299, 0),
+        (371453, 0),
+        (1050856, 1),
+    ]
+
+    # WHEN
+    actual_output = get_histogram_databins(input_data, bins=10)
+
+    # THEN
+    assert expected_output == actual_output
+
+
 def test_get_histogram_databins_invalid_bins():
     with pytest.raises(ValueError):
         _ = get_histogram_databins([], bins=0)  # invalid bins value
