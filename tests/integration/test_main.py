@@ -33,6 +33,19 @@ def simple_test_file(tmp_path):
     yield code_file
 
 
+@pytest.fixture
+def test_file_returns_from_fork(tmp_path):
+    code_file = tmp_path / "code.py"
+    program = textwrap.dedent(
+        """\
+        import os
+        os.fork()
+        """
+    )
+    code_file.write_text(program)
+    yield code_file
+
+
 @contextlib.contextmanager
 def track_and_wait(output_dir, sleep_after=100):
     """Creates a test script which does some allocations, and upon leaving the context manager,
@@ -285,6 +298,31 @@ class TestRunSubcommand:
             assert str(out_file) not in proc.stdout
         else:
             assert str(out_file) in proc.stdout
+
+    def test_not_quiet_and_fork(self, tmp_path, test_file_returns_from_fork):
+        # GIVEN
+        out_file = tmp_path / "result.bin"
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "bloomberg.pensieve",
+                "run",
+                "--output",
+                str(out_file),
+                str(test_file_returns_from_fork),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 0
+        assert out_file.exists()
+        assert proc.stdout.count("Some example commands to generate reports") == 1
 
 
 class TestParseSubcommand:

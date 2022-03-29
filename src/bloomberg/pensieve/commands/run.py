@@ -47,13 +47,14 @@ def _run_tracker(
 
     with tracker:
         sys.argv[1:] = args.script_args
+        pid = os.getpid()
         try:
             if args.run_as_module:
                 runpy.run_module(args.script, run_name="__main__", alter_sys=True)
             else:
                 runpy.run_path(args.script, run_name="__main__")
         finally:
-            if not args.quiet and post_run_message is not None:
+            if not args.quiet and post_run_message is not None and pid == os.getpid():
                 print(post_run_message)
 
 
