@@ -98,7 +98,11 @@ def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
     assert len(vallocs) == 1
     (valloc,) = vallocs
 
-    assert len(valloc.stack_trace()) == 0
+    (python_stack_trace,) = valloc.stack_trace()
+    func, filename, line = python_stack_trace
+    assert func == "test_simple_call_chain_with_native_tracking"
+    assert filename.endswith(__file__)
+
     expected_symbols = ["baz", "bar", "foo"]
     assert expected_symbols == [stack[0] for stack in valloc.native_stack_trace()[:3]]
 
@@ -135,7 +139,11 @@ def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
     assert len(vallocs) == 1
     (valloc,) = vallocs
 
-    assert len(valloc.stack_trace()) == 0
+    (python_stack_trace,) = valloc.stack_trace()
+    func, filename, line = python_stack_trace
+    assert func == "test_inlined_call_chain_with_native_tracking"
+    assert filename.endswith(__file__)
+
     expected_symbols = ["baz_inline", "bar_inline", "foo_inline"]
     assert expected_symbols == [stack[0] for stack in valloc.native_stack_trace()[:3]]
 
@@ -173,7 +181,11 @@ def test_deep_call_chain_with_native_tracking(tmpdir, monkeypatch):
     assert len(vallocs) == 1
     (valloc,) = vallocs
 
-    assert len(valloc.stack_trace()) == 0
+    (python_stack_trace,) = valloc.stack_trace()
+    func, filename, line = python_stack_trace
+    assert func == "test_deep_call_chain_with_native_tracking"
+    assert filename.endswith(__file__)
+
     expected_symbols = ["baz", "bar", "foo"]
     native_stack = tuple(valloc.native_stack_trace())
     assert len(native_stack) > 2048
@@ -215,7 +227,7 @@ def test_hybrid_stack_in_pure_python(tmpdir):
     # already have it in as a native information
     assert (
         hybrid_stack.count("recursive_func")
-        == len(valloc.stack_trace()) - 1
+        == len(valloc.stack_trace()) - 2
         == MAX_RECURSIONS
     )
     assert (
@@ -225,7 +237,7 @@ def test_hybrid_stack_in_pure_python(tmpdir):
     )
 
     # The hybrid stack trace must run until the latest python function seen by the tracker
-    assert hybrid_stack[-1] == "recursive_func"
+    assert hybrid_stack[-1] == "test_hybrid_stack_in_pure_python"
 
 
 def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
@@ -269,10 +281,12 @@ def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
     assert hybrid_stack.count("callback") == MAX_RECURSIONS
     assert (
         sum(1 if "run_recursive" in elem else 0 for elem in hybrid_stack)
-        == MAX_RECURSIONS
+        == MAX_RECURSIONS + 1
     )
 
-    assert hybrid_stack.count("callback") == len(valloc.stack_trace()) == MAX_RECURSIONS
+    assert hybrid_stack.count("callback") == MAX_RECURSIONS
+    assert len(valloc.stack_trace()) == MAX_RECURSIONS + 1
+    assert valloc.stack_trace()[-1][0] == "test_hybrid_stack_in_recursive_python_c_call"
     assert (
         len(valloc.stack_trace())
         <= len(hybrid_stack)
@@ -280,7 +294,7 @@ def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
     )
 
     # The hybrid stack trace must run until the latest python function seen by the tracker
-    assert hybrid_stack[-1] == "callback"
+    assert hybrid_stack[-1] == "test_hybrid_stack_in_recursive_python_c_call"
 
 
 def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):

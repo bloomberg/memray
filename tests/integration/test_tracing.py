@@ -53,10 +53,11 @@ def test_traceback(tmpdir):
     assert len(allocs) == 1
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
-    assert traceback[-3:] == [
+    assert traceback[-4:] == [
         ("alloc_func3", __file__, 18),
         ("alloc_func2", __file__, 27),
         ("alloc_func1", __file__, 34),
+        ("test_traceback", __file__, 47),
     ]
     frees = [
         record
@@ -66,10 +67,11 @@ def test_traceback(tmpdir):
     assert len(frees) == 1
     (free,) = frees
     traceback = list(free.stack_trace())
-    assert traceback[-3:] == [
+    assert traceback[-4:] == [
         ("alloc_func3", __file__, 20),
         ("alloc_func2", __file__, 27),
         ("alloc_func1", __file__, 34),
+        ("test_traceback", __file__, 47),
     ]
 
 
@@ -90,10 +92,11 @@ def test_traceback_for_high_watermark(tmpdir):
     assert len(allocs) == 1
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
-    assert traceback[-3:] == [
+    assert traceback[-4:] == [
         ("alloc_func3", __file__, 18),
         ("alloc_func2", __file__, 27),
         ("alloc_func1", __file__, 34),
+        ("test_traceback_for_high_watermark", __file__, 86),
     ]
 
 
@@ -145,11 +148,13 @@ def test_cython_traceback(tmpdir):
     assert traceback[-3:] == [
         ("valloc", ANY, 112),
         ("_cython_nested_allocation", ANY, 130),
+        ("test_cython_traceback", ANY, 137),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
         ("_cython_nested_allocation", ANY, 130),
+        ("test_cython_traceback", ANY, 137),
     ]
 
     frees = [
@@ -162,6 +167,7 @@ def test_cython_traceback(tmpdir):
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
         ("_cython_nested_allocation", ANY, 130),
+        ("test_cython_traceback", ANY, 137),
     ]
 
 
@@ -285,9 +291,10 @@ def test_initial_tracking_frames_are_correctly_populated(tmpdir):
     assert len(allocs) == 1
     (alloc,) = allocs
     traceback = [frame[0] for frame in alloc.stack_trace()]
-    assert traceback[-3:] == [
+    assert traceback[-4:] == [
         "valloc",
         "foo",
+        "test_initial_tracking_frames_are_correctly_populated",
     ]
 
 
@@ -323,10 +330,11 @@ def test_restart_tracing_function_gets_correctly_the_frames(tmpdir):
     assert len(allocs) == 1
     (alloc,) = allocs
     traceback = [frame[0] for frame in alloc.stack_trace()]
-    assert traceback[-4:] == [
+    assert traceback[-5:] == [
         "valloc",
         "foo",
         "bar",
+        "test_restart_tracing_function_gets_correctly_the_frames",
     ]
 
 
@@ -399,9 +407,11 @@ def test_identical_stack_traces_started_in_different_lines_in_the_root_do_not_co
     first_alloc1, first_alloc2, second_alloc1, second_alloc2 = allocs
 
     assert first_alloc1.stack_id != second_alloc1.stack_id
-    assert first_alloc1.stack_trace() == second_alloc1.stack_trace()
+    assert first_alloc1.stack_trace()[:-1] == second_alloc1.stack_trace()[:-1]
+    assert first_alloc1.stack_trace()[-1] != second_alloc1.stack_trace()[-1]
     assert first_alloc2.stack_id != second_alloc2.stack_id
-    assert first_alloc2.stack_trace() == second_alloc2.stack_trace()
+    assert first_alloc2.stack_trace()[:-1] == second_alloc2.stack_trace()[:-1]
+    assert first_alloc2.stack_trace()[-1] != second_alloc2.stack_trace()[-1]
 
     assert first_alloc1.stack_id != first_alloc2.stack_id
     assert second_alloc1.stack_id != second_alloc2.stack_id
