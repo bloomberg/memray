@@ -86,7 +86,7 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyraw
     d_stats.n_frames += 1;
     return writeSimpleType(token) && writeSimpleType(item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
-           && writeSimpleType(item.second.parent_lineno);
+           && writeSimpleType(item.second.lineno);
 }
 
 template<>

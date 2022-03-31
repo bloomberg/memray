@@ -155,8 +155,8 @@ RecordReader::parseFrameIndex()
         || !d_input->getline(pyframe_val.second.function_name, '\0')
         || !d_input->getline(pyframe_val.second.filename, '\0')
         || !d_input->read(
-                reinterpret_cast<char*>(&pyframe_val.second.parent_lineno),
-                sizeof(pyframe_val.second.parent_lineno)))
+                reinterpret_cast<char*>(&pyframe_val.second.lineno),
+                sizeof(pyframe_val.second.lineno)))
     {
         return false;
     }
@@ -261,32 +261,12 @@ RecordReader::parseMemoryRecord()
 size_t
 RecordReader::getAllocationFrameIndex(const AllocationRecord& record)
 {
-    auto stack = d_stack_traces.find(record.tid);
-    if (stack == d_stack_traces.end()) {
+    auto it = d_stack_traces.find(record.tid);
+    if (it == d_stack_traces.end()) {
         return 0;
     }
-    correctAllocationFrame(stack->second, record.py_lineno);
-    return d_tree.getTraceIndex(stack->second);
-}
-
-void
-RecordReader::correctAllocationFrame(stack_t& stack, int lineno)
-{
-    if (stack.empty()) {
-        return;
-    }
-    const Frame& partial_frame = d_frame_map.at(stack.back());
-    Frame allocation_frame{
-            partial_frame.function_name,
-            partial_frame.filename,
-            partial_frame.parent_lineno,
-            lineno};
-    auto [allocation_index, is_new_frame] = d_allocation_frames.getIndex(allocation_frame);
-    if (is_new_frame) {
-        std::lock_guard<std::mutex> lock(d_mutex);
-        d_frame_map.emplace(allocation_index, allocation_frame);
-    }
-    stack.back() = allocation_index;
+    auto& stack = it->second;
+    return d_tree.getTraceIndex(stack);
 }
 
 RecordReader::RecordResult
@@ -379,11 +359,10 @@ RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
         return nullptr;
     }
 
-    int current_lineno = -1;
     while (current_index != 0 && stacks_obtained++ != max_stacks) {
         auto node = d_tree.nextNode(current_index);
         const auto& frame = d_frame_map.at(node.frame_id);
-        PyObject* pyframe = frame.toPythonObject(d_pystring_cache, current_lineno);
+        PyObject* pyframe = frame.toPythonObject(d_pystring_cache);
         if (pyframe == nullptr) {
             goto error;
         }
@@ -393,7 +372,6 @@ RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
             goto error;
         }
         current_index = node.parent_index;
-        current_lineno = frame.parent_lineno;
     }
     return list;
 error:
@@ -537,13 +515,11 @@ RecordReader::dumpAllRecords()
                     allocator = unknownAllocator.c_str();
                 }
 
-                printf("tid=%lu address=%p size=%zd allocator=%s"
-                       " py_lineno=%d native_frame_id=%zd\n",
+                printf("tid=%lu address=%p size=%zd allocator=%s native_frame_id=%zd\n",
                        record.tid,
                        (void*)record.address,
                        record.size,
                        allocator,
-                       record.py_lineno,
                        record.native_frame_id);
             } break;
             case RecordType::FRAME_PUSH: {
@@ -574,17 +550,17 @@ RecordReader::dumpAllRecords()
                     || !d_input->getline(record.second.function_name, '\0')
                     || !d_input->getline(record.second.filename, '\0')
                     || !d_input->read(
-                            reinterpret_cast<char*>(&record.second.parent_lineno),
-                            sizeof(record.second.parent_lineno)))
+                            reinterpret_cast<char*>(&record.second.lineno),
+                            sizeof(record.second.lineno)))
                 {
                     Py_RETURN_NONE;
                 }
 
-                printf("frame_id=%zd function_name=%s filename=%s parent_lineno=%d\n",
+                printf("frame_id=%zd function_name=%s filename=%s lineno=%d\n",
                        record.first,
                        record.second.function_name.c_str(),
                        record.second.filename.c_str(),
-                       record.second.parent_lineno);
+                       record.second.lineno);
             } break;
             case RecordType::NATIVE_TRACE_INDEX: {
                 printf("NATIVE_FRAME_ID ");

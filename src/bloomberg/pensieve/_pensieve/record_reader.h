@@ -86,7 +86,6 @@ class RecordReader
     [[nodiscard]] bool parseThreadRecord();
     [[nodiscard]] bool parseMemoryRecord();
 
-    void correctAllocationFrame(stack_t& stack, int lineno);
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
 

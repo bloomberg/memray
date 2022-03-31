@@ -52,7 +52,7 @@ Allocation::toPythonObject() const
 }
 
 PyObject*
-Frame::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache, int the_lineno) const
+Frame::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const
 {
     PyObject* pyfunction_name = pystring_cache.getUnicodeObject(function_name);
     if (pyfunction_name == nullptr) {
@@ -62,7 +62,7 @@ Frame::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache, int the_l
     if (pyfilename == nullptr) {
         return nullptr;
     }
-    PyObject* pylineno = PyLong_FromLong(the_lineno != -1 ? the_lineno : this->lineno);
+    PyObject* pylineno = PyLong_FromLong(this->lineno);
     if (pylineno == nullptr) {
         return nullptr;
     }

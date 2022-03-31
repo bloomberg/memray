@@ -111,6 +111,7 @@ class PythonStackTracker
     void emitPendingPops();
     void emitPendingPushes();
     int getCurrentPythonLineNumber();
+    void setMostRecentFrameLineNumber(int lineno);
     int pushPythonFrame(PyFrameObject* frame);
     void popPythonFrame();
     void resetInChildProcess() noexcept;
@@ -171,6 +172,22 @@ PythonStackTracker::getCurrentPythonLineNumber()
     return 0;
 }
 
+void
+PythonStackTracker::setMostRecentFrameLineNumber(int lineno)
+{
+    if (!d_stack || d_stack->empty() || d_stack->back().raw_frame_record.lineno == lineno) {
+        return;
+    }
+
+    d_stack->back().raw_frame_record.lineno = lineno;
+    if (d_stack->back().emitted) {
+        // If it was already emitted with an old line number, pop that frame
+        // and re-emit it with the new line number.
+        d_num_pending_pops += 1;
+        d_stack->back().emitted = false;
+    }
+}
+
 int
 PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
@@ -202,9 +219,9 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
         }
     };
 
+    setMostRecentFrameLineNumber(parent_lineno);
     PENSIEVE_FAST_TLS static thread_local StackCreator t_stack_creator;
-
-    t_stack_creator.stack.push_back({frame, {function, filename, parent_lineno}, false});
+    t_stack_creator.stack.push_back({frame, {function, filename, 0}, false});
     assert(d_stack);  // The above call sets d_stack if it wasn't already set.
     return 0;
 }
@@ -447,6 +464,7 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
     RecursionGuard guard;
     int lineno = t_python_stack_tracker.getCurrentPythonLineNumber();
 
+    t_python_stack_tracker.setMostRecentFrameLineNumber(lineno);
     t_python_stack_tracker.emitPendingPops();
     t_python_stack_tracker.emitPendingPushes();
 
@@ -463,8 +481,7 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
         }
     }
 
-    AllocationRecord
-            record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, native_index};
+    AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
     if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
         deactivate();
@@ -480,10 +497,11 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
     RecursionGuard guard;
     int lineno = t_python_stack_tracker.getCurrentPythonLineNumber();
 
+    t_python_stack_tracker.setMostRecentFrameLineNumber(lineno);
     t_python_stack_tracker.emitPendingPops();
     t_python_stack_tracker.emitPendingPushes();
 
-    AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, lineno, 0};
+    AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, 0};
     if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
         deactivate();
