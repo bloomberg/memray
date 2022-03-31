@@ -299,10 +299,10 @@ def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):
     # WHEN
     with monkeypatch.context() as ctx:
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
-        from native_ext import run_simple
+        from native_ext import run_in_thread
 
         with Tracker(output, native_traces=True):
-            run_simple()
+            run_in_thread()
 
     # THEN
     records = list(FileReader(output).get_allocation_records())
