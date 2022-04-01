@@ -320,4 +320,26 @@ SocketSink::open()
     d_socket_open = true;
 }
 
+NullSink::~NullSink()
+{
+}
+
+bool
+NullSink::writeAll(const char*, size_t)
+{
+    return true;
+}
+
+bool
+NullSink::seek(off_t, int)
+{
+    return true;
+}
+
+std::unique_ptr<Sink>
+NullSink::cloneInChildProcess()
+{
+    return std::make_unique<NullSink>();
+}
+
 }  // namespace pensieve::io

@@ -77,4 +77,13 @@ class SocketSink : public Sink
     char* d_bufferNeedle{nullptr};
 };
 
+class NullSink : public Sink
+{
+  public:
+    ~NullSink() override;
+    bool writeAll(const char* data, size_t length) override;
+    bool seek(off_t offset, int whence) override;
+    std::unique_ptr<Sink> cloneInChildProcess() override;
+};
+
 }  // namespace pensieve::io

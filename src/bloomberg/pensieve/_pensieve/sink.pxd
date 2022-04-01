@@ -12,3 +12,6 @@ cdef extern from "sink.h" namespace "pensieve::io":
 
     cdef cppclass SocketSink(Sink):
         SocketSink(string host, unsigned int port) except +IOError
+
+    cdef cppclass NullSink(Sink):
+        NullSink() except +IOError

@@ -1,4 +1,5 @@
 import collections
+import contextlib
 import os
 import pathlib
 import sys
@@ -32,6 +33,7 @@ from _pensieve.record_reader cimport RecordResult
 from _pensieve.record_writer cimport RecordWriter
 from _pensieve.records cimport Allocation as NativeAllocation
 from _pensieve.sink cimport FileSink
+from _pensieve.sink cimport NullSink
 from _pensieve.sink cimport Sink
 from _pensieve.sink cimport SocketSink
 from _pensieve.snapshot cimport HighWatermark
@@ -321,6 +323,13 @@ cdef class Tracker:
         # Creating a Sink can raise Python exceptions (if is interrupted by signal
         # handlers). If this happens, this method will propagate the appropriate exception.
         if isinstance(destination, FileDestination):
+            is_dev_null = False
+            with contextlib.suppress(OSError):
+                if pathlib.Path("/dev/null").samefile(destination.path):
+                    is_dev_null = True
+
+            if is_dev_null:
+                return unique_ptr[Sink](new NullSink())
             return unique_ptr[Sink](new FileSink(os.fsencode(destination.path), destination.exist_ok))
 
         elif isinstance(destination, SocketDestination):
