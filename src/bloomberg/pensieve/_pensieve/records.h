@@ -14,7 +14,7 @@
 namespace pensieve::tracking_api {
 
 const char MAGIC[] = "pensieve";
-const int CURRENT_HEADER_VERSION = 5;
+const int CURRENT_HEADER_VERSION = 6;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
@@ -72,7 +72,6 @@ struct AllocationRecord
     uintptr_t address;
     size_t size;
     hooks::Allocator allocator;
-    int py_lineno;
     frame_id_t native_frame_id{0};
 };
 
@@ -103,12 +102,12 @@ struct RawFrame
 {
     const char* function_name;
     const char* filename;
-    int parent_lineno;
+    int lineno;
 
     auto operator==(const RawFrame& other) const -> bool
     {
         return (function_name == other.function_name && filename == other.filename
-                && parent_lineno == other.parent_lineno);
+                && lineno == other.lineno);
     }
 
     struct Hash
@@ -126,8 +125,8 @@ struct RawFrame
 
             auto the_func = std::hash<const char*>{}(frame.function_name);
             auto the_filename = std::hash<const char*>{}(frame.filename);
-            auto parent_lineno = std::hash<int>{}(frame.parent_lineno);
-            return the_func ^ the_filename ^ parent_lineno;
+            auto lineno = std::hash<int>{}(frame.lineno);
+            return the_func ^ the_filename ^ lineno;
         }
     };
 };
@@ -136,15 +135,14 @@ struct Frame
 {
     std::string function_name;
     std::string filename;
-    int parent_lineno{0};
     int lineno{0};
 
-    PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache, int the_lineno) const;
+    PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;
 
     auto operator==(const Frame& other) const -> bool
     {
         return (function_name == other.function_name && filename == other.filename
-                && parent_lineno == other.parent_lineno && lineno == other.lineno);
+                && lineno == other.lineno);
     }
 
     struct Hash
@@ -162,9 +160,8 @@ struct Frame
 
             auto the_func = std::hash<std::string>{}(frame.function_name);
             auto the_filename = std::hash<std::string>{}(frame.filename);
-            auto parent_lineno = std::hash<int>{}(frame.parent_lineno);
             auto lineno = std::hash<int>{}(frame.lineno);
-            return the_func ^ the_filename ^ parent_lineno ^ lineno;
+            return the_func ^ the_filename ^ lineno;
         }
     };
 };
