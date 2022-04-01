@@ -1,5 +1,6 @@
 import contextlib
 import os
+import platform
 import pty
 import re
 import signal
@@ -77,10 +78,23 @@ def track_and_wait(output_dir, sleep_after=100):
 
 def _wait_until_process_blocks(pid: int) -> None:
     # Signal numbers from https://filippo.io/linux-syscall-table/
-    sleep_syscall = "35"
-    connect_syscall = "42"
-    accept_syscall = "43"
-    syscalls_to_wait = {sleep_syscall, connect_syscall, accept_syscall}
+    arch = platform.machine()
+    if arch == "x86_64":
+        sleep_syscall = "35"
+        connect_syscall = "42"
+        accept_syscall = "43"
+        clock_nanosleep = "230"
+    elif arch == "aarch64":
+        sleep_syscall = "101"
+        connect_syscall = "203"
+        accept_syscall = "202"
+        clock_nanosleep = "115"
+    else:
+        # No idea what syscalls numbers to wait on, so we will just
+        # sleep for a long enough period and hope for the best
+        time.sleep(1.0)
+        return
+    syscalls_to_wait = {sleep_syscall, clock_nanosleep, connect_syscall, accept_syscall}
     current_syscall = ""
     while True:
         syscall = Path(f"/proc/{pid}/syscall")
