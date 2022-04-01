@@ -111,17 +111,12 @@ class PythonStackTracker
     void emitPendingPops();
     void emitPendingPushes();
     int getCurrentPythonLineNumber();
-    void pushPythonFrame(
-            PyFrameObject* frame,
-            const char* function,
-            const char* file_name,
-            int parent_lineno);
+    int pushPythonFrame(PyFrameObject* frame);
     void popPythonFrame();
     void resetInChildProcess() noexcept;
 
   private:
     uint32_t d_num_pending_pops{};
-    PyFrameObject* d_entry_frame{};
     std::vector<LazilyEmittedFrame>* d_stack{};
 };
 
@@ -132,9 +127,13 @@ PENSIEVE_FAST_TLS thread_local PythonStackTracker t_python_stack_tracker;
 void
 PythonStackTracker::reset(PyFrameObject* current_frame)
 {
-    d_entry_frame = current_frame;
+    d_num_pending_pops = 0;
     if (d_stack) {
         d_stack->clear();
+    }
+
+    if (current_frame && 0 != pushPythonFrame(current_frame)) {
+        PyErr_Clear();  // Nothing to be done about it here.
     }
 }
 
@@ -166,19 +165,27 @@ PythonStackTracker::emitPendingPushes()
 inline int
 PythonStackTracker::getCurrentPythonLineNumber()
 {
-    assert(d_entry_frame == nullptr || Py_REFCNT(d_entry_frame) > 0);
-    PyFrameObject* the_python_stack =
-            (d_stack && !d_stack->empty() ? d_stack->back().frame : d_entry_frame);
-    return the_python_stack ? PyFrame_GetLineNumber(the_python_stack) : 0;
+    if (d_stack && !d_stack->empty()) {
+        return PyFrame_GetLineNumber(d_stack->back().frame);
+    }
+    return 0;
 }
 
-void
-PythonStackTracker::pushPythonFrame(
-        PyFrameObject* frame,
-        const char* function,
-        const char* filename,
-        int parent_lineno)
+int
+PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
+    const char* function = PyUnicode_AsUTF8(frame->f_code->co_name);
+    if (function == nullptr) {
+        return -1;
+    }
+
+    const char* filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
+    if (filename == nullptr) {
+        return -1;
+    }
+
+    int parent_lineno = getCurrentPythonLineNumber();
+
     struct StackCreator
     {
         std::vector<LazilyEmittedFrame> stack;
@@ -199,6 +206,7 @@ PythonStackTracker::pushPythonFrame(
 
     t_stack_creator.stack.push_back({frame, {function, filename, parent_lineno}, false});
     assert(d_stack);  // The above call sets d_stack if it wasn't already set.
+    return 0;
 }
 
 void
@@ -216,11 +224,6 @@ PythonStackTracker::popPythonFrame()
             // in case the thread is exiting and we don't get another chance.
             emitPendingPops();
         }
-    } else {
-        // If we have reached the top of the stack it means that we are returning
-        // to frames that we never saw being pushed in the first place, so we need
-        // to unset the entry frame to avoid incorrectly using it once is freed.
-        d_entry_frame = nullptr;
     }
 }
 
@@ -670,20 +673,7 @@ PyTraceFunction(
 
     switch (what) {
         case PyTrace_CALL: {
-            const char* function = PyUnicode_AsUTF8(frame->f_code->co_name);
-            if (function == nullptr) {
-                return -1;
-            }
-
-            const char* filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
-            if (filename == nullptr) {
-                return -1;
-            }
-
-            int parent_lineno = t_python_stack_tracker.getCurrentPythonLineNumber();
-
-            t_python_stack_tracker.pushPythonFrame(frame, function, filename, parent_lineno);
-            break;
+            return t_python_stack_tracker.pushPythonFrame(frame);
         }
         case PyTrace_RETURN: {
             t_python_stack_tracker.popPythonFrame();

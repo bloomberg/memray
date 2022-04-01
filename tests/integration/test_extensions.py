@@ -167,17 +167,24 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     assert len(stack_trace)
     first_frame, *_, bottom_frame = stack_trace
     func, filename, line = bottom_frame
-    assert func == "foo1"
+    assert func == "test_extension_that_uses_pygilstate_ensure"
     assert filename.endswith(__file__)
-    assert line == 140
+    assert line == 152
 
-    # We should have a single frame here, which is the call to valloc()
-    # and we should not see any call to foo1() or foo2()
+    # We should have 2 frames here: this function calling `allocator.valloc`,
+    # and `allocator.valloc` calling the C `valloc`.
+    # We should not see any call to foo1() or foo2().
     stack_trace = alloc2.stack_trace()
-    assert len(stack_trace) == 1
-    (frame,) = stack_trace
-    func, filename, line = frame
+    assert len(stack_trace) == 2
+    (callee, caller) = stack_trace
+    func, filename, line = callee
     assert func == "valloc"
+    assert filename.endswith(".pyx")
+
+    func, filename, line = caller
+    assert func == "test_extension_that_uses_pygilstate_ensure"
+    assert filename.endswith(__file__)
+    assert line == 153
 
     frees = [
         event
@@ -231,9 +238,9 @@ def test_native_dlopen(tmpdir, monkeypatch):
 
     *_, bottom_frame = stack_trace
     func, filename, line = bottom_frame
-    assert func == "allocating_function"
+    assert func == "test_native_dlopen"
     assert filename.endswith(__file__)
-    assert line == 208
+    assert line == 224
 
     frees = [
         event

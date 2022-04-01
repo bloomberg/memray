@@ -52,6 +52,21 @@ run_inline(PyObject*, PyObject*)
     Py_RETURN_NONE;
 }
 
+void* thread_worker(void*)
+{
+    foo();
+    return nullptr;
+}
+
+PyObject*
+run_in_thread(PyObject*, PyObject*)
+{
+    pthread_t thread;
+    pthread_create(&thread, NULL, &thread_worker, NULL);
+    pthread_join(thread, NULL);
+    Py_RETURN_NONE;
+}
+
 void deep_call(long n) {
     if (n == 0) {
         return foo();
@@ -91,6 +106,7 @@ run_recursive(PyObject*, PyObject* args)
 static PyMethodDef methods[] = {
         {"run_simple", run_simple, METH_NOARGS, "Execute a chain of native functions"},
         {"run_inline", run_inline, METH_NOARGS, "Execute a chain of native inlined_functions"},
+        {"run_in_thread", run_in_thread, METH_NOARGS, "Like run_simple, but in a bg thread"},
         {"run_deep", run_deep, METH_O, "Execute a chain of native inlined functions in a deep stack"},
         {"run_recursive", run_recursive, METH_VARARGS, "Execute a callback if the second argument is bigger than 0"},
         {NULL, NULL, 0, NULL},

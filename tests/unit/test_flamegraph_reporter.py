@@ -261,7 +261,7 @@ class TestFlameGraphReporter:
         assert len(reporter.data["children"]) == 1
 
         child = reporter.data["children"][0]
-        assert child["name"] == "    def valloc(self, size_t size):\n"
+        assert child["name"] == "            allocator.valloc(1024)\n"
 
     def test_works_with_multiple_stacks_from_same_caller_two_frames_above(self):
         # GIVEN
