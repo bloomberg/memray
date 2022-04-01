@@ -462,11 +462,14 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
-    int lineno = t_python_stack_tracker.getCurrentPythonLineNumber();
 
-    t_python_stack_tracker.setMostRecentFrameLineNumber(lineno);
-    t_python_stack_tracker.emitPendingPops();
-    t_python_stack_tracker.emitPendingPushes();
+    // Grab a reference to the TLS variable to guarantee it's only resolved once.
+    auto& python_stack_tracker = t_python_stack_tracker;
+    int lineno = python_stack_tracker.getCurrentPythonLineNumber();
+
+    python_stack_tracker.setMostRecentFrameLineNumber(lineno);
+    python_stack_tracker.emitPendingPops();
+    python_stack_tracker.emitPendingPushes();
 
     size_t native_index = 0;
     if (d_unwind_native_frames) {
@@ -495,11 +498,14 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
-    int lineno = t_python_stack_tracker.getCurrentPythonLineNumber();
 
-    t_python_stack_tracker.setMostRecentFrameLineNumber(lineno);
-    t_python_stack_tracker.emitPendingPops();
-    t_python_stack_tracker.emitPendingPushes();
+    // Grab a reference to the TLS variable to guarantee it's only resolved once.
+    auto& python_stack_tracker = t_python_stack_tracker;
+    int lineno = python_stack_tracker.getCurrentPythonLineNumber();
+
+    python_stack_tracker.setMostRecentFrameLineNumber(lineno);
+    python_stack_tracker.emitPendingPops();
+    python_stack_tracker.emitPendingPushes();
 
     AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, 0};
     if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
