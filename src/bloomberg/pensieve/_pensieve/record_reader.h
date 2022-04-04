@@ -54,7 +54,7 @@ class RecordReader
 
   private:
     // Aliases
-    using stack_t = std::vector<frame_id_t>;
+    using stack_t = std::vector<FrameTree::index_t>;
     using stack_traces_t = std::unordered_map<thread_id_t, stack_t>;
 
     // Private methods

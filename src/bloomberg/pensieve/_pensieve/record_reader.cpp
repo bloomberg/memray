@@ -123,10 +123,13 @@ RecordReader::parseFramePush()
     }
     thread_id_t tid = record.tid;
     auto [it, inserted] = d_stack_traces.emplace(tid, stack_t{});
+    auto& stack = it->second;
     if (inserted) {
-        it->second.reserve(1024);
+        stack.reserve(1024);
     }
-    it->second.push_back(record.frame_id);
+    FrameTree::index_t current_stack_id = stack.empty() ? 0 : stack.back();
+    FrameTree::index_t new_stack_id = d_tree.getTraceIndex(current_stack_id, record.frame_id);
+    stack.push_back(new_stack_id);
     return true;
 }
 
@@ -187,10 +190,11 @@ RecordReader::parseAllocationRecord()
     if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(AllocationRecord))) {
         return false;
     }
-    size_t f_index = getAllocationFrameIndex(record);
+
+    auto& stack = d_stack_traces[record.tid];
     d_allocation_records.emplace_back(Allocation{
             .record = record,
-            .frame_index = f_index,
+            .frame_index = stack.empty() ? 0 : stack.back(),
             .native_segment_generation = d_symbol_resolver.currentSegmentGeneration()});
     return true;
 }
@@ -257,17 +261,6 @@ RecordReader::parseMemoryRecord()
     }
     d_memory_records.emplace_back(std::move(record));
     return true;
-}
-
-size_t
-RecordReader::getAllocationFrameIndex(const AllocationRecord& record)
-{
-    auto it = d_stack_traces.find(record.tid);
-    if (it == d_stack_traces.end()) {
-        return 0;
-    }
-    auto& stack = it->second;
-    return d_tree.getTraceIndex(stack);
 }
 
 RecordReader::RecordResult
@@ -361,8 +354,8 @@ RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
     }
 
     while (current_index != 0 && stacks_obtained++ != max_stacks) {
-        auto node = d_tree.nextNode(current_index);
-        const auto& frame = d_frame_map.at(node.frame_id);
+        auto [frame_id, next_index] = d_tree.nextNode(current_index);
+        const auto& frame = d_frame_map.at(frame_id);
         PyObject* pyframe = frame.toPythonObject(d_pystring_cache);
         if (pyframe == nullptr) {
             goto error;
@@ -372,7 +365,7 @@ RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
         if (ret != 0) {
             goto error;
         }
-        current_index = node.parent_index;
+        current_index = next_index;
     }
     return list;
 error:
