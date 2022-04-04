@@ -175,6 +175,7 @@ RecordReader::parseNativeFrameIndex()
     if (!d_input->read(reinterpret_cast<char*>(&frame), sizeof(UnresolvedNativeFrame))) {
         return false;
     }
+    std::lock_guard<std::mutex> lock(d_mutex);
     d_native_frames.emplace_back(frame);
     return true;
 }
