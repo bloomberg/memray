@@ -57,6 +57,9 @@ starts_with(const std::string& haystack, const std::string_view& needle)
     return haystack.compare(0, needle.size(), needle) == 0;
 }
 
+// Track how many times a new Tracker has been created
+std::atomic<unsigned int> g_tracker_generation;
+
 }  // namespace
 
 namespace pensieve::tracking_api {
@@ -114,10 +117,10 @@ class PythonStackTracker
     void setMostRecentFrameLineNumber(int lineno);
     int pushPythonFrame(PyFrameObject* frame);
     void popPythonFrame();
-    void resetInChildProcess() noexcept;
 
   private:
     uint32_t d_num_pending_pops{};
+    uint32_t d_tracker_generation{};
     std::vector<LazilyEmittedFrame>* d_stack{};
 };
 
@@ -141,8 +144,22 @@ PythonStackTracker::reset(PyFrameObject* current_frame)
 inline void
 PythonStackTracker::emitPendingPops()
 {
-    Tracker::getTracker()->popFrames(d_num_pending_pops);
-    d_num_pending_pops = 0;
+    if (d_tracker_generation != g_tracker_generation) {
+        // The Tracker has changed underneath us (either by an after-fork
+        // handler, or by another thread destroying the Tracker we were using
+        // and installing a new one). Either way, update our state to reflect
+        // that nothing has been emitted to the (new) output file.
+        d_tracker_generation = g_tracker_generation;
+        d_num_pending_pops = 0;
+        if (d_stack) {
+            for (auto it = d_stack->begin(); it != d_stack->end(); it++) {
+                it->emitted = false;
+            }
+        }
+    } else {
+        Tracker::getTracker()->popFrames(d_num_pending_pops);
+        d_num_pending_pops = 0;
+    }
 }
 
 void
@@ -244,18 +261,6 @@ PythonStackTracker::popPythonFrame()
     }
 }
 
-void
-PythonStackTracker::resetInChildProcess() noexcept
-{
-    // Nothing has been emitted to the output file in this child process yet.
-    d_num_pending_pops = 0;
-    if (d_stack) {
-        for (auto it = d_stack->begin(); it != d_stack->end(); it++) {
-            it->emitted = false;
-        }
-    }
-}
-
 std::atomic<bool> Tracker::d_active = false;
 std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
@@ -271,6 +276,8 @@ Tracker::Tracker(
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
 {
+    g_tracker_generation++;
+
     // Note: this must be set before the hooks are installed.
     d_instance = this;
 
@@ -416,9 +423,6 @@ Tracker::parentFork()
 void
 Tracker::childFork()
 {
-    // Reset thread-local state.
-    t_python_stack_tracker.resetInChildProcess();
-
     // Intentionally leak any old tracker. Its destructor cannot be called,
     // because it would try to destroy mutexes that might be locked by threads
     // that no longer exist, and to join a background thread that no longer

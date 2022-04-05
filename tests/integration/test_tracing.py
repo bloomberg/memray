@@ -452,6 +452,53 @@ def test_identical_stack_traces_started_in_different_lines_in_a_function_do_not_
     assert second_alloc1.stack_id != second_alloc2.stack_id
 
 
+def test_thread_surviving_multiple_trackers(tmp_path):
+    # GIVEN
+    orig_tracker_used = threading.Event()
+    new_tracker_installed = threading.Event()
+    allocator = MemoryAllocator()
+    output1 = tmp_path / "test.bin.1"
+    output2 = tmp_path / "test.bin.2"
+
+    def deeper_function():
+        allocator.valloc(1234)
+        allocator.free()
+        orig_tracker_used.set()
+        new_tracker_installed.wait()
+        allocator.valloc(1234)
+        allocator.free()
+
+    def tracking_function():
+        deeper_function()
+
+    # WHEN
+    with Tracker(output1):
+        bg_thread = threading.Thread(target=tracking_function)
+        bg_thread.start()
+        orig_tracker_used.wait()
+
+    with Tracker(output2):
+        new_tracker_installed.set()
+        bg_thread.join()
+
+    # THEN
+    tracker1_allocations = list(FileReader(output1).get_allocation_records())
+    tracker2_allocations = list(FileReader(output2).get_allocation_records())
+
+    tracker1_vallocs = [
+        event
+        for event in tracker1_allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    tracker2_vallocs = [
+        event
+        for event in tracker2_allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(tracker1_vallocs) == len(tracker2_vallocs) == 1
+    assert tracker1_vallocs[0].stack_trace() != tracker2_vallocs[0].stack_trace()
+
+
 class TestMmap:
     @classmethod
     def allocating_function(cls):
