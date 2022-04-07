@@ -1,0 +1,47 @@
+[build-system]
+
+requires = [
+     "setuptools",
+     "wheel",
+     "Cython"
+]
+
+build-backend = 'setuptools.build_meta'
+
+[tool.isort]
+force_single_line = true
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 88
+known_first_party=["memray"]
+known_third_party=["rich", "elftools", "pytest"]
+
+[tool.towncrier]
+package = "memray"
+package_dir = "src"
+filename = "NEWS.rst"
+directory = "news"
+type = [
+  { name = "Features",                  directory = "feature", showcontent = true },
+  { name = "Deprecations and Removals", directory = "removal", showcontent = true },
+  { name = "Bug Fixes",                 directory = "bugfix",  showcontent = true },
+  { name = "Improved Documentation",    directory = "doc",     showcontent = true },
+  { name = "Miscellaneous",             directory = "misc",    showcontent = true },
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "valgrind",
+]
+xfail_strict = true
+
+[tool.check-manifest]
+ignore = [
+  "src/memray/reporters/templates/assets/flamegraph.js",
+  "src/memray/reporters/templates/assets/table.js",
+]
+
+[tool.mypy]
+exclude="tests/integration/(native_extension|multithreaded_extension)/"

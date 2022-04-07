@@ -1,0 +1,126 @@
+This patch exposes a bunch of internal functions as well as removing debuginfo
+support to make it easier to build.
+
+diff --git a/Makefile.am b/Makefile.am
+index 166a058..998cc67 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -35,7 +35,7 @@ AM_CPPFLAGS =
+ 
+ AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
+ 
+-include_HEADERS = backtrace.h backtrace-supported.h
++include_HEADERS = backtrace.h backtrace-supported.h internal.h
+ 
+ lib_LTLIBRARIES = libbacktrace.la
+ 
+diff --git a/Makefile.in b/Makefile.in
+index b6a57ee..dc1e692 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -940,7 +940,7 @@ top_srcdir = @top_srcdir@
+ ACLOCAL_AMFLAGS = -I config
+ AM_CPPFLAGS = 
+ AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
+-include_HEADERS = backtrace.h backtrace-supported.h
++include_HEADERS = backtrace.h backtrace-supported.h internal.h
+ lib_LTLIBRARIES = libbacktrace.la
+ libbacktrace_la_SOURCES = \
+ 	backtrace.h \
+diff --git a/elf.c b/elf.c
+index 79d5614..fb54165 100644
+--- a/elf.c
++++ b/elf.c
+@@ -550,7 +550,7 @@ elf_crc32_file (struct backtrace_state *state, int descriptor,
+ /* A dummy callback function used when we can't find a symbol
+    table.  */
+ 
+-static void
++void
+ elf_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
+ 	    uintptr_t addr ATTRIBUTE_UNUSED,
+ 	    backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
+@@ -624,7 +624,7 @@ elf_symbol_search (const void *vkey, const void *ventry)
+ 
+ /* Initialize the symbol table info for elf_syminfo.  */
+ 
+-static int
++int
+ elf_initialize_syminfo (struct backtrace_state *state,
+ 			uintptr_t base_address,
+ 			const unsigned char *symtab_data, size_t symtab_size,
+@@ -751,7 +751,7 @@ elf_add_syminfo_data (struct backtrace_state *state,
+ 
+ /* Return the symbol name and value for an ADDR.  */
+ 
+-static void
++void
+ elf_syminfo (struct backtrace_state *state, uintptr_t addr,
+ 	     backtrace_syminfo_callback callback,
+ 	     backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
+@@ -1082,7 +1082,7 @@ elf_open_debugfile_by_debuglink (struct backtrace_state *state,
+     {
+       uint32_t got_crc;
+ 
+-      got_crc = elf_crc32_file (state, ddescriptor, error_callback, data);
++      got_crc = debuglink_crc ? elf_crc32_file (state, ddescriptor, error_callback, data) : 0;
+       if (got_crc != debuglink_crc)
+ 	{
+ 	  backtrace_close (ddescriptor, error_callback, data);
+@@ -3981,7 +3981,7 @@ backtrace_uncompress_lzma (struct backtrace_state *state,
+    elf_add will need to be called on the descriptor again after
+    base_address is determined.  */
+ 
+-static int
++int
+ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
+ 	 const unsigned char *memory, size_t memory_size,
+ 	 uintptr_t base_address, backtrace_error_callback error_callback,
+@@ -4355,7 +4355,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
+ 
+   if (symtab_shndx == 0)
+     symtab_shndx = dynsym_shndx;
+-  if (symtab_shndx != 0 && !debuginfo)
++  if (symtab_shndx != 0)
+     {
+       const b_elf_shdr *symtab_shdr;
+       unsigned int strtab_shndx;
+diff --git a/internal.h b/internal.h
+index bb481f3..2b056be 100644
+--- a/internal.h
++++ b/internal.h
+@@ -33,6 +33,10 @@ POSSIBILITY OF SUCH DAMAGE.  */
+ #ifndef BACKTRACE_INTERNAL_H
+ #define BACKTRACE_INTERNAL_H
+ 
++#ifdef __cplusplus
++extern "C" {
++#endif
++
+ /* We assume that <sys/types.h> and "backtrace.h" have already been
+    included.  */
+ 
+@@ -377,4 +381,23 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
+ 				      unsigned char **uncompressed,
+ 				      size_t *uncompressed_size);
+ 
++extern int elf_add (struct backtrace_state *state, const char *filename, int descriptor,
++	 const unsigned char *memory, size_t memory_size,
++	 uintptr_t base_address, backtrace_error_callback error_callback,
++	 void *data, fileline *fileline_fn, int *found_sym, int *found_dwarf,
++	 struct dwarf_data **fileline_entry, int exe, int debuginfo,
++	 const char *with_buildid_data, uint32_t with_buildid_size);
++extern void elf_syminfo (struct backtrace_state *state, uintptr_t addr,
++			 backtrace_syminfo_callback callback,
++			 backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
++			 void *data);
++extern void elf_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
++			uintptr_t addr ATTRIBUTE_UNUSED,
++			backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
++			backtrace_error_callback error_callback, void *data);
++
++#ifdef __cplusplus
++}
++#endif
++
+ #endif

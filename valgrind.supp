@@ -1,0 +1,353 @@
+{
+   <binary_write_warning>
+   Memcheck:Param
+   write(buf)
+   fun:write
+   ...
+}
+{
+   <binary_write_warning>
+   Memcheck:Param
+   write(buf)
+   fun:__write_nocancel
+   ...
+}
+
+# CPython does not deallocate multitude of immortal objects
+# and this confuses valgrind. For this, we want to suppress
+# all traces that are not 'definite lost' that originated from
+# raw malloc/calloc/realloc.
+
+{
+   <cpython_possible_leaks_with_malloc>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+}
+{
+   <cpython_possible_leaks_with_realloc>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:realloc
+   ...
+}
+{
+   <cpython_possible_leaks_with_realloc>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+}
+{
+   <initialize_interpreter>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:*pycore_interp_init*
+   ...
+}
+{
+   <marshall_cached_objects>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:marshal_loads
+   ...
+}
+{
+   <cpython_unicode_false_branch_warning>
+   Memcheck:Cond
+   fun:PyUnicode_Decode
+   ...
+}
+
+# Cpython cached objects
+
+{
+   <cached_code_object>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:PyEval_EvalCodeEx
+   ...
+   fun:*memray*Tracker___cinit__
+   ...
+}
+
+# Cython cache
+
+{
+   <cython_cached_constants>
+   Memcheck:Leak
+   ...
+   fun:__Pyx_InitCachedConstants
+   ...
+}
+
+# Tls variables
+
+{
+  dtv-addr-tail
+  Memcheck:Leak
+  match-leak-kinds: possible,reachable
+  fun:*
+  fun:tls_get_addr_tail*
+  fun:__tls_get_addr
+}
+{
+  dtv-addr-resize
+  Memcheck:Leak
+  match-leak-kinds: possible,reachable
+  fun:*
+  fun:_dl_resize_dtv
+  fun:_dl_update_slotinfo
+  fun:update_get_addr
+  fun:__tls_get_addr
+}
+{
+  dtv-addr-init
+  Memcheck:Leak
+  match-leak-kinds: possible,reachable
+  fun:*
+  fun:allocate_dtv_entry
+  fun:allocate_and_init
+  fun:tls_get_addr_tail*
+  fun:__tls_get_addr
+}
+
+# Atomics
+
+{
+   <tracker_atomic_load>
+   Helgrind:Race
+   fun:load
+   fun:operator bool
+   fun:*Tracker*trackDeallocation*
+   ...
+}
+{
+   <tracker_track_deallocation>
+   Helgrind:Race
+   ...
+   fun:*Tracker*trackDeallocation*
+   ...
+   fun:__libc_thread_freeres
+   ...
+}
+{
+   <background_thread_recursion_guard_destruction>
+   Helgrind:Race
+   fun:operator()
+   fun:*Tracker*BackgroundThread*
+   ...
+}
+{
+   <background_thread_stop_lock_destruction>
+   Helgrind:UnlockForeign
+   ...
+   fun:~scoped_lock
+   fun:*BackgroundThread*stop*
+   ...
+}
+{
+   <background_thread_condition_var>
+   Helgrind:Race
+   fun:*BackgroundThread*stop*
+   ...
+}
+{
+   <insert_a_suppression_name_here>
+   Helgrind:Misc
+   ...
+   fun:*BackgroundThread*stop*
+   ...
+}
+{
+   <tracker_atomic_load>
+   Helgrind:Race
+   fun:load
+   fun:operator bool
+   ...
+   fun:__libc_thread_freeres
+   fun:start_thread
+   obj:*
+}
+{
+   <tracker_atomic_store>
+   Helgrind:Race
+   fun:store
+   fun:operator=
+   fun:operator=
+   fun:*TrackerD1Ev
+   ...
+}
+{
+   <tracker_atomic_store>
+   Helgrind:Race
+   fun:store
+   fun:operator=
+   fun:operator=
+   ...
+   fun:__pyx_*Tracker*__enter__
+   ...
+}
+{
+   <socket_atomic_store>
+   Helgrind:Race
+   fun:store
+   fun:operator=
+   fun:operator=
+   ...
+   fun:*memray*BackgroundSocketReaderD1Ev*
+   ...
+}
+{
+   <socket_atomic_load>
+   Helgrind:Race
+   fun:load
+   fun:operator bool
+   fun:*memray*BackgroundSocketReade*backgroundThreadWorkerEv*
+}
+{
+   <socket_source_atomic_load>
+   Helgrind:Race
+   fun:load
+   fun:operator bool
+   fun:*SocketSource*
+   ...
+}
+{
+   <socket_source_atomic_store>
+   Helgrind:Race
+   fun:store
+   fun:operator=
+   fun:operator=
+   fun:_close
+   fun:*memray*SocketSource*close*
+   ...
+}
+{
+   <socket_buffer_atomic_load>
+   Helgrind:Race
+   fun:load
+   fun:operator bool
+   fun:*memray*SocketBuf*underflowEv
+   ...
+}
+
+# Condition variables
+
+{
+   <condition_variable_wait>
+   Helgrind:Misc
+   ...
+   fun:*pthread_cond_*wait*
+}
+{
+   <condition_variable_notify>
+   Helgrind:Misc
+   ...
+   fun:*condition_variable*notify*
+}
+{
+   <condition_variable_wait_until>
+   Helgrind:Race
+   fun:wait_until*
+   fun:wait_for*
+   ...
+}
+
+# Python GIL false positives
+
+{
+   <take_gil>
+   Helgrind:Race
+   ...
+   fun:take_gil*
+   ...
+}
+{
+   <drop_gil>
+   Helgrind:Race
+   ...
+   fun:drop_gil
+   ...
+}
+{
+   <interpreter_thread_management>
+   Helgrind:Race
+   fun:*PyEval_EvalFrame*
+   ...
+}
+{
+   <interpreter_thread_management>
+   Helgrind:Race
+   fun:eval_frame_handle_pending
+   fun:*PyEval_EvalFrame*
+   ...
+}
+{
+   <interpreter_thread_management>
+   Helgrind:Race
+   fun:store
+   fun:operator=
+   fun:operator=
+   fun:deactivate
+   ...
+}
+
+# libunwind
+
+# `validate_mem` checks whether a memory region is both mapped and readable. It
+# uses `mincore` to ensure the relevant pages are mapped, and then reads from
+# them using `write` (which reads from a user-supplied buf). It ignores the
+# bytes that are read, and just wants to see if there's an EFAULT when reading.
+# This could happen after an `mprotect` with PROT_NONE, for instance.
+{
+   <libunwind_validate_mem>
+   Memcheck:Param
+   write(buf)
+   ...
+   fun:validate_mem
+}
+{
+   <libunwind_backtrace>
+   Memcheck:Param
+   write(buf)
+   ...
+   fun:backtrace
+   fun:unwind
+   ...
+}
+{
+   <libunwind_backtrace_msync>
+   Memcheck:Param
+   msync(start)
+   ...
+   fun:backtrace
+   fun:unwind
+   ...
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   ...
+   fun:backtrace
+   fun:unwind
+   ...
+}
+
+# libc
+
+{
+   <dlopen_is_drunk_go_home>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   ...
+   fun:_dl_catch_exception
+   ...
+   fun:_dl_open
+   ...
+}

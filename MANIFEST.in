@@ -1,0 +1,41 @@
+exclude .clang-format
+exclude asv.conf.json
+exclude CONTRIBUTING.md
+exclude Dockerfile
+exclude Jenkinsfile
+exclude requirements-*.txt
+exclude tox.ini
+exclude .medusarc
+exclude valgrind.supp
+
+recursive-exclude src/vendor/libbacktrace/install *
+recursive-exclude benchmarks *.py
+recursive-exclude debian *
+recursive-exclude docker *
+recursive-exclude docs *
+recursive-exclude src/memray *.cpp *.h
+recursive-exclude src/memray *.md
+recursive-exclude tests *
+recursive-exclude news *
+recursive-exclude vendor *
+
+inlude README.md
+include Makefile
+include pyproject.toml
+include package.json
+include package-lock.json
+include .bumpversion.cfg
+include .babelrc
+include webpack.config.js
+include NEWS.rst
+include .flake8
+include src/memray/py.typed
+
+recursive-include src/vendor *
+recursive-include src/memray *.pxd
+recursive-include src/memray *.py
+recursive-include src/memray *.pyi
+recursive-include src/memray *.html *.js *.css
+recursive-include src/memray *.pyx *.pxd
+recursive-include src/memray/_memray *
+recursive-include tools *.sh

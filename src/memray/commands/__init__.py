@@ -25,10 +25,8 @@ from . import tree
 
 _EPILOG = textwrap.dedent(
     """\
-    This is *EXPERIMENTAL* software.
-
     Please submit feedback, ideas and bugs by filing a new issue at
-    https://bbgithub.dev.bloomberg.com/python/memray/issues
+    https://github.com/bloomberg/memray/issues
     """
 )
 

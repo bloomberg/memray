@@ -103,9 +103,11 @@ class NativeTrace
         if (unw_set_caching_policy(unw_local_addr_space, UNW_CACHE_PER_THREAD)) {
             fprintf(stderr, "WARNING: Failed to enable per-thread libunwind caching.\n");
         }
+#if (UNW_VERSION_MAJOR > 1 && UNW_VERSION_MINOR >= 3)
         if (unw_set_cache_size(unw_local_addr_space, 1024, 0)) {
             fprintf(stderr, "WARNING: Failed to set libunwind cache size.\n");
         }
+#endif
     }
 
     static inline void flushCache()

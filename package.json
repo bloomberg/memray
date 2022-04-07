@@ -1,0 +1,21 @@
+{
+  "name": "memray",
+  "private": true,
+  "devDependencies": {
+    "@babel/preset-env": "^7.14.7",
+    "jest": "^27.0.1",
+    "lodash": "^4.17.21",
+    "webpack": "^5.37.1",
+    "webpack-cli": "^4.7.0"
+  },
+  "jest": {
+    "modulePathIgnorePatterns": [
+      "<rootDir>/build/",
+      "<rootDir>/node_modules/"
+    ]
+  },
+  "scripts": {
+    "build": "webpack",
+    "test": "jest"
+  }
+}
