@@ -41,9 +41,18 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
 
     # THEN
     records = list(FileReader(output).get_allocation_records())
-    memaligns = [
-        record for record in records if record.allocator == AllocatorType.MEMALIGN
-    ]
+    memaligns = []
+    memalign_frees = []
+    outstanding_memaligns = set()
+
+    for record in records:
+        if record.allocator == AllocatorType.MEMALIGN:
+            memaligns.append(record)
+            outstanding_memaligns.add(record.address)
+        elif record.allocator == AllocatorType.FREE:
+            if record.address in outstanding_memaligns:
+                outstanding_memaligns.remove(record.address)
+                memalign_frees.append(record)
 
     assert len(memaligns) == 100 * 100  # 100 threads allocate 100 times in testext
     assert all(len(memalign.stack_trace()) == 0 for memalign in memaligns)
@@ -53,14 +62,7 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
         for record in memaligns
     )
 
-    memaligns_addr = {record.address for record in memaligns}
-    memalign_frees = [
-        record
-        for record in records
-        if record.address in memaligns_addr and record.allocator == AllocatorType.FREE
-    ]
-
-    assert len(memalign_frees) >= 100 * 100
+    assert len(memalign_frees) == 100 * 100
     assert all(len(memalign.stack_trace()) == 0 for memalign in memalign_frees)
     assert all(len(record.native_stack_trace()) == 0 for record in memalign_frees)
 
