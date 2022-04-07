@@ -6,11 +6,11 @@ from unittest.mock import patch
 import pytest
 from rich import print as rprint
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve.reporters.tui import TUI
-from bloomberg.pensieve.reporters.tui import Location
-from bloomberg.pensieve.reporters.tui import MemoryGraph
-from bloomberg.pensieve.reporters.tui import aggregate_allocations
+from memray import AllocatorType
+from memray.reporters.tui import TUI
+from memray.reporters.tui import Location
+from memray.reporters.tui import MemoryGraph
+from memray.reporters.tui import aggregate_allocations
 from tests.utils import MockAllocationRecord
 
 
@@ -24,7 +24,7 @@ def make_tui(pid=123, cmd="python3 some_program.py", native=False):
     return TUI(pid=pid, cmd_line=cmd, native=native)
 
 
-@patch("bloomberg.pensieve.reporters.tui.datetime", FakeDate)
+@patch("memray.reporters.tui.datetime", FakeDate)
 class TestTUIHeader:
     @pytest.mark.parametrize(
         "pid, out_str",
@@ -46,8 +46,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ─╮",
             f"(∩｀-´)⊃━☆ﾟ.*…PID: {out_str}      CMD: ???           │          │",
             "              TID: 0x0      Thread 1 of 0      │          │",
@@ -70,8 +70,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ─╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
             "                            some_command_to_te…│          │",
@@ -94,8 +94,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ─╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
             "                            aaaaaaaaaaaaaaaaaa…│          │",
@@ -119,8 +119,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ─╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
             "                            some_program.py    │          │",
@@ -156,8 +156,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ──────────────────────╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
             "                            some_program.py    │                             … │",
@@ -193,8 +193,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ──────────────────────╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
             "                            some_program.py    │                             … │",
@@ -230,8 +230,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ──────────────────────╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
             "                            some_program.py    │                             … │",
@@ -268,8 +268,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ──────────────────────╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
             "                            some_program.py    │                             … │",
@@ -306,8 +306,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ──────────────────────╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123       CMD: python3      │                             … │",
             "                             some_program.py   │                             … │",
@@ -358,8 +358,8 @@ class TestTUIHeader:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ──────────────────────╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123       CMD: python3      │                             … │",
             "                             some_program.py   │                         ⢀⣀⣀⣠… │",
@@ -1009,7 +1009,7 @@ class TestTUITable:
         assert actual == expected
 
 
-@patch("bloomberg.pensieve.reporters.tui.datetime", FakeDate)
+@patch("memray.reporters.tui.datetime", FakeDate)
 class TestTUILayout:
     def test_with_multiple_allocations(self):
         # GIVEN
@@ -1039,13 +1039,14 @@ class TestTUILayout:
 
         # THEN
         expected = [
-            "Bloomberg pensieve live                                 Fri Jan  1 00:00:00 2021",
-            "tracking",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 "
+            "2021",
             "                                               ╭─ Memory ──────────────────────╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
             "                            some_program.py    │                             … │",
             "              TID: 0x1      Thread 1 of 1      │                             … │",
             "              Samples: 1    Duration: 0.0      │                             … │",
+            "                            seconds            ╰───────────────────────────────╯",
             "Current heap size: 15.000KB                         Max heap size seen: 15.000KB",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",

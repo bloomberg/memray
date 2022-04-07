@@ -1,7 +1,7 @@
 import pytest
 
-from bloomberg.pensieve.reporters.frame_tools import is_cpython_internal
-from bloomberg.pensieve.reporters.frame_tools import is_frame_interesting
+from memray.reporters.frame_tools import is_cpython_internal
+from memray.reporters.frame_tools import is_frame_interesting
 
 
 class TestFrameFiltering:

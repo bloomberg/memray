@@ -1,6 +1,6 @@
 import pytest
 
-from bloomberg.pensieve.reporters.templates import get_report_title
+from memray.reporters.templates import get_report_title
 
 
 @pytest.mark.parametrize(

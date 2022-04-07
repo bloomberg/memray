@@ -2,11 +2,11 @@
 
 import pytest
 
-from bloomberg.pensieve import FileDestination
-from bloomberg.pensieve import FileReader
-from bloomberg.pensieve import SocketDestination
-from bloomberg.pensieve import Tracker
-from bloomberg.pensieve._test import MemoryAllocator
+from memray import FileDestination
+from memray import FileReader
+from memray import SocketDestination
+from memray import Tracker
+from memray._test import MemoryAllocator
 
 
 def test_file_reader_as_context_manager(tmp_path):

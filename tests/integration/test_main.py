@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
-from bloomberg.pensieve.commands import main
+from memray.commands import main
 
 TIMEOUT = 10
 
@@ -23,7 +23,7 @@ def simple_test_file(tmp_path):
     code_file = tmp_path / "code.py"
     program = textwrap.dedent(
         """\
-        from bloomberg.pensieve._pensieve import MemoryAllocator
+        from memray._memray import MemoryAllocator
         print("Allocating some memory!")
         allocator = MemoryAllocator()
         allocator.valloc(1024)
@@ -58,7 +58,7 @@ def track_and_wait(output_dir, sleep_after=100):
     program = textwrap.dedent(
         f"""\
         import time
-        from bloomberg.pensieve._pensieve import MemoryAllocator
+        from memray._memray import MemoryAllocator
         allocator = MemoryAllocator()
         allocator.valloc(1024)
         allocator.free()
@@ -110,7 +110,7 @@ def generate_sample_results(tmp_path, code, *, native=False):
         [
             sys.executable,
             "-m",
-            "bloomberg.pensieve",
+            "memray",
             "run",
             *(["--native"] if native else []),
             "--output",
@@ -132,7 +132,7 @@ class TestRunSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 str(simple_test_file),
             ],
@@ -159,7 +159,7 @@ class TestRunSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--output",
                 str(out_file),
@@ -187,7 +187,7 @@ class TestRunSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--force",
                 "--output",
@@ -227,7 +227,7 @@ class TestRunSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--output",
                 str(out_file),
@@ -254,15 +254,13 @@ class TestRunSubcommand:
 
         # THEN
         captured = capsys.readouterr()
-        assert (
-            captured.err.strip() == "Only Python files can be executed under pensieve"
-        )
+        assert captured.err.strip() == "Only Python files can be executed under memray"
 
-    @patch("bloomberg.pensieve.commands.run.os.getpid")
+    @patch("memray.commands.run.os.getpid")
     def test_run_file_exists(self, getpid, tmp_path, monkeypatch, capsys):
         # GIVEN / WHEN
         getpid.return_value = 0
-        (tmp_path / "pensieve-json.tool.0.bin").touch()
+        (tmp_path / "memray-json.tool.0.bin").touch()
         monkeypatch.chdir(tmp_path)
 
         # THEN
@@ -270,7 +268,7 @@ class TestRunSubcommand:
         captured = capsys.readouterr()
         assert (
             captured.err.strip()
-            == "Could not create output file pensieve-json.tool.0.bin: File exists"
+            == "Could not create output file memray-json.tool.0.bin: File exists"
         )
 
     def test_run_output_file_directory_does_not_exist(self, capsys):
@@ -293,7 +291,7 @@ class TestRunSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 *(["-q"] if quiet else []),
                 "--output",
@@ -322,7 +320,7 @@ class TestRunSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--output",
                 str(out_file),
@@ -357,7 +355,7 @@ class TestParseSubcommand:
         program = textwrap.dedent(
             """\
             import time
-            from bloomberg.pensieve._pensieve import MemoryAllocator
+            from memray._memray import MemoryAllocator
             print("Allocating some memory!")
             allocator = MemoryAllocator()
             allocator.valloc(1024)
@@ -375,7 +373,7 @@ class TestParseSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "parse",
                 str(results_file),
             ],
@@ -406,7 +404,7 @@ class TestParseSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "parse",
                 str(results_file),
             ],
@@ -429,7 +427,7 @@ class TestParseSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "parse",
                 results_file,
             ],
@@ -455,7 +453,7 @@ class TestFlamegraphSubCommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "flamegraph",
                 str(results_file),
             ],
@@ -466,7 +464,7 @@ class TestFlamegraphSubCommand:
         )
 
         # THEN
-        output_file = tmp_path / "pensieve-flamegraph-result.html"
+        output_file = tmp_path / "memray-flamegraph-result.html"
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
@@ -481,7 +479,7 @@ class TestFlamegraphSubCommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "flamegraph",
                 str(results_file),
             ],
@@ -492,7 +490,7 @@ class TestFlamegraphSubCommand:
         )
 
         # THEN
-        output_file = tmp_path / "pensieve-flamegraph-result.html"
+        output_file = tmp_path / "memray-flamegraph-result.html"
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
@@ -508,7 +506,7 @@ class TestFlamegraphSubCommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "flamegraph",
                 str(results_file),
                 "--output",
@@ -533,7 +531,7 @@ class TestFlamegraphSubCommand:
         results_file, source_file = generate_sample_results(
             tmp_path, simple_test_file, native=True
         )
-        output_file = tmp_path / "pensieve-flamegraph-result.html"
+        output_file = tmp_path / "memray-flamegraph-result.html"
         output_file.touch()
 
         # WHEN
@@ -554,7 +552,7 @@ class TestFlamegraphSubCommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "flamegraph",
                 "--split-threads",
                 str(results_file),
@@ -583,7 +581,7 @@ class TestTableSubCommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "table",
                 str(results_file),
             ],
@@ -594,7 +592,7 @@ class TestTableSubCommand:
         )
 
         # THEN
-        output_file = tmp_path / "pensieve-table-result.html"
+        output_file = tmp_path / "memray-table-result.html"
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
@@ -605,7 +603,7 @@ class TestTableSubCommand:
                 [
                     sys.executable,
                     "-m",
-                    "bloomberg.pensieve",
+                    "memray",
                     "table",
                     "--split-threads",
                     "somefile",
@@ -625,7 +623,7 @@ class TestReporterSubCommands:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 report,
                 "nosuchfile",
             ],
@@ -648,7 +646,7 @@ class TestReporterSubCommands:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 report,
                 str(bad_file),
             ],
@@ -674,7 +672,7 @@ class TestReporterSubCommands:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 report,
                 "--leaks",
                 str(results_file),
@@ -685,7 +683,7 @@ class TestReporterSubCommands:
         )
 
         # THEN
-        output_file = tmp_path / f"pensieve-{report}-result.html"
+        output_file = tmp_path / f"memray-{report}-result.html"
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
@@ -698,7 +696,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--live-remote",
                 "--live-port",
@@ -715,7 +713,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "live",
                 str(free_port),
             ],
@@ -746,7 +744,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--live-remote",
                 str(simple_test_file),
@@ -768,7 +766,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--live-remote",
                 "--live-port",
@@ -793,7 +791,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "live",
                 str(port),
             ],
@@ -817,7 +815,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--live-port",
                 str(free_port),
@@ -836,7 +834,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "live",
                 str(free_port),
             ],
@@ -867,7 +865,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "run",
                 "--live-remote",
                 str(simple_test_file),
@@ -906,7 +904,7 @@ class TestLiveRemoteSubcommand:
             [
                 sys.executable,
                 "-m",
-                "bloomberg.pensieve",
+                "memray",
                 "live",
                 str(free_port),
             ],
@@ -939,7 +937,7 @@ class TestLiveSubcommand:
                 [
                     sys.executable,
                     "-m",
-                    "bloomberg.pensieve",
+                    "memray",
                     "run",
                     "--live",
                     str(program_file),
@@ -966,7 +964,7 @@ class TestLiveSubcommand:
                 [
                     sys.executable,
                     "-m",
-                    "bloomberg.pensieve",
+                    "memray",
                     "run",
                     "--live",
                     str(program_file),

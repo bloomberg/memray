@@ -1,11 +1,11 @@
 import threading
 from pathlib import Path
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve import FileReader
-from bloomberg.pensieve import Tracker
-from bloomberg.pensieve._test import MemoryAllocator
-from bloomberg.pensieve._test import set_thread_name
+from memray import AllocatorType
+from memray import FileReader
+from memray import Tracker
+from memray._test import MemoryAllocator
+from memray._test import set_thread_name
 from tests.utils import filter_relevant_allocations
 
 HERE = Path(__file__).parent

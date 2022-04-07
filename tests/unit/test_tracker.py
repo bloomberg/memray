@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from bloomberg.pensieve import Tracker
+from memray import Tracker
 
 
 def test_two_trackers_cannot_be_active_at_the_same_time(tmpdir):

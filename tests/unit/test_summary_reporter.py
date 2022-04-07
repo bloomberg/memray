@@ -1,7 +1,7 @@
 from io import StringIO
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve.reporters.summary import SummaryReporter
+from memray import AllocatorType
+from memray.reporters.summary import SummaryReporter
 from tests.utils import MockAllocationRecord
 
 

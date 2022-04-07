@@ -1,10 +1,10 @@
 from multiprocessing import Pool
 from pathlib import Path
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve import FileReader
-from bloomberg.pensieve import Tracker
-from bloomberg.pensieve._test import MemoryAllocator
+from memray import AllocatorType
+from memray import FileReader
+from memray import Tracker
+from memray._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
 
 

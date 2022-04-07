@@ -13,8 +13,8 @@ from typing import Tuple
 
 import pytest
 
-from bloomberg.pensieve._pensieve import AllocatorType
-from bloomberg.pensieve._pensieve import SocketReader
+from memray import AllocatorType
+from memray import SocketReader
 from tests.utils import filter_relevant_allocations
 
 TIMEOUT = 5
@@ -26,9 +26,9 @@ MULTI_ALLOCATION_COUNT = 10
 #
 _SCRIPT_TEMPLATE = """
 import sys
-from bloomberg.pensieve._pensieve import MemoryAllocator
-from bloomberg.pensieve._pensieve import SocketDestination
-from bloomberg.pensieve._pensieve import Tracker
+from memray._memray import MemoryAllocator
+from memray._memray import SocketDestination
+from memray._memray import Tracker
 
 # Sanity checks
 port = int(sys.argv[1])
@@ -274,7 +274,7 @@ class TestSocketReaderAccess:
 
         symbol, filename, lineno = allocation.stack_trace()[0]
         assert symbol == "valloc"
-        assert filename == "src/bloomberg/pensieve/_pensieve.pyx"
+        assert filename == "src/memray/_memray.pyx"
         assert 0 < lineno < 200
 
     @pytest.mark.valgrind
@@ -302,7 +302,7 @@ class TestSocketReaderAccess:
 
         symbol, filename, lineno = allocation.stack_trace()[0]
         assert symbol == "valloc"
-        assert filename == "src/bloomberg/pensieve/_pensieve.pyx"
+        assert filename == "src/memray/_memray.pyx"
         assert 0 < lineno < 200
 
     @pytest.mark.valgrind
@@ -373,9 +373,9 @@ class TestSocketReaderAccess:
         # GIVEN
         script = textwrap.dedent(
             f"""\
-            from bloomberg.pensieve._pensieve import MemoryAllocator
-            from bloomberg.pensieve._pensieve import SocketDestination
-            from bloomberg.pensieve._pensieve import Tracker
+            from memray._memray import MemoryAllocator
+            from memray._memray import SocketDestination
+            from memray._memray import Tracker
             from itertools import count
             import textwrap
 

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve import FileReader
-from bloomberg.pensieve import Tracker
-from bloomberg.pensieve._test import MemoryAllocator
+from memray import AllocatorType
+from memray import FileReader
+from memray import Tracker
+from memray._test import MemoryAllocator
 
 HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"

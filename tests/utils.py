@@ -5,7 +5,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-from bloomberg.pensieve import AllocatorType
+from memray import AllocatorType
 
 
 def filter_relevant_allocations(records, ranged=False):
@@ -27,7 +27,7 @@ def filter_relevant_allocations(records, ranged=False):
 
 @dataclass
 class MockAllocationRecord:
-    """Mimics :py:class:`bloomberg.pensieve._pensieve.AllocationRecord`."""
+    """Mimics :py:class:`memray._memray.AllocationRecord`."""
 
     tid: int
     address: int

@@ -1,7 +1,7 @@
 """Tests for our testing utilities."""
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve._pensieve import AllocationRecord
+from memray import AllocationRecord
+from memray import AllocatorType
 from tests.utils import MockAllocationRecord
 from tests.utils import filter_relevant_allocations
 

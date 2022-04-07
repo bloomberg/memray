@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from bloomberg.pensieve._errors import PensieveCommandError
-from bloomberg.pensieve.commands.common import HighWatermarkCommand
+from memray._errors import PensieveCommandError
+from memray.commands.common import HighWatermarkCommand
 
 
 class TestFilenameValidation:
@@ -38,7 +38,7 @@ class TestFilenameValidation:
 
         # THEN
         assert results_file == results
-        assert output_file == tmp_path / "pensieve-reporter-results.html"
+        assert output_file == tmp_path / "memray-reporter-results.html"
 
     def test_uses_determine_output_filename_when_output_is_none(self, tmp_path):
         # GIVEN
@@ -80,7 +80,7 @@ class TestFilenameValidation:
         command = HighWatermarkCommand(Mock(), reporter_name="reporter")
         results = tmp_path / "results.bin"
         results.touch()
-        (tmp_path / "pensieve-reporter-results.html").touch()
+        (tmp_path / "memray-reporter-results.html").touch()
 
         # WHEN / THEN
         with pytest.raises(PensieveCommandError, match="File already exists"):
@@ -94,7 +94,7 @@ class TestFilenameValidation:
         command = HighWatermarkCommand(Mock(), reporter_name="reporter")
         results = tmp_path / "results.bin"
         results.touch()
-        (tmp_path / "pensieve-reporter-results.html").touch()
+        (tmp_path / "memray-reporter-results.html").touch()
 
         # WHEN / THEN
         results_file, output_file = command.validate_filenames(
@@ -152,7 +152,7 @@ class TestReportGeneration:
         output_file = tmp_path / "output.txt"
 
         # WHEN
-        with patch("bloomberg.pensieve.commands.common.FileReader") as reader_mock:
+        with patch("memray.commands.common.FileReader") as reader_mock:
             command.write_report(
                 result_path=result_path,
                 output_file=output_file,
@@ -180,7 +180,7 @@ class TestReportGeneration:
         output_file = tmp_path / "output.txt"
 
         # WHEN
-        with patch("bloomberg.pensieve.commands.common.FileReader") as reader_mock:
+        with patch("memray.commands.common.FileReader") as reader_mock:
             command.write_report(
                 result_path=result_path,
                 output_file=output_file,

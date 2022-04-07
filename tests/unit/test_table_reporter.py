@@ -1,5 +1,5 @@
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve.reporters.table import TableReporter
+from memray import AllocatorType
+from memray.reporters.table import TableReporter
 from tests.utils import MockAllocationRecord
 
 

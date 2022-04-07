@@ -1,11 +1,11 @@
 import sys
 from io import StringIO
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve.reporters.tree import MAX_STACKS
-from bloomberg.pensieve.reporters.tree import ROOT_NODE
-from bloomberg.pensieve.reporters.tree import Frame
-from bloomberg.pensieve.reporters.tree import TreeReporter
+from memray import AllocatorType
+from memray.reporters.tree import MAX_STACKS
+from memray.reporters.tree import ROOT_NODE
+from memray.reporters.tree import Frame
+from memray.reporters.tree import TreeReporter
 from tests.utils import MockAllocationRecord
 
 

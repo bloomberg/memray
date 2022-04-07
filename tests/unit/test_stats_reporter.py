@@ -3,13 +3,13 @@ from typing import Tuple
 
 import pytest
 
-from bloomberg.pensieve import AllocatorType as AT
-from bloomberg.pensieve.reporters.stats import draw_histogram
-from bloomberg.pensieve.reporters.stats import get_allocator_type_distribution
-from bloomberg.pensieve.reporters.stats import get_histogram_databins
-from bloomberg.pensieve.reporters.stats import get_stats_data
-from bloomberg.pensieve.reporters.stats import get_top_allocations_by_count
-from bloomberg.pensieve.reporters.stats import get_top_allocations_by_size
+from memray import AllocatorType as AT
+from memray.reporters.stats import draw_histogram
+from memray.reporters.stats import get_allocator_type_distribution
+from memray.reporters.stats import get_histogram_databins
+from memray.reporters.stats import get_stats_data
+from memray.reporters.stats import get_top_allocations_by_count
+from memray.reporters.stats import get_top_allocations_by_size
 from tests.utils import MockAllocationRecord
 
 

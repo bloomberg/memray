@@ -5,14 +5,14 @@ from unittest.mock import patch
 
 import pytest
 
-from bloomberg.pensieve import FileDestination
-from bloomberg.pensieve import SocketDestination
-from bloomberg.pensieve.__main__ import main
-from bloomberg.pensieve.commands.flamegraph import FlamegraphCommand
-from bloomberg.pensieve.commands.run import RunCommand
-from bloomberg.pensieve.commands.summary import SummaryCommand
-from bloomberg.pensieve.commands.table import TableCommand
-from bloomberg.pensieve.commands.tree import TreeCommand
+from memray import FileDestination
+from memray import SocketDestination
+from memray.commands import main
+from memray.commands.flamegraph import FlamegraphCommand
+from memray.commands.run import RunCommand
+from memray.commands.summary import SummaryCommand
+from memray.commands.table import TableCommand
+from memray.commands.tree import TreeCommand
 
 
 def test_no_args_passed(capsys):
@@ -25,9 +25,9 @@ def test_no_args_passed(capsys):
 
 
 @patch.object(RunCommand, "validate_target_file")
-@patch("bloomberg.pensieve.commands.run.Tracker")
-@patch("bloomberg.pensieve.commands.run.runpy")
-@patch("bloomberg.pensieve.commands.run.os.getpid")
+@patch("memray.commands.run.Tracker")
+@patch("memray.commands.run.runpy")
+@patch("memray.commands.run.os.getpid")
 class TestRunSubCommand:
     def test_run_without_arguments(
         self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
@@ -36,7 +36,7 @@ class TestRunSubCommand:
             main(["run"])
 
         captured = capsys.readouterr()
-        assert "usage: pensieve run [-m module | file] [args]" in captured.err
+        assert "usage: memray run [-m module | file] [args]" in captured.err
 
     def test_run_default_output(
         self, getpid_mock, runpy_mock, tracker_mock, validate_mock
@@ -47,7 +47,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("pensieve-foobar.0.bin", exist_ok=False),
+            destination=FileDestination("memray-foobar.0.bin", exist_ok=False),
             native_traces=False,
         )
 
@@ -60,7 +60,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("pensieve-foobar.0.bin", exist_ok=False),
+            destination=FileDestination("memray-foobar.0.bin", exist_ok=False),
             native_traces=True,
         )
 
@@ -111,13 +111,13 @@ class TestRunSubCommand:
         )
         tracker_mock.assert_called_with(
             destination=FileDestination(
-                "./directory/pensieve-foobar.py.0.bin", exist_ok=False
+                "./directory/memray-foobar.py.0.bin", exist_ok=False
             ),
             native_traces=False,
         )
 
-    @patch("bloomberg.pensieve.commands.run.subprocess.Popen")
-    @patch("bloomberg.pensieve.commands.run.LiveCommand")
+    @patch("memray.commands.run.subprocess.Popen")
+    @patch("memray.commands.run.LiveCommand")
     def test_run_with_live(
         self,
         live_command_mock,
@@ -129,13 +129,13 @@ class TestRunSubCommand:
     ):
         getpid_mock.return_value = 0
         popen_mock().__enter__().returncode = 0
-        with patch("bloomberg.pensieve.commands.run._get_free_port", return_value=1234):
+        with patch("memray.commands.run._get_free_port", return_value=1234):
             assert 0 == main(["run", "--live", "./directory/foobar.py", "arg1", "arg2"])
         popen_mock.assert_called_with(
             [
                 sys.executable,
                 "-c",
-                "from bloomberg.pensieve.commands.run import _child_process;"
+                "from memray.commands.run import _child_process;"
                 '_child_process(1234,False,False,False,"./directory/foobar.py",'
                 "['arg1', 'arg2'])",
             ],
@@ -149,7 +149,7 @@ class TestRunSubCommand:
         self, getpid_mock, runpy_mock, tracker_mock, validate_mock
     ):
         getpid_mock.return_value = 0
-        with patch("bloomberg.pensieve.commands.run._get_free_port", return_value=1234):
+        with patch("memray.commands.run._get_free_port", return_value=1234):
             assert 0 == main(
                 ["run", "--live-remote", "./directory/foobar.py", "arg1", "arg2"]
             )
@@ -207,7 +207,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("pensieve-foobar.0.bin", exist_ok=False),
+            destination=FileDestination("memray-foobar.0.bin", exist_ok=False),
             native_traces=False,
             follow_fork=True,
         )
@@ -348,27 +348,27 @@ class TestFlamegraphSubCommand:
 @pytest.mark.parametrize(
     "input, expected, factory",
     (
-        ("result.bin", "pensieve-flamegraph-result.html", FlamegraphCommand),
-        ("/tmp/result.bin", "/tmp/pensieve-flamegraph-result.html", FlamegraphCommand),
-        ("../result.bin", "../pensieve-flamegraph-result.html", FlamegraphCommand),
+        ("result.bin", "memray-flamegraph-result.html", FlamegraphCommand),
+        ("/tmp/result.bin", "/tmp/memray-flamegraph-result.html", FlamegraphCommand),
+        ("../result.bin", "../memray-flamegraph-result.html", FlamegraphCommand),
         (
-            "pensieve-json.tool.0.bin",
-            "pensieve-flamegraph-json.tool.0.html",
+            "memray-json.tool.0.bin",
+            "memray-flamegraph-json.tool.0.html",
             FlamegraphCommand,
         ),
         (
-            "/tmp/pensieve-json.tool.0.bin",
-            "/tmp/pensieve-flamegraph-json.tool.0.html",
+            "/tmp/memray-json.tool.0.bin",
+            "/tmp/memray-flamegraph-json.tool.0.html",
             FlamegraphCommand,
         ),
         (
-            "../pensieve-json.tool.0.bin",
-            "../pensieve-flamegraph-json.tool.0.html",
+            "../memray-json.tool.0.bin",
+            "../memray-flamegraph-json.tool.0.html",
             FlamegraphCommand,
         ),
-        ("pensieve-json.tool.0.bin", "pensieve-table-json.tool.0.html", TableCommand),
-        ("my-result.bin", "pensieve-table-my-result.html", TableCommand),
-        ("../my-result.bin", "../pensieve-table-my-result.html", TableCommand),
+        ("memray-json.tool.0.bin", "memray-table-json.tool.0.html", TableCommand),
+        ("my-result.bin", "memray-table-my-result.html", TableCommand),
+        ("../my-result.bin", "../memray-table-my-result.html", TableCommand),
     ),
 )
 def test_determine_output(input, expected, factory):

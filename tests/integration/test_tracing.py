@@ -6,11 +6,11 @@ from unittest.mock import ANY
 
 import pytest
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve import FileReader
-from bloomberg.pensieve import Tracker
-from bloomberg.pensieve._test import MemoryAllocator
-from bloomberg.pensieve._test import _cython_nested_allocation
+from memray import AllocatorType
+from memray import FileReader
+from memray import Tracker
+from memray._memray import _cython_nested_allocation
+from memray._test import MemoryAllocator
 
 
 def alloc_func3(allocator):

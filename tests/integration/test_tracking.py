@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve import Tracker
-from bloomberg.pensieve._pensieve import FileReader
-from bloomberg.pensieve._pensieve import MmapAllocator
-from bloomberg.pensieve._test import MemoryAllocator
+from memray import AllocatorType
+from memray import FileReader
+from memray import Tracker
+from memray._memray import MmapAllocator
+from memray._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
 
 ALLOCATORS = [
@@ -130,8 +130,8 @@ def test_tracking_with_SIGKILL(tmpdir):
         f"""
         import os
         import signal
-        from bloomberg.pensieve import Tracker
-        from bloomberg.pensieve._test import MemoryAllocator
+        from memray import Tracker
+        from memray._test import MemoryAllocator
 
         allocator = MemoryAllocator()
         output = "{output}"
@@ -929,8 +929,8 @@ class TestHeader:
 
         subprocess_code = textwrap.dedent(
             f"""
-        from bloomberg.pensieve import Tracker
-        from bloomberg.pensieve._test import MemoryAllocator
+        from memray import Tracker
+        from memray._test import MemoryAllocator
         allocator = MemoryAllocator()
 
         with Tracker('{output}'):

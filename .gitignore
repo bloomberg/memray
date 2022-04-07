@@ -19,8 +19,8 @@ _deps
 cmake-build-*/
 
 # Cython specific files
-src/bloomberg/pensieve/*.cpp
-src/bloomberg/pensieve/_pensieve_api.h
+src/memray/*.cpp
+src/memray/_memray_api.h
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -164,7 +164,7 @@ cython_debug/
 # Asv stuff
 .asv
 
-# pensieve stuff
+# memray stuff
 pensieve-*
 
 # Generated files

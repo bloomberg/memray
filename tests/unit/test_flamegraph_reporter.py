@@ -1,11 +1,11 @@
 import sys
 
-from bloomberg.pensieve import AllocatorType
-from bloomberg.pensieve import FileReader
-from bloomberg.pensieve import Tracker
-from bloomberg.pensieve._test import MemoryAllocator
-from bloomberg.pensieve.reporters.flamegraph import MAX_STACKS
-from bloomberg.pensieve.reporters.flamegraph import FlameGraphReporter
+from memray import AllocatorType
+from memray import FileReader
+from memray import Tracker
+from memray._test import MemoryAllocator
+from memray.reporters.flamegraph import MAX_STACKS
+from memray.reporters.flamegraph import FlameGraphReporter
 from tests.utils import MockAllocationRecord
 from tests.utils import filter_relevant_allocations
 
@@ -46,7 +46,7 @@ class TestFlameGraphReporter:
         assert {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 1024,
             "n_allocations": 1,
             "unique_threads": ["0x1"],
@@ -111,7 +111,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 1024,
             "n_allocations": 1,
             "unique_threads": ["0x1"],
@@ -189,7 +189,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": ["0x1"],
@@ -303,7 +303,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": ["0x1"],
@@ -391,7 +391,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 1024,
             "n_allocations": 1,
             "unique_threads": ["0x1"],
@@ -521,7 +521,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": ["0x1"],
@@ -628,7 +628,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": ["0x1", "0x2"],
@@ -735,7 +735,7 @@ class TestFlameGraphReporter:
         assert reporter.data == {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 2048,
             "n_allocations": 2,
             "unique_threads": ["merged thread"],
@@ -805,7 +805,7 @@ class TestFlameGraphReporter:
         assert {
             "name": "<root>",
             "thread_id": "0x0",
-            "location": ["&lt;tracker&gt;", "<b>pensieve</b>", 0],
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
             "value": 1024,
             "n_allocations": 1,
             "unique_threads": ["0x1"],
