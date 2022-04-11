@@ -9,36 +9,10 @@ from sys import platform
 from sys import version_info
 
 from Cython.Build import cythonize
-from setuptools import Command
 from setuptools import Extension
 from setuptools import find_namespace_packages
 from setuptools import setup
 from setuptools.command.build_ext import build_ext as build_ext_orig
-
-
-class BuildJSCommand(Command):
-    """A custom command to run `npm install` during setup.py build."""
-
-    user_options = []
-    description = "Run `npm install`"
-
-    def initialize_options(self):
-        """Required override."""
-
-    def finalize_options(self):
-        """Required override."""
-
-    def run(self):
-        def announce_and_run(command):
-            self.announce(
-                "executing an `{}`".format(" ".join(command)),
-                level=distutils.log.INFO,
-            )
-            subprocess.run(command, check=True)
-
-        announce_and_run(["npm", "install"])
-        announce_and_run(["npm", "run-script", "build"])
-
 
 LIBBACKTRACE_LOCATION = (
     pathlib.Path(__file__).parent / "src" / "vendor" / "libbacktrace"
@@ -105,9 +79,6 @@ class BuildPensieve(build_ext_orig):
         self.announce_and_run(["npm", "install"])
         self.announce_and_run(["npm", "run-script", "build"])
 
-
-# Add our custom build step to distutils's build command.
-distutils.command.build.build.sub_commands.insert(0, ("build_js", None))
 
 install_requires = [
     "jinja2",
@@ -285,7 +256,6 @@ setup(
         ],
     },
     cmdclass={
-        "build_js": BuildJSCommand,
         "build_ext": BuildPensieve,
     },
     package_data={"memray": ["py.typed"]},
