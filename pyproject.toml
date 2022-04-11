@@ -45,3 +45,15 @@ ignore = [
 
 [tool.mypy]
 exclude="tests/integration/(native_extension|multithreaded_extension)/"
+
+[tool.cibuildwheel]
+build = ["cp37-*", "cp38-*", "cp39-*", "cp310-*"]
+skip = "*musllinux*"
+
+[tool.cibuildwheel.linux]
+before-all = "yum install -y libunwind-devel"
+manylinux-x86_64-image = "manylinux2010"
+manylinux-i686-image = "manylinux2010"
+manylinux-aarch64-image = "manylinux2010"
+manylinux-ppc64le-image = "manylinux2010"
+manylinux-s390x-image = "manylinux2010"
