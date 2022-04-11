@@ -27,4 +27,4 @@ Memray can help with the following problems:
 - Find memory leaks.
 - Find hotspots in code which cause a lot of allocations.
 
-Note that pensieve only works on Linux and cannot be installed on other platforms.
+Note that memray only works on Linux and cannot be installed on other platforms.
