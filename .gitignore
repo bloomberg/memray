@@ -167,9 +167,6 @@ cython_debug/
 # memray stuff
 pensieve-*
 
-# Generated files
-**/templates/assets/*.js
-
 # VSCode
 .devcontainer
 .vscode

@@ -9,6 +9,29 @@ on:
       - main
 
 jobs:
+  check_generated_files:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -qy npm git
+    - name: Check if files are up to date
+      run: make build-js
+    - name: Check for changes
+      run: |
+        git add -u
+        changes=$(git status --porcelain)
+        # Check for changes in regenerated files
+        if test -n "$changes"; then
+          echo "Generated files not up to date."
+          echo "$changes"
+          echo ""
+          git diff --staged || true
+          exit 1
+        fi
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -23,7 +46,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy libunwind-dev pkg-config nodejs npm
+        sudo apt-get install -qy libunwind-dev pkg-config npm
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
@@ -42,7 +65,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy clang-format nodejs npm libunwind-dev pkg-config
+        sudo apt-get install -qy clang-format npm libunwind-dev pkg-config
         npm install -g prettier
     - name: Install Python dependencies
       run: |
@@ -68,7 +91,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy libunwind-dev pkg-config nodejs npm valgrind
+        sudo apt-get install -qy libunwind-dev pkg-config npm valgrind
     - name: Install Python dependencies and package
       run: |
         python3 -m pip install --upgrade pip

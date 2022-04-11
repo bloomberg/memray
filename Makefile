@@ -33,7 +33,8 @@ build-ext:  ## Build package extensions in-place
 	$(PYTHON) setup.py build_ext --inplace
 
 $(reporters_path)/templates/assets/%.js: $(reporters_path)/assets/%.js
-	$(PYTHON) setup.py build_js
+	$(NPM) install
+	$(NPM) run-script build
 	touch $(generated_js_files)
 
 .PHONY: build-js
@@ -178,7 +179,6 @@ gh-pages:  ## Publish documentation on BBGitHub Pages
 clean:  ## Clean any built/generated artifacts
 	find . | grep -E '(\.o|\.so|\.gcda|\.gcno|\.gcov\.json\.gz)' | xargs rm -rf
 	find . | grep -E '(__pycache__|\.pyc|\.pyo)' | xargs rm -rf
-	find src/memray/reporters/templates/assets | grep -E '\.js' | xargs rm -rf
 	rm -f src/memray/_memray.cpp
 	rm -f memray.info
 	rm -rf memray-coverage
