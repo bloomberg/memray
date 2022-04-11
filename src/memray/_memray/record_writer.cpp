@@ -46,7 +46,7 @@ RecordWriter::RecordWriter(
             command_line,
             ::getpid(),
             getPythonAllocator()};
-    strncpy(d_header.magic, MAGIC, sizeof(MAGIC));
+    strncpy(d_header.magic, MAGIC, sizeof(d_header.magic));
 }
 
 bool

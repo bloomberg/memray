@@ -11,12 +11,6 @@
 
 #include <link.h>
 
-#if defined __x86_64 || defined __aarch64__
-#    define ELF_R_SYM ELF64_R_SYM
-#else
-#    define ELF_R_SYM ELF32_R_SYM
-#endif
-
 namespace {
 
 /* Private struct to pass data to to phdrs_callback. */

@@ -1,5 +1,7 @@
+#define __STDC_FORMAT_MACROS
 #include <algorithm>
 #include <cstdio>
+#include <inttypes.h>
 #include <stdexcept>
 #include <unordered_map>
 
@@ -595,7 +597,7 @@ RecordReader::dumpAllRecords()
                     Py_RETURN_NONE;
                 }
 
-                printf("%p %lu\n", (void*)record.vaddr, record.memsz);
+                printf("%p %" PRIxPTR "\n", (void*)record.vaddr, record.memsz);
             } break;
             case RecordType::THREAD_RECORD: {
                 printf("THREAD ");
@@ -616,7 +618,7 @@ RecordReader::dumpAllRecords()
                     Py_RETURN_NONE;
                 }
 
-                printf("time=%ld memory=%lu\n", record.ms_since_epoch, record.rss);
+                printf("time=%ld memory=%" PRIxPTR "\n", record.ms_since_epoch, record.rss);
             } break;
             default: {
                 printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);

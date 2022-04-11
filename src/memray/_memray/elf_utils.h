@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -9,21 +10,24 @@
 #include <elf.h>
 #include <link.h>
 
-#if !defined(ELF_ST_BIND)
-#    define ELF_ST_BIND ELF64_ST_BIND
-#endif
-
-#if defined __x86_64 || defined __aarch64__
+#if INTPTR_MAX == INT64_MAX
 #    define ELF_R_SYM ELF64_R_SYM
-#    define ELF_ST_BIND ELF64_ST_BIND
+#    if !defined(ELF_ST_BIND)
+#        define ELF_ST_BIND ELF64_ST_BIND
+#    endif
 #    define ELFCLASS_BITS 64
+#    define Elf_Rela ElfW(Rela)
 typedef uint64_t bloom_el_t;
 #else
 #    define ELF_R_SYM ELF32_R_SYM
-#    define ELF_ST_BIND ELF43_ST_BIND
+#    if !defined(ELF_ST_BIND)
+#        define ELF_ST_BIND ELF32_ST_BIND
+#    endif
 #    define ELFCLASS_BITS 32
 typedef uint32_t bloom_el_t;
+#    define Elf_Rela ElfW(Rel)
 #endif
+
 /* Utility classes and definitons */
 
 // We use these macros as instructed in the linker header to refer to ELF types independent
@@ -66,8 +70,8 @@ struct DynamicInfoTable
 };
 
 using RelTable = DynamicInfoTable<Rel, DT_REL, DT_RELSZ>;
-using RelaTable = DynamicInfoTable<Rela, DT_RELA, DT_RELASZ>;
-using JmprelTable = DynamicInfoTable<Rela, DT_JMPREL, DT_PLTRELSZ>;
+using RelaTable = DynamicInfoTable<Elf_Rela, DT_RELA, DT_RELASZ>;
+using JmprelTable = DynamicInfoTable<Elf_Rela, DT_JMPREL, DT_PLTRELSZ>;
 
 struct SymbolTable
 {
@@ -141,7 +145,7 @@ struct SymbolTable
         return result;
     }
 
-    uintptr_t findSymbolByElfHashTable(const char* name, const Elf64_Dyn* dt_hash_base) const
+    uintptr_t findSymbolByElfHashTable(const char* name, const ElfW(Dyn) * dt_hash_base) const
     {
         // See https://www.gabriel.urdhr.fr/2015/09/28/elf-file-format/#hash-tables
         auto* dt_hash = ensureRelocatedAddress<ElfW(Word)*>(dt_hash_base->d_un.d_ptr);
@@ -174,7 +178,7 @@ struct SymbolTable
         return 0;
     }
 
-    uintptr_t findSymbolByGNUHashTable(const char* name, const Elf64_Dyn* dt_gnu_hash_base) const
+    uintptr_t findSymbolByGNUHashTable(const char* name, const ElfW(Dyn) * dt_gnu_hash_base) const
     {
         // Adapted from the holy source of the linker:
         // https://github.com/bminor/glibc/blob/97e42bd482b62d7b74889be11c98b0bbb4059dcd/elf/dl-lookup.c#L355-L569
