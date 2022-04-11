@@ -93,7 +93,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 }
 
 void*
-mmap64(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexcept
+mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept
 {
     assert(hooks::mmap64);
     void* ptr = hooks::mmap64(addr, length, prot, flags, fd, offset);

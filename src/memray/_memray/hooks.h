@@ -1,6 +1,8 @@
 #ifndef _PENSIEVE_HOOKS_H
 #define _PENSIEVE_HOOKS_H
 
+#include <sys/types.h>
+
 #include <cstdlib>
 #include <iostream>
 #include <malloc.h>
@@ -150,7 +152,7 @@ void*
 mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexcept;
 
 void*
-mmap64(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexcept;
+mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept;
 
 int
 munmap(void* addr, size_t length) noexcept;
