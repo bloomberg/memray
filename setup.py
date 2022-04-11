@@ -196,7 +196,7 @@ PENSIEVE_EXTENSION = Extension(
     library_dirs=[str(LIBBACKTRACE_LIBDIR)],
     include_dirs=["src", str(LIBBACKTRACE_INCLUDEDIRS)],
     language="c++",
-    extra_compile_args=["-std=c++17", "-Wall", "-Werror", *EXTRA_COMPILE_ARGS],
+    extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
     extra_link_args=["-std=c++17", "-l:libbacktrace.a"],
     define_macros=DEFINE_MACROS,
 )
