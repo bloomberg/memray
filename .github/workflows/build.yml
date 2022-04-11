@@ -10,6 +10,7 @@ on:
 
 jobs:
   check_generated_files:
+    name: 'Check if generated files are up to date'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -33,6 +34,7 @@ jobs:
         fi
 
   test:
+    name: 'Test suite'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,6 +57,7 @@ jobs:
       run: tox . -vvv
 
   lint_and_docs:
+    name: 'Lint and Docs'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -81,6 +84,7 @@ jobs:
         make docs
 
   valgrind:
+    name: 'Valgrind & Helgrind'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
