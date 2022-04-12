@@ -45,6 +45,8 @@ jobs:
         python-version: ['3.10', '3.9', '3.8']
     steps:
     - uses: actions/checkout@v2
+    - name: Register gcc problem matcher
+      run: echo "::add-matcher::.github/problem-matchers/gcc.json"
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
