@@ -133,6 +133,7 @@ COMPILER_DIRECTIVES = {
     "c_string_encoding": "utf8",
 }
 EXTRA_COMPILE_ARGS = []
+UNDEF_MACROS = []
 
 if TEST_BUILD:
     COMPILER_DIRECTIVES = {
@@ -149,6 +150,7 @@ if TEST_BUILD:
         "c_string_encoding": "utf8",
     }
     EXTRA_COMPILE_ARGS = ["-D_GLIBCXX_DEBUG", "-D_LIBCPP_DEBUG"]
+    UNDEF_MACROS = ["NDEBUG"]
 
 DEFINE_MACROS = []
 
@@ -199,6 +201,7 @@ PENSIEVE_EXTENSION = Extension(
     extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
     extra_link_args=["-std=c++17", "-l:libbacktrace.a"],
     define_macros=DEFINE_MACROS,
+    undef_macros=UNDEF_MACROS,
 )
 
 PENSIEVE_EXTENSION.libraries.append("dl")
