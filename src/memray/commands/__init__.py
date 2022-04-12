@@ -10,8 +10,8 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
-from memray._errors import PensieveCommandError
-from memray._errors import PensieveError
+from memray._errors import MemrayCommandError
+from memray._errors import MemrayError
 from memray._memray import set_log_level
 
 from . import flamegraph
@@ -122,10 +122,10 @@ def main(args: Optional[List[str]] = None) -> int:
 
     try:
         arg_values.entrypoint(arg_values, parser)
-    except PensieveCommandError as e:
+    except MemrayCommandError as e:
         print(e, file=sys.stderr)
         return e.exit_code
-    except PensieveError as e:
+    except MemrayError as e:
         print(e, file=sys.stderr)
         return 1
     else:

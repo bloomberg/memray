@@ -17,7 +17,7 @@ from memray import Destination
 from memray import FileDestination
 from memray import SocketDestination
 from memray import Tracker
-from memray._errors import PensieveCommandError
+from memray._errors import MemrayCommandError
 from memray.commands.live import LiveCommand
 
 
@@ -43,7 +43,7 @@ def _run_tracker(
             kwargs["follow_fork"] = True
         tracker = Tracker(destination=destination, native_traces=args.native, **kwargs)
     except OSError as error:
-        raise PensieveCommandError(str(error), exit_code=1)
+        raise MemrayCommandError(str(error), exit_code=1)
 
     with tracker:
         sys.argv[1:] = args.script_args
@@ -81,7 +81,7 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
     if port is None:
         port = _get_free_port()
     if not 2**16 > port > 0:
-        raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
+        raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     arguments = (
         f"{port},{args.native},{args.run_as_module},{args.quiet},"
@@ -109,7 +109,7 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
             if process.returncode:
                 if process.stderr:
                     print(process.stderr.read(), file=sys.stderr)
-                raise (PensieveCommandError(exit_code=process.returncode))
+                raise (MemrayCommandError(exit_code=process.returncode))
 
 
 def _run_with_socket_output(args: argparse.Namespace) -> None:
@@ -117,7 +117,7 @@ def _run_with_socket_output(args: argparse.Namespace) -> None:
     if port is None:
         port = _get_free_port()
     if not 2**16 > port > 0:
-        raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
+        raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     if not args.quiet:
         memray_cli = f"memray{sys.version_info.major}.{sys.version_info.minor}"
@@ -156,7 +156,7 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
             follow_fork=args.follow_fork,
         )
     except OSError as error:
-        raise PensieveCommandError(str(error), exit_code=1)
+        raise MemrayCommandError(str(error), exit_code=1)
 
 
 class RunCommand:
@@ -240,7 +240,7 @@ class RunCommand:
             source = pathlib.Path(args.script).read_bytes()
             ast.parse(source)
         except (SyntaxError, ValueError):
-            raise PensieveCommandError(
+            raise MemrayCommandError(
                 "Only Python files can be executed under memray", exit_code=1
             )
 

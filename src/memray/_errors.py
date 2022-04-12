@@ -1,11 +1,11 @@
 from typing import Any
 
 
-class PensieveError(Exception):
+class MemrayError(Exception):
     """Exceptions raised in this package."""
 
 
-class PensieveCommandError(PensieveError):
+class MemrayCommandError(MemrayError):
     """Exceptions raised from this package's CLI commands."""
 
     def __init__(self, *args: Any, exit_code: int) -> None:

@@ -199,7 +199,7 @@ def size_fmt(num, suffix='B'):
         num /= 1024.0
     return f"{num:.1f}Y{suffix}"
 
-# Pensieve core
+# Memray core
 
 PYTHON_VERSION = (sys.version_info.major, sys.version_info.minor)
 

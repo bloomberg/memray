@@ -14,7 +14,7 @@ except ImportError:
 from memray import AllocationRecord
 from memray import FileReader
 from memray import MemoryRecord
-from memray._errors import PensieveCommandError
+from memray._errors import MemrayCommandError
 from memray.reporters import BaseReporter
 
 
@@ -51,7 +51,7 @@ class HighWatermarkCommand:
         """Ensure that the filenames provided by the user are usable."""
         result_path = Path(results)
         if not result_path.exists() or not result_path.is_file():
-            raise PensieveCommandError(f"No such file: {results}", exit_code=1)
+            raise MemrayCommandError(f"No such file: {results}", exit_code=1)
 
         output_file = Path(
             output
@@ -59,7 +59,7 @@ class HighWatermarkCommand:
             else self.determine_output_filename(result_path)
         )
         if not exist_ok and output_file.exists():
-            raise PensieveCommandError(
+            raise MemrayCommandError(
                 f"File already exists, will not overwrite: {output_file}",
                 exit_code=1,
             )
@@ -89,7 +89,7 @@ class HighWatermarkCommand:
                 native_traces=reader.has_native_traces,
             )
         except OSError as e:
-            raise PensieveCommandError(
+            raise MemrayCommandError(
                 f"Failed to parse allocation records in {result_path}\nReason: {e}",
                 exit_code=1,
             )

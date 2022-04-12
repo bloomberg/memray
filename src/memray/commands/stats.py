@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from memray import FileReader
-from memray._errors import PensieveCommandError
+from memray._errors import MemrayCommandError
 from memray.reporters.stats import StatsReporter
 
 
@@ -43,7 +43,7 @@ class StatsCommand:
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
-            raise PensieveCommandError(f"No such file: {args.results}", exit_code=1)
+            raise MemrayCommandError(f"No such file: {args.results}", exit_code=1)
         reader = FileReader(os.fspath(args.results))
         try:
             if args.include_all_allocations:
@@ -53,7 +53,7 @@ class StatsCommand:
                     reader.get_high_watermark_allocation_records(merge_threads=True)
                 )
         except OSError as e:
-            raise PensieveCommandError(
+            raise MemrayCommandError(
                 f"Failed to parse allocation records in {result_path}\nReason: {e}",
                 exit_code=1,
             )

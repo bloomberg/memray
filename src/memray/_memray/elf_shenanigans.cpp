@@ -145,8 +145,9 @@ patch_symbols(const Dyn* dyn_info_struct, const Addr base, bool restore_original
             JmpRelaTable jmp_relocations_table(dyn_info_struct);
             overwrite_elf_table(jmp_relocations_table, symbols, base, restore_original);
         } break;
-        default:
-            LOG(ERROR) << "Unknown JMPRELS relocation table type";
+        default: {
+            LOG(DEBUG) << "Unknown JMPRELS relocation table type";
+        } break;
     }
 }
 

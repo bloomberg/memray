@@ -7,7 +7,7 @@ from rich.layout import Layout
 from rich.live import Live
 
 from memray import SocketReader
-from memray._errors import PensieveCommandError
+from memray._errors import MemrayCommandError
 from memray.reporters.tui import TUI
 
 KEYS = {
@@ -88,7 +88,7 @@ class LiveCommand:
 
     def start_live_interface(self, port: int) -> None:
         if port >= 2**16 or port <= 0:
-            raise PensieveCommandError(f"Invalid port: {port}", exit_code=1)
+            raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
         with SocketReader(port=port) as reader:
             tui = TUI(reader.pid, reader.command_line, reader.has_native_traces)
 

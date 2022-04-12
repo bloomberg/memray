@@ -4,14 +4,14 @@
 
 namespace memray::exception {
 
-class PensieveException : public std::runtime_error
+class MemrayException : public std::runtime_error
 {
     using std::runtime_error::runtime_error;
 };
 
-class IoError : public PensieveException
+class IoError : public MemrayException
 {
-    using PensieveException::PensieveException;
+    using MemrayException::MemrayException;
 };
 
 }  // namespace memray::exception

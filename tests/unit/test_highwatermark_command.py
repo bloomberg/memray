@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from memray._errors import PensieveCommandError
+from memray._errors import MemrayCommandError
 from memray.commands.common import HighWatermarkCommand
 
 
@@ -18,7 +18,7 @@ class TestFilenameValidation:
         results = tmp_path / "results.bin"
 
         # WHEN / THEN
-        with pytest.raises(PensieveCommandError, match="No such file"):
+        with pytest.raises(MemrayCommandError, match="No such file"):
             command.validate_filenames(
                 output=None,
                 results=os.fspath(results),
@@ -83,7 +83,7 @@ class TestFilenameValidation:
         (tmp_path / "memray-reporter-results.html").touch()
 
         # WHEN / THEN
-        with pytest.raises(PensieveCommandError, match="File already exists"):
+        with pytest.raises(MemrayCommandError, match="File already exists"):
             command.validate_filenames(
                 output=None,
                 results=os.fspath(results),
@@ -116,7 +116,7 @@ class TestFilenameValidation:
         output.touch()
 
         # WHEN / THEN
-        with pytest.raises(PensieveCommandError, match="File already exists"):
+        with pytest.raises(MemrayCommandError, match="File already exists"):
             command.validate_filenames(
                 output=output,
                 results=os.fspath(results),

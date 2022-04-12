@@ -31,7 +31,7 @@ ASSETS_LOCATION = (
 )
 
 
-class BuildPensieve(build_ext_orig):
+class BuildMemray(build_ext_orig):
     def run(self):
         self.build_js_files()
         self.build_libbacktrace()
@@ -154,7 +154,7 @@ if TEST_BUILD:
 
 DEFINE_MACROS = []
 
-# memray uses thread local storage (TLS) variables. As pensieve is compiled
+# memray uses thread local storage (TLS) variables. As memray is compiled
 # into a Python extension, is a shared object. TLS variables in shared objects
 # use the most conservative and slow TLS model available by default:
 # global-dynamic. This TLS model generates function calls (__tls_get_addr) to
@@ -259,7 +259,7 @@ setup(
         ],
     },
     cmdclass={
-        "build_ext": BuildPensieve,
+        "build_ext": BuildMemray,
     },
     package_data={"memray": ["py.typed"]},
 )

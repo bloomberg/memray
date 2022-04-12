@@ -5,7 +5,7 @@ from pathlib import Path
 from rich import print as rprint
 
 from memray import FileReader
-from memray._errors import PensieveCommandError
+from memray._errors import MemrayCommandError
 from memray._memray import size_fmt
 from memray.reporters.tree import TreeReporter
 
@@ -26,7 +26,7 @@ class TreeCommand:
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
-            raise PensieveCommandError(f"No such file: {args.results}", exit_code=1)
+            raise MemrayCommandError(f"No such file: {args.results}", exit_code=1)
         reader = FileReader(os.fspath(args.results))
         try:
             snapshot = iter(
@@ -38,7 +38,7 @@ class TreeCommand:
                 native_traces=reader.has_native_traces,
             )
         except OSError as e:
-            raise PensieveCommandError(
+            raise MemrayCommandError(
                 f"Failed to parse allocation records in {result_path}\nReason: {e}",
                 exit_code=1,
             )

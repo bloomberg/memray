@@ -11,12 +11,12 @@ static int LOG_THRESHOLD = static_cast<int>(logLevel::WARNING);
 static const char*
 prefixFromLogLevel(int level)
 {
-    if (level >= CRITICAL) return "Pensieve CRITICAL: ";
-    if (level >= ERROR) return "Pensieve ERROR: ";
-    if (level >= WARNING) return "Pensieve WARNING: ";
-    if (level >= INFO) return "Pensieve INFO: ";
-    if (level >= DEBUG) return "Pensieve DEBUG: ";
-    return "Pensieve TRACE: ";
+    if (level >= CRITICAL) return "Memray CRITICAL: ";
+    if (level >= ERROR) return "Memray ERROR: ";
+    if (level >= WARNING) return "Memray WARNING: ";
+    if (level >= INFO) return "Memray INFO: ";
+    if (level >= DEBUG) return "Memray DEBUG: ";
+    return "Memray TRACE: ";
 }
 
 void
