@@ -48,7 +48,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy libunwind-dev pkg-config npm
+        sudo apt-get install -qy libunwind-dev pkg-config
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
@@ -95,7 +95,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy libunwind-dev pkg-config npm valgrind
+        sudo apt-get install -qy libunwind-dev pkg-config valgrind
     - name: Install Python dependencies and package
       run: |
         python3 -m pip install --upgrade pip
