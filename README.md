@@ -3,6 +3,7 @@
 # memray
 
 [![Tests](https://github.com/bloomberg/memray/actions/workflows/build.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build.yml)
+[![Linux Wheels](https://github.com/bloomberg/memray/actions/workflows/build_wheels.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build_wheels.yml)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)
 
 <p align="center"><img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/output.png" alt="Memray output"></p>
