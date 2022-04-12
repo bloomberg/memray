@@ -1,4 +1,4 @@
-<img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/memray.png" align="right" height="150" width="130"/>
+<img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/memray.png" align="right" height="150" width="130"/>
 
 # memray
 
@@ -6,7 +6,7 @@
 [![Linux Wheels](https://github.com/bloomberg/memray/actions/workflows/build_wheels.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build_wheels.yml)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)
 
-<p align="center"><img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/output.png" alt="Memray output"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/output.png" alt="Memray output"></p>
 
 Memray is a memory profiler for Python. It can track memory allocations both in Python code and native extensions and
 generate various reports to help analyze memory usage in libraries and applications. It can be used as a CLI tool or as
