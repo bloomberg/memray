@@ -92,6 +92,23 @@ overwrite_elf_table(
 #undef FOR_EACH_HOOKED_FUNCTION
 }
 
+static Sxword
+get_jump_table_type(const Dyn* dynamic_section)
+{
+    // The PLT/Jump table can have different entry types depending on the
+    // phase of the moon, the position of the planets, the current weather
+    // and other unpredictable stuff. Normally x86_64 uses RELA entries,
+    // and x86 uses REL entries. But sometimes it doesn't happen, so we need
+    // to check the DT_PLTREL tag to see which one we should use at runtime.
+    for (; dynamic_section->d_tag != DT_NULL; ++dynamic_section) {
+        if (dynamic_section->d_tag != DT_PLTREL) {
+            continue;
+        }
+        return dynamic_section->d_un.d_val;
+    }
+    return 0;
+}
+
 static void
 patch_symbols(const Dyn* dyn_info_struct, const Addr base, bool restore_original) noexcept
 {
@@ -119,8 +136,18 @@ patch_symbols(const Dyn* dyn_info_struct, const Addr base, bool restore_original
     overwrite_elf_table(relas_relocations_table, symbols, base, restore_original);
 
     LOG(DEBUG) << "Patching symbols with JMPRELS relocation type";
-    JmprelTable jmprels_relocations_table(dyn_info_struct);
-    overwrite_elf_table(jmprels_relocations_table, symbols, base, restore_original);
+    switch (get_jump_table_type(dyn_info_struct)) {
+        case DT_REL: {
+            JmpRelTable jmp_relocations_table(dyn_info_struct);
+            overwrite_elf_table(jmp_relocations_table, symbols, base, restore_original);
+        } break;
+        case DT_RELA: {
+            JmpRelaTable jmp_relocations_table(dyn_info_struct);
+            overwrite_elf_table(jmp_relocations_table, symbols, base, restore_original);
+        } break;
+        default:
+            LOG(ERROR) << "Unknown JMPRELS relocation table type";
+    }
 }
 
 static int

@@ -16,7 +16,6 @@
 #        define ELF_ST_BIND ELF64_ST_BIND
 #    endif
 #    define ELFCLASS_BITS 64
-#    define Elf_Rela ElfW(Rela)
 typedef uint64_t bloom_el_t;
 #else
 #    define ELF_R_SYM ELF32_R_SYM
@@ -25,7 +24,6 @@ typedef uint64_t bloom_el_t;
 #    endif
 #    define ELFCLASS_BITS 32
 typedef uint32_t bloom_el_t;
-#    define Elf_Rela ElfW(Rel)
 #endif
 
 /* Utility classes and definitons */
@@ -70,8 +68,9 @@ struct DynamicInfoTable
 };
 
 using RelTable = DynamicInfoTable<Rel, DT_REL, DT_RELSZ>;
-using RelaTable = DynamicInfoTable<Elf_Rela, DT_RELA, DT_RELASZ>;
-using JmprelTable = DynamicInfoTable<Elf_Rela, DT_JMPREL, DT_PLTRELSZ>;
+using RelaTable = DynamicInfoTable<Rela, DT_RELA, DT_RELASZ>;
+using JmpRelTable = DynamicInfoTable<Rel, DT_JMPREL, DT_PLTRELSZ>;
+using JmpRelaTable = DynamicInfoTable<Rela, DT_JMPREL, DT_PLTRELSZ>;
 
 struct SymbolTable
 {
