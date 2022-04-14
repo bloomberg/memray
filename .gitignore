@@ -165,7 +165,7 @@ cython_debug/
 .asv
 
 # memray stuff
-pensieve-*
+memray-*
 
 # VSCode
 .devcontainer

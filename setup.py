@@ -166,16 +166,16 @@ DEFINE_MACROS = []
 # 1152 bytes for oportunustic usage for shared libraries with initial-exec, so
 # this model will not present problems as long as the application uses glibc. In
 # case these assumptions are wrong, memray can revert to use the most
-# conservative model by setting the NO_PENSIEVE_FAST_TLS environment variable.
+# conservative model by setting the NO_MEMRAY_FAST_TLS environment variable.
 
-PENSIEVE_FAST_TLS = True
-if os.getenv("NO_PENSIEVE_FAST_TLS", None) is not None:
-    PENSIEVE_FAST_TLS = False
+MEMRAY_FAST_TLS = True
+if os.getenv("NO_MEMRAY_FAST_TLS", None) is not None:
+    MEMRAY_FAST_TLS = False
 
-if PENSIEVE_FAST_TLS:
-    DEFINE_MACROS.append(("PENSIEVE_TLS_MODEL", '"initial-exec"'))
+if MEMRAY_FAST_TLS:
+    DEFINE_MACROS.append(("MEMRAY_TLS_MODEL", '"initial-exec"'))
 
-PENSIEVE_EXTENSION = Extension(
+MEMRAY_EXTENSION = Extension(
     name="memray._memray",
     sources=[
         "src/memray/_memray.pyx",
@@ -204,7 +204,7 @@ PENSIEVE_EXTENSION = Extension(
     undef_macros=UNDEF_MACROS,
 )
 
-PENSIEVE_EXTENSION.libraries.append("dl")
+MEMRAY_EXTENSION.libraries.append("dl")
 
 if "linux" not in platform:
     raise RuntimeError("memray only supports Linux platforms")
@@ -240,7 +240,7 @@ setup(
     package_dir={"": "src"},
     packages=find_namespace_packages(where="src"),
     ext_modules=cythonize(
-        [PENSIEVE_EXTENSION],
+        [MEMRAY_EXTENSION],
         include_path=["src/memray"],
         compiler_directives=COMPILER_DIRECTIVES,
     ),

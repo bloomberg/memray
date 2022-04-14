@@ -1,5 +1,5 @@
-#ifndef _PENSIEVE_HOOKS_H
-#define _PENSIEVE_HOOKS_H
+#ifndef _MEMRAY_HOOKS_H
+#define _MEMRAY_HOOKS_H
 
 #include <sys/types.h>
 
@@ -16,7 +16,7 @@
 
 #include "logging.h"
 
-#define PENSIEVE_HOOKED_FUNCTIONS                                                                       \
+#define MEMRAY_HOOKED_FUNCTIONS                                                                         \
     FOR_EACH_HOOKED_FUNCTION(malloc)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(free)                                                                      \
     FOR_EACH_HOOKED_FUNCTION(calloc)                                                                    \
@@ -112,7 +112,7 @@ AllocatorKind
 allocatorKind(const Allocator& allocator);
 
 #define FOR_EACH_HOOKED_FUNCTION(f) extern SymbolHook<decltype(&::f)> f;
-PENSIEVE_HOOKED_FUNCTIONS
+MEMRAY_HOOKED_FUNCTIONS
 #undef FOR_EACH_HOOKED_FUNCTION
 
 }  // namespace memray::hooks
@@ -165,4 +165,4 @@ PyGILState_Ensure() noexcept;
 
 }  // namespace memray::intercept
 
-#endif  //_PENSIEVE_HOOKS_H
+#endif  //_MEMRAY_HOOKS_H

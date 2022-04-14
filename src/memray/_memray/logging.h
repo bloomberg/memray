@@ -1,5 +1,5 @@
-#ifndef _PENSIEVE_LOGGING_H
-#define _PENSIEVE_LOGGING_H
+#ifndef _MEMRAY_LOGGING_H
+#define _MEMRAY_LOGGING_H
 
 #include <sstream>
 #include <string>
@@ -55,4 +55,4 @@ class LOG
 
 }  // namespace memray
 
-#endif  //_PENSIEVE_LOGGING_H
+#endif  //_MEMRAY_LOGGING_H

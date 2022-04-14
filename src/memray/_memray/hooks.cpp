@@ -68,14 +68,14 @@ allocatorKind(const Allocator& allocator)
 }
 
 #define FOR_EACH_HOOKED_FUNCTION(f) SymbolHook<decltype(&::f)> f(#f, &::f);
-PENSIEVE_HOOKED_FUNCTIONS
+MEMRAY_HOOKED_FUNCTIONS
 #undef FOR_EACH_HOOKED_FUNCTION
 
 void
 ensureAllHooksAreValid()
 {
 #define FOR_EACH_HOOKED_FUNCTION(f) f.ensureValidOriginalSymbol();
-    PENSIEVE_HOOKED_FUNCTIONS
+    MEMRAY_HOOKED_FUNCTIONS
 #undef FOR_EACH_HOOKED_FUNCTION
 }
 
