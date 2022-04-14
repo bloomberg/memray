@@ -33,10 +33,10 @@ struct RecursionGuard
     }
 
     const bool wasLocked;
-    PENSIEVE_FAST_TLS static thread_local bool isActive;
+    MEMRAY_FAST_TLS static thread_local bool isActive;
 };
 
-PENSIEVE_FAST_TLS thread_local bool RecursionGuard::isActive = false;
+MEMRAY_FAST_TLS thread_local bool RecursionGuard::isActive = false;
 
 std::string
 get_executable()
@@ -126,7 +126,7 @@ class PythonStackTracker
 
 // See giant comment above.
 static_assert(std::is_trivially_destructible<PythonStackTracker>::value);
-PENSIEVE_FAST_TLS thread_local PythonStackTracker t_python_stack_tracker;
+MEMRAY_FAST_TLS thread_local PythonStackTracker t_python_stack_tracker;
 
 void
 PythonStackTracker::reset(PyFrameObject* current_frame)
@@ -237,7 +237,7 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
     };
 
     setMostRecentFrameLineNumber(parent_lineno);
-    PENSIEVE_FAST_TLS static thread_local StackCreator t_stack_creator;
+    MEMRAY_FAST_TLS static thread_local StackCreator t_stack_creator;
     t_stack_creator.stack.push_back({frame, {function, filename, 0}, false});
     assert(d_stack);  // The above call sets d_stack if it wasn't already set.
     return 0;
@@ -264,7 +264,7 @@ PythonStackTracker::popPythonFrame()
 std::atomic<bool> Tracker::d_active = false;
 std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
-PENSIEVE_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
+MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
 
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,

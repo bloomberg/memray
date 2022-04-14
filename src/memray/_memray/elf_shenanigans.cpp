@@ -87,7 +87,7 @@ overwrite_elf_table(
         patch_symbol(hooks::hookname, &intercept::hookname, symname, symbol_addr, restore_original);    \
         continue;                                                                                       \
     }
-        PENSIEVE_HOOKED_FUNCTIONS
+        MEMRAY_HOOKED_FUNCTIONS
     }
 #undef FOR_EACH_HOOKED_FUNCTION
 }
