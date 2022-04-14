@@ -35,7 +35,7 @@ _DESCRIPTION = textwrap.dedent(
     Memory profiler for Python applications
 
     Run `memray run` to generate a memory profile report, then use a reporter command
-    such as `pensive flamegraph` or `memray table` to convert the results into HTML.
+    such as `memray flamegraph` or `memray table` to convert the results into HTML.
 
     Example:
 

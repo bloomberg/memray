@@ -18,28 +18,14 @@ been made by the program.
 Usage
 -----
 
-You can specify the program to be profiled in live mode using ``run --live``:
+To use live mode, you can specify the program to be profiled in live mode using ``run --live``:
 
 .. code:: shell-session
 
   $ memray3.9 run --live dmpexample.py
-  Run 'memray3.9 live <port>' in another shell to see live results
 
-As you can see, ``memray`` is now waiting on a connection to the live tracking server. You can now attach to
-the server using running the ``live`` command in a separate shell.
-
-.. code:: shell-session
-
-  $ # in a different shell
-  $ memray3.9 live <port>
-
-This command will connect to the server that was started in the previous command, when given the requested port number.
-Once the connection is established, the program will start executing. All memory allocations and deallocations
-throughout the program will be tracked.
-
-The program being tracked will present its output on the shell running the ``run --live`` command. In the shell running
-the ``live`` command, information about the program will be presented with a summary and allocation information in a
-tabular format.
+Immediately ``memray`` will start your process in the background and will connect a TUI to it in the foreground. The TUI will
+display the current high watermark of the heap every time it takes a snapshot, in a tabular format.
 
 .. image:: _static/images/live_running.png
 
@@ -76,27 +62,54 @@ program by pressing the left and right arrow keys.
 
 .. image:: _static/images/live_different_thread.png
 
-Using a different port
-----------------------
+Remote mode
+-----------
 
-It is possible to make ``run --live`` start the server on a user-specified port, using the ``--live-port`` argument.
+Remote mode allows you to run the program to be traced in one process and the tui in another. To use remote mode, you can
+specify the program to be profiled in live mode using ``run --live-remote``:
 
 .. code:: shell-session
 
-  $ python3.9 -m memray run --live --live-port 12345 dmpexample.py
+  $ memray3.9 run --live-remote dmpexample.py
+  Run 'memray3.9 live <port>' in another shell to see live results
+
+As you can see, ``memray`` is now waiting on a connection to the live tracking server. You can now attach to
+the server using running the ``live`` command in a separate shell.  
+
+.. code:: shell-session
+
+  $ # in a different shell
+  $ memray3.9 live <port>
+
+This command will connect to the server that was started in the previous command, when given the requested port number.
+Once the connection is established, the program will start executing. All memory allocations and deallocations
+throughout the program will be tracked.
+
+The program being tracked will present its output on the shell running the ``run --live-remote`` command. In the shell running
+the ``live`` command, information about the program will be presented with the regular TUI of live mode.
+
+
+Using a different port
+----------------------
+
+It is possible to make ``run --live-remote`` start the server on a user-specified port, using the ``--live-port`` argument.
+
+.. code:: shell-session
+
+  $ python3.9 -m memray run --live-remote --live-port 12345 dmpexample.py
   Run 'memray3.9 live 12345' in another shell to see live results
 
 .. important::
 
-  Due to the syntax of the command line arugments of memray, make sure that you pass any options intended for the
+  Due to the syntax of the command line arguments of memray, make sure that you pass any options intended for the
   ``run`` command *before* your script/module. Otherwise, they will be treated as arguments for the script and will not
   be used by ``memray``.
 
-  For example, the following invocation will try running ``python3.9 dmpexample.py --live-port 12345``:
+  For example, the following invocation will try running ``python3.9 dmpexample.py --live-remote --live-port 12345``:
 
   .. code:: shell-session
 
-    $ python3.9 -m memray run --live dmpexample.py --live-port 12345
+    $ python3.9 -m memray run --live-remote dmpexample.py --live-port 12345
     Run 'memray3.9 live 60125' in another shell to see live results
 
 Using with :doc:`native mode <native>`
