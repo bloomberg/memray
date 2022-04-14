@@ -33,6 +33,7 @@ Notable features:
    usage
    native
    live
+   python_allocators
    examples/README
 
 .. toctree::
