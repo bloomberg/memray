@@ -31,10 +31,6 @@ pleasant to read when browsing the source.
 All functions and methods should be type annotated. This allows for static analysis and more
 intelligent code completion from tools & IDEs.
 
-Type annotations must use [type comment](#py27-type-comment) annotations until 2.7 support is
-completely phased out. Please see [PEP 484][] for details on definitions and tools surrounding type
-annotations.
-
 ## Tests
 
 Changes should always include tests. If this is a bug fix it is a good idea to add the tests as the
@@ -60,7 +56,6 @@ of the PR.
 [pep 257]: https://www.python.org/dev/peps/pep-0257/ "Docstring Conventions"
 [pep 484]: https://www.python.org/dev/peps/pep-0484/ "Type Hints"
 [google-style]: https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html "Example Google Style Python Docstrings"
-[py27-type-comment]: https://www.python.org/dev/peps/pep-0484/#suggested-syntax-for-python-2-7-and-straddling-code "Suggested syntax for Python 2.7 and straddling code"
 [builtin-help]: https://docs.python.org/3/library/functions.html#help
 
 <!--
