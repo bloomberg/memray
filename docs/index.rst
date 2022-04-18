@@ -3,9 +3,11 @@ memray
 
 .. image:: _static/images/output.png
 
-``Memray`` is a memory profiler for Python. It can track memory allocations both in Python code and
-native extensions and generate various reports to help analyze memory usage in libraries and applications.
-It can be used as a CLI tool or as a library to perform more fine-grained profiling tasks.
+Memray is a memory profiler for Python. It can track memory allocations in Python code, in native extension
+modules, and in the Python interpreter itself. It can generate several different types of reports to help you
+analyze the captured memory usage data. While commonly used as a CLI tool, it can also be used as a library to
+perform more fine-grained profiling tasks.
+
 
 Notable features:
 
@@ -16,15 +18,15 @@ Notable features:
 - 🧵 Works with Python threads.
 - 👽🧵 Works with native-threads (e.g. C++ threads in native extensions)
 
-``Memray`` can help with the following problems:
+Memray can help with the following problems:
 
-- Analyze allocations in applications to help reduce memory usage.
+- Analyze allocations in applications to help discover the cause of high memory usage.
 - Find memory leaks.
 - Find hotspots in code which cause a lot of allocations.
 
 
 .. note::
-    ``Memray`` only works on Linux and cannot be installed on other platforms.
+    Memray only works on Linux and cannot be installed on other platforms.
 
 
 .. toctree::

@@ -11,9 +11,10 @@
 
 <p align="center"><img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/output.png" alt="Memray output"></p>
 
-Memray is a memory profiler for Python. It can track memory allocations both in Python code and native extensions and
-generate various reports to help analyze memory usage in libraries and applications. It can be used as a CLI tool or as
-a library to perform more fine-grained profiling tasks.
+Memray is a memory profiler for Python. It can track memory allocations in Python code, in native extension
+modules, and in the Python interpreter itself. It can generate several different types of reports to help you
+analyze the captured memory usage data. While commonly used as a CLI tool, it can also be used as a library to
+perform more fine-grained profiling tasks.
 
 Notable features:
 
@@ -27,11 +28,11 @@ Notable features:
 
 Memray can help with the following problems:
 
-- Analyze allocations in applications to help reduce memory usage.
+- Analyze allocations in applications to help discover the cause of high memory usage.
 - Find memory leaks.
 - Find hotspots in code which cause a lot of allocations.
 
-Note that memray only works on Linux and cannot be installed on other platforms.
+Note that Memray only works on Linux and cannot be installed on other platforms.
 
 # Installation
 
@@ -45,8 +46,8 @@ packaging tools. We recommend installing the latest stable release from
 
 Notice that Memray contains a C extension so releases are distributed as binary
 wheels as well as the source code. If a binary wheel is not available for your system
-(Linux x86/x64), you'll need a recent to ensure that all the binary dependencies are
-satisfied in the system where you are doing the installation.
+(Linux x86/x64), you'll need to ensure that all the dependencies are satisfied on the
+system where you are doing the installation.
 
 ## Building from source
 
@@ -71,7 +72,7 @@ This will install Memray in the virtual environment in development mode (the `-e
 
 # Documentation
 
-You can find the latest documentation available in [here](https://libcst.readthedocs.io/).
+You can find the latest documentation available [here](https://bloomberg.github.io/memray/).
 
 # Usage
 
@@ -109,23 +110,23 @@ optional arguments:
 Please submit feedback, ideas and bugs by filing a new issue at https://github.com/bloomberg/memray/issues
 ```
 
-To use memray over a script or a single python file you can use
+To use Memray over a script or a single python file you can use
 
 ```shell
 python3.x -m memray run my_script.py
 ```
 
-(where 3.x is the version of Python you want to use). If your application is executed as a module (you execute your application wth `python3 -m my_module`), you can use the following command instead:
+(where 3.x is the version of Python you installed Memray for). If you normally run your application with `python3 -m my_module`, you can use the `-m` flag with `memray run`:
 
 ```shell
-python3.x -m memray run -m my_module.py
+python3.x -m memray run -m my_module
 ```
 
-You can also invoke Memray as a command line tool without having to invoke it as a module, with either of the previous forms:
+You can also invoke Memray as a command line tool without having to use `-m` to invoke it as a module:
 
 ```shell
 memray3.x run my_script.py
-memray3.x run -m my_module.py
+memray3.x run -m my_module
 ```
 
 The output will be a binary file (like `memray-my_script.2369.bin`) that you can analyze in different ways. One way is to use the `memray flamegraph` command to generate a flame graph:
@@ -134,33 +135,33 @@ The output will be a binary file (like `memray-my_script.2369.bin`) that you can
 memray3.x flamegraph my_script.2369.bin
 ```
 
-This will produce an html file with a flame graph of the memory usage that you can inspect with your favorite browser. There are multiple other reporters that you can use to generate other types of reports, some of them generating a terminal-based output and some of them generate an html file. Here is an example of such flamegraph:
+This will produce an HTML file with a flame graph of the memory usage that you can inspect with your favorite browser. There are multiple other reporters that you can use to generate other types of reports, some of them generating terminal-based output and some of them generating HTML files. Here is an example of a Memray flamegraph:
 
 <img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/flamegraph_example.png?raw=true" align="center"/>
 
 # Native mode
 
-Memray supports tracking native C/C++ functions as well as Python functions. This can be especially useful when profiling applications that have C extensions (such as `numpy`, `pandas`, …) as this allows to have a holistic vision of how much memory is allocated by the extension and how much is allocated by Python itself.
+Memray supports tracking native C/C++ functions as well as Python functions. This can be especially useful when profiling applications that have C extensions (such as `numpy` or `pandas`) as this gives holistic vision of how much memory is allocated by the extension and how much is allocated by Python itself.
 
-To activate native tracking, you need to provide the `--native` argument when using the run subcommand:
+To activate native tracking, you need to provide the `--native` argument when using the `run` subcommand:
 
 ```shell
 python3.x -m memray run --native my_script.py
 ```
 
-This will automatically add native information to the result file and it will be automatically detected by any reporter (such the flamegraph or table reporters) and the information will be displayed accordingly. This means that instead of seeing this in the flamegraphs:
+This will automatically add native information to the result file and it will be automatically used by any reporter (such the flamegraph or table reporters). This means that instead of seeing this in the flamegraphs:
 
 <img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/mandelbrot_operation_non_native.png?raw=true" align="center"/>
 
-You will now be able to see what's happening under the Python calls:
+You will now be able to see what's happening inside the Python calls:
 
 <img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/mandelbrot_operation_native.png?raw=true" align="center"/>
 
-When the different reporters display native information they will normally use a different color for the Python frames and the native frames but this can also be distinguished by looking at the file location in every frame (Python frames will generally be generated from files with a .py extension while native frames will be generated from files with .c, .cpp or .h extensions).
+Reporters display native frames in a different color than Python frames. They can also be distinguished by looking at the file location in a frame (Python frames will generally be generated from files with a .py extension while native frames will be generated from files with extensions like .c, .cpp or .h).
 
 # Live mode
 
-Memray supports live mode, which will run a script or a module in a terminal-based interface that allows you to interactively inspect the memory usage of the script or module. This is useful for debugging scripts or modules that take a long time to run or that exhibit multiple complex memory patterns. You can use the `--live` option to run the script or module in live mode:
+Memray's live mode runs a script or a module in a terminal-based interface that allows you to interactively inspect its memory usage while it runs. This is useful for debugging scripts or modules that take a long time to run or that exhibit multiple complex memory patterns. You can use the `--live` option to run the script or module in live mode:
 
 ```shell
     python3.x -m memray run --live my_script.py
@@ -169,7 +170,7 @@ Memray supports live mode, which will run a script or a module in a terminal-bas
 or if you want to execute a module:
 
 ```shell
-    python3.x -m memray run --live -m my_module.py
+    python3.x -m memray run --live -m my_module
 ```
 
 This will show the following TUI interface in your terminal:
@@ -196,7 +197,7 @@ By default, the live command will present the main thread of the program. You ca
 
 # License
 
-Memray is Apache-2.0 licensed, as found in the LICENSE file.
+Memray is Apache-2.0 licensed, as found in the [LICENSE](LICENSE) file.
 
 # Code of Conduct
 
@@ -224,7 +225,7 @@ Since this project is distributed under the terms of an [open source license](LI
 are licensed under the same terms. In order for us to be able to accept your contributions,
 we will need explicit confirmation from you that you are able and willing to provide them under
 these terms, and the mechanism we use to do this is called a Developer's Certificate of Origin
-[(DCO)](DCO.md). This is very similar to the process used by the Linux(R) kernel, Samba, and many
+[(DCO)](https://github.com/bloomberg/.github/blob/main/DCO.md). This is very similar to the process used by the Linux(R) kernel, Samba, and many
 other major open source projects.
 
 To participate under these terms, all that you must do is include a line like the following as the
