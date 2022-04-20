@@ -61,7 +61,7 @@ Check your package manager on how to install these dependencies (for example `ap
 
 Once you have the binary dependencies installed, you can clone the repository and follow with the normal building process:
 
-```python
+```shell
 git clone git@github.com:bloomberg/memray.git memray
 cd memray
 python3 -m venv ../memray-env/  # just an example, put this wherever you want
@@ -140,6 +140,52 @@ memray3.x flamegraph my_script.2369.bin
 This will produce an HTML file with a flame graph of the memory usage that you can inspect with your favorite browser. There are multiple other reporters that you can use to generate other types of reports, some of them generating terminal-based output and some of them generating HTML files. Here is an example of a Memray flamegraph:
 
 <img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/flamegraph_example.png?raw=true" align="center"/>
+
+## Pytest plugin
+
+If you want an easy and convenient way to use `memray` in your test suite, you can consider using [pytest-memray](https://github.com/bloomberg/pytest-memray). Once installed, this pytest plugin allows you to simply add `--memray` to the command line invocation:
+
+```shell
+pytest --memray tests/
+```
+
+And you can get automatically a report like this:
+
+```
+python3 -m pytest tests --memray
+=============================================================================================================================== test session starts ================================================================================================================================
+platform linux -- Python 3.8.10, pytest-6.2.4, py-1.10.0, pluggy-0.13.1
+rootdir: /mypackage, configfile: pytest.ini
+plugins: cov-2.12.0, memray-0.1.0
+collected 21 items
+
+tests/test_package.py .....................                                                                                                                                                                                                                      [100%]
+
+
+================================================================================================================================= MEMRAY REPORT ==================================================================================================================================
+Allocations results for tests/test_package.py::some_test_that_allocates
+
+	 📦 Total memory allocated: 24.4MiB
+	 📏 Total allocations: 33929
+	 📊 Histogram of allocation sizes: |▂   █    |
+	 🥇 Biggest allocating functions:
+		- parse:/opt/bb/lib/python3.8/ast.py:47 -> 3.0MiB
+		- parse:/opt/bb/lib/python3.8/ast.py:47 -> 2.3MiB
+		- _visit:/opt/bb/lib/python3.8/site-packages/astroid/transforms.py:62 -> 576.0KiB
+		- parse:/opt/bb/lib/python3.8/ast.py:47 -> 517.6KiB
+		- __init__:/opt/bb/lib/python3.8/site-packages/astroid/node_classes.py:1353 -> 512.0KiB
+```
+
+You can also use some of the included markers to cause some selected tests to
+fail if the execution of said test allocates more memory than allowed:
+
+```python
+@pytest.mark.limit_memory("24 MB")
+def test_foobar():
+    # do some stuff that allocates memory
+```
+
+To learn more on how the plugin can be used and configured check out [the plugin documentation](https://bloomberg.github.io/pytest-memray/#).
 
 # Native mode
 
