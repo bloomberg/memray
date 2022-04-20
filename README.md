@@ -1,6 +1,8 @@
-<img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/memray.png" align="right" height="150" width="130"/>
+<p align="center">
+<img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/logo.png" width="70%">
+</p>
 
-# memray
+---
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/memray)
 ![PyPI - Implementation](https://img.shields.io/pypi/implementation/memray)
