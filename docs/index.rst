@@ -32,9 +32,8 @@ Memray can help with the following problems:
 .. toctree::
    :hidden:
 
-   usage
-   native
-   live
+   getting_started
+   run
    python_allocators
    examples/README
 
@@ -42,19 +41,9 @@ Memray can help with the following problems:
    :hidden:
    :caption: Reporters
 
+   live
    summary
    flamegraph
    table
    tree
    stats
-.. toctree::
-   :hidden:
-   :caption: Command Line Interface
-
-   cli/summary
-   cli/run
-   cli/live
-   cli/flamegraph
-   cli/table
-   cli/tree
-   cli/stats
