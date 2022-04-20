@@ -255,7 +255,8 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            f"memray{version_info.major}.{version_info.minor}=" f"memray.__main__:main"
+            f"memray{version_info.major}.{version_info.minor}=memray.__main__:main",
+            "memray=memray.__main__:main",
         ],
     },
     cmdclass={

@@ -127,14 +127,14 @@ python3.x -m memray run -m my_module
 You can also invoke Memray as a command line tool without having to use `-m` to invoke it as a module:
 
 ```shell
-memray3.x run my_script.py
-memray3.x run -m my_module
+memray run my_script.py
+memray run -m my_module
 ```
 
 The output will be a binary file (like `memray-my_script.2369.bin`) that you can analyze in different ways. One way is to use the `memray flamegraph` command to generate a flame graph:
 
 ```shell
-memray3.x flamegraph my_script.2369.bin
+memray flamegraph my_script.2369.bin
 ```
 
 This will produce an HTML file with a flame graph of the memory usage that you can inspect with your favorite browser. There are multiple other reporters that you can use to generate other types of reports, some of them generating terminal-based output and some of them generating HTML files. Here is an example of a Memray flamegraph:
@@ -148,7 +148,7 @@ Memray supports tracking native C/C++ functions as well as Python functions. Thi
 To activate native tracking, you need to provide the `--native` argument when using the `run` subcommand:
 
 ```shell
-python3.x -m memray run --native my_script.py
+memray run --native my_script.py
 ```
 
 This will automatically add native information to the result file and it will be automatically used by any reporter (such the flamegraph or table reporters). This means that instead of seeing this in the flamegraphs:
@@ -166,13 +166,13 @@ Reporters display native frames in a different color than Python frames. They ca
 Memray's live mode runs a script or a module in a terminal-based interface that allows you to interactively inspect its memory usage while it runs. This is useful for debugging scripts or modules that take a long time to run or that exhibit multiple complex memory patterns. You can use the `--live` option to run the script or module in live mode:
 
 ```shell
-    python3.x -m memray run --live my_script.py
+    memray run --live my_script.py
 ```
 
 or if you want to execute a module:
 
 ```shell
-    python3.x -m memray run --live -m my_module
+    memray run --live -m my_module
 ```
 
 This will show the following TUI interface in your terminal:
