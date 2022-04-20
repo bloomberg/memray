@@ -149,7 +149,7 @@ If you want an easy and convenient way to use `memray` in your test suite, you c
 pytest --memray tests/
 ```
 
-And you can get automatically a report like this:
+And will automatically get a report like this:
 
 ```
 python3 -m pytest tests --memray
@@ -176,7 +176,7 @@ Allocations results for tests/test_package.py::some_test_that_allocates
 		- __init__:/opt/bb/lib/python3.8/site-packages/astroid/node_classes.py:1353 -> 512.0KiB
 ```
 
-You can also use some of the included markers to cause some selected tests to
+You can also use some of the included markers to make tests
 fail if the execution of said test allocates more memory than allowed:
 
 ```python
