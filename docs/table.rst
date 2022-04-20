@@ -25,9 +25,7 @@ The general form of the ``table`` subcommand is:
 
 .. code:: shell
 
-    memray3.x table [options] <results>
-
-(where "x" is the Python minor version).
+    memray table [options] <results>
 
 The only argument the ``table`` subcommand requires is the capture file
 previously generated using :doc:`the run subcommand <run>`.

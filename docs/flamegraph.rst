@@ -259,9 +259,7 @@ The general form of the ``flamegraph`` subcommand is:
 
 .. code:: shell
 
-    memray3.x flamegraph [options] <results>
-
-(where "x" is the Python minor version).
+    memray flamegraph [options] <results>
 
 The only argument the ``flamegraph`` subcommand requires is the capture file
 previously generated using :doc:`the run subcommand <run>`.

@@ -36,9 +36,7 @@ The general form of the ``tree`` subcommand is:
 
 .. code:: shell
 
-    memray3.x tree [options] <results>
-
-(where "x" is the Python minor version).
+    memray tree [options] <results>
 
 The only argument the ``tree`` subcommand requires is the capture file
 previously generated using :doc:`the run subcommand <run>`.

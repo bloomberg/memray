@@ -11,10 +11,8 @@ The general form of the ``run`` subcommand is one of:
 
 .. code:: shell
 
-    memray3.x run [options] file.py [args]
-    memray3.x run [options] -m module [args]
-
-(where "x" is the Python minor version).
+    memray run [options] file.py [args]
+    memray run [options] -m module [args]
 
 Like the Python interpreter itself, the ``run`` subcommand can take a path to a Python file to run,
 or the name of a Python module to run if you use the ``-m`` flag. While it runs, memory allocations

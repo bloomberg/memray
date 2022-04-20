@@ -36,9 +36,7 @@ The general form of the ``stats`` subcommand is:
 
 .. code:: shell
 
-    memray3.x stats [options] <results>
-
-(where "x" is the Python minor version).
+    memray stats [options] <results>
 
 The only argument the ``tree`` subcommand requires is the capture file
 previously generated using :doc:`the run subcommand <run>`.
