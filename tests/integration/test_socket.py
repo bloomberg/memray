@@ -274,7 +274,7 @@ class TestSocketReaderAccess:
 
         symbol, filename, lineno = allocation.stack_trace()[0]
         assert symbol == "valloc"
-        assert filename == "src/memray/_memray.pyx"
+        assert filename == "src/memray/_memray_test_utils.pyx"
         assert 0 < lineno < 200
 
     @pytest.mark.valgrind
@@ -302,7 +302,7 @@ class TestSocketReaderAccess:
 
         symbol, filename, lineno = allocation.stack_trace()[0]
         assert symbol == "valloc"
-        assert filename == "src/memray/_memray.pyx"
+        assert filename == "src/memray/_memray_test_utils.pyx"
         assert 0 < lineno < 200
 
     @pytest.mark.valgrind

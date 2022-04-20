@@ -146,14 +146,14 @@ def test_cython_traceback(tmpdir):
 
     traceback = list(alloc1.stack_trace())
     assert traceback[-3:] == [
-        ("valloc", ANY, 114),
-        ("_cython_nested_allocation", ANY, 132),
+        ("valloc", ANY, 74),
+        ("_cython_nested_allocation", ANY, 92),
         ("test_cython_traceback", ANY, 137),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 132),
+        ("_cython_nested_allocation", ANY, 92),
         ("test_cython_traceback", ANY, 137),
     ]
 
@@ -166,7 +166,7 @@ def test_cython_traceback(tmpdir):
     (free,) = frees
     traceback = list(free.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 132),
+        ("_cython_nested_allocation", ANY, 92),
         ("test_cython_traceback", ANY, 137),
     ]
 
