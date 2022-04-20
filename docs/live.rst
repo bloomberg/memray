@@ -1,19 +1,18 @@
-.. _Live Tracking:
-
-Live tracking
-=============
+Live Reporting
+==============
 
 Overview
 --------
 
-``memray`` supports presenting a "live" view for tracking the heap memory usage of a running Python program.
-This provides a holistic view of how much memory is being allocated, as the program is being executed.
+Memray supports presenting a "live" view for observing the heap memory usage of a running Python program.
+This provides insight into how memory is allocated as the program executes.
 
-It is designed to help investigate how a program is allocating memory as it executes, what the peak heap usage has been,
-and analyze how much memory is being allocated by various parts of the program. The information is presented in a
-tabular format, showing how much memory each function/method has allocated ("owned"), how much memory has been
-cumulatively allocated by this and all subfunctions ("total") and the number of calls to allocators like `malloc` have
-been made by the program.
+It is especially helpful for investigating the behavior of a program that has different allocation patterns during
+different stages of the program's execution. It lets you see what the peak heap usage has been and how much memory is
+being allocated by various parts of the program. The information is presented in a tabular format, showing how much of
+the in-use memory each function directly allocated ("own memory"), how much was cumulatively allocated by that function
+and everything it called ("total memory"), and the cumulative count of not yet freed allocations performed by that
+function and everything it called ("allocation count").
 
 Usage
 -----
@@ -22,9 +21,9 @@ To use live mode, you can specify the program to be profiled in live mode using 
 
 .. code:: shell-session
 
-  $ memray3.9 run --live dmpexample.py
+  $ memray3.9 run --live application.py
 
-Immediately ``memray`` will start your process in the background and will connect a TUI to it in the foreground. The TUI will
+Immediately Memray will start your process in the background and will connect a TUI to it in the foreground. The TUI will
 display the current high watermark of the heap every time it takes a snapshot, in a tabular format.
 
 .. image:: _static/images/live_running.png
@@ -70,15 +69,15 @@ specify the program to be profiled in live mode using ``run --live-remote``:
 
 .. code:: shell-session
 
-  $ memray3.9 run --live-remote dmpexample.py
+  $ memray3.9 run --live-remote application.py
   Run 'memray3.9 live <port>' in another shell to see live results
 
-As you can see, ``memray`` is now waiting on a connection to the live tracking server. You can now attach to
+As you can see, Memray is now waiting on a connection to the live tracking server. You can now attach to
 the server using running the ``live`` command in a separate shell.  
 
 .. code:: shell-session
 
-  $ # in a different shell
+  $ # Run this in a different shell:
   $ memray3.9 live <port>
 
 This command will connect to the server that was started in the previous command, when given the requested port number.
@@ -96,29 +95,29 @@ It is possible to make ``run --live-remote`` start the server on a user-specifie
 
 .. code:: shell-session
 
-  $ python3.9 -m memray run --live-remote --live-port 12345 dmpexample.py
+  $ python3.9 -m memray run --live-remote --live-port 12345 application.py
   Run 'memray3.9 live 12345' in another shell to see live results
 
 .. important::
 
   Due to the syntax of the command line arguments of memray, make sure that you pass any options intended for the
   ``run`` command *before* your script/module. Otherwise, they will be treated as arguments for the script and will not
-  be used by ``memray``.
+  be used by Memray.
 
-  For example, the following invocation will try running ``python3.9 dmpexample.py --live-remote --live-port 12345``:
+  For example, the following invocation will try running ``python3.9 application.py --live-remote --live-port 12345``:
 
   .. code:: shell-session
 
-    $ python3.9 -m memray run --live-remote dmpexample.py --live-port 12345
+    $ python3.9 -m memray run --live-remote application.py --live-port 12345
     Run 'memray3.9 live 60125' in another shell to see live results
 
-Using with :doc:`native mode <native>`
---------------------------------------
+Using with native tracking
+--------------------------
 
-It is possible to use :doc:`native mode <native>` along with the live mode. This can be achieved by passing ``--native``
+It is possible to use :ref:`native tracking` along with the live mode. This can be achieved by passing ``--native``
 to the ``run`` command.
 
 .. code:: shell-session
 
-  $ python3.9 -m memray run --live --native dmpexample.py
+  $ python3.9 -m memray run --live --native application.py
   Run 'memray3.9 live 60125' in another shell to see live results
