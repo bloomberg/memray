@@ -1,5 +1,4 @@
-memray
-======
+.. image:: _static/images/logo.png
 
 .. image:: _static/images/output.png
 

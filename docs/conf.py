@@ -25,7 +25,10 @@ author = "Pablo Galindo Salgado"
 html_title = project
 html_theme = "furo"
 html_static_path = ["_static", "_static/flamegraphs"]
-html_logo = "_static/images/memray.png"
+html_logo = "_static/images/logo.png"
+html_theme_options = {
+    "sidebar_hide_name": True,
+}
 
 # -- Options for smartquotes ----------------------------------------------------------
 
