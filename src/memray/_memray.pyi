@@ -1,5 +1,6 @@
 import enum
 from pathlib import Path
+from types import FrameType
 from types import TracebackType
 from typing import Any
 from typing import Callable
@@ -13,6 +14,7 @@ from typing import Type
 from typing import Union
 from typing import overload
 
+from memray._destination import FileDestination as FileDestination
 from memray._destination import SocketDestination as SocketDestination
 from memray._metadata import Metadata
 
@@ -68,6 +70,8 @@ class AllocatorType(enum.IntEnum):
     PVALLOC: int
     MMAP: int
     MUNMAP: int
+
+def start_thread_trace(frame: FrameType, event: str, arg: Any) -> None: ...
 
 class FileReader:
     @property
