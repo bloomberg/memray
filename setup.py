@@ -180,7 +180,6 @@ MEMRAY_EXTENSION = Extension(
     sources=[
         "src/memray/_memray.pyx",
         "src/memray/_memray/hooks.cpp",
-        "src/memray/_memray/interval_tree.cpp",
         "src/memray/_memray/tracking_api.cpp",
         "src/memray/_memray/elf_shenanigans.cpp",
         "src/memray/_memray/logging.cpp",

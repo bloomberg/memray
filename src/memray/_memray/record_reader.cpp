@@ -9,7 +9,6 @@
 
 #include "exceptions.h"
 #include "hooks.h"
-#include "interval_tree.h"
 #include "logging.h"
 #include "record_reader.h"
 #include "records.h"

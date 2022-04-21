@@ -4,6 +4,52 @@
 
 namespace memray::api {
 
+Interval::Interval(uintptr_t begin, uintptr_t end)
+: begin(begin)
+, end(end){};
+
+std::optional<Interval>
+Interval::intersection(const Interval& other) const
+{
+    auto max_start = std::max(begin, other.begin);
+    auto min_end = std::min(end, other.end);
+    if (min_end <= max_start) {
+        return std::nullopt;
+    } else {
+        return Interval(max_start, min_end);
+    }
+}
+
+size_t
+Interval::size() const
+{
+    return end - begin;
+}
+
+bool
+Interval::operator==(const Interval& rhs) const
+{
+    return begin == rhs.begin && end == rhs.end;
+}
+
+bool
+Interval::operator!=(const Interval& rhs) const
+{
+    return !(rhs == *this);
+}
+
+bool
+Interval::leftIntersects(const Interval& other) const
+{
+    return (begin == other.begin) && (end < other.end);
+}
+
+bool
+Interval::rightIntersects(const Interval& other) const
+{
+    return (begin > other.begin) && (end == other.end);
+}
+
 void
 SnapshotAllocationAggregator::addAllocation(const Allocation& allocation)
 {
@@ -21,12 +67,12 @@ SnapshotAllocationAggregator::addAllocation(const Allocation& allocation)
         }
         case hooks::AllocatorKind::RANGED_ALLOCATOR: {
             auto& record = allocation.record;
-            d_interval_tree.add(record.address, record.size, allocation);
+            d_interval_tree.addInterval(record.address, record.size, allocation);
             break;
         }
         case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
             auto& record = allocation.record;
-            d_interval_tree.remove(record.address, record.size);
+            d_interval_tree.removeInterval(record.address, record.size);
             break;
         }
     }
@@ -103,7 +149,7 @@ getHighWatermark(const allocations_t& records)
     HighWatermark result;
     size_t current_memory = 0;
     std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
-    memray::IntervalTree<Allocation> mmap_intervals;
+    IntervalTree<Allocation> mmap_intervals;
 
     auto update_peak = [&](allocations_t::const_iterator records_it) {
         if (current_memory >= result.peak_memory) {
@@ -129,7 +175,10 @@ getHighWatermark(const allocations_t& records)
                 break;
             }
             case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-                mmap_intervals.add(records_it->record.address, records_it->record.size, *records_it);
+                mmap_intervals.addInterval(
+                        records_it->record.address,
+                        records_it->record.size,
+                        *records_it);
                 current_memory += records_it->record.size;
                 update_peak(records_it);
                 break;
@@ -137,7 +186,7 @@ getHighWatermark(const allocations_t& records)
             case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
                 const auto address = records_it->record.address;
                 const auto size = records_it->record.size;
-                const auto removed = mmap_intervals.remove(address, size);
+                const auto removed = mmap_intervals.removeInterval(address, size);
 
                 if (!removed.has_value()) {
                     break;
@@ -146,7 +195,7 @@ getHighWatermark(const allocations_t& records)
                         removed.value().begin(),
                         removed.value().cend(),
                         0,
-                        [](size_t sum, const std::pair<Range, Allocation>& range) {
+                        [](size_t sum, const std::pair<Interval, Allocation>& range) {
                             return sum + range.first.size();
                         });
                 current_memory -= removed_size;
