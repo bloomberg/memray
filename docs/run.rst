@@ -68,7 +68,7 @@ To activate native tracking, you need to provide the ``--native`` argument when 
 
 .. code:: shell
 
-  python3.9 -m memray run --native example.py
+  memray run --native example.py
 
 This will add native stack information to the result file, which any reporter will automatically use.
 
@@ -134,7 +134,7 @@ To activate tracking through forks, you need to provide the ``--follow-fork`` ar
 
 .. code:: shell
 
-  python3.9 -m memray run --follow-fork example.py
+  memray run --follow-fork example.py
 
 In this mode, each time the process forks, a new output file will be created for the new child process, with the new
 child's process ID appended to the original capture file's name. The capture files for child processes are exactly like

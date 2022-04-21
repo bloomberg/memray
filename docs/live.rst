@@ -21,7 +21,7 @@ To use live mode, you can specify the program to be profiled in live mode using 
 
 .. code:: shell-session
 
-  $ memray3.9 run --live application.py
+  $ memray run --live application.py
 
 Immediately Memray will start your process in the background and will connect a TUI to it in the foreground. The TUI will
 display the current high watermark of the heap every time it takes a snapshot, in a tabular format.
@@ -69,8 +69,8 @@ specify the program to be profiled in live mode using ``run --live-remote``:
 
 .. code:: shell-session
 
-  $ memray3.9 run --live-remote application.py
-  Run 'memray3.9 live <port>' in another shell to see live results
+  $ memray run --live-remote application.py
+  Run 'memray live <port>' in another shell to see live results
 
 As you can see, Memray is now waiting on a connection to the live tracking server. You can now attach to
 the server using running the ``live`` command in a separate shell.  
@@ -78,7 +78,7 @@ the server using running the ``live`` command in a separate shell.
 .. code:: shell-session
 
   $ # Run this in a different shell:
-  $ memray3.9 live <port>
+  $ memray live <port>
 
 This command will connect to the server that was started in the previous command, when given the requested port number.
 Once the connection is established, the program will start executing. All memory allocations and deallocations
@@ -95,8 +95,8 @@ It is possible to make ``run --live-remote`` start the server on a user-specifie
 
 .. code:: shell-session
 
-  $ python3.9 -m memray run --live-remote --live-port 12345 application.py
-  Run 'memray3.9 live 12345' in another shell to see live results
+  $ memray run --live-remote --live-port 12345 application.py
+  Run 'memray live 12345' in another shell to see live results
 
 .. important::
 
@@ -104,12 +104,13 @@ It is possible to make ``run --live-remote`` start the server on a user-specifie
   ``run`` command *before* your script/module. Otherwise, they will be treated as arguments for the script and will not
   be used by Memray.
 
-  For example, the following invocation will try running ``python3.9 application.py --live-remote --live-port 12345``:
+  For example, the following invocation will pass ``--live-remote`` and ``--live-port 12345`` to ``application.py``,
+  instead of having them be used by ``memray run``:
 
   .. code:: shell-session
 
-    $ python3.9 -m memray run --live-remote application.py --live-port 12345
-    Run 'memray3.9 live 60125' in another shell to see live results
+    $ memray run --live-remote application.py --live-port 12345
+    Run 'memray live 60125' in another shell to see live results
 
 Using with native tracking
 --------------------------
@@ -119,5 +120,5 @@ to the ``run`` command.
 
 .. code:: shell-session
 
-  $ python3.9 -m memray run --live --native application.py
-  Run 'memray3.9 live 60125' in another shell to see live results
+  $ memray run --live --native application.py
+  Run 'memray live 60125' in another shell to see live results

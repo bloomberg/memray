@@ -115,13 +115,13 @@ Please submit feedback, ideas and bugs by filing a new issue at https://github.c
 To use Memray over a script or a single python file you can use
 
 ```shell
-python3.x -m memray run my_script.py
+python3 -m memray run my_script.py
 ```
 
-(where 3.x is the version of Python you installed Memray for). If you normally run your application with `python3 -m my_module`, you can use the `-m` flag with `memray run`:
+If you normally run your application with `python3 -m my_module`, you can use the `-m` flag with `memray run`:
 
 ```shell
-python3.x -m memray run -m my_module
+python3 -m memray run -m my_module
 ```
 
 You can also invoke Memray as a command line tool without having to use `-m` to invoke it as a module:
