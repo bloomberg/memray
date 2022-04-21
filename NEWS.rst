@@ -5,6 +5,14 @@ fix problems like typo corrections or such.
 
 .. towncrier release notes start
 
+memray 1.0.3 (2022-04-21)
+=========================
+
+Features
+--------
+
+- Add `memray` as a command line entry point. (#20)
+
 memray 1.0.2 (2022-04-12)
 =========================
 
