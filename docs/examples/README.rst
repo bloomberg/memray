@@ -15,7 +15,7 @@ To track memory allocations, invoke ``memray3.9 run``:
 
 .. code:: shell
 
-   python3.9 -m memray run numpy/example.py
+   memray3.9 run numpy/example.py
 
 Memray will print a message displaying the output file it creates.
 
@@ -28,7 +28,7 @@ graph, use the following command:
 
 .. code:: shell
 
-   python3.9 -m memray flamegraph numpy/memray-basexample.py.6570.bin
+   memray3.9 flamegraph numpy/memray-basexample.py.6570.bin
 
 The HTML file for the flame graph will be generated under
 ``memray-flamegraph-example.py.6570.html``. The flame graph displays the stack frames
