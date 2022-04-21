@@ -23,16 +23,16 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PYTHON=/venv/bin/python \
-    VIRTUAL_ENV=/venv \
+ENV VIRTUAL_ENV=/venv \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH=/bin:$PATH \
     CC=gcc \
     CXX=g++
 
-RUN python3.9 -m venv /venv
+RUN python3.9 -m venv "$VIRTUAL_ENV"
 
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}" \
+    PYTHON="${VIRTUAL_ENV}/bin/python"
 
 COPY requirements-test.txt requirements-extra.txt requirements-docs.txt /tmp/
 
