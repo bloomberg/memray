@@ -42,3 +42,12 @@ html_theme_options = {
 # render as "-find-links" if included in the text.The default of "qDe" converts normal
 # quote characters ('"' and "'"), en and em dashes ("--" and "---"), and ellipses "..."
 smartquotes_action = "qe"
+
+# -- Options for intersphinx ----------------------------------------------------------
+
+intersphinx_mapping = {
+    "python": (
+        "https://docs.python.org/3",
+        (None,),
+    ),
+}
