@@ -43,7 +43,7 @@ packaging tools. We recommend installing the latest stable release from
 [PyPI](https://pypi.org/project/memray/) with pip:
 
 ```shell
-    pip install memray
+    python3 -m pip install memray
 ```
 
 Notice that Memray contains a C extension so releases are distributed as binary
@@ -66,8 +66,8 @@ git clone git@github.com:bloomberg/memray.git memray
 cd memray
 python3 -m venv ../memray-env/  # just an example, put this wherever you want
 source ../memray-env/bin/activate
-pip install --upgrade pip
-pip install -e . -r requirements-test.txt -r requirements-extra.txt
+python3 -m pip install --upgrade pip
+python3 -m pip install -e . -r requirements-test.txt -r requirements-extra.txt
 ```
 
 This will install Memray in the virtual environment in development mode (the `-e` of the last `pip install` command).
