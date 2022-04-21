@@ -35,6 +35,7 @@ Memray can help with the following problems:
    run
    python_allocators
    examples/README
+   api
 
 .. toctree::
    :hidden:

@@ -191,6 +191,45 @@ cdef class AllocationRecord:
 MemoryRecord = collections.namedtuple("MemoryRecord", "time rss")
 
 cdef class Tracker:
+    """Context manager for tracking memory allocations in a Python script.
+
+    You can track memory allocations in a Python process by using a Tracker as
+    a context manager::
+
+        with memray.Tracker("some_output_file.bin"):
+
+    Any code inside of the ``with`` block will have its allocations tracked.
+    Any allocations made by other threads will also be tracked for the duration
+    of the ``with`` block. Because of the way tracking works, there can only be
+    one tracker active in the entire program at a time. Attempting to activate
+    a tracker while one is already active will raise an exception, as will
+    attempting to activate the same tracker more than once. If you want to
+    re-enable tracking after the ``with`` block ends, you will need to create
+    a fresh `Tracker` instance.
+
+    Args:
+        file_name (str or pathlib.Path): The name of the file to write the
+            captured allocations into. This is the only argument that can be
+            passed positionally. If not provided, the *destination* keyword
+            argument must be provided.
+        destination (FileDestination or SocketDestination): The destination to
+            write captured allocations to. If provided, the *file_name*
+            argument must not be.
+        native_traces (bool): Whether or not to capture native stack frames, in
+            addition to Python stack frames (see :ref:`Native Tracking`).
+            Defaults to False.
+        follow_fork (bool): Whether or not to continue tracking in a subprocess
+            that is forked from the tracked process (see :ref:`Tracking across
+            Forks`). Defaults to False.
+        memory_interval_ms (int): How many milliseconds to wait between sending
+            periodic resident set size updates. By default, every 10
+            milliseconds a record is written that contains the current
+            timestamp and the total number of bytes of virtual memory allocated
+            by the process. These records are used to create the graph of
+            memory usage over time that appears at the top of the flame graph,
+            for instance. This parameter lets you adjust the frequency between
+            updates, though you shouldn't need to change it.
+    """
     cdef bool _native_traces
     cdef unsigned int _memory_interval_ms
     cdef bool _follow_fork
