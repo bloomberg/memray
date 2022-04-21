@@ -81,6 +81,8 @@ When reporters display native information they will normally use a different col
 frames. This can also be distinguished by looking at the file name in a frame, since Python frames will generally come
 from source files with a ``.py`` extension.
 
+.. _Live tracking:
+
 Live tracking
 -------------
 
@@ -117,6 +119,8 @@ In this mode it will choose an unused port and bind to it, waiting for you to ru
 in another terminal window to attach to it. Regardless of whether you choose to use one terminal or two, the resulting
 TUI is exactly the same. See :doc:`live` for details on how to interpret and control the TUI.
 
+
+.. _Tracking across forks:
 
 Tracking across forks
 ---------------------
