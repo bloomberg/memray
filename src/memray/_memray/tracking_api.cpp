@@ -85,23 +85,28 @@ thread_id()
 class PythonStackTracker
 {
   private:
+    enum class FrameState {
+        NOT_EMITTED = 0,
+        EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED = 1,
+        EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED = 2,
+    };
     struct LazilyEmittedFrame
     {
         PyFrameObject* frame;
         RawFrame raw_frame_record;
-        bool emitted;
+        FrameState state;
     };
 
   public:
     void reset(PyFrameObject* current_frame);
-    void emitPendingPops();
-    void emitPendingPushes();
-    int getCurrentPythonLineNumber();
-    void setMostRecentFrameLineNumber(int lineno);
+    void emitPendingPushesAndPops();
+    void invalidateMostRecentFrameLineNumber();
     int pushPythonFrame(PyFrameObject* frame);
     void popPythonFrame();
 
   private:
+    void handleTrackerReplacement();
+
     uint32_t d_num_pending_pops{};
     uint32_t d_tracker_generation{};
     std::vector<LazilyEmittedFrame>* d_stack{};
@@ -124,8 +129,8 @@ PythonStackTracker::reset(PyFrameObject* current_frame)
     }
 }
 
-inline void
-PythonStackTracker::emitPendingPops()
+void
+PythonStackTracker::handleTrackerReplacement()
 {
     if (d_tracker_generation != g_tracker_generation) {
         // The Tracker has changed underneath us (either by an after-fork
@@ -136,55 +141,77 @@ PythonStackTracker::emitPendingPops()
         d_num_pending_pops = 0;
         if (d_stack) {
             for (auto it = d_stack->begin(); it != d_stack->end(); it++) {
-                it->emitted = false;
+                it->state = FrameState::NOT_EMITTED;
             }
         }
-    } else {
-        Tracker::getTracker()->popFrames(d_num_pending_pops);
-        d_num_pending_pops = 0;
     }
 }
 
 void
-PythonStackTracker::emitPendingPushes()
+PythonStackTracker::emitPendingPushesAndPops()
 {
+    handleTrackerReplacement();
+
     if (!d_stack) {
         return;
     }
 
-    auto last_emitted_rit =
-            std::find_if(d_stack->rbegin(), d_stack->rend(), [](auto& f) { return f.emitted; });
+    // At any time, the stack contains (in this order):
+    // Any number of EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED frames
+    // 0 or 1 EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED frame
+    // Any number of NOT_EMITTED frames
+    auto last_definitely_valid = std::find_if(d_stack->rbegin(), d_stack->rend(), [](auto& f) {
+        return f.state == FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
+    });
 
-    for (auto to_emit = last_emitted_rit.base(); to_emit != d_stack->end(); to_emit++) {
+    // Resolve line numbers for all not emitted frames
+    auto to_fix = last_definitely_valid.base();
+    if (to_fix != d_stack->end()
+        && to_fix->state == FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED) {
+        // Found our 1 frame that just needs a double check
+        int lineno = PyFrame_GetLineNumber(to_fix->frame);
+        if (lineno != to_fix->raw_frame_record.lineno) {
+            // Line number was wrong; emit an artificial pop so we can push
+            // back in with the right line number.
+            d_num_pending_pops++;
+            to_fix->state = FrameState::NOT_EMITTED;
+            to_fix->raw_frame_record.lineno = lineno;
+        } else {
+            to_fix->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
+            --last_definitely_valid;
+        }
+        ++to_fix;
+    }
+
+    for (; to_fix != d_stack->end(); ++to_fix) {
+        assert(to_fix->state == FrameState::NOT_EMITTED);
+        to_fix->raw_frame_record.lineno = PyFrame_GetLineNumber(to_fix->frame);
+    }
+
+    // Emit pending pops
+    Tracker::getTracker()->popFrames(d_num_pending_pops);
+    d_num_pending_pops = 0;
+
+    // Emit pending pushes
+    for (auto to_emit = last_definitely_valid.base(); to_emit != d_stack->end(); ++to_emit) {
         if (!Tracker::getTracker()->pushFrame(to_emit->raw_frame_record)) {
             break;
         }
-        to_emit->emitted = true;
+        to_emit->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
     }
-}
 
-inline int
-PythonStackTracker::getCurrentPythonLineNumber()
-{
-    if (d_stack && !d_stack->empty()) {
-        return PyFrame_GetLineNumber(d_stack->back().frame);
-    }
-    return 0;
+    invalidateMostRecentFrameLineNumber();
 }
 
 void
-PythonStackTracker::setMostRecentFrameLineNumber(int lineno)
+PythonStackTracker::invalidateMostRecentFrameLineNumber()
 {
-    if (!d_stack || d_stack->empty() || d_stack->back().raw_frame_record.lineno == lineno) {
-        return;
-    }
-
-    d_stack->back().raw_frame_record.lineno = lineno;
-    if (d_stack->back().emitted) {
-        // If it was already emitted with an old line number, pop that frame
-        // and re-emit it with the new line number.
-        d_num_pending_pops += 1;
-        d_stack->back().emitted = false;
+    // As bytecode instructions are executed, the line number in the most
+    // recent Python frame can change without us finding out. Cache its line
+    // number, but verify it the next time this frame might need to be emitted.
+    if (!d_stack->empty()
+        && d_stack->back().state == FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED) {
+        d_stack->back().state = FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED;
     }
 }
 
@@ -200,8 +227,6 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
     if (filename == nullptr) {
         return -1;
     }
-
-    int parent_lineno = getCurrentPythonLineNumber();
 
     struct StackCreator
     {
@@ -219,9 +244,8 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
         }
     };
 
-    setMostRecentFrameLineNumber(parent_lineno);
     MEMRAY_FAST_TLS static thread_local StackCreator t_stack_creator;
-    t_stack_creator.stack.push_back({frame, {function, filename, 0}, false});
+    t_stack_creator.stack.push_back({frame, {function, filename, 0}, FrameState::NOT_EMITTED});
     assert(d_stack);  // The above call sets d_stack if it wasn't already set.
     return 0;
 }
@@ -230,7 +254,7 @@ void
 PythonStackTracker::popPythonFrame()
 {
     if (d_stack && !d_stack->empty()) {
-        if (d_stack->back().emitted) {
+        if (d_stack->back().state != FrameState::NOT_EMITTED) {
             d_num_pending_pops += 1;
             assert(d_num_pending_pops != 0);  // Ensure we didn't overflow.
         }
@@ -239,7 +263,9 @@ PythonStackTracker::popPythonFrame()
         if (d_stack->empty()) {
             // Every frame we've pushed has been popped. Emit pending pops now
             // in case the thread is exiting and we don't get another chance.
-            emitPendingPops();
+            emitPendingPushesAndPops();
+        } else {
+            invalidateMostRecentFrameLineNumber();
         }
     }
 }
@@ -450,13 +476,7 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
     }
     RecursionGuard guard;
 
-    // Grab a reference to the TLS variable to guarantee it's only resolved once.
-    auto& python_stack_tracker = t_python_stack_tracker;
-    int lineno = python_stack_tracker.getCurrentPythonLineNumber();
-
-    python_stack_tracker.setMostRecentFrameLineNumber(lineno);
-    python_stack_tracker.emitPendingPops();
-    python_stack_tracker.emitPendingPushes();
+    t_python_stack_tracker.emitPendingPushesAndPops();
 
     if (d_unwind_native_frames) {
         NativeTrace trace;
