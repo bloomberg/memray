@@ -15,7 +15,7 @@ class SummaryCommand:
         parser.add_argument(
             "-s",
             "--sort-column",
-            help="Colum number to sort on",
+            help="Column number to sort on",
             type=int,
             default=1,
         )

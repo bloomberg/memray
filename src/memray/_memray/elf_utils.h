@@ -26,7 +26,7 @@ typedef uint64_t bloom_el_t;
 typedef uint32_t bloom_el_t;
 #endif
 
-/* Utility classes and definitons */
+/* Utility classes and definitions */
 
 // We use these macros as instructed in the linker header to refer to ELF types independent
 // of the native wordsize. In this way, `ElfW(TYPE)' is used in place of `Elf32_TYPE' or `Elf64_TYPE'.

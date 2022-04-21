@@ -118,7 +118,7 @@ def run_till_snapshot_point(
                 assert f1.read() == "done"
 
             print("[parent] Deferring to caller")
-            # Wait a bit of time, for background thread to recieve + process the records.
+            # Wait a bit of time, for background thread to receive + process the records.
             time.sleep(0.1)
             yield
 
@@ -359,15 +359,15 @@ class TestSocketReaderAccess:
     def test_reading_allocations_while_reading_stack_traces(
         self, free_port: int, tmp_path: Path
     ) -> None:
-        """This test exist mainly to give valgrind/helgrind the oportunity to
+        """This test exist mainly to give valgrind/helgrind the opportunity to
         see races between fetching stack traces and the background thread
         fetching allocations. Therefore no interesting asserts are done in
         the test itself.
 
-        The test will spawn a tracked process that is constanly creating new
+        The test will spawn a tracked process that is constantly creating new
         functions and code objects so the process is constantly sending new
         frames to the SocketReader, triggering tons of updates of the internal
-        strcutures inside. We want to check that if we get the stack traces
+        structures inside. We want to check that if we get the stack traces
         inside the allocations it won't crash/race with fetching new allocations
         """
         # GIVEN

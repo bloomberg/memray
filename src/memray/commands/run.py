@@ -172,7 +172,7 @@ class RunCommand:
         )
         output_group.add_argument(
             "--live",
-            help="Start a live tracking session and inmediately connect a live server",
+            help="Start a live tracking session and immediately connect a live server",
             action="store_true",
             dest="live_mode",
             default=False,
