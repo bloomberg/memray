@@ -110,6 +110,7 @@ class NativeTrace
         if (size == MAX_SIZE) {
             d_data.resize(0);
             size = exact_unwind();
+            skip += 1;  // skip the non-inlined exact_unwind frame
             MAX_SIZE = MAX_SIZE * 2 > size ? MAX_SIZE * 2 : size;
             d_data.resize(MAX_SIZE);
         }
@@ -143,7 +144,9 @@ class NativeTrace
         return unw_backtrace((void**)data, MAX_SIZE);
     }
 
-    __attribute__((always_inline)) size_t inline exact_unwind()
+    // This can not be inlined as some architectures (e.g. ppc64le) don't
+    // support inlining functions that call setjmp()
+    __attribute__((noinline)) size_t inline exact_unwind()
     {
         unw_context_t context;
         if (unw_getcontext(&context) < 0) {
