@@ -42,7 +42,7 @@ build-js: $(generated_js_files)  ## Build package assets in-place
 
 .PHONY: dist
 dist:  ## Generate Python distribution files
-	$(PYTHON) -m build .
+	$(PYTHON) -m build --wheel .
 
 .PHONY: install-sdist
 install-sdist: dist  ## Install from source distribution
