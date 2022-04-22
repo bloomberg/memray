@@ -90,7 +90,7 @@ such as `memray flamegraph` or `memray table` to convert the results into HTML.
 
 Example:
 
-    $ python3 -m memray run my_script.py -o output.bin
+    $ python3 -m memray run -o output.bin my_script.py
     $ python3 -m memray flamegraph output.bin
 
 positional arguments:
