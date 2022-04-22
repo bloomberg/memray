@@ -249,7 +249,7 @@ cdef class Tracker:
 
             if is_dev_null:
                 return unique_ptr[Sink](new NullSink())
-            return unique_ptr[Sink](new FileSink(os.fsencode(destination.path), destination.exist_ok))
+            return unique_ptr[Sink](new FileSink(os.fsencode(destination.path), destination.overwrite))
 
         elif isinstance(destination, SocketDestination):
             return unique_ptr[Sink](new SocketSink(destination.address, destination.server_port))

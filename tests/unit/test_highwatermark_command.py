@@ -100,7 +100,7 @@ class TestFilenameValidation:
         results_file, output_file = command.validate_filenames(
             output=None,
             results=os.fspath(results),
-            exist_ok=True,
+            overwrite=True,
         )
 
         # THEN
@@ -134,7 +134,7 @@ class TestFilenameValidation:
         results_file, output_file = command.validate_filenames(
             output=output,
             results=os.fspath(results),
-            exist_ok=True,
+            overwrite=True,
         )
 
         # THEN

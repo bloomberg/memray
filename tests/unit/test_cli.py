@@ -47,7 +47,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("memray-foobar.0.bin", exist_ok=False),
+            destination=FileDestination("memray-foobar.0.bin", overwrite=False),
             native_traces=False,
         )
 
@@ -60,7 +60,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("memray-foobar.0.bin", exist_ok=False),
+            destination=FileDestination("memray-foobar.0.bin", overwrite=False),
             native_traces=True,
         )
 
@@ -72,7 +72,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("my_output", exist_ok=False),
+            destination=FileDestination("my_output", overwrite=False),
             native_traces=False,
         )
 
@@ -84,7 +84,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("my_output", exist_ok=True),
+            destination=FileDestination("my_output", overwrite=True),
             native_traces=False,
         )
 
@@ -111,7 +111,7 @@ class TestRunSubCommand:
         )
         tracker_mock.assert_called_with(
             destination=FileDestination(
-                "./directory/memray-foobar.py.0.bin", exist_ok=False
+                "./directory/memray-foobar.py.0.bin", overwrite=False
             ),
             native_traces=False,
         )
@@ -207,7 +207,7 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
         tracker_mock.assert_called_with(
-            destination=FileDestination("memray-foobar.0.bin", exist_ok=False),
+            destination=FileDestination("memray-foobar.0.bin", overwrite=False),
             native_traces=False,
             follow_fork=True,
         )

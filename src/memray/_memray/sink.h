@@ -21,7 +21,7 @@ class Sink
 class FileSink : public memray::io::Sink
 {
   public:
-    FileSink(const std::string& file_name, bool exist_ok);
+    FileSink(const std::string& file_name, bool overwrite);
     ~FileSink() override;
     FileSink(FileSink&) = delete;
     FileSink(FileSink&&) = delete;
