@@ -13,7 +13,7 @@
 
 namespace {
 
-/* Private struct to pass data to to phdrs_callback. */
+/* Private struct to pass data to phdrs_callback. */
 struct elf_patcher_context_t
 {
     bool restore_original;
