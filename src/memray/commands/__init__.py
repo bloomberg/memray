@@ -39,7 +39,7 @@ _DESCRIPTION = textwrap.dedent(
 
     Example:
 
-        $ python3 -m memray run my_script.py -o output.bin
+        $ python3 -m memray run -o output.bin my_script.py
         $ python3 -m memray flamegraph output.bin
     """
 )
