@@ -73,7 +73,7 @@ def _child_process(
         script=script,
         script_args=script_args,
     )
-    _run_tracker(destination=SocketDestination(port=port), args=args)
+    _run_tracker(destination=SocketDestination(server_port=port), args=args)
 
 
 def _run_child_process_and_attach(args: argparse.Namespace) -> None:
@@ -123,7 +123,7 @@ def _run_with_socket_output(args: argparse.Namespace) -> None:
         memray_cli = f"memray{sys.version_info.major}.{sys.version_info.minor}"
         print(f"Run '{memray_cli} live {port}' in another shell to see live results")
     with suppress(KeyboardInterrupt):
-        _run_tracker(destination=SocketDestination(port=port), args=args)
+        _run_tracker(destination=SocketDestination(server_port=port), args=args)
 
 
 def _run_with_file_output(args: argparse.Namespace) -> None:

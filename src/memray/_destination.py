@@ -35,15 +35,16 @@ class SocketDestination(Destination):
     client.
 
     Args:
-        port: The port to accept a client connection on.
-        host: The address to bind the server socket to. This should generally
-            be left alone, but you might want to use ``"0.0.0.0"`` to accept
-            connections from clients on other machines. Note that sending
-            records to clients on other machines is generally a bad idea,
-            though. In particular, this won't play nicely with :ref:`Native
-            Tracking`, because the client on the remote machine won't have
-            access to the shared libraries used by the tracked process.
+        server_port: The port to accept a client connection on.
+        address: The address to bind the server socket to. This should
+            generally be left alone, but you might want to use ``"0.0.0.0"`` to
+            accept connections from clients on other machines. Note that
+            sending records to clients on other machines is generally a bad
+            idea, though. In particular, this won't play nicely with
+            :ref:`Native Tracking`, because the client on the remote machine
+            won't have access to the shared libraries used by the tracked
+            process.
     """
 
-    port: int
-    host: typing.Optional[str] = "127.0.0.1"
+    server_port: int
+    address: str = "127.0.0.1"

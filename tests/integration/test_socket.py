@@ -37,7 +37,7 @@ assert sys.argv[3].endswith("snapshot_taken.event")
 
 
 def get_tracker():
-    return Tracker(destination=SocketDestination(port=port))
+    return Tracker(destination=SocketDestination(server_port=port))
 
 
 def snapshot_point():
@@ -392,7 +392,7 @@ class TestSocketReaderAccess:
                 func = namespace[fname]
                 func(allocator)
 
-            with Tracker(destination=SocketDestination(port={free_port})):
+            with Tracker(destination=SocketDestination(server_port={free_port})):
                 allocator = MemoryAllocator()
                 for n in count(0):
                     foo(allocator, n)

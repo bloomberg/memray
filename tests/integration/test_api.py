@@ -63,7 +63,7 @@ def test_combine_destination_args():
         TypeError,
         match="Exactly one of 'file_name' or 'destination' argument must be specified",
     ):
-        with Tracker(destination=SocketDestination(port=1234), file_name="foo"):
+        with Tracker(destination=SocketDestination(server_port=1234), file_name="foo"):
             pass
 
 
@@ -83,5 +83,5 @@ def test_no_destination_arg():
 def test_follow_fork_with_socket_destination():
     # GIVEN
     with pytest.raises(RuntimeError, match="follow_fork requires an output file"):
-        with Tracker(destination=SocketDestination(port=1234), follow_fork=True):
+        with Tracker(destination=SocketDestination(server_port=1234), follow_fork=True):
             pass
