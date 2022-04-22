@@ -14,13 +14,13 @@ class FileDestination(Destination):
 
     Args:
         path: The path to the output file.
-        exist_ok: By default, if a file already exists at that path an
-            exception will be raised. If you provide ``exist_ok=True``, then
+        overwrite: By default, if a file already exists at that path an
+            exception will be raised. If you provide ``overwrite=True``, then
             the existing file will be overwritten instead.
     """
 
     path: typing.Union[pathlib.Path, str]
-    exist_ok: bool = False
+    overwrite: bool = False
 
 
 @dataclass(frozen=True)

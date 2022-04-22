@@ -68,11 +68,11 @@ FileSink::writeAll(const char* data, size_t length)
     return true;
 }
 
-FileSink::FileSink(const std::string& file_name, bool exist_ok)
+FileSink::FileSink(const std::string& file_name, bool overwrite)
 : d_fileNameStem(removeSuffix(file_name, "." + std::to_string(::getpid())))
 {
     int flags = O_CREAT | O_RDWR | O_TRUNC | O_CLOEXEC;
-    if (!exist_ok) {
+    if (!overwrite) {
         flags |= O_EXCL;
     }
     do {

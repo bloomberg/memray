@@ -147,7 +147,7 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
         """
     ).strip()
 
-    destination = FileDestination(path=filename, exist_ok=args.force)
+    destination = FileDestination(path=filename, overwrite=args.force)
     try:
         _run_tracker(
             destination=destination,
