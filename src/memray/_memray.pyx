@@ -252,7 +252,7 @@ cdef class Tracker:
             return unique_ptr[Sink](new FileSink(os.fsencode(destination.path), destination.exist_ok))
 
         elif isinstance(destination, SocketDestination):
-            return unique_ptr[Sink](new SocketSink(destination.host, destination.port))
+            return unique_ptr[Sink](new SocketSink(destination.address, destination.server_port))
         else:
             raise TypeError("destination must be a SocketDestination or FileDestination")
 

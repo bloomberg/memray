@@ -158,7 +158,7 @@ class TestRunSubCommand:
             run_name="__main__",
         )
         tracker_mock.assert_called_with(
-            destination=SocketDestination(port=1234, host="127.0.0.1"),
+            destination=SocketDestination(server_port=1234, address="127.0.0.1"),
             native_traces=False,
         )
 
@@ -181,7 +181,7 @@ class TestRunSubCommand:
             run_name="__main__",
         )
         tracker_mock.assert_called_with(
-            destination=SocketDestination(port=1111, host="127.0.0.1"),
+            destination=SocketDestination(server_port=1111, address="127.0.0.1"),
             native_traces=False,
         )
 
