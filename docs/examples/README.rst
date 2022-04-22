@@ -15,25 +15,25 @@ To track memory allocations, invoke ``memray3.9 run``:
 
 .. code:: shell
 
-   memray3.9 run numpy/example.py
+   memray3.9 run mandelbrot/mandelbrot.py
 
 Memray will print a message displaying the output file it creates.
 
 .. code:: text
 
-   Writing profile results into bas/memray-example.py.6570.bin
+   Writing profile results into mandelbrot/memray-mandelbrot.py.187967.bin
 
 You can use this file to create various reports. To generate a flame
 graph, use the following command:
 
 .. code:: shell
 
-   memray3.9 flamegraph numpy/memray-basexample.py.6570.bin
+   memray3.9 flamegraph mandelbrot/memray-mandelbrot.py.187967.bin
 
 The HTML file for the flame graph will be generated under
-``memray-flamegraph-example.py.6570.html``. The flame graph displays the stack frames
-in the application where allocations have occurred and shows the amount
-of memory used in each frame.
+``mandelbrot/memray-flamegraph-mandelbrot.py.187967.html``. The flame graph
+displays the stack frames in the application where allocations have occurred
+and shows the amount of memory used in each frame.
 
 You can see sample outputs of the resulting flame graphs:
 
