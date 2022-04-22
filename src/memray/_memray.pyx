@@ -235,7 +235,6 @@ cdef class Tracker:
     cdef bool _follow_fork
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
-    cdef shared_ptr[RecordReader] _reader
     cdef unique_ptr[RecordWriter] _writer
 
     cdef unique_ptr[Sink] _make_writer(self, destination) except*:
@@ -300,9 +299,6 @@ cdef class Tracker:
             self._follow_fork,
         )
         return self
-
-    def __del__(self):
-        self._reader.reset()
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
