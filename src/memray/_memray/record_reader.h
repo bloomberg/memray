@@ -48,9 +48,8 @@ class RecordReader
     HeaderRecord getHeader() const noexcept;
     PyObject* dumpAllRecords();
     std::string getThreadName(thread_id_t tid);
-    void clearRecords() noexcept;
-    allocations_t& allocationRecords() noexcept;
-    std::vector<MemoryRecord>& memoryRecords() noexcept;
+    Allocation getLatestAllocation() const noexcept;
+    MemoryRecord getLatestMemoryRecord() const noexcept;
 
   private:
     // Aliases
@@ -72,8 +71,8 @@ class RecordReader
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
     std::unordered_map<thread_id_t, std::string> d_thread_names;
-    allocations_t d_allocation_records;
-    std::vector<MemoryRecord> d_memory_records;
+    Allocation d_latest_allocation;
+    MemoryRecord d_latest_memory_record;
 
     // Methods
     [[nodiscard]] bool parseFramePush();

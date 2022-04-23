@@ -91,14 +91,7 @@ RecordReader::RecordReader(std::unique_ptr<Source> source)
 
     // Reserve some space for the different containers
     TrackerStats& stats = d_header.stats;
-    d_allocation_records.reserve(stats.n_allocations);
     d_frame_map.reserve(stats.n_frames);
-    long int n_memory_records_approx = 2048;
-    if (stats.end_time > 0) {
-        n_memory_records_approx = (stats.end_time - stats.start_time) / 10;
-        assert(n_memory_records_approx >= 0);
-    }
-    d_memory_records.reserve(n_memory_records_approx);
     d_thread_names.reserve(16);
     d_native_frames.reserve(d_header.native_traces ? 2048 : 0);
 }
@@ -187,16 +180,17 @@ RecordReader::parseNativeFrameIndex()
 bool
 RecordReader::parseAllocationRecord()
 {
-    AllocationRecord record;
-    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(AllocationRecord))) {
+    if (!d_input->read(
+                reinterpret_cast<char*>(&d_latest_allocation.record),
+                sizeof(d_latest_allocation.record)))
+    {
         return false;
     }
 
-    auto& stack = d_stack_traces[record.tid];
-    d_allocation_records.emplace_back(Allocation{
-            .record = record,
-            .frame_index = stack.empty() ? 0 : stack.back(),
-            .native_segment_generation = d_symbol_resolver.currentSegmentGeneration()});
+    auto& stack = d_stack_traces[d_latest_allocation.record.tid];
+    d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
+    d_latest_allocation.native_segment_generation = d_symbol_resolver.currentSegmentGeneration();
+    d_latest_allocation.n_allocations = 1;
     return true;
 }
 
@@ -256,11 +250,10 @@ RecordReader::parseThreadRecord()
 bool
 RecordReader::parseMemoryRecord()
 {
-    MemoryRecord record;
-    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+    if (!d_input->read(reinterpret_cast<char*>(&d_latest_memory_record), sizeof(d_latest_memory_record)))
+    {
         return false;
     }
-    d_memory_records.emplace_back(std::move(record));
     return true;
 }
 
@@ -427,23 +420,16 @@ RecordReader::getThreadName(thread_id_t tid)
     return "";
 }
 
-void
-RecordReader::clearRecords() noexcept
+Allocation
+RecordReader::getLatestAllocation() const noexcept
 {
-    d_allocation_records.clear();
-    d_memory_records.clear();
+    return d_latest_allocation;
 }
 
-allocations_t&
-RecordReader::allocationRecords() noexcept
+MemoryRecord
+RecordReader::getLatestMemoryRecord() const noexcept
 {
-    return d_allocation_records;
-}
-
-std::vector<MemoryRecord>&
-RecordReader::memoryRecords() noexcept
-{
-    return d_memory_records;
+    return d_latest_memory_record;
 }
 
 PyObject*
