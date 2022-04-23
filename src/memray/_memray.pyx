@@ -372,20 +372,17 @@ cdef class FileReader:
 
     cdef inline HighWatermark* _get_high_watermark(self) except*:
         if self._high_watermark == NULL:
-            self._populate_allocations()
             self._high_watermark = make_unique[HighWatermark](
                 getHighWatermark(self._get_reader().allocationRecords()))
         return self._high_watermark.get()
 
     def get_high_watermark_allocation_records(self, merge_threads=True):
         self._ensure_reader_is_open()
-        self._populate_allocations()
         cdef HighWatermark* watermark = self._get_high_watermark()
         yield from self._yield_allocations(watermark.index, merge_threads)
 
     def get_leaked_allocation_records(self, merge_threads=True):
         self._ensure_reader_is_open()
-        self._populate_allocations()
         cdef size_t snapshot_index = self._get_reader().allocationRecords().size() - 1
         yield from self._yield_allocations(snapshot_index, merge_threads)
 
@@ -394,11 +391,8 @@ cdef class FileReader:
             alloc = AllocationRecord(record.toPythonObject())
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
-    
+
     def get_memory_records(self):
-        # First, parse the entire file to get all possible memory records
-        self._populate_allocations()
-        # Now, yield all available memory records 
         for record in self._get_reader().memoryRecords():
             yield MemoryRecord(record.ms_since_epoch, record.rss)
 
