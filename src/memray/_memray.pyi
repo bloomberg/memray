@@ -137,6 +137,7 @@ class Tracker:
         memory_interval_ms: int = ...,
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
+        sampling_interval: int = 1,
     ) -> None: ...
     @overload
     def __init__(

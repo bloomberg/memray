@@ -251,6 +251,7 @@ cdef class Tracker:
     cdef unsigned int _memory_interval_ms
     cdef bool _follow_fork
     cdef bool _trace_python_allocators
+    cdef size_t _sampling_interval
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
     cdef unique_ptr[RecordWriter] _writer
@@ -278,7 +279,8 @@ cdef class Tracker:
 
     def __cinit__(self, object file_name=None, *, object destination=None,
                   bool native_traces=False, unsigned int memory_interval_ms = 10,
-                  bool follow_fork=False, bool trace_python_allocators=False):
+                  bool follow_fork=False, bool trace_python_allocators=False,
+                  size_t sampling_interval=1):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
@@ -287,6 +289,7 @@ cdef class Tracker:
         self._memory_interval_ms = memory_interval_ms
         self._follow_fork = follow_fork
         self._trace_python_allocators = trace_python_allocators
+        self._sampling_interval = sampling_interval
 
         if file_name is not None:
             destination = FileDestination(path=file_name)
@@ -319,6 +322,7 @@ cdef class Tracker:
             self._memory_interval_ms,
             self._follow_fork,
             self._trace_python_allocators,
+            self._sampling_interval,
         )
         return self
 

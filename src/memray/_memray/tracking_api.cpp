@@ -4,6 +4,7 @@
 #include <mutex>
 #include <type_traits>
 #include <unistd.h>
+#include <unordered_set>
 #include <utility>
 
 #include <Python.h>
@@ -13,6 +14,8 @@
 #include "record_writer.h"
 #include "records.h"
 #include "tracking_api.h"
+
+#include <stdint.h>
 
 using namespace memray::exception;
 using namespace std::chrono_literals;
@@ -248,18 +251,53 @@ std::atomic<bool> Tracker::d_active = false;
 std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
+thread_local BernoulliSampler Tracker::d_sampler{};
+
+void
+BernoulliSampler::setSamplingInterval(size_t sampling_interval)
+{
+    d_sampling_interval_in_bytes = sampling_interval;
+    d_sampling_probability = 1.0 / d_sampling_interval_in_bytes;
+    d_bytes_until_next_sample = poissonStep();
+}
+
+size_t
+BernoulliSampler::calculateSampleSize(size_t size)
+{
+    if (size >= d_sampling_interval_in_bytes) {
+        return size;
+    }
+
+    size_t n_samples = 0;
+    d_bytes_until_next_sample -= size;
+    while (d_bytes_until_next_sample <= 0) {
+        d_bytes_until_next_sample += poissonStep();
+        n_samples++;
+    }
+
+    return d_sampling_interval_in_bytes * n_samples;
+}
+
+size_t
+BernoulliSampler::poissonStep()
+{
+    std::exponential_distribution<double> exponential_dist(d_sampling_probability);
+    return static_cast<size_t>(exponential_dist(d_random_engine)) + 1;
+}
 
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
         unsigned int memory_interval,
         bool follow_fork,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        size_t sampling_interval)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
+, d_sampling_interval(sampling_interval)
 {
     g_tracker_generation++;
 
@@ -290,6 +328,7 @@ Tracker::Tracker(
 
     d_background_thread = std::make_unique<BackgroundThread>(d_writer, memory_interval);
     d_background_thread->start();
+    d_sampler.setSamplingInterval(sampling_interval);
 
     tracking_api::Tracker::activate();
 }
@@ -441,14 +480,41 @@ Tracker::childFork()
         return;
     }
 
+    assert(old_tracker != nullptr);
+
     // Re-enable tracking with a brand new tracker.
     d_instance_owner.reset(new Tracker(
             std::move(new_writer),
             old_tracker->d_unwind_native_frames,
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
-            old_tracker->d_trace_python_allocators));
+            old_tracker->d_trace_python_allocators,
+            old_tracker->d_sampling_interval));
     RecursionGuard::isActive = false;
+}
+
+// static std::unordered_set<void*> pointers;
+
+static constexpr char TRACE_MARK = 42;
+
+static inline void
+markPtr(void* ptr, const hooks::Allocator& func)
+{
+    if (func == hooks::Allocator::MMAP || isPymalloc(func)) {
+        return;
+    }
+    size_t usable_size = malloc_usable_size(ptr);
+    static_cast<char*>(ptr)[usable_size - 1] = TRACE_MARK;
+}
+
+static inline bool
+isPtrMarked(void* ptr, const hooks::Allocator& func)
+{
+    if (func == hooks::Allocator::MUNMAP || isPymalloc(func)) {
+        return true;
+    }
+    size_t usable_size = malloc_usable_size(ptr);
+    return static_cast<char*>(ptr)[usable_size - 1] == TRACE_MARK;
 }
 
 void
@@ -458,6 +524,16 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
+
+    size_t sample_size = size;
+
+    if (d_sampling_interval > 1) {
+        sample_size = d_sampler.calculateSampleSize(size);
+        if (sample_size == 0) {
+            return;
+        }
+        markPtr(ptr, func);
+    }
 
     // Grab a reference to the TLS variable to guarantee it's only resolved once.
     auto& python_stack_tracker = t_python_stack_tracker;
@@ -476,14 +552,13 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
                 return d_writer->writeRecord(UnresolvedNativeFrame{ip, index});
             });
         }
-        NativeAllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
+        NativeAllocationRecord record{reinterpret_cast<uintptr_t>(ptr), sample_size, func, native_index};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
         }
-
     } else {
-        AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
+        AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), sample_size, func};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
@@ -498,6 +573,10 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
+
+    if (d_sampling_interval != 1 && !isPtrMarked(ptr, func)) {
+        return;
+    }
 
     AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
     if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
@@ -644,7 +723,8 @@ Tracker::createTracker(
         bool native_traces,
         unsigned int memory_interval,
         bool follow_fork,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        size_t sampling_interval)
 {
     // Note: the GIL is used for synchronization of the singleton
     d_instance_owner.reset(new Tracker(
@@ -652,7 +732,8 @@ Tracker::createTracker(
             native_traces,
             memory_interval,
             follow_fork,
-            trace_python_allocators));
+            trace_python_allocators,
+            sampling_interval));
     Py_RETURN_NONE;
 }
 

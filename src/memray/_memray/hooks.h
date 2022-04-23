@@ -122,6 +122,21 @@ enum class AllocatorKind {
     RANGED_DEALLOCATOR = 4,
 };
 
+static inline bool
+isPymalloc(const Allocator& func) noexcept
+{
+    switch (func) {
+        case Allocator::PYMALLOC_MALLOC:
+        case Allocator::PYMALLOC_REALLOC:
+        case Allocator::PYMALLOC_CALLOC:
+        case Allocator::PYMALLOC_FREE:
+            return true;
+        default:
+            return false;
+    }
+    __builtin_unreachable();
+}
+
 AllocatorKind
 allocatorKind(const Allocator& allocator);
 

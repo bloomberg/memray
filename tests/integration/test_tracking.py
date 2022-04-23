@@ -89,6 +89,35 @@ def test_simple_allocation_tracking(allocator_func, allocator_type, tmp_path):
     assert len(frees) >= 1
 
 
+@pytest.mark.parametrize(["allocator_func", "allocator_type"], ALLOCATORS)
+def test_simple_allocation_tracking_sampling(allocator_func, allocator_type, tmp_path):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output, sampling_interval=2):
+        res = getattr(allocator, allocator_func)(1234)
+        if res:
+            allocator.free()
+
+    if not res:
+        pytest.skip("Allocator {allocator_func} not supported in this platform")
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+    allocs = [event for event in allocations if event.allocator == allocator_type]
+    assert len(allocs) >= 1
+    (alloc,) = allocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == alloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) >= 1
+
+
 @pytest.mark.parametrize("domain", PYMALLOC_DOMAINS)
 @pytest.mark.parametrize(["allocator_func", "allocator_type"], PYMALLOC_ALLOCATORS)
 def test_simple_pymalloc_allocation_tracking(
@@ -116,6 +145,44 @@ def test_simple_pymalloc_allocation_tracking(
         if event.size == 1234 and event.allocator == allocator_type
     ]
     assert len(allocs) == 1
+    (alloc,) = allocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == alloc.address
+        and event.allocator == AllocatorType.PYMALLOC_FREE
+    ]
+    assert len(frees) >= 1
+
+
+@pytest.mark.parametrize("domain", PYMALLOC_DOMAINS)
+@pytest.mark.parametrize(["allocator_func", "allocator_type"], PYMALLOC_ALLOCATORS)
+def test_simple_pymalloc_allocation_tracking_sampling(
+    allocator_func, allocator_type, domain, tmp_path
+):
+    # GIVEN
+    allocator = PymallocMemoryAllocator(domain)
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    the_allocator = getattr(allocator, allocator_func)
+    with Tracker(output, trace_python_allocators=True, sampling_interval=2):
+        res = the_allocator(1234)
+        if res:
+            allocator.free()
+
+    if not res:
+        pytest.skip("Allocator {allocator_func} not supported in this platform")
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+    allocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == allocator_type
+    ]
+    assert len(allocs) >= 1
     (alloc,) = allocs
 
     frees = [
@@ -1141,3 +1208,54 @@ class TestMemoryRecords:
             _next.time - prev.time >= 20
             for prev, _next in zip(memory_records, memory_records[1:])
         )
+
+
+class TestStatisticalSampling:
+    def test_very_large_sampling_rate(self, tmp_path):
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output, sampling_interval=2**30):
+            allocator.valloc(1)
+            allocator.free()
+
+        # THEN
+        allocations = list(FileReader(output).get_allocation_records())
+        allocs = [
+            event for event in allocations if event.allocator == AllocatorType.VALLOC
+        ]
+        assert not allocs
+
+        frees = [
+            event for event in allocations if event.allocator == AllocatorType.FREE
+        ]
+        assert not frees
+
+    def test_perfect_sampling_rate(self, tmp_path):
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output, sampling_interval=1):
+            allocator.valloc(1)
+            allocator.free()
+
+        # THEN
+        allocations = list(FileReader(output).get_allocation_records())
+        allocs = [
+            event
+            for event in allocations
+            if event.size == 1 and event.allocator == AllocatorType.VALLOC
+        ]
+        assert len(allocs) == 1
+        (alloc,) = allocs
+
+        frees = [
+            event
+            for event in allocations
+            if alloc.address == event.address and event.allocator == AllocatorType.FREE
+        ]
+        assert len(frees) >= 1

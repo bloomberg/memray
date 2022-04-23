@@ -26,6 +26,41 @@ where ``<script>`` is the name of the executed script and ``<pid>`` is the proce
 A different filename can be provided with the ``-o`` or ``--output`` argument.
 
 
+Sampling profiling
+------------------
+
+Although `memray` is a tracking profiler (this means that `memray` will record
+every single allocation and deallocation that the traced program makes), it can
+also act as a sampling profiler. This is specially useful for profiling the
+performance of a long running program, as the result files from these programs
+tend to be very large and can be difficult to analyze. When using `memray` as a
+sampling profiler, a statistical process known as a "Bernoulli process" will be
+used to sample the program instead. The result file in this mode will not
+accurately represent all allocations that ever happened but a
+statistically-weighted version of them. There are several advantages to this
+mode:
+
+* It is much faster than the tracing profiler.
+* The result files are much smaller.
+* Analising result files takes much less time.
+
+.. tip::
+
+  Sampling profiling is specially useful for long-running applications or for
+  programs that do a huge number of small allocations with regular patterns.
+
+To activate sampling you need to specify a non-zero sampling interval 
+
+.. code:: shell
+
+    memray run --sampling-interval=2048 file.py
+
+
+Although this may look great, is important to understand in which situations you
+want to use sampling and in which situations you want to use tracing.  To make
+more informed decisions on when to use sampling profiling, we recomend you to
+read the :doc:`section about sampling <sampling>`.
+
 .. _Native tracking:
 
 Native tracking

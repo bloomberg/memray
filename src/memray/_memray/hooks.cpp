@@ -102,6 +102,8 @@ ensureAllHooksAreValid()
 
 namespace memray::intercept {
 
+static constexpr size_t MEMRAY_ALLOC_OVERHEAD = 1;
+
 void*
 pymalloc_malloc(void* ctx, size_t size) noexcept
 {
@@ -195,7 +197,7 @@ malloc(size_t size) noexcept
 {
     assert(hooks::malloc);
 
-    void* ptr = hooks::malloc(size);
+    void* ptr = hooks::malloc(size + MEMRAY_ALLOC_OVERHEAD);
     tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::MALLOC);
     return ptr;
 }
@@ -219,11 +221,11 @@ realloc(void* ptr, size_t size) noexcept
 {
     assert(hooks::realloc);
 
-    void* ret = hooks::realloc(ptr, size);
+    if (ptr != nullptr) {
+        tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+    }
+    void* ret = hooks::realloc(ptr, size + MEMRAY_ALLOC_OVERHEAD);
     if (ret) {
-        if (ptr != nullptr) {
-            tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
-        }
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::REALLOC);
     }
     return ret;
@@ -234,7 +236,7 @@ calloc(size_t num, size_t size) noexcept
 {
     assert(hooks::calloc);
 
-    void* ret = hooks::calloc(num, size);
+    void* ret = hooks::calloc(num, size + MEMRAY_ALLOC_OVERHEAD);
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, num * size, hooks::Allocator::CALLOC);
     }
@@ -246,7 +248,7 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
 {
     assert(hooks::posix_memalign);
 
-    int ret = hooks::posix_memalign(memptr, alignment, size);
+    int ret = hooks::posix_memalign(memptr, alignment, size + MEMRAY_ALLOC_OVERHEAD);
     if (!ret) {
         tracking_api::Tracker::trackAllocation(*memptr, size, hooks::Allocator::POSIX_MEMALIGN);
     }
@@ -258,7 +260,9 @@ aligned_alloc(size_t alignment, size_t size) noexcept
 {
     assert(hooks::aligned_alloc);
 
-    void* ret = hooks::aligned_alloc(alignment, size);
+    // The **size** parameter has the added restriction that size should be a multiple of alignment
+    // so we need to account for this when adding the overhead.
+    void* ret = hooks::aligned_alloc(alignment, size + alignment * MEMRAY_ALLOC_OVERHEAD);
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
     }
@@ -273,7 +277,7 @@ memalign(size_t alignment, size_t size) noexcept
     void* ret;
     {
         tracking_api::RecursionGuard guard;
-        ret = hooks::memalign(alignment, size);
+        ret = hooks::memalign(alignment, size + MEMRAY_ALLOC_OVERHEAD);
     }
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::MEMALIGN);
@@ -289,7 +293,7 @@ valloc(size_t size) noexcept
     void* ret;
     {
         tracking_api::RecursionGuard guard;
-        ret = hooks::valloc(size);
+        ret = hooks::valloc(size + MEMRAY_ALLOC_OVERHEAD);
     }
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::VALLOC);
@@ -303,7 +307,7 @@ pvalloc(size_t size) noexcept
 {
     assert(hooks::pvalloc);
 
-    void* ret = hooks::pvalloc(size);
+    void* ret = hooks::pvalloc(size + MEMRAY_ALLOC_OVERHEAD);
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::PVALLOC);
     }

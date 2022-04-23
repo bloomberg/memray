@@ -10,6 +10,8 @@ import sys
 import textwrap
 from contextlib import closing
 from contextlib import suppress
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -34,13 +36,16 @@ def _run_tracker(
     post_run_message: Optional[str] = None,
     follow_fork: bool = False,
     trace_python_allocators: bool = False,
+    sampling_interval: int = 1,
 ) -> None:
     try:
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         if follow_fork:
             kwargs["follow_fork"] = True
         if trace_python_allocators:
             kwargs["trace_python_allocators"] = True
+        if sampling_interval:
+            kwargs["sampling_interval"] = sampling_interval
         tracker = Tracker(destination=destination, native_traces=args.native, **kwargs)
     except OSError as error:
         raise MemrayCommandError(str(error), exit_code=1)
@@ -171,6 +176,7 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
             post_run_message=example_report_generation_message,
             follow_fork=args.follow_fork,
             trace_python_allocators=args.trace_python_allocators,
+            sampling_interval=args.sampling_interval,
         )
     except OSError as error:
         raise MemrayCommandError(str(error), exit_code=1)
@@ -227,6 +233,14 @@ class RunCommand:
             action="store_true",
             help="Record allocations made by the Pymalloc allocator",
             default=False,
+        )
+        parser.add_argument(
+            "--sampling-interval",
+            help="The amount of bytes to wait until sampling on avergage. "
+            "Set to 1 for perfect accuracy.",
+            dest="sampling_interval",
+            default=1,
+            type=int,
         )
         parser.add_argument(
             "-q",
