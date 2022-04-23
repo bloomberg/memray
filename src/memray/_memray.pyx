@@ -13,6 +13,8 @@ from _memray.logging cimport setLogThreshold
 from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
 from _memray.record_writer cimport RecordWriter
+from _memray.records cimport Allocation as _Allocation
+from _memray.records cimport MemoryRecord as _MemoryRecord
 from _memray.sink cimport FileSink
 from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
@@ -317,6 +319,8 @@ cdef class FileReader:
     cdef cppstring _path
 
     cdef shared_ptr[RecordReader] _reader
+    cdef vector[_Allocation] _allocations
+    cdef vector[_MemoryRecord] _memory_records
     cdef unique_ptr[HighWatermark] _high_watermark
     cdef bool _closed
     cdef object _header
@@ -331,10 +335,22 @@ cdef class FileReader:
 
     cdef void _populate_allocations(self):
         cdef RecordReader* reader = self._get_reader()
-        while reader.nextRecord() not in (
-                RecordResult.RecordResultEndOfFile,
-                RecordResult.RecordResultError):
-            continue
+
+        stats = self._header["stats"]
+        self._allocations.reserve(stats["n_allocations"])
+        n_memory_records_approx = 2048
+        if 0 < stats["start_time"] < stats["end_time"]:
+            n_memory_records_approx = (stats["end_time"] - stats["start_time"]) / 10
+        self._memory_records.reserve(n_memory_records_approx)
+
+        while True:
+            ret = reader.nextRecord()
+            if ret == RecordResult.RecordResultAllocationRecord:
+                self._allocations.push_back(reader.getLatestAllocation())
+            elif ret == RecordResult.RecordResultMemoryRecord:
+                self._memory_records.push_back(reader.getLatestMemoryRecord())
+            else:
+                break
 
     cdef RecordReader* _get_reader(self) except *:
         if self._reader.get() == NULL:
@@ -364,7 +380,7 @@ cdef class FileReader:
     
     def _yield_allocations(self, size_t index, merge_threads):
         for elem in Py_GetSnapshotAllocationRecords(
-            self._get_reader().allocationRecords(), index, merge_threads):
+            self._allocations, index, merge_threads):
             alloc = AllocationRecord(elem)
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
@@ -373,7 +389,7 @@ cdef class FileReader:
     cdef inline HighWatermark* _get_high_watermark(self) except*:
         if self._high_watermark == NULL:
             self._high_watermark = make_unique[HighWatermark](
-                getHighWatermark(self._get_reader().allocationRecords()))
+                getHighWatermark(self._allocations))
         return self._high_watermark.get()
 
     def get_high_watermark_allocation_records(self, merge_threads=True):
@@ -383,17 +399,17 @@ cdef class FileReader:
 
     def get_leaked_allocation_records(self, merge_threads=True):
         self._ensure_reader_is_open()
-        cdef size_t snapshot_index = self._get_reader().allocationRecords().size() - 1
+        cdef size_t snapshot_index = self._allocations.size() - 1
         yield from self._yield_allocations(snapshot_index, merge_threads)
 
     def get_allocation_records(self):
-        for record in self._get_reader().allocationRecords():
+        for record in self._allocations:
             alloc = AllocationRecord(record.toPythonObject())
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
     def get_memory_records(self):
-        for record in self._get_reader().memoryRecords():
+        for record in self._memory_records:
             yield MemoryRecord(record.ms_since_epoch, record.rss)
 
     @property

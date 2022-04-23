@@ -19,10 +19,7 @@ BackgroundSocketReader::backgroundThreadWorker()
         switch (record_type) {
             case RecordResult::ALLOCATION_RECORD: {
                 std::lock_guard<std::mutex> lock(d_mutex);
-                const auto& record = d_record_reader->allocationRecords().back();
-                d_aggregator.addAllocation(record);
-                // Clear the records in the reader to avoid growing memory indefinitely
-                d_record_reader->clearRecords();
+                d_aggregator.addAllocation(d_record_reader->getLatestAllocation());
                 break;
             }
 
