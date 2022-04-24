@@ -342,6 +342,7 @@ class TestParseSubcommand:
         # GIVEN
         record_types = [
             "ALLOCATION",
+            "ALLOCATION_WITH_NATIVE",
             "FRAME_PUSH",
             "FRAME_POP",
             "FRAME_ID",
