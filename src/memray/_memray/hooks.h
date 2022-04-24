@@ -88,7 +88,7 @@ struct SymbolHook
 void
 ensureAllHooksAreValid();
 
-enum class Allocator {
+enum class Allocator : unsigned char {
     MALLOC = 1,
     FREE = 2,
     CALLOC = 3,
