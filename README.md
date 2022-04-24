@@ -141,7 +141,7 @@ This will produce an HTML file with a flame graph of the memory usage that you c
 
 <img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/flamegraph_example.png?raw=true" align="center"/>
 
-## Pytest plugin
+## Pytest plug-in
 
 If you want an easy and convenient way to use `memray` in your test suite, you can consider using [pytest-memray](https://github.com/bloomberg/pytest-memray). Once installed, this pytest plugin allows you to simply add `--memray` to the command line invocation:
 
