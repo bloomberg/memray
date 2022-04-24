@@ -20,8 +20,8 @@ from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
 from _memray.sink cimport SocketSink
 from _memray.snapshot cimport HighWatermark
+from _memray.snapshot cimport HighWatermarkFinder
 from _memray.snapshot cimport Py_GetSnapshotAllocationRecords
-from _memray.snapshot cimport getHighWatermark
 from _memray.socket_reader_thread cimport BackgroundSocketReader
 from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
@@ -387,9 +387,11 @@ cdef class FileReader:
             self._ensure_reader_is_open()
 
     cdef inline HighWatermark* _get_high_watermark(self) except*:
+        cdef HighWatermarkFinder finder
         if self._high_watermark == NULL:
-            self._high_watermark = make_unique[HighWatermark](
-                getHighWatermark(self._allocations))
+            for record in self._allocations:
+                finder.processAllocation(record)
+            self._high_watermark = make_unique[HighWatermark](finder.getHighWatermark())
         return self._high_watermark.get()
 
     def get_high_watermark_allocation_records(self, merge_threads=True):

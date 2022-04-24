@@ -8,5 +8,8 @@ cdef extern from "snapshot.h" namespace "memray::api":
         size_t index
         size_t peak_memory
 
-    HighWatermark getHighWatermark(const vector[Allocation]& records) except+
+    cdef cppclass HighWatermarkFinder:
+        void processAllocation(const Allocation&) except+
+        HighWatermark getHighWatermark()
+
     object Py_GetSnapshotAllocationRecords(const vector[Allocation]& all_records, size_t record_index, bool merge_threads) except+

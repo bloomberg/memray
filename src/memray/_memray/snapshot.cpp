@@ -143,69 +143,66 @@ reduceSnapshotAllocations(const allocations_t& records, size_t snapshot_index, b
     return aggregator.getSnapshotAllocations(merge_threads);
 }
 
-HighWatermark
-getHighWatermark(const allocations_t& records)
+void
+HighWatermarkFinder::updatePeak(size_t index) noexcept
 {
-    HighWatermark result;
-    size_t current_memory = 0;
-    std::unordered_map<uintptr_t, size_t> ptr_to_allocation_size{};
-    IntervalTree<Allocation> mmap_intervals;
+    if (d_current_memory >= d_last_high_water_mark.peak_memory) {
+        d_last_high_water_mark.index = index;
+        d_last_high_water_mark.peak_memory = d_current_memory;
+    }
+}
 
-    auto update_peak = [&](size_t index) {
-        if (current_memory >= result.peak_memory) {
-            result.index = index;
-            result.peak_memory = current_memory;
+void
+HighWatermarkFinder::processAllocation(const Allocation& allocation)
+{
+    size_t index = d_allocations_seen++;
+    switch (hooks::allocatorKind(allocation.record.allocator)) {
+        case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
+            d_current_memory += allocation.record.size;
+            updatePeak(index);
+            d_ptr_to_allocation_size[allocation.record.address] = allocation.record.size;
+            break;
         }
-    };
+        case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
+            auto it = d_ptr_to_allocation_size.find(allocation.record.address);
+            if (it != d_ptr_to_allocation_size.end()) {
+                d_current_memory -= it->second;
+                d_ptr_to_allocation_size.erase(it);
+            }
+            break;
+        }
+        case hooks::AllocatorKind::RANGED_ALLOCATOR: {
+            d_mmap_intervals.addInterval(allocation.record.address, allocation.record.size, allocation);
+            d_current_memory += allocation.record.size;
+            updatePeak(index);
+            break;
+        }
+        case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+            const auto address = allocation.record.address;
+            const auto size = allocation.record.size;
+            const auto removed = d_mmap_intervals.removeInterval(address, size);
 
-    for (size_t index = 0; index < records.size(); ++index) {
-        const Allocation& allocation = records[index];
-        switch (hooks::allocatorKind(allocation.record.allocator)) {
-            case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
-                current_memory += allocation.record.size;
-                update_peak(index);
-                ptr_to_allocation_size[allocation.record.address] = allocation.record.size;
+            if (!removed.has_value()) {
                 break;
             }
-            case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
-                auto it = ptr_to_allocation_size.find(allocation.record.address);
-                if (it != ptr_to_allocation_size.end()) {
-                    current_memory -= it->second;
-                    ptr_to_allocation_size.erase(it);
-                }
-                break;
-            }
-            case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-                mmap_intervals.addInterval(
-                        allocation.record.address,
-                        allocation.record.size,
-                        allocation);
-                current_memory += allocation.record.size;
-                update_peak(index);
-                break;
-            }
-            case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
-                const auto address = allocation.record.address;
-                const auto size = allocation.record.size;
-                const auto removed = mmap_intervals.removeInterval(address, size);
-
-                if (!removed.has_value()) {
-                    break;
-                }
-                size_t removed_size = std::accumulate(
-                        removed.value().begin(),
-                        removed.value().cend(),
-                        0,
-                        [](size_t sum, const std::pair<Interval, Allocation>& range) {
-                            return sum + range.first.size();
-                        });
-                current_memory -= removed_size;
-                update_peak(index);
-                break;
-            }
+            size_t removed_size = std::accumulate(
+                    removed.value().begin(),
+                    removed.value().cend(),
+                    0,
+                    [](size_t sum, const std::pair<Interval, Allocation>& range) {
+                        return sum + range.first.size();
+                    });
+            d_current_memory -= removed_size;
+            updatePeak(index);
+            break;
         }
     }
-    return result;
+}
+
+HighWatermark
+HighWatermarkFinder::getHighWatermark() const noexcept
+{
+    return d_last_high_water_mark;
 }
 
 PyObject*
