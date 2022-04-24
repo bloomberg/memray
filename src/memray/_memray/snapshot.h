@@ -170,8 +170,25 @@ struct HighWatermark
     size_t peak_memory{0};
 };
 
-HighWatermark
-getHighWatermark(const allocations_t& sum);
+class HighWatermarkFinder
+{
+  public:
+    HighWatermarkFinder() = default;
+    void processAllocation(const Allocation& allocation);
+    HighWatermark getHighWatermark() const noexcept;
+
+  private:
+    HighWatermarkFinder(const HighWatermarkFinder&) = delete;
+    HighWatermarkFinder& operator=(const HighWatermarkFinder&) = delete;
+
+    void updatePeak(size_t index) noexcept;
+
+    HighWatermark d_last_high_water_mark;
+    size_t d_current_memory{0};
+    size_t d_allocations_seen{0};
+    std::unordered_map<uintptr_t, size_t> d_ptr_to_allocation_size{};
+    IntervalTree<Allocation> d_mmap_intervals;
+};
 
 PyObject*
 Py_GetSnapshotAllocationRecords(
