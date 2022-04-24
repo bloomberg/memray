@@ -14,7 +14,7 @@
 namespace memray::tracking_api {
 
 const char MAGIC[] = "memray";
-const int CURRENT_HEADER_VERSION = 6;
+const int CURRENT_HEADER_VERSION = 7;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
@@ -23,15 +23,16 @@ using millis_t = long long;
 enum class RecordType {
     UNINITIALIZED = 0,
     ALLOCATION = 1,
-    FRAME_INDEX = 2,
-    FRAME_PUSH = 3,
-    NATIVE_TRACE_INDEX = 4,
-    MEMORY_MAP_START = 5,
-    SEGMENT_HEADER = 6,
-    SEGMENT = 7,
-    FRAME_POP = 8,
-    THREAD_RECORD = 9,
-    MEMORY_RECORD = 10,
+    ALLOCATION_WITH_NATIVE = 2,
+    FRAME_INDEX = 3,
+    FRAME_PUSH = 4,
+    NATIVE_TRACE_INDEX = 5,
+    MEMORY_MAP_START = 6,
+    SEGMENT_HEADER = 7,
+    SEGMENT = 8,
+    FRAME_POP = 9,
+    THREAD_RECORD = 10,
+    MEMORY_RECORD = 11,
 };
 
 struct TrackerStats
@@ -72,12 +73,24 @@ struct AllocationRecord
     uintptr_t address;
     size_t size;
     hooks::Allocator allocator;
+};
+
+struct NativeAllocationRecord
+{
+    thread_id_t tid;
+    uintptr_t address;
+    size_t size;
+    hooks::Allocator allocator;
     frame_id_t native_frame_id{0};
 };
 
 struct Allocation
 {
-    tracking_api::AllocationRecord record;
+    thread_id_t tid;
+    uintptr_t address;
+    size_t size;
+    hooks::Allocator allocator;
+    frame_id_t native_frame_id{0};
     size_t frame_index{0};
     size_t native_segment_generation{0};
     size_t n_allocations{1};

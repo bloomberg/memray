@@ -475,9 +475,9 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
     python_stack_tracker.emitPendingPops();
     python_stack_tracker.emitPendingPushes();
 
-    size_t native_index = 0;
     if (d_unwind_native_frames) {
         NativeTrace trace;
+        frame_id_t native_index = 0;
         // Skip the internal frames so we don't need to filter them later.
         if (trace.fill(2)) {
             native_index = d_native_trace_tree.getTraceIndex(trace, [&](frame_id_t ip, uint32_t index) {
@@ -486,12 +486,19 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
                         UnresolvedNativeFrame{ip, index});
             });
         }
-    }
+        NativeAllocationRecord
+                record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
+        if (!d_writer->writeRecord(RecordType::ALLOCATION_WITH_NATIVE, record)) {
+            std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+            deactivate();
+        }
 
-    AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
-    if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
-        std::cerr << "Failed to write output, deactivating tracking" << std::endl;
-        deactivate();
+    } else {
+        AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func};
+        if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
+            std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+            deactivate();
+        }
     }
 }
 
@@ -511,7 +518,7 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
     python_stack_tracker.emitPendingPops();
     python_stack_tracker.emitPendingPushes();
 
-    AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, 0};
+    AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func};
     if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
         deactivate();

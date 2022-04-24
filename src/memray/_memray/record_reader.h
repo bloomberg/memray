@@ -80,6 +80,7 @@ class RecordReader
     [[nodiscard]] bool parseFrameIndex();
     [[nodiscard]] bool parseNativeFrameIndex();
     [[nodiscard]] bool parseAllocationRecord();
+    [[nodiscard]] bool parseNativeAllocationRecord();
     [[nodiscard]] bool parseSegmentHeader();
     [[nodiscard]] bool parseSegment(Segment& segment);
     [[nodiscard]] bool parseThreadRecord();

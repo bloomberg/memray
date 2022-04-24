@@ -53,26 +53,24 @@ Interval::rightIntersects(const Interval& other) const
 void
 SnapshotAllocationAggregator::addAllocation(const Allocation& allocation)
 {
-    switch (hooks::allocatorKind(allocation.record.allocator)) {
+    switch (hooks::allocatorKind(allocation.allocator)) {
         case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
-            d_ptr_to_allocation[allocation.record.address] = allocation;
+            d_ptr_to_allocation[allocation.address] = allocation;
             break;
         }
         case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
-            auto it = d_ptr_to_allocation.find(allocation.record.address);
+            auto it = d_ptr_to_allocation.find(allocation.address);
             if (it != d_ptr_to_allocation.end()) {
                 d_ptr_to_allocation.erase(it);
             }
             break;
         }
         case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-            auto& record = allocation.record;
-            d_interval_tree.addInterval(record.address, record.size, allocation);
+            d_interval_tree.addInterval(allocation.address, allocation.size, allocation);
             break;
         }
         case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
-            auto& record = allocation.record;
-            d_interval_tree.removeInterval(record.address, record.size);
+            d_interval_tree.removeInterval(allocation.address, allocation.size);
             break;
         }
     }
@@ -86,14 +84,14 @@ SnapshotAllocationAggregator::getSnapshotAllocations(bool merge_threads)
 
     for (const auto& it : d_ptr_to_allocation) {
         const Allocation& record = it.second;
-        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.record.tid;
+        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.tid;
         auto alloc_it = stack_to_allocation.find(std::pair(record.frame_index, thread_id));
         if (alloc_it == stack_to_allocation.end()) {
             stack_to_allocation.insert(
                     alloc_it,
                     std::pair(std::pair(record.frame_index, thread_id), record));
         } else {
-            alloc_it->second.record.size += record.record.size;
+            alloc_it->second.size += record.size;
             alloc_it->second.n_allocations += 1;
         }
     }
@@ -102,16 +100,16 @@ SnapshotAllocationAggregator::getSnapshotAllocations(bool merge_threads)
     // we update the allocation to reflect the actual size at the peak, based on the lengths
     // of the ranges in the interval tree.
     for (const auto& [range, allocation] : d_interval_tree) {
-        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : allocation.record.tid;
+        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : allocation.tid;
         auto alloc_it = stack_to_allocation.find(std::pair(allocation.frame_index, thread_id));
         if (alloc_it == stack_to_allocation.end()) {
             Allocation new_alloc = allocation;
-            new_alloc.record.size = range.size();
+            new_alloc.size = range.size();
             stack_to_allocation.insert(
                     alloc_it,
                     std::pair(std::pair(allocation.frame_index, thread_id), new_alloc));
         } else {
-            alloc_it->second.record.size += range.size();
+            alloc_it->second.size += range.size();
             alloc_it->second.n_allocations += 1;
         }
     }
@@ -156,15 +154,15 @@ void
 HighWatermarkFinder::processAllocation(const Allocation& allocation)
 {
     size_t index = d_allocations_seen++;
-    switch (hooks::allocatorKind(allocation.record.allocator)) {
+    switch (hooks::allocatorKind(allocation.allocator)) {
         case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
-            d_current_memory += allocation.record.size;
+            d_current_memory += allocation.size;
             updatePeak(index);
-            d_ptr_to_allocation_size[allocation.record.address] = allocation.record.size;
+            d_ptr_to_allocation_size[allocation.address] = allocation.size;
             break;
         }
         case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
-            auto it = d_ptr_to_allocation_size.find(allocation.record.address);
+            auto it = d_ptr_to_allocation_size.find(allocation.address);
             if (it != d_ptr_to_allocation_size.end()) {
                 d_current_memory -= it->second;
                 d_ptr_to_allocation_size.erase(it);
@@ -172,14 +170,14 @@ HighWatermarkFinder::processAllocation(const Allocation& allocation)
             break;
         }
         case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-            d_mmap_intervals.addInterval(allocation.record.address, allocation.record.size, allocation);
-            d_current_memory += allocation.record.size;
+            d_mmap_intervals.addInterval(allocation.address, allocation.size, allocation);
+            d_current_memory += allocation.size;
             updatePeak(index);
             break;
         }
         case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
-            const auto address = allocation.record.address;
-            const auto size = allocation.record.size;
+            const auto address = allocation.address;
+            const auto size = allocation.size;
             const auto removed = d_mmap_intervals.removeInterval(address, size);
 
             if (!removed.has_value()) {

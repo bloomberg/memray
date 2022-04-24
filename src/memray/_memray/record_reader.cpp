@@ -169,7 +169,7 @@ bool
 RecordReader::parseNativeFrameIndex()
 {
     UnresolvedNativeFrame frame{};
-    if (!d_input->read(reinterpret_cast<char*>(&frame), sizeof(UnresolvedNativeFrame))) {
+    if (!d_input->read(reinterpret_cast<char*>(&frame), sizeof(frame))) {
         return false;
     }
     std::lock_guard<std::mutex> lock(d_mutex);
@@ -180,14 +180,37 @@ RecordReader::parseNativeFrameIndex()
 bool
 RecordReader::parseAllocationRecord()
 {
-    if (!d_input->read(
-                reinterpret_cast<char*>(&d_latest_allocation.record),
-                sizeof(d_latest_allocation.record)))
-    {
+    AllocationRecord record;
+    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
         return false;
     }
 
-    auto& stack = d_stack_traces[d_latest_allocation.record.tid];
+    auto& stack = d_stack_traces[record.tid];
+    d_latest_allocation.tid = record.tid;
+    d_latest_allocation.address = record.address;
+    d_latest_allocation.size = record.size;
+    d_latest_allocation.allocator = record.allocator;
+    d_latest_allocation.native_frame_id = 0;
+    d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
+    d_latest_allocation.native_segment_generation = 0;
+    d_latest_allocation.n_allocations = 1;
+    return true;
+}
+
+bool
+RecordReader::parseNativeAllocationRecord()
+{
+    NativeAllocationRecord record;
+    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+        return false;
+    }
+
+    auto& stack = d_stack_traces[record.tid];
+    d_latest_allocation.tid = record.tid;
+    d_latest_allocation.address = record.address;
+    d_latest_allocation.size = record.size;
+    d_latest_allocation.allocator = record.allocator;
+    d_latest_allocation.native_frame_id = record.native_frame_id;
     d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
     d_latest_allocation.native_segment_generation = d_symbol_resolver.currentSegmentGeneration();
     d_latest_allocation.n_allocations = 1;
@@ -273,6 +296,15 @@ RecordReader::nextRecord()
             case RecordType::ALLOCATION: {
                 if (!parseAllocationRecord()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse allocation record";
+                    return RecordResult::ERROR;
+                }
+                return RecordResult::ALLOCATION_RECORD;
+            }
+            case RecordType::ALLOCATION_WITH_NATIVE: {
+                if (!parseNativeAllocationRecord()) {
+                    if (d_input->is_open()) {
+                        LOG(ERROR) << "Failed to parse allocation record with native info";
+                    }
                     return RecordResult::ERROR;
                 }
                 return RecordResult::ALLOCATION_RECORD;
@@ -479,10 +511,10 @@ RecordReader::dumpAllRecords()
             case RecordType::UNINITIALIZED: {
                 // Skip it. All remaining bytes should be 0.
             } break;
-            case RecordType::ALLOCATION: {
-                printf("ALLOCATION ");
+            case RecordType::ALLOCATION_WITH_NATIVE: {
+                printf("ALLOCATION_WITH_NATIVE ");
 
-                AllocationRecord record;
+                NativeAllocationRecord record;
                 if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
                     Py_RETURN_NONE;
                 }
@@ -502,6 +534,29 @@ RecordReader::dumpAllRecords()
                        record.size,
                        allocator,
                        record.native_frame_id);
+            } break;
+
+            case RecordType::ALLOCATION: {
+                printf("ALLOCATION ");
+
+                AllocationRecord record;
+                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                    Py_RETURN_NONE;
+                }
+
+                const char* allocator = allocatorName(record.allocator);
+
+                std::string unknownAllocator;
+                if (!allocator) {
+                    unknownAllocator =
+                            "<unknown allocator " + std::to_string((int)record.allocator) + ">";
+                    allocator = unknownAllocator.c_str();
+                }
+                printf("tid=%lu address=%p size=%zd allocator=%s\n",
+                       record.tid,
+                       (void*)record.address,
+                       record.size,
+                       allocator);
             } break;
             case RecordType::FRAME_PUSH: {
                 printf("FRAME_PUSH ");
