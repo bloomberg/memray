@@ -148,44 +148,45 @@ getHighWatermark(const allocations_t& records)
 {
     HighWatermark result;
     size_t current_memory = 0;
-    std::unordered_map<uintptr_t, size_t> ptr_to_allocation{};
+    std::unordered_map<uintptr_t, size_t> ptr_to_allocation_size{};
     IntervalTree<Allocation> mmap_intervals;
 
-    auto update_peak = [&](allocations_t::const_iterator records_it) {
+    auto update_peak = [&](size_t index) {
         if (current_memory >= result.peak_memory) {
-            result.index = records_it - records.cbegin();
+            result.index = index;
             result.peak_memory = current_memory;
         }
     };
 
-    for (auto records_it = records.cbegin(); records_it != records.cend(); records_it++) {
-        switch (hooks::allocatorKind(records_it->record.allocator)) {
+    for (size_t index = 0; index < records.size(); ++index) {
+        const Allocation& allocation = records[index];
+        switch (hooks::allocatorKind(allocation.record.allocator)) {
             case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
-                current_memory += records_it->record.size;
-                update_peak(records_it);
-                ptr_to_allocation[records_it->record.address] = records_it - records.begin();
+                current_memory += allocation.record.size;
+                update_peak(index);
+                ptr_to_allocation_size[allocation.record.address] = allocation.record.size;
                 break;
             }
             case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
-                auto it = ptr_to_allocation.find(records_it->record.address);
-                if (it != ptr_to_allocation.end()) {
-                    current_memory -= records[it->second].record.size;
-                    ptr_to_allocation.erase(it);
+                auto it = ptr_to_allocation_size.find(allocation.record.address);
+                if (it != ptr_to_allocation_size.end()) {
+                    current_memory -= it->second;
+                    ptr_to_allocation_size.erase(it);
                 }
                 break;
             }
             case hooks::AllocatorKind::RANGED_ALLOCATOR: {
                 mmap_intervals.addInterval(
-                        records_it->record.address,
-                        records_it->record.size,
-                        *records_it);
-                current_memory += records_it->record.size;
-                update_peak(records_it);
+                        allocation.record.address,
+                        allocation.record.size,
+                        allocation);
+                current_memory += allocation.record.size;
+                update_peak(index);
                 break;
             }
             case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
-                const auto address = records_it->record.address;
-                const auto size = records_it->record.size;
+                const auto address = allocation.record.address;
+                const auto size = allocation.record.size;
                 const auto removed = mmap_intervals.removeInterval(address, size);
 
                 if (!removed.has_value()) {
@@ -199,7 +200,7 @@ getHighWatermark(const allocations_t& records)
                             return sum + range.first.size();
                         });
                 current_memory -= removed_size;
-                update_peak(records_it);
+                update_peak(index);
                 break;
             }
         }
