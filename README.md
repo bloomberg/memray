@@ -141,7 +141,7 @@ This will produce an HTML file with a flame graph of the memory usage that you c
 
 <img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/flamegraph_example.png?raw=true" align="center"/>
 
-## Pytest plug-in
+## Pytest plugin
 
 If you want an easy and convenient way to use `memray` in your test suite, you can consider using [pytest-memray](https://github.com/bloomberg/pytest-memray). Once installed, this pytest plugin allows you to simply add `--memray` to the command line invocation:
 
@@ -208,6 +208,8 @@ You will now be able to see what's happening inside the Python calls:
 Reporters display native frames in a different color than Python frames. They can also be distinguished by looking at the file location in a frame (Python frames will generally be generated from files with a .py extension while native frames will be generated from files with extensions like .c, .cpp or .h).
 
 # Live mode
+
+<p align="center"><img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/live_animated.gif" alt="Memray output"></p>
 
 Memray's live mode runs a script or a module in a terminal-based interface that allows you to interactively inspect its memory usage while it runs. This is useful for debugging scripts or modules that take a long time to run or that exhibit multiple complex memory patterns. You can use the `--live` option to run the script or module in live mode:
 
