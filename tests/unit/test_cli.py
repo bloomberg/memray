@@ -36,7 +36,7 @@ class TestRunSubCommand:
             main(["run"])
 
         captured = capsys.readouterr()
-        assert "usage: memray run [-m module | file] [args]" in captured.err
+        assert "usage: memray run [-m module | -c cmd | file] [args]" in captured.err
 
     def test_run_default_output(
         self, getpid_mock, runpy_mock, tracker_mock, validate_mock
@@ -94,6 +94,22 @@ class TestRunSubCommand:
             "foobar", run_name="__main__", alter_sys=True
         )
 
+    def test_run_cmd_is_validated(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
+        with patch.object(RunCommand, "validate_target_file"):
+            assert 0 == main(["run", "-c", "x = [i for i in range(10)]"])
+            with pytest.raises(SyntaxError):
+                main(["run", "-c", "[i for i in range(10)"])
+
+    def test_run_cmd(self, getpid_mock, runpy_mock, tracker_mock, validate_mock):
+        with patch("memray.commands.run.exec") as mock_exec:
+            assert 0 == main(["run", "-c", "x = 10; y = abs(-10)"])
+            assert not runpy_mock.called
+            mock_exec.assert_called_with(
+                "x = 10; y = abs(-10)", {"__name__": "__main__"}
+            )
+
     def test_run_file(self, getpid_mock, runpy_mock, tracker_mock, validate_mock):
         with patch.object(RunCommand, "validate_target_file"):
             assert 0 == main(["run", "foobar.py", "arg1", "arg2"])
@@ -136,7 +152,7 @@ class TestRunSubCommand:
                 sys.executable,
                 "-c",
                 "from memray.commands.run import _child_process;"
-                '_child_process(1234,False,False,False,"./directory/foobar.py",'
+                '_child_process(1234,False,False,False,False,"./directory/foobar.py",'
                 "['arg1', 'arg2'])",
             ],
             stderr=-1,

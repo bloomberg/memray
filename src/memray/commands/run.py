@@ -51,6 +51,8 @@ def _run_tracker(
         try:
             if args.run_as_module:
                 runpy.run_module(args.script, run_name="__main__", alter_sys=True)
+            elif args.run_as_cmd:
+                exec(args.script, {"__name__": "__main__"})
             else:
                 runpy.run_path(args.script, run_name="__main__")
         finally:
@@ -62,6 +64,7 @@ def _child_process(
     port: int,
     native: bool,
     run_as_module: bool,
+    run_as_cmd: bool,
     quiet: bool,
     script: str,
     script_args: List[str],
@@ -69,6 +72,7 @@ def _child_process(
     args = argparse.Namespace(
         native=native,
         run_as_module=run_as_module,
+        run_as_cmd=run_as_cmd,
         quiet=quiet,
         script=script,
         script_args=script_args,
@@ -84,7 +88,7 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
         raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     arguments = (
-        f"{port},{args.native},{args.run_as_module},{args.quiet},"
+        f"{port},{args.native},{args.run_as_module},{args.run_as_cmd},{args.quiet},"
         f'"{args.script}",{args.script_args}'
     )
     tracked_app_cmd = [
@@ -128,8 +132,12 @@ def _run_with_socket_output(args: argparse.Namespace) -> None:
 
 def _run_with_file_output(args: argparse.Namespace) -> None:
     if args.output is None:
-        output = f"memray-{os.path.basename(args.script)}.{os.getpid()}.bin"
-        filename = os.path.join(os.path.dirname(args.script), output)
+        script_name = args.script
+        if args.run_as_cmd:
+            script_name = "cmd_script"
+
+        output = f"memray-{os.path.basename(script_name)}.{os.getpid()}.bin"
+        filename = os.path.join(os.path.dirname(script_name), output)
     else:
         filename = args.output
 
@@ -163,7 +171,7 @@ class RunCommand:
     """Run the specified application and track memory usage"""
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.usage = "%(prog)s [-m module | file] [args]"
+        parser.usage = "%(prog)s [-m module | -c cmd | file] [args]"
         output_group = parser.add_mutually_exclusive_group()
         output_group.add_argument(
             "-o",
@@ -219,6 +227,13 @@ class RunCommand:
             default=False,
         )
         parser.add_argument(
+            "-c",
+            help="Program passed in as string",
+            action="store_true",
+            dest="run_as_cmd",
+            default=False,
+        )
+        parser.add_argument(
             "-m",
             help="Run library module as a script (terminates option list)",
             action="store_true",
@@ -237,11 +252,15 @@ class RunCommand:
         if args.run_as_module:
             return
         try:
-            source = pathlib.Path(args.script).read_bytes()
+            if args.run_as_cmd:
+                source = bytes(args.script, "UTF-8")
+            else:
+                source = pathlib.Path(args.script).read_bytes()
             ast.parse(source)
         except (SyntaxError, ValueError):
             raise MemrayCommandError(
-                "Only Python files can be executed under memray", exit_code=1
+                "Only valid Python files or commands can be executed under memray",
+                exit_code=1,
             )
 
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
@@ -249,6 +268,8 @@ class RunCommand:
             parser.error("The --live-port argument requires --live-remote")
         if args.follow_fork is True and (args.live_mode or args.live_remote_mode):
             parser.error("--follow-fork cannot be used with the live TUI")
+        if args.run_as_cmd and args.script.endswith(".py"):
+            parser.error("remove the option -c to run a file")
 
         self.validate_target_file(args)
 
