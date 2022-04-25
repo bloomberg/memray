@@ -48,6 +48,6 @@ class SummaryCommand:
 
         reporter = SummaryReporter.from_snapshot(
             snapshot,
-            native=reader.has_native_traces,
+            native=reader.metadata.has_native_traces,
         )
         reporter.render(sort_column=args.sort_column, max_rows=args.max_rows)

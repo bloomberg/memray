@@ -12,3 +12,4 @@ class Metadata:
     command_line: str
     pid: int
     python_allocator: str
+    has_native_traces: bool

@@ -435,11 +435,8 @@ cdef class FileReader:
                         peak_memory=self._get_high_watermark().peak_memory,
                         command_line=self._header["command_line"],
                         pid=self._header["pid"],
-                        python_allocator=python_allocator)
-
-    @property
-    def has_native_traces(self):
-        return self._header["native_traces"]
+                        python_allocator=python_allocator,
+                        has_native_traces=self._header["native_traces"])
 
 
 def dump_all_records(object file_name):

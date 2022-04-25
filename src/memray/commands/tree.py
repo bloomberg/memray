@@ -35,7 +35,7 @@ class TreeCommand:
             reporter = TreeReporter.from_snapshot(
                 snapshot,
                 biggest_allocs=args.biggest_allocs,
-                native_traces=reader.has_native_traces,
+                native_traces=reader.metadata.has_native_traces,
             )
         except OSError as e:
             raise MemrayCommandError(

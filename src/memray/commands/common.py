@@ -86,7 +86,7 @@ class HighWatermarkCommand:
             reporter = self.reporter_factory(
                 snapshot,
                 memory_records=memory_records,
-                native_traces=reader.has_native_traces,
+                native_traces=reader.metadata.has_native_traces,
             )
         except OSError as e:
             raise MemrayCommandError(
