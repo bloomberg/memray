@@ -348,4 +348,4 @@ def test_native_tracing_header(native_traces, tmpdir):
         allocator.valloc(1234)
 
     # THEN
-    assert FileReader(output).has_native_traces is native_traces
+    assert FileReader(output).metadata.has_native_traces is native_traces
