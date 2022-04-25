@@ -22,12 +22,15 @@ from _memray.sink cimport SocketSink
 from _memray.snapshot cimport HighWatermark
 from _memray.snapshot cimport HighWatermarkFinder
 from _memray.snapshot cimport Py_GetSnapshotAllocationRecords
+from _memray.snapshot cimport Py_ListFromSnapshotAllocationRecords
+from _memray.snapshot cimport SnapshotAllocationAggregator
 from _memray.socket_reader_thread cimport BackgroundSocketReader
 from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport install_trace_function
 from libcpp cimport bool
+from libcpp.limits cimport numeric_limits
 from libcpp.memory cimport make_shared
 from libcpp.memory cimport make_unique
 from libcpp.memory cimport shared_ptr
@@ -318,56 +321,60 @@ def start_thread_trace(frame, event, arg):
 cdef class FileReader:
     cdef cppstring _path
 
-    cdef shared_ptr[RecordReader] _reader
-    cdef vector[_Allocation] _allocations
+    cdef object _file
     cdef vector[_MemoryRecord] _memory_records
-    cdef unique_ptr[HighWatermark] _high_watermark
-    cdef bool _closed
+    cdef HighWatermark _high_watermark
     cdef object _header
 
-    def __init__(self, object file_name):
-        self._path = str(file_name)
-        if not pathlib.Path(self._path).exists():
-            raise IOError(f"No such file: {self._path}")
-        self._reader = make_shared[RecordReader](unique_ptr[FileSource](new FileSource(self._path)))
-        self._header: dict = self._reader.get().getHeader()
-        self._populate_allocations()
+    def __cinit__(self, object file_name):
+        try:
+            self._file = open(file_name)
+        except OSError as exc:
+            raise OSError(f"Could not open file {file_name}: {exc.strerror}") from None
 
-    cdef void _populate_allocations(self):
-        cdef RecordReader* reader = self._get_reader()
+        self._path = "/proc/self/fd/" + str(self._file.fileno())
 
+        # Initial pass to populate _header, _high_watermark, and _memory_records.
+        cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(self._path))
+        )
+        cdef RecordReader* reader = reader_sp.get()
+
+        self._header = reader.getHeader()
         stats = self._header["stats"]
-        self._allocations.reserve(stats["n_allocations"])
+
         n_memory_records_approx = 2048
         if 0 < stats["start_time"] < stats["end_time"]:
             n_memory_records_approx = (stats["end_time"] - stats["start_time"]) / 10
         self._memory_records.reserve(n_memory_records_approx)
 
+        cdef HighWatermarkFinder finder
         while True:
             ret = reader.nextRecord()
             if ret == RecordResult.RecordResultAllocationRecord:
-                self._allocations.push_back(reader.getLatestAllocation())
+                finder.processAllocation(reader.getLatestAllocation())
             elif ret == RecordResult.RecordResultMemoryRecord:
                 self._memory_records.push_back(reader.getLatestMemoryRecord())
             else:
                 break
+        self._high_watermark = finder.getHighWatermark()
 
-    cdef RecordReader* _get_reader(self) except *:
-        if self._reader.get() == NULL:
-            raise ValueError("Operation on a closed FileReader")
-        return self._reader.get()
+    def __dealloc__(self):
+        self.close()
 
-    def close(self):
-        cdef RecordReader* reader = self._get_reader()
-        reader.close()
+    cpdef close(self):
+        if self._file is not None:
+            file = self._file
+            self._file = None
+            file.close()
 
-    cdef void _ensure_reader_is_open(self) except *:
-        if not self._get_reader().isOpen():
+    cdef void _ensure_not_closed(self) except *:
+        if self._file is None:
             raise ValueError("Operation on a closed FileReader")
 
     @property
     def closed(self):
-        return not self._get_reader().isOpen()
+        return self._file is None
 
     def __enter__(self):
         return self
@@ -375,40 +382,62 @@ cdef class FileReader:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.close()
 
-    def __dealloc__(self):
-        self._reader.reset()
-    
-    def _yield_allocations(self, size_t index, merge_threads):
-        for elem in Py_GetSnapshotAllocationRecords(
-            self._allocations, index, merge_threads):
-            alloc = AllocationRecord(elem)
-            (<AllocationRecord> alloc)._reader = self._reader
-            yield alloc
-            self._ensure_reader_is_open()
+    def _yield_unfreed_allocations(self, size_t records_to_process, bool merge_threads):
+        cdef SnapshotAllocationAggregator aggregator
+        cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(self._path))
+        )
+        cdef RecordReader* reader = reader_sp.get()
 
-    cdef inline HighWatermark* _get_high_watermark(self) except*:
-        cdef HighWatermarkFinder finder
-        if self._high_watermark == NULL:
-            for record in self._allocations:
-                finder.processAllocation(record)
-            self._high_watermark = make_unique[HighWatermark](finder.getHighWatermark())
-        return self._high_watermark.get()
+        while records_to_process > 0:
+            ret = reader.nextRecord()
+            if ret == RecordResult.RecordResultAllocationRecord:
+                aggregator.addAllocation(reader.getLatestAllocation())
+                records_to_process -= 1
+            elif ret == RecordResult.RecordResultMemoryRecord:
+                pass
+            else:
+                break
+
+        for elem in Py_ListFromSnapshotAllocationRecords(
+            aggregator.getSnapshotAllocations(merge_threads)
+        ):
+            alloc = AllocationRecord(elem)
+            (<AllocationRecord> alloc)._reader = reader_sp
+            yield alloc
+
+        reader.close()
 
     def get_high_watermark_allocation_records(self, merge_threads=True):
-        self._ensure_reader_is_open()
-        cdef HighWatermark* watermark = self._get_high_watermark()
-        yield from self._yield_allocations(watermark.index, merge_threads)
+        self._ensure_not_closed()
+        # If allocation 0 caused the peak, we need to process 1 record, etc
+        cdef size_t max_records = self._high_watermark.index + 1
+        yield from self._yield_unfreed_allocations(max_records, merge_threads)
 
     def get_leaked_allocation_records(self, merge_threads=True):
-        self._ensure_reader_is_open()
-        cdef size_t snapshot_index = self._allocations.size() - 1
-        yield from self._yield_allocations(snapshot_index, merge_threads)
+        self._ensure_not_closed()
+        cdef size_t max_records = numeric_limits[size_t].max()
+        yield from self._yield_unfreed_allocations(max_records, merge_threads)
 
     def get_allocation_records(self):
-        for record in self._allocations:
-            alloc = AllocationRecord(record.toPythonObject())
-            (<AllocationRecord> alloc)._reader = self._reader
-            yield alloc
+        self._ensure_not_closed()
+        cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(self._path))
+        )
+        cdef RecordReader* reader = reader_sp.get()
+
+        while True:
+            ret = reader.nextRecord()
+            if ret == RecordResult.RecordResultAllocationRecord:
+                alloc = AllocationRecord(reader.getLatestAllocation().toPythonObject())
+                (<AllocationRecord> alloc)._reader = reader_sp
+                yield alloc
+            elif ret == RecordResult.RecordResultMemoryRecord:
+                pass
+            else:
+                break
+
+        reader.close()
 
     def get_memory_records(self):
         for record in self._memory_records:
@@ -432,7 +461,7 @@ cdef class FileReader:
                         end_time=millis_to_dt(stats["end_time"]),
                         total_allocations=stats["n_allocations"],
                         total_frames=stats["n_frames"],
-                        peak_memory=self._get_high_watermark().peak_memory,
+                        peak_memory=self._high_watermark.peak_memory,
                         command_line=self._header["command_line"],
                         pid=self._header["pid"],
                         python_allocator=python_allocator,
