@@ -17,6 +17,7 @@ cdef extern from "record_reader.h" namespace "memray::api":
 
     cdef cppclass RecordReader:
         RecordReader(unique_ptr[Source]) except+
+        RecordReader(unique_ptr[Source], bool track_stacks) except+
         void close()
         bool isOpen() const
         RecordResult nextRecord() except+

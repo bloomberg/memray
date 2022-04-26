@@ -34,7 +34,7 @@ class RecordReader
         ERROR,
         END_OF_FILE,
     };
-    explicit RecordReader(std::unique_ptr<memray::io::Source> source);
+    explicit RecordReader(std::unique_ptr<memray::io::Source> source, bool track_stacks = true);
     void close() noexcept;
     bool isOpen() const noexcept;
     PyObject*
@@ -62,6 +62,7 @@ class RecordReader
     // Data members
     mutable std::mutex d_mutex;
     std::unique_ptr<memray::io::Source> d_input;
+    const bool d_track_stacks;
     HeaderRecord d_header;
     pyframe_map_t d_frame_map{};
     FrameCollection<Frame> d_allocation_frames{1, 2};

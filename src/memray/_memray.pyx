@@ -337,7 +337,8 @@ cdef class FileReader:
 
         # Initial pass to populate _header, _high_watermark, and _memory_records.
         cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
-            unique_ptr[FileSource](new FileSource(self._path))
+            unique_ptr[FileSource](new FileSource(self._path)),
+            False
         )
         cdef RecordReader* reader = reader_sp.get()
 
