@@ -29,6 +29,7 @@ from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport install_trace_function
+from cpython cimport PyErr_CheckSignals
 from libcpp cimport bool
 from libcpp.limits cimport numeric_limits
 from libcpp.memory cimport make_shared
@@ -350,6 +351,7 @@ cdef class FileReader:
 
         cdef HighWatermarkFinder finder
         while True:
+            PyErr_CheckSignals()
             ret = reader.nextRecord()
             if ret == RecordResult.RecordResultAllocationRecord:
                 finder.processAllocation(reader.getLatestAllocation())
@@ -390,6 +392,7 @@ cdef class FileReader:
         cdef RecordReader* reader = reader_sp.get()
 
         while records_to_process > 0:
+            PyErr_CheckSignals()
             ret = reader.nextRecord()
             if ret == RecordResult.RecordResultAllocationRecord:
                 aggregator.addAllocation(reader.getLatestAllocation())
@@ -427,6 +430,7 @@ cdef class FileReader:
         cdef RecordReader* reader = reader_sp.get()
 
         while True:
+            PyErr_CheckSignals()
             ret = reader.nextRecord()
             if ret == RecordResult.RecordResultAllocationRecord:
                 alloc = AllocationRecord(reader.getLatestAllocation().toPythonObject())
