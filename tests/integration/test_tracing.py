@@ -394,6 +394,38 @@ def test_num_records(tmpdir):
     assert n_records == reader.metadata.total_allocations
 
 
+def test_allocations_in_root_frame_have_correct_line_number(tmpdir):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    first = second = None
+
+    # WHEN
+    with Tracker(output):
+        first = mmap.mmap(-1, 1)
+        second = mmap.mmap(-1, 1)
+        del first
+        del second
+
+    # THEN
+    records = list(FileReader(output).get_allocation_records())
+    print(records)
+    allocs = [
+        record
+        for record in records
+        if record.allocator == AllocatorType.MMAP and record.size == 1
+    ]
+
+    assert len(allocs) == 2
+    alloc1, alloc2 = allocs
+    func1, file1, line1 = alloc1.stack_trace()[0]
+    func2, file2, line2 = alloc2.stack_trace()[0]
+    assert func1 == "test_allocations_in_root_frame_have_correct_line_number"
+    assert func2 == "test_allocations_in_root_frame_have_correct_line_number"
+    assert file1 == __file__
+    assert file2 == __file__
+    assert abs(line1 - line2) == 1
+
+
 def test_equal_stack_traces_compare_equal(tmpdir):
     # GIVEN
     allocator = MemoryAllocator()
