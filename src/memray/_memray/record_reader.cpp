@@ -84,16 +84,20 @@ RecordReader::readHeader(HeaderRecord& header)
     }
 }
 
-RecordReader::RecordReader(std::unique_ptr<Source> source)
+RecordReader::RecordReader(std::unique_ptr<Source> source, bool track_stacks)
 : d_input(std::move(source))
+, d_track_stacks(track_stacks)
 {
     readHeader(d_header);
 
     // Reserve some space for the different containers
-    TrackerStats& stats = d_header.stats;
-    d_frame_map.reserve(stats.n_frames);
     d_thread_names.reserve(16);
-    d_native_frames.reserve(d_header.native_traces ? 2048 : 0);
+
+    if (d_track_stacks) {
+        TrackerStats& stats = d_header.stats;
+        d_frame_map.reserve(stats.n_frames);
+        d_native_frames.reserve(d_header.native_traces ? 2048 : 0);
+    }
 }
 
 void
@@ -115,6 +119,9 @@ RecordReader::parseFramePush()
     if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
         return false;
     }
+    if (!d_track_stacks) {
+        return true;
+    }
     thread_id_t tid = record.tid;
     auto [it, inserted] = d_stack_traces.emplace(tid, stack_t{});
     auto& stack = it->second;
@@ -133,6 +140,9 @@ RecordReader::parseFramePop()
     FramePop record{};
     if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
         return false;
+    }
+    if (!d_track_stacks) {
+        return true;
     }
     thread_id_t tid = record.tid;
 
@@ -157,6 +167,9 @@ RecordReader::parseFrameIndex()
     {
         return false;
     }
+    if (!d_track_stacks) {
+        return true;
+    }
     std::lock_guard<std::mutex> lock(d_mutex);
     auto iterator = d_frame_map.insert(pyframe_val);
     if (!iterator.second) {
@@ -172,6 +185,9 @@ RecordReader::parseNativeFrameIndex()
     if (!d_input->read(reinterpret_cast<char*>(&frame), sizeof(frame))) {
         return false;
     }
+    if (!d_track_stacks) {
+        return true;
+    }
     std::lock_guard<std::mutex> lock(d_mutex);
     d_native_frames.emplace_back(frame);
     return true;
@@ -184,14 +200,17 @@ RecordReader::parseAllocationRecord()
     if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
         return false;
     }
-
-    auto& stack = d_stack_traces[record.tid];
     d_latest_allocation.tid = record.tid;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
     d_latest_allocation.allocator = record.allocator;
     d_latest_allocation.native_frame_id = 0;
-    d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
+    if (d_track_stacks) {
+        auto& stack = d_stack_traces[record.tid];
+        d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
+    } else {
+        d_latest_allocation.frame_index = 0;
+    }
     d_latest_allocation.native_segment_generation = 0;
     d_latest_allocation.n_allocations = 1;
     return true;
@@ -205,14 +224,20 @@ RecordReader::parseNativeAllocationRecord()
         return false;
     }
 
-    auto& stack = d_stack_traces[record.tid];
     d_latest_allocation.tid = record.tid;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
     d_latest_allocation.allocator = record.allocator;
-    d_latest_allocation.native_frame_id = record.native_frame_id;
-    d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
-    d_latest_allocation.native_segment_generation = d_symbol_resolver.currentSegmentGeneration();
+    if (d_track_stacks) {
+        d_latest_allocation.native_frame_id = record.native_frame_id;
+        auto& stack = d_stack_traces[record.tid];
+        d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
+        d_latest_allocation.native_segment_generation = d_symbol_resolver.currentSegmentGeneration();
+    } else {
+        d_latest_allocation.native_frame_id = 0;
+        d_latest_allocation.frame_index = 0;
+        d_latest_allocation.native_segment_generation = 0;
+    }
     d_latest_allocation.n_allocations = 1;
     return true;
 }
@@ -236,10 +261,15 @@ RecordReader::parseSegmentHeader()
         if (!parseSegment(segment)) {
             return false;
         }
-        segments.emplace_back(segment);
+        if (d_track_stacks) {
+            segments.emplace_back(segment);
+        }
     }
-    std::lock_guard<std::mutex> lock(d_mutex);
-    d_symbol_resolver.addSegments(filename, addr, segments);
+
+    if (d_track_stacks) {
+        std::lock_guard<std::mutex> lock(d_mutex);
+        d_symbol_resolver.addSegments(filename, addr, segments);
+    }
     return true;
 }
 
@@ -370,6 +400,10 @@ RecordReader::nextRecord()
 PyObject*
 RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
 {
+    if (!d_track_stacks) {
+        PyErr_SetString(PyExc_RuntimeError, "Stack tracking is disabled");
+        return NULL;
+    }
     std::lock_guard<std::mutex> lock(d_mutex);
 
     size_t stacks_obtained = 0;
@@ -402,6 +436,10 @@ error:
 PyObject*
 RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation, size_t max_stacks)
 {
+    if (!d_track_stacks) {
+        PyErr_SetString(PyExc_RuntimeError, "Stack tracking is disabled");
+        return NULL;
+    }
     std::lock_guard<std::mutex> lock(d_mutex);
 
     size_t stacks_obtained = 0;
