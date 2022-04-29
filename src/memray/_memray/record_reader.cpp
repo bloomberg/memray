@@ -122,7 +122,7 @@ RecordReader::parseFramePush()
     if (!d_track_stacks) {
         return true;
     }
-    thread_id_t tid = record.tid;
+    thread_id_t tid = d_current_thread;
     auto [it, inserted] = d_stack_traces.emplace(tid, stack_t{});
     auto& stack = it->second;
     if (inserted) {
@@ -144,7 +144,7 @@ RecordReader::parseFramePop()
     if (!d_track_stacks) {
         return true;
     }
-    thread_id_t tid = record.tid;
+    thread_id_t tid = d_current_thread;
 
     assert(!d_stack_traces[tid].empty());
     while (record.count) {
@@ -200,13 +200,13 @@ RecordReader::parseAllocationRecord()
     if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
         return false;
     }
-    d_latest_allocation.tid = record.tid;
+    d_latest_allocation.tid = d_current_thread;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
     d_latest_allocation.allocator = record.allocator;
     d_latest_allocation.native_frame_id = 0;
     if (d_track_stacks) {
-        auto& stack = d_stack_traces[record.tid];
+        auto& stack = d_stack_traces[d_latest_allocation.tid];
         d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
     } else {
         d_latest_allocation.frame_index = 0;
@@ -224,13 +224,13 @@ RecordReader::parseNativeAllocationRecord()
         return false;
     }
 
-    d_latest_allocation.tid = record.tid;
+    d_latest_allocation.tid = d_current_thread;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
     d_latest_allocation.allocator = record.allocator;
     if (d_track_stacks) {
         d_latest_allocation.native_frame_id = record.native_frame_id;
-        auto& stack = d_stack_traces[record.tid];
+        auto& stack = d_stack_traces[d_latest_allocation.tid];
         d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
         d_latest_allocation.native_segment_generation = d_symbol_resolver.currentSegmentGeneration();
     } else {
@@ -290,13 +290,11 @@ RecordReader::parseSegment(Segment& segment)
 bool
 RecordReader::parseThreadRecord()
 {
-    thread_id_t tid;
     std::string name;
-    if (!d_input->read(reinterpret_cast<char*>(&tid), sizeof(thread_id_t))
-        || !d_input->getline(name, '\0')) {
+    if (!d_input->getline(name, '\0')) {
         return false;
     }
-    d_thread_names[tid] = name;
+    d_thread_names[d_current_thread] = name;
     return true;
 }
 
@@ -307,6 +305,16 @@ RecordReader::parseMemoryRecord()
     {
         return false;
     }
+    return true;
+}
+
+bool
+RecordReader::parseContextSwitch()
+{
+    if (!d_input->read(reinterpret_cast<char*>(&d_current_thread), sizeof(d_current_thread))) {
+        return false;
+    }
+
     return true;
 }
 
@@ -346,6 +354,13 @@ RecordReader::nextRecord()
                 }
                 return RecordResult::MEMORY_RECORD;
             }
+            case RecordType::CONTEXT_SWITCH: {
+                if (!parseContextSwitch()) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse context switch record";
+                    return RecordResult::ERROR;
+                }
+                break;
+            } break;
             case RecordType::FRAME_PUSH:
                 if (!parseFramePush()) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame push";
@@ -566,8 +581,7 @@ RecordReader::dumpAllRecords()
                     allocator = unknownAllocator.c_str();
                 }
 
-                printf("tid=%lu address=%p size=%zd allocator=%s native_frame_id=%zd\n",
-                       record.tid,
+                printf("address=%p size=%zd allocator=%s native_frame_id=%zd\n",
                        (void*)record.address,
                        record.size,
                        allocator,
@@ -590,8 +604,7 @@ RecordReader::dumpAllRecords()
                             "<unknown allocator " + std::to_string((int)record.allocator) + ">";
                     allocator = unknownAllocator.c_str();
                 }
-                printf("tid=%lu address=%p size=%zd allocator=%s\n",
-                       record.tid,
+                printf("address=%p size=%zd allocator=%s\n",
                        (void*)record.address,
                        record.size,
                        allocator);
@@ -604,7 +617,7 @@ RecordReader::dumpAllRecords()
                     Py_RETURN_NONE;
                 }
 
-                printf("tid=%lu frame_id=%zd\n", record.tid, record.frame_id);
+                printf("frame_id=%zd\n", record.frame_id);
             } break;
             case RecordType::FRAME_POP: {
                 printf("FRAME_POP ");
@@ -614,7 +627,7 @@ RecordReader::dumpAllRecords()
                     Py_RETURN_NONE;
                 }
 
-                printf("tid=%lu count=%u\n", record.tid, record.count);
+                printf("count=%u\n", record.count);
             } break;
             case RecordType::FRAME_INDEX: {
                 printf("FRAME_ID ");
@@ -680,23 +693,30 @@ RecordReader::dumpAllRecords()
             case RecordType::THREAD_RECORD: {
                 printf("THREAD ");
 
-                thread_id_t tid;
                 std::string name;
-                if (!d_input->read(reinterpret_cast<char*>(&tid), sizeof(thread_id_t))
-                    || !d_input->getline(name, '\0')) {
+                if (!d_input->getline(name, '\0')) {
                     Py_RETURN_NONE;
                 }
 
-                printf("%ld %s\n", tid, name.c_str());
+                printf("%s\n", name.c_str());
             } break;
             case RecordType::MEMORY_RECORD: {
-                printf("MEMORY RECORD ");
+                printf("MEMORY_RECORD ");
                 MemoryRecord record;
                 if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
                     Py_RETURN_NONE;
                 }
 
                 printf("time=%ld memory=%" PRIxPTR "\n", record.ms_since_epoch, record.rss);
+            } break;
+            case RecordType::CONTEXT_SWITCH: {
+                printf("CONTEXT_SWITCH ");
+                thread_id_t tid;
+                if (!d_input->read(reinterpret_cast<char*>(&tid), sizeof(tid))) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("tid=%lu\n", tid);
             } break;
             default: {
                 printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);

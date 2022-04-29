@@ -33,6 +33,7 @@ enum class RecordType {
     FRAME_POP = 9,
     THREAD_RECORD = 10,
     MEMORY_RECORD = 11,
+    CONTEXT_SWITCH = 12,
 };
 
 struct TrackerStats
@@ -69,7 +70,6 @@ struct MemoryRecord
 
 struct AllocationRecord
 {
-    thread_id_t tid;
     uintptr_t address;
     size_t size;
     hooks::Allocator allocator;
@@ -77,7 +77,6 @@ struct AllocationRecord
 
 struct NativeAllocationRecord
 {
-    thread_id_t tid;
     uintptr_t address;
     size_t size;
     hooks::Allocator allocator;
@@ -182,12 +181,10 @@ struct Frame
 struct FramePush
 {
     frame_id_t frame_id;
-    thread_id_t tid;
 };
 
 struct FramePop
 {
-    thread_id_t tid;
     uint8_t count;
 };
 
@@ -230,7 +227,6 @@ using pyframe_map_t = std::unordered_map<pyframe_map_val_t::first_type, pyframe_
 
 struct ThreadRecord
 {
-    thread_id_t tid;
     const char* name;
 };
 
