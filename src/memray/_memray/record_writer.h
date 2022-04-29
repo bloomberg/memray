@@ -32,6 +32,8 @@ class RecordWriter
     template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item);
     template<typename T>
+    bool inline writeThreadSpecificRecord(const RecordType& token, thread_id_t tid, const T& item);
+    template<typename T>
     bool inline writeRecordUnsafe(const RecordType& token, const T& item);
     bool writeHeader(bool seek_to_start);
 
@@ -45,6 +47,7 @@ class RecordWriter
     std::mutex d_mutex;
     HeaderRecord d_header{};
     TrackerStats d_stats{};
+    thread_id_t d_lastTid{};
 };
 
 template<typename T>
@@ -62,6 +65,22 @@ template<typename T>
 bool inline RecordWriter::writeRecord(const RecordType& token, const T& item)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
+    return writeRecordUnsafe(token, item);
+}
+
+template<typename T>
+bool inline RecordWriter::writeThreadSpecificRecord(
+        const RecordType& token,
+        thread_id_t tid,
+        const T& item)
+{
+    std::lock_guard<std::mutex> lock(d_mutex);
+    if (d_lastTid != tid) {
+        d_lastTid = tid;
+        if (!writeRecordUnsafe(RecordType::CONTEXT_SWITCH, tid)) {
+            return false;
+        }
+    }
     return writeRecordUnsafe(token, item);
 }
 
@@ -98,7 +117,7 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const Segme
 template<>
 bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const ThreadRecord& record)
 {
-    return writeSimpleType(token) && writeSimpleType(record.tid) && writeString(record.name);
+    return writeSimpleType(token) && writeString(record.name);
 }
 
 }  // namespace memray::tracking_api

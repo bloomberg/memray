@@ -71,6 +71,7 @@ class RecordReader
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
+    thread_id_t d_current_thread{};
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;
     MemoryRecord d_latest_memory_record;
@@ -86,6 +87,7 @@ class RecordReader
     [[nodiscard]] bool parseSegment(Segment& segment);
     [[nodiscard]] bool parseThreadRecord();
     [[nodiscard]] bool parseMemoryRecord();
+    [[nodiscard]] bool parseContextSwitch();
 
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };

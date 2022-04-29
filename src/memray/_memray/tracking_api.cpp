@@ -486,16 +486,18 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
                         UnresolvedNativeFrame{ip, index});
             });
         }
-        NativeAllocationRecord
-                record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
-        if (!d_writer->writeRecord(RecordType::ALLOCATION_WITH_NATIVE, record)) {
+        NativeAllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
+        if (!d_writer->writeThreadSpecificRecord(
+                    RecordType::ALLOCATION_WITH_NATIVE,
+                    thread_id(),
+                    record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
         }
 
     } else {
-        AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func};
-        if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
+        AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
+        if (!d_writer->writeThreadSpecificRecord(RecordType::ALLOCATION, thread_id(), record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
         }
@@ -518,8 +520,8 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
     python_stack_tracker.emitPendingPops();
     python_stack_tracker.emitPendingPushes();
 
-    AllocationRecord record{thread_id(), reinterpret_cast<uintptr_t>(ptr), size, func};
-    if (!d_writer->writeRecord(RecordType::ALLOCATION, record)) {
+    AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
+    if (!d_writer->writeThreadSpecificRecord(RecordType::ALLOCATION, thread_id(), record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
@@ -595,7 +597,8 @@ Tracker::updateModuleCacheImpl()
 void
 Tracker::registerThreadNameImpl(const char* name)
 {
-    if (!d_writer->writeRecord(RecordType::THREAD_RECORD, ThreadRecord{thread_id(), name})) {
+    if (!d_writer->writeThreadSpecificRecord(RecordType::THREAD_RECORD, thread_id(), ThreadRecord{name}))
+    {
         std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
     }
@@ -622,8 +625,8 @@ Tracker::popFrames(uint32_t count)
         uint8_t to_pop = (count > 255 ? 255 : count);
         count -= to_pop;
 
-        const FramePop entry{thread_id(), to_pop};
-        if (!d_writer->writeRecord(RecordType::FRAME_POP, entry)) {
+        const FramePop entry{to_pop};
+        if (!d_writer->writeThreadSpecificRecord(RecordType::FRAME_POP, thread_id(), entry)) {
             std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
             deactivate();
             return false;
@@ -636,8 +639,8 @@ bool
 Tracker::pushFrame(const RawFrame& frame)
 {
     const frame_id_t frame_id = registerFrame(frame);
-    const FramePush entry{frame_id, thread_id()};
-    if (!d_writer->writeRecord(RecordType::FRAME_PUSH, entry)) {
+    const FramePush entry{frame_id};
+    if (!d_writer->writeThreadSpecificRecord(RecordType::FRAME_PUSH, thread_id(), entry)) {
         std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
         return false;
