@@ -116,8 +116,8 @@ template<>
 bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const AllocationRecord& record)
 {
     d_stats.n_allocations += 1;
-    return writeSimpleType(token) && writeSimpleType(record.address) && writeVarint(record.size)
-           && writeSimpleType(record.allocator);
+    return writeSimpleType(RecordTypeAndFlags{token, static_cast<unsigned char>(record.allocator)})
+           && writeSimpleType(record.address) && writeVarint(record.size);
 }
 
 template<>
@@ -126,8 +126,9 @@ bool inline RecordWriter::writeRecordUnsafe(
         const NativeAllocationRecord& record)
 {
     d_stats.n_allocations += 1;
-    return writeSimpleType(token) && writeSimpleType(record.address) && writeVarint(record.size)
-           && writeSimpleType(record.allocator) && writeVarint(record.native_frame_id);
+    return writeSimpleType(RecordTypeAndFlags{token, static_cast<unsigned char>(record.allocator)})
+           && writeSimpleType(record.address) && writeVarint(record.size)
+           && writeVarint(record.native_frame_id);
 }
 
 template<>

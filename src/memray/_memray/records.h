@@ -20,7 +20,7 @@ using frame_id_t = size_t;
 using thread_id_t = unsigned long;
 using millis_t = long long;
 
-enum class RecordType {
+enum class RecordType : unsigned char {
     UNINITIALIZED = 0,
     ALLOCATION = 1,
     ALLOCATION_WITH_NATIVE = 2,
@@ -35,6 +35,14 @@ enum class RecordType {
     MEMORY_RECORD = 11,
     CONTEXT_SWITCH = 12,
 };
+
+struct RecordTypeAndFlags
+{
+    RecordType record_type : 4;
+    unsigned char flags : 4;
+};
+
+static_assert(sizeof(RecordTypeAndFlags) == 1);
 
 struct TrackerStats
 {

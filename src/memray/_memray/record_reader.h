@@ -92,10 +92,10 @@ class RecordReader
     [[nodiscard]] bool parseNativeFrameIndex(UnresolvedNativeFrame* frame);
     [[nodiscard]] bool processNativeFrameIndex(const UnresolvedNativeFrame& frame);
 
-    [[nodiscard]] bool parseAllocationRecord(AllocationRecord* record);
+    [[nodiscard]] bool parseAllocationRecord(AllocationRecord* record, unsigned int flags);
     [[nodiscard]] bool processAllocationRecord(const AllocationRecord& record);
 
-    [[nodiscard]] bool parseNativeAllocationRecord(NativeAllocationRecord* record);
+    [[nodiscard]] bool parseNativeAllocationRecord(NativeAllocationRecord* record, unsigned int flags);
     [[nodiscard]] bool processNativeAllocationRecord(const NativeAllocationRecord& record);
 
     [[nodiscard]] bool parseMemoryMapStart();
