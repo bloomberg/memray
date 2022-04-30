@@ -58,6 +58,9 @@ class RecordReader
 
     // Private methods
     void readHeader(HeaderRecord& header);
+    template<typename T>
+    bool readVarint(T* val);
+    bool readVarint(size_t* val);
 
     // Data members
     mutable std::mutex d_mutex;
@@ -115,5 +118,18 @@ class RecordReader
 
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
+
+template<typename T>
+bool
+RecordReader::readVarint(T* val)
+{
+    static_assert(std::is_unsigned<T>::value, "Only unsigned varints are supported");
+    size_t temp;
+    if (!readVarint(&temp)) {
+        return false;
+    }
+    *val = temp;
+    return true;
+}
 
 }  // namespace memray::api
