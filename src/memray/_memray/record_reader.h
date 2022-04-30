@@ -61,6 +61,11 @@ class RecordReader
     template<typename T>
     bool readVarint(T* val);
     bool readVarint(size_t* val);
+    template<typename T>
+    bool readSignedVarint(T* val);
+    bool readSignedVarint(ssize_t* val);
+    template<typename T>
+    bool readIntegralDelta(T* cache, T* new_val);
 
     // Data members
     mutable std::mutex d_mutex;
@@ -75,6 +80,13 @@ class RecordReader
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
     thread_id_t d_current_thread{};
+    uintptr_t d_last_instruction_pointer{};
+    uintptr_t d_last_data_pointer{};
+    frame_id_t d_last_native_frame_id{};
+    frame_id_t d_last_python_frame_id{};
+    std::string d_last_python_filename{};
+    std::string d_last_native_filename{};
+    int d_last_python_line_number{};
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;
     MemoryRecord d_latest_memory_record;
@@ -129,6 +141,32 @@ RecordReader::readVarint(T* val)
         return false;
     }
     *val = temp;
+    return true;
+}
+
+template<typename T>
+bool
+RecordReader::readSignedVarint(T* val)
+{
+    static_assert(!std::is_unsigned<T>::value, "Only signed varints are supported");
+    ssize_t temp;
+    if (!readSignedVarint(&temp)) {
+        return false;
+    }
+    *val = temp;
+    return true;
+}
+
+template<typename T>
+bool
+RecordReader::readIntegralDelta(T* prev, T* new_val)
+{
+    ssize_t delta;
+    if (!readSignedVarint(&delta)) {
+        return false;
+    }
+    *prev += delta;
+    *new_val = *prev;
     return true;
 }
 
