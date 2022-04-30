@@ -212,7 +212,7 @@ bool
 RecordReader::parseNativeFrameIndex(UnresolvedNativeFrame* frame)
 {
     return d_input->read(reinterpret_cast<char*>(&frame->ip), sizeof(frame->ip))
-        && readVarint(&frame->index);
+           && readVarint(&frame->index);
 }
 
 bool
@@ -229,7 +229,9 @@ RecordReader::processNativeFrameIndex(const UnresolvedNativeFrame& frame)
 bool
 RecordReader::parseAllocationRecord(AllocationRecord* record)
 {
-    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+    return d_input->read(reinterpret_cast<char*>(&record->address), sizeof(record->address))
+           && readVarint(&record->size)
+           && d_input->read(reinterpret_cast<char*>(&record->allocator), sizeof(record->allocator));
 }
 
 bool
@@ -254,7 +256,10 @@ RecordReader::processAllocationRecord(const AllocationRecord& record)
 bool
 RecordReader::parseNativeAllocationRecord(NativeAllocationRecord* record)
 {
-    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+    return d_input->read(reinterpret_cast<char*>(&record->address), sizeof(record->address))
+           && readVarint(&record->size)
+           && d_input->read(reinterpret_cast<char*>(&record->allocator), sizeof(record->allocator))
+           && readVarint(&record->native_frame_id);
 }
 
 bool

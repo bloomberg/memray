@@ -108,11 +108,26 @@ bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& it
             std::is_trivially_copyable<T>::value,
             "Called writeRecord on binary records which cannot be trivially copied");
 
-    if (token == RecordType::ALLOCATION || token == RecordType::ALLOCATION_WITH_NATIVE) {
-        d_stats.n_allocations += 1;
-    }
     return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(RecordType))
            && d_sink->writeAll(reinterpret_cast<const char*>(&item), sizeof(T));
+}
+
+template<>
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const AllocationRecord& record)
+{
+    d_stats.n_allocations += 1;
+    return writeSimpleType(token) && writeSimpleType(record.address) && writeVarint(record.size)
+           && writeSimpleType(record.allocator);
+}
+
+template<>
+bool inline RecordWriter::writeRecordUnsafe(
+        const RecordType& token,
+        const NativeAllocationRecord& record)
+{
+    d_stats.n_allocations += 1;
+    return writeSimpleType(token) && writeSimpleType(record.address) && writeVarint(record.size)
+           && writeSimpleType(record.allocator) && writeVarint(record.native_frame_id);
 }
 
 template<>
