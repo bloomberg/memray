@@ -203,7 +203,7 @@ struct FramePop
 struct UnresolvedNativeFrame
 {
     uintptr_t ip;
-    uint32_t index;
+    size_t index;
 };
 
 struct ContextSwitch

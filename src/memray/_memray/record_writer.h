@@ -30,6 +30,9 @@ class RecordWriter
     bool inline writeSimpleType(const T& item);
     bool inline writeString(const char* the_string);
     bool inline writeVarint(size_t val);
+    bool inline writeSignedVarint(ssize_t val);
+    template<typename T>
+    bool inline writeIntegralDelta(T* prev, T new_val);
     template<typename T>
     bool inline writeRecord(const T& item);
     template<typename T>
@@ -59,6 +62,13 @@ class RecordWriter
     HeaderRecord d_header{};
     TrackerStats d_stats{};
     thread_id_t d_lastTid{};
+    uintptr_t d_lastInstructionPointer{};
+    uintptr_t d_lastDataPointer{};
+    frame_id_t d_lastNativeFrameId{};
+    std::string d_lastNativeFilename{};
+    frame_id_t d_lastPythonFrameId{};
+    std::string d_lastPythonFilename{};
+    int d_lastPythonLineNumber{};
 };
 
 template<typename T>
@@ -90,6 +100,24 @@ bool inline RecordWriter::writeVarint(size_t rest)
     }
 
     return writeSimpleType(next_7_bits);
+}
+
+bool inline RecordWriter::writeSignedVarint(ssize_t val)
+{
+    // protobuf style "zig-zag" encoding
+    // https://developers.google.com/protocol-buffers/docs/encoding#signed-ints
+    // This encodes -64 through 63 in 1 byte, -8192 through 8191 in 2 bytes, etc
+    size_t zigzag_val = (static_cast<size_t>(val) << 1)
+                        ^ static_cast<size_t>(val >> std::numeric_limits<ssize_t>::digits);
+    return writeVarint(zigzag_val);
+}
+
+template<typename T>
+bool inline RecordWriter::writeIntegralDelta(T* prev, T new_val)
+{
+    ssize_t delta = new_val - *prev;
+    *prev = new_val;
+    return writeSignedVarint(delta);
 }
 
 template<typename T>
@@ -132,7 +160,7 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 bool inline RecordWriter::writeRecordUnsafe(const FramePush& record)
 {
     RecordTypeAndFlags token{RecordType::FRAME_PUSH, 0};
-    return writeSimpleType(token) && writeVarint(record.frame_id);
+    return writeSimpleType(token) && writeIntegralDelta(&d_lastPythonFrameId, record.frame_id);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
@@ -158,7 +186,7 @@ bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
 {
     d_stats.n_allocations += 1;
     RecordTypeAndFlags token{RecordType::ALLOCATION, static_cast<unsigned char>(record.allocator)};
-    return writeSimpleType(token) && writeSimpleType(record.address)
+    return writeSimpleType(token) && writeIntegralDelta(&d_lastDataPointer, record.address)
            && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
                || writeVarint(record.size));
 }
@@ -169,23 +197,24 @@ bool inline RecordWriter::writeRecordUnsafe(const NativeAllocationRecord& record
     RecordTypeAndFlags token{
             RecordType::ALLOCATION_WITH_NATIVE,
             static_cast<unsigned char>(record.allocator)};
-    return writeSimpleType(token) && writeSimpleType(record.address) && writeVarint(record.size)
-           && writeVarint(record.native_frame_id);
+    return writeSimpleType(token) && writeIntegralDelta(&d_lastDataPointer, record.address)
+           && writeVarint(record.size)
+           && writeIntegralDelta(&d_lastNativeFrameId, record.native_frame_id);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const pyrawframe_map_val_t& item)
 {
     d_stats.n_frames += 1;
     RecordTypeAndFlags token{RecordType::FRAME_INDEX, 0};
-    return writeSimpleType(token) && writeSimpleType(item.first)
+    return writeSimpleType(token) && writeIntegralDelta(&d_lastPythonFrameId, item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
-           && writeSimpleType(item.second.lineno);
+           && writeIntegralDelta(&d_lastPythonLineNumber, item.second.lineno);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const SegmentHeader& item)
 {
     RecordTypeAndFlags token{RecordType::SEGMENT_HEADER, 0};
-    return writeSimpleType(token) && writeString(item.filename) && writeSimpleType(item.num_segments)
+    return writeSimpleType(token) && writeString(item.filename) && writeVarint(item.num_segments)
            && writeSimpleType(item.addr);
 }
 
@@ -198,7 +227,8 @@ bool inline RecordWriter::writeRecordUnsafe(const ThreadRecord& record)
 bool inline RecordWriter::writeRecordUnsafe(const UnresolvedNativeFrame& record)
 {
     return writeSimpleType(RecordTypeAndFlags{RecordType::NATIVE_TRACE_INDEX, 0})
-           && writeSimpleType(record.ip) && writeVarint(record.index);
+           && writeIntegralDelta(&d_lastInstructionPointer, record.ip)
+           && writeIntegralDelta(&d_lastNativeFrameId, record.index);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const MemoryMapStart&)

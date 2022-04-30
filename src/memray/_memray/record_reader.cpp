@@ -108,6 +108,18 @@ RecordReader::readVarint(size_t* val)
     }
 }
 
+bool
+RecordReader::readSignedVarint(ssize_t* val)
+{
+    size_t zigzag_val;
+    if (!readVarint(&zigzag_val)) {
+        return false;
+    }
+
+    *val = static_cast<ssize_t>((zigzag_val >> 1) ^ (~(zigzag_val & 1) + 1));
+    return true;
+}
+
 RecordReader::RecordReader(std::unique_ptr<Source> source, bool track_stacks)
 : d_input(std::move(source))
 , d_track_stacks(track_stacks)
@@ -139,7 +151,7 @@ RecordReader::isOpen() const noexcept
 bool
 RecordReader::parseFramePush(FramePush* record)
 {
-    return readVarint(&record->frame_id);
+    return readIntegralDelta(&d_last_python_frame_id, &record->frame_id);
 }
 
 bool
@@ -187,12 +199,10 @@ RecordReader::processFramePop(const FramePop& record)
 bool
 RecordReader::parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val)
 {
-    return d_input->read(reinterpret_cast<char*>(&pyframe_val->first), sizeof(pyframe_val->first))
+    return readIntegralDelta(&d_last_python_frame_id, &pyframe_val->first)
            && d_input->getline(pyframe_val->second.function_name, '\0')
            && d_input->getline(pyframe_val->second.filename, '\0')
-           && d_input->read(
-                   reinterpret_cast<char*>(&pyframe_val->second.lineno),
-                   sizeof(pyframe_val->second.lineno));
+           && readIntegralDelta(&d_last_python_line_number, &pyframe_val->second.lineno);
 }
 
 bool
@@ -212,8 +222,8 @@ RecordReader::processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_v
 bool
 RecordReader::parseNativeFrameIndex(UnresolvedNativeFrame* frame)
 {
-    return d_input->read(reinterpret_cast<char*>(&frame->ip), sizeof(frame->ip))
-           && readVarint(&frame->index);
+    return readIntegralDelta(&d_last_instruction_pointer, &frame->ip)
+           && readIntegralDelta(&d_last_native_frame_id, &frame->index);
 }
 
 bool
@@ -231,14 +241,17 @@ bool
 RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags)
 {
     record->allocator = static_cast<hooks::Allocator>(flags);
-    if (!d_input->read(reinterpret_cast<char*>(&record->address), sizeof(record->address))) {
+
+    if (!readIntegralDelta(&d_last_data_pointer, &record->address)) {
         return false;
     }
+
     if (hooks::allocatorKind(record->allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR) {
         record->size = 0;
     } else if (!readVarint(&record->size)) {
         return false;
     }
+
     return true;
 }
 
@@ -265,8 +278,9 @@ bool
 RecordReader::parseNativeAllocationRecord(NativeAllocationRecord* record, unsigned int flags)
 {
     record->allocator = static_cast<hooks::Allocator>(flags);
-    return d_input->read(reinterpret_cast<char*>(&record->address), sizeof(record->address))
-           && readVarint(&record->size) && readVarint(&record->native_frame_id);
+
+    return readIntegralDelta(&d_last_data_pointer, &record->address) && readVarint(&record->size)
+           && readIntegralDelta(&d_last_native_frame_id, &record->native_frame_id);
 }
 
 bool
@@ -308,8 +322,7 @@ RecordReader::processMemoryMapStart()
 bool
 RecordReader::parseSegmentHeader(std::string* filename, size_t* num_segments, uintptr_t* addr)
 {
-    return d_input->getline(*filename, '\0')
-           && d_input->read(reinterpret_cast<char*>(num_segments), sizeof(*num_segments))
+    return d_input->getline(*filename, '\0') && readVarint(num_segments)
            && d_input->read(reinterpret_cast<char*>(addr), sizeof(*addr));
 }
 
@@ -747,7 +760,7 @@ RecordReader::dumpAllRecords()
                     Py_RETURN_NONE;
                 }
 
-                printf("ip=%p index=%u\n", (void*)record.ip, record.index);
+                printf("ip=%p index=%zu\n", (void*)record.ip, record.index);
             } break;
             case RecordType::MEMORY_MAP_START: {
                 printf("MEMORY_MAP_START\n");
