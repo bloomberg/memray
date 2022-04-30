@@ -84,6 +84,30 @@ RecordReader::readHeader(HeaderRecord& header)
     }
 }
 
+bool
+RecordReader::readVarint(size_t* val)
+{
+    *val = 0;
+    int shift = 0;
+
+    while (true) {
+        unsigned char next;
+        if (!d_input->read(reinterpret_cast<char*>(&next), sizeof(next))) {
+            return false;
+        }
+
+        *val |= (static_cast<size_t>(next & 0x7f) << shift);
+        if (0 == (next & 0x80)) {
+            return true;
+        }
+
+        shift += 7;
+        if (shift >= 64) {
+            return false;
+        }
+    }
+}
+
 RecordReader::RecordReader(std::unique_ptr<Source> source, bool track_stacks)
 : d_input(std::move(source))
 , d_track_stacks(track_stacks)
@@ -187,7 +211,8 @@ RecordReader::processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_v
 bool
 RecordReader::parseNativeFrameIndex(UnresolvedNativeFrame* frame)
 {
-    return d_input->read(reinterpret_cast<char*>(frame), sizeof(*frame));
+    return d_input->read(reinterpret_cast<char*>(&frame->ip), sizeof(frame->ip))
+        && readVarint(&frame->index);
 }
 
 bool

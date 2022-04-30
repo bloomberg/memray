@@ -29,6 +29,7 @@ class RecordWriter
     template<typename T>
     bool inline writeSimpleType(T&& item);
     bool inline writeString(const char* the_string);
+    bool inline writeVarint(size_t val);
     template<typename T>
     bool inline writeRecord(const RecordType& token, const T& item);
     template<typename T>
@@ -59,6 +60,22 @@ bool inline RecordWriter::writeSimpleType(T&& item)
 bool inline RecordWriter::writeString(const char* the_string)
 {
     return d_sink->writeAll(the_string, strlen(the_string) + 1);
+}
+
+bool inline RecordWriter::writeVarint(size_t rest)
+{
+    unsigned char next_7_bits = rest & 0x7f;
+    rest >>= 7;
+    while (rest) {
+        next_7_bits |= 0x80;
+        if (!writeSimpleType(next_7_bits)) {
+            return false;
+        }
+        next_7_bits = rest & 0x7f;
+        rest >>= 7;
+    }
+
+    return writeSimpleType(next_7_bits);
 }
 
 template<typename T>
@@ -118,6 +135,12 @@ template<>
 bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const ThreadRecord& record)
 {
     return writeSimpleType(token) && writeString(record.name);
+}
+
+template<>
+bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const UnresolvedNativeFrame& record)
+{
+    return writeSimpleType(token) && writeSimpleType(record.ip) && writeVarint(record.index);
 }
 
 }  // namespace memray::tracking_api
