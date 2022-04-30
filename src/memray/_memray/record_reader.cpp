@@ -227,11 +227,11 @@ RecordReader::processNativeFrameIndex(const UnresolvedNativeFrame& frame)
 }
 
 bool
-RecordReader::parseAllocationRecord(AllocationRecord* record)
+RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags)
 {
+    record->allocator = static_cast<hooks::Allocator>(flags);
     return d_input->read(reinterpret_cast<char*>(&record->address), sizeof(record->address))
-           && readVarint(&record->size)
-           && d_input->read(reinterpret_cast<char*>(&record->allocator), sizeof(record->allocator));
+           && readVarint(&record->size);
 }
 
 bool
@@ -254,12 +254,11 @@ RecordReader::processAllocationRecord(const AllocationRecord& record)
 }
 
 bool
-RecordReader::parseNativeAllocationRecord(NativeAllocationRecord* record)
+RecordReader::parseNativeAllocationRecord(NativeAllocationRecord* record, unsigned int flags)
 {
+    record->allocator = static_cast<hooks::Allocator>(flags);
     return d_input->read(reinterpret_cast<char*>(&record->address), sizeof(record->address))
-           && readVarint(&record->size)
-           && d_input->read(reinterpret_cast<char*>(&record->allocator), sizeof(record->allocator))
-           && readVarint(&record->native_frame_id);
+           && readVarint(&record->size) && readVarint(&record->native_frame_id);
 }
 
 bool
@@ -386,18 +385,21 @@ RecordReader::RecordResult
 RecordReader::nextRecord()
 {
     while (true) {
-        RecordType record_type;
-        if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(RecordType))) {
+        RecordTypeAndFlags record_type_and_flags;
+        if (!d_input->read(
+                    reinterpret_cast<char*>(&record_type_and_flags),
+                    sizeof(record_type_and_flags))) {
             return RecordResult::END_OF_FILE;
         }
 
-        switch (record_type) {
+        switch (record_type_and_flags.record_type) {
             case RecordType::UNINITIALIZED: {
                 // Skip it. All remaining bytes should be 0.
             } break;
             case RecordType::ALLOCATION: {
                 AllocationRecord record;
-                if (!parseAllocationRecord(&record) || !processAllocationRecord(record)) {
+                if (!parseAllocationRecord(&record, record_type_and_flags.flags)
+                    || !processAllocationRecord(record)) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process allocation record";
                     return RecordResult::ERROR;
                 }
@@ -405,7 +407,9 @@ RecordReader::nextRecord()
             } break;
             case RecordType::ALLOCATION_WITH_NATIVE: {
                 NativeAllocationRecord record;
-                if (!parseNativeAllocationRecord(&record) || !processNativeAllocationRecord(record)) {
+                if (!parseNativeAllocationRecord(&record, record_type_and_flags.flags)
+                    || !processNativeAllocationRecord(record))
+                {
                     if (d_input->is_open()) {
                         LOG(ERROR) << "Failed to process allocation record with native info";
                     }
@@ -632,12 +636,14 @@ RecordReader::dumpAllRecords()
             return NULL;
         }
 
-        RecordType record_type;
-        if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(RecordType))) {
+        RecordTypeAndFlags record_type_and_flags;
+        if (!d_input->read(
+                    reinterpret_cast<char*>(&record_type_and_flags),
+                    sizeof(record_type_and_flags))) {
             Py_RETURN_NONE;
         }
 
-        switch (record_type) {
+        switch (record_type_and_flags.record_type) {
             case RecordType::UNINITIALIZED: {
                 // Skip it. All remaining bytes should be 0.
             } break;
@@ -645,7 +651,7 @@ RecordReader::dumpAllRecords()
                 printf("ALLOCATION_WITH_NATIVE ");
 
                 NativeAllocationRecord record;
-                if (!parseNativeAllocationRecord(&record)) {
+                if (!parseNativeAllocationRecord(&record, record_type_and_flags.flags)) {
                     Py_RETURN_NONE;
                 }
 
@@ -664,12 +670,11 @@ RecordReader::dumpAllRecords()
                        allocator,
                        record.native_frame_id);
             } break;
-
             case RecordType::ALLOCATION: {
                 printf("ALLOCATION ");
 
                 AllocationRecord record;
-                if (!parseAllocationRecord(&record)) {
+                if (!parseAllocationRecord(&record, record_type_and_flags.flags)) {
                     Py_RETURN_NONE;
                 }
 
@@ -792,7 +797,7 @@ RecordReader::dumpAllRecords()
                 printf("tid=%lu\n", tid);
             } break;
             default: {
-                printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);
+                printf("UNKNOWN RECORD TYPE %d\n", (int)record_type_and_flags.record_type);
                 Py_RETURN_NONE;
             } break;
         }
