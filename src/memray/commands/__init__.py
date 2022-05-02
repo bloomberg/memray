@@ -25,7 +25,7 @@ from . import tree
 
 _EPILOG = textwrap.dedent(
     """\
-    Please submit feedback, ideas and bugs by filing a new issue at
+    Please submit feedback, ideas, and bugs by filing a new issue at
     https://github.com/bloomberg/memray/issues
     """
 )

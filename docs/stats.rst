@@ -2,7 +2,7 @@ Stats Reporter
 ==============
 
 The stats reporter generates high level statistics about the tracked process's
-memory allocations. By default it computes these statistics for the moment when
+memory allocations. By default, it computes these statistics for the moment when
 the tracked process's memory usage was at its peak, but it can optionally
 compute the stats for *all* allocations instead.
 

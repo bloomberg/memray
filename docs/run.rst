@@ -43,13 +43,15 @@ disabled. Some of the most important allocations happen when operating on NumPy 
 
 .. image:: _static/images/mandelbrot_operation_non_native.png
 
-Here, we can see some that the allocation happens when doing some math on NumPy arrays but unfortunately this doesn't inform us a of what exact operation is allocating memory or how temporaries are being used. We also don't know if the memory was allocated by NumPy or by the interpreter itself. By using the native tracking mode with Memray we can get a much richer report:
+Here, we can see that the allocation happens when doing some math on NumPy arrays but unfortunately this doesn't inform us
+of what exact operation is allocating memory or how temporaries are being used. We also don't know if the memory was
+allocated by NumPy or by the interpreter itself. By using the native tracking mode with Memray we can get a much richer report:
 
 .. image:: _static/images/mandelbrot_operation_native.png
 
 In this native report, we can see all the internal C calls that are underneath. We can see that the memory allocation
 happens when the NumPy arrays are being added, due to ``PyNumber_Add`` appearing in the stack trace. Based on
-``PyNumber_Multiply`` not appearing in the stack trace, we can conclude that the temporary array created by NumPy is
+``PyNumber_Multiply`` not appear in the stack trace, we can conclude that the temporary array created by NumPy is
 immediately freed (or that it didn't need to allocate memory in the first place, perhaps because it could reuse some
 already allocated memory).
 
@@ -78,7 +80,7 @@ This will add native stack information to the result file, which any reporter wi
    need to be inspected by Memray to get the correct symbol names.
 
 When reporters display native information they will normally use a different color for the Python frames than the native
-frames. This can also be distinguished by looking at the file name in a frame, since Python frames will generally come
+frames. This can also be distinguished by looking at the file name in a frame since Python frames will generally come
 from source files with a ``.py`` extension.
 
 .. _Live tracking:
