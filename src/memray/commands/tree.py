@@ -11,7 +11,7 @@ from memray.reporters.tree import TreeReporter
 
 
 class TreeCommand:
-    """Generate an tree view in the terminal for peak memory usage."""
+    """Generate a tree view in the terminal for peak memory usage"""
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("results", help="Results of the tracker run")

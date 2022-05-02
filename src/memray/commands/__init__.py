@@ -77,7 +77,7 @@ def get_argument_parser() -> argparse.ArgumentParser:
         "--verbose",
         action="count",
         default=0,
-        help="Increase verbosity. Option is additive, can be specified up to 3 times.",
+        help="Increase verbosity. Option is additive and can be specified up to 3 times",
     )
 
     subparsers = parser.add_subparsers(

@@ -7,7 +7,7 @@ from .common import ReporterFactory
 
 
 class FlamegraphCommand(HighWatermarkCommand):
-    """Generate an HTML flame graph for peak memory usage."""
+    """Generate an HTML flame graph for peak memory usage"""
 
     def __init__(self) -> None:
         super().__init__(
