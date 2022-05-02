@@ -10,6 +10,8 @@
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/memray)
 [![Tests](https://github.com/bloomberg/memray/actions/workflows/build.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build.yml)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)
+![OS Linux](https://img.shields.io/badge/OS-Linux-blue)
+
 
 <p align="center"><img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/output.png" alt="Memray output"></p>
 
@@ -22,7 +24,7 @@ Notable features:
 
 - 🕵️‍♀️ Traces every function call so it can accurately represent the call stack, unlike sampling profilers.
 - ℭ Also handles native calls in C/C++ libraries so the entire call stack is present in the results.
-- 🏎 Blazing fast! Profiling causes minimal slowdown in the application. Tracking native code is somewhat slower,
+- 🏎 Blazing fast! Profiling causes a minimal slowdown in the application. Tracking native code is somewhat slower,
   but this can be enabled or disabled on demand.
 - 📈 It can generate various reports about the collected memory usage data, like flame graphs.
 - 🧵 Works with Python threads.
@@ -32,7 +34,7 @@ Memray can help with the following problems:
 
 - Analyze allocations in applications to help discover the cause of high memory usage.
 - Find memory leaks.
-- Find hotspots in code which cause a lot of allocations.
+- Find hotspots in code that cause a lot of allocations.
 
 Note that Memray only works on Linux and cannot be installed on other platforms.
 
@@ -53,7 +55,7 @@ system where you are doing the installation.
 
 ## Building from source
 
-If you wish to build Memray from source you need the following binary dependencies in your system:
+If you wish to build Memray from a source you need the following binary dependencies in your system:
 
 - libunwind
 
@@ -78,7 +80,7 @@ You can find the latest documentation available [here](https://bloomberg.github.
 
 # Usage
 
-There are many ways to use Memray. The easiest way is to use it as a command line tool to run your script, application or library.
+There are many ways to use Memray. The easiest way is to use it as a command line tool to run your script, application, or library.
 
 ```
 usage: memray [-h] [-v] {run,flamegraph,table,live,tree,parse,summary,stats} ...
@@ -97,19 +99,19 @@ positional arguments:
   {run,flamegraph,table,live,tree,parse,summary,stats}
                         Mode of operation
     run                 Run the specified application and track memory usage
-    flamegraph          Generate an HTML flame graph for peak memory usage.
-    table               Generate an HTML table with all records in the peak memory usage.
-    live                Remotely monitor allocations in a text-based interface.
-    tree                Generate an tree view in the terminal for peak memory usage.
-    parse               Debug a results file by parsing and printing each record in it.
+    flamegraph          Generate an HTML flame graph for peak memory usage
+    table               Generate an HTML table with all records in the peak memory usage
+    live                Remotely monitor allocations in a text-based interface
+    tree                Generate a tree view in the terminal for peak memory usage
+    parse               Debug a results file by parsing and printing each record in it
     summary             Generate a terminal-based summary report of the functions that allocate most memory
     stats               Generate high level stats of the memory usage in the terminal
 
 optional arguments:
-  -h, --help            show this help message and exit
-  -v, --verbose         Increase verbosity. Option is additive, can be specified up to 3 times.
+  -h, --help            Show this help message and exit
+  -v, --verbose         Increase verbosity. Option is additive and can be specified up to 3 times
 
-Please submit feedback, ideas and bugs by filing a new issue at https://github.com/bloomberg/memray/issues
+Please submit feedback, ideas, and bugs by filing a new issue at https://github.com/bloomberg/memray/issues
 ```
 
 To use Memray over a script or a single python file you can use
@@ -189,7 +191,7 @@ To learn more on how the plugin can be used and configured check out [the plugin
 
 # Native mode
 
-Memray supports tracking native C/C++ functions as well as Python functions. This can be especially useful when profiling applications that have C extensions (such as `numpy` or `pandas`) as this gives holistic vision of how much memory is allocated by the extension and how much is allocated by Python itself.
+Memray supports tracking native C/C++ functions as well as Python functions. This can be especially useful when profiling applications that have C extensions (such as `numpy` or `pandas`) as this gives a holistic vision of how much memory is allocated by the extension and how much is allocated by Python itself.
 
 To activate native tracking, you need to provide the `--native` argument when using the `run` subcommand:
 
@@ -266,13 +268,13 @@ Memray is Apache-2.0 licensed, as found in the [LICENSE](LICENSE) file.
 
 - [Code of Conduct](https://github.com/bloomberg/.github/blob/main/CODE_OF_CONDUCT.md)
 
-This project has adopted a Code of Conduct. If you have any concerns about the Code, or behavior which you have experienced in the project, please contact us at opensource@bloomberg.net.
+This project has adopted a Code of Conduct. If you have any concerns about the Code, or behavior that you have experienced in the project, please contact us at opensource@bloomberg.net.
 
 # Security Policy
 
 - [Security Policy](https://github.com/bloomberg/memray/security/policy)
 
-If you believe you have identified a security vulnerability in this project, please send email to the project team at opensource@bloomberg.net, detailing the suspected issue and any methods you've found to reproduce it.
+If you believe you have identified a security vulnerability in this project, please send an email to the project team at opensource@bloomberg.net, detailing the suspected issue and any methods you've found to reproduce it.
 
 Please do NOT open an issue in the GitHub repository, as we'd prefer to keep vulnerability reports private until we've had an opportunity to review and address them.
 
@@ -302,7 +304,7 @@ You must use your real name (sorry, no pseudonyms, and no anonymous contribution
 
 ## Steps
 
-- Create an Issue, selecting 'Feature Request', and explain the proposed change.
+- Create an Issue, select 'Feature Request', and explain the proposed change.
 - Follow the guidelines in the issue template presented to you.
 - Submit the Issue.
 - Submit a Pull Request and link it to the Issue by including "#<issue number>" in the Pull Request summary.
