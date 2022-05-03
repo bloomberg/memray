@@ -197,7 +197,7 @@ struct FramePush
 
 struct FramePop
 {
-    uint8_t count;
+    size_t count;
 };
 
 struct UnresolvedNativeFrame
