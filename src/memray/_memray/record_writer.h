@@ -110,11 +110,19 @@ bool inline RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const T& it
 
 bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 {
-    static_assert(std::is_trivially_copyable<FramePop>::value, "FramePop cannot be trivially copied");
+    size_t count = record.count;
+    while (count) {
+        uint8_t to_pop = (count > 64 ? 64 : count);
+        count -= to_pop;
 
-    RecordTypeAndFlags token{RecordType::FRAME_POP, 0};
-    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
-           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
+        to_pop -= 1;  // i.e. 0 means pop 1 frame, 63 means pop 64 frames
+        RecordTypeAndFlags token{RecordType::FRAME_POP, to_pop};
+        if (!d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const FramePush& record)

@@ -161,9 +161,10 @@ RecordReader::processFramePush(const FramePush& record)
 }
 
 bool
-RecordReader::parseFramePop(FramePop* record)
+RecordReader::parseFramePop(FramePop* record, unsigned int flags)
 {
-    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+    record->count = flags + 1;
+    return true;
 }
 
 bool
@@ -441,7 +442,7 @@ RecordReader::nextRecord()
             } break;
             case RecordType::FRAME_POP: {
                 FramePop record;
-                if (!parseFramePop(&record) || !processFramePop(record)) {
+                if (!parseFramePop(&record, record_type_and_flags.flags) || !processFramePop(record)) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process frame pop";
                     return RecordResult::ERROR;
                 }
@@ -705,11 +706,11 @@ RecordReader::dumpAllRecords()
                 printf("FRAME_POP ");
 
                 FramePop record;
-                if (!parseFramePop(&record)) {
+                if (!parseFramePop(&record, record_type_and_flags.flags)) {
                     Py_RETURN_NONE;
                 }
 
-                printf("count=%u\n", record.count);
+                printf("count=%zd\n", record.count);
             } break;
             case RecordType::FRAME_INDEX: {
                 printf("FRAME_ID ");

@@ -612,16 +612,11 @@ Tracker::registerFrame(const RawFrame& frame)
 bool
 Tracker::popFrames(uint32_t count)
 {
-    while (count) {
-        uint8_t to_pop = (count > 255 ? 255 : count);
-        count -= to_pop;
-
-        const FramePop entry{to_pop};
-        if (!d_writer->writeThreadSpecificRecord(thread_id(), entry)) {
-            std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
-            deactivate();
-            return false;
-        }
+    const FramePop entry{count};
+    if (!d_writer->writeThreadSpecificRecord(thread_id(), entry)) {
+        std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
+        deactivate();
+        return false;
     }
     return true;
 }

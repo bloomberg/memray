@@ -83,7 +83,7 @@ class RecordReader
     [[nodiscard]] bool parseFramePush(FramePush* record);
     [[nodiscard]] bool processFramePush(const FramePush& record);
 
-    [[nodiscard]] bool parseFramePop(FramePop* record);
+    [[nodiscard]] bool parseFramePop(FramePop* record, unsigned int flags);
     [[nodiscard]] bool processFramePop(const FramePop& record);
 
     [[nodiscard]] bool parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val);
