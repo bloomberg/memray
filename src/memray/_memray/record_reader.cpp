@@ -231,8 +231,15 @@ bool
 RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags)
 {
     record->allocator = static_cast<hooks::Allocator>(flags);
-    return d_input->read(reinterpret_cast<char*>(&record->address), sizeof(record->address))
-           && readVarint(&record->size);
+    if (!d_input->read(reinterpret_cast<char*>(&record->address), sizeof(record->address))) {
+        return false;
+    }
+    if (hooks::allocatorKind(record->allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR) {
+        record->size = 0;
+    } else if (!readVarint(&record->size)) {
+        return false;
+    }
+    return true;
 }
 
 bool

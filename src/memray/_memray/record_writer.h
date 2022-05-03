@@ -158,7 +158,9 @@ bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
 {
     d_stats.n_allocations += 1;
     RecordTypeAndFlags token{RecordType::ALLOCATION, static_cast<unsigned char>(record.allocator)};
-    return writeSimpleType(token) && writeSimpleType(record.address) && writeVarint(record.size);
+    return writeSimpleType(token) && writeSimpleType(record.address)
+           && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
+               || writeVarint(record.size));
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const NativeAllocationRecord& record)
