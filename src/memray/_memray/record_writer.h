@@ -127,11 +127,9 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 
 bool inline RecordWriter::writeRecordUnsafe(const FramePush& record)
 {
-    static_assert(std::is_trivially_copyable<FramePush>::value, "FramePush cannot be trivially copied");
-
     RecordTypeAndFlags token{RecordType::FRAME_PUSH, 0};
     return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
-           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
+           && writeVarint(record.frame_id);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)

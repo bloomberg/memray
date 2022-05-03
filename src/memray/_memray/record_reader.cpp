@@ -139,7 +139,7 @@ RecordReader::isOpen() const noexcept
 bool
 RecordReader::parseFramePush(FramePush* record)
 {
-    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+    return readVarint(&record->frame_id);
 }
 
 bool
