@@ -63,8 +63,11 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
     )
 
     assert len(memalign_frees) == 100 * 100
-    assert all(len(memalign.stack_trace()) == 0 for memalign in memalign_frees)
-    assert all(len(record.native_stack_trace()) == 0 for record in memalign_frees)
+    for record in memalign_frees:
+        with pytest.raises(NotImplementedError):
+            record.stack_trace()
+        with pytest.raises(NotImplementedError):
+            record.native_stack_trace()
 
 
 @pytest.mark.valgrind

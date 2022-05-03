@@ -67,6 +67,20 @@ allocatorKind(const Allocator& allocator)
     __builtin_unreachable();
 }
 
+bool
+isDeallocator(const Allocator& allocator)
+{
+    switch (allocatorKind(allocator)) {
+        case AllocatorKind::SIMPLE_ALLOCATOR:
+        case AllocatorKind::RANGED_ALLOCATOR:
+            return false;
+        case AllocatorKind::SIMPLE_DEALLOCATOR:
+        case AllocatorKind::RANGED_DEALLOCATOR:
+            return true;
+    }
+    __builtin_unreachable();
+}
+
 #define FOR_EACH_HOOKED_FUNCTION(f) SymbolHook<decltype(&::f)> f(#f, &::f);
 MEMRAY_HOOKED_FUNCTIONS
 #undef FOR_EACH_HOOKED_FUNCTION
