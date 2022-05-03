@@ -31,11 +31,21 @@ class RecordWriter
     bool inline writeString(const char* the_string);
     bool inline writeVarint(size_t val);
     template<typename T>
-    bool inline writeRecord(const RecordType& token, const T& item);
+    bool inline writeRecord(const T& item);
     template<typename T>
-    bool inline writeThreadSpecificRecord(const RecordType& token, thread_id_t tid, const T& item);
-    template<typename T>
-    bool inline writeRecordUnsafe(const RecordType& token, const T& item);
+    bool inline writeThreadSpecificRecord(thread_id_t tid, const T& item);
+    bool inline writeRecordUnsafe(const FramePop& record);
+    bool inline writeRecordUnsafe(const FramePush& record);
+    bool inline writeRecordUnsafe(const MemoryRecord& record);
+    bool inline writeRecordUnsafe(const ContextSwitch& record);
+    bool inline writeRecordUnsafe(const Segment& record);
+    bool inline writeRecordUnsafe(const AllocationRecord& record);
+    bool inline writeRecordUnsafe(const NativeAllocationRecord& record);
+    bool inline writeRecordUnsafe(const pyrawframe_map_val_t& item);
+    bool inline writeRecordUnsafe(const SegmentHeader& item);
+    bool inline writeRecordUnsafe(const ThreadRecord& record);
+    bool inline writeRecordUnsafe(const UnresolvedNativeFrame& record);
+    bool inline writeRecordUnsafe(const MemoryMapStart&);
     bool writeHeader(bool seek_to_start);
 
     std::unique_lock<std::mutex> acquireLock();
@@ -79,84 +89,123 @@ bool inline RecordWriter::writeVarint(size_t rest)
 }
 
 template<typename T>
-bool inline RecordWriter::writeRecord(const RecordType& token, const T& item)
+bool inline RecordWriter::writeRecord(const T& item)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
-    return writeRecordUnsafe(token, item);
+    return writeRecordUnsafe(item);
 }
 
 template<typename T>
-bool inline RecordWriter::writeThreadSpecificRecord(
-        const RecordType& token,
-        thread_id_t tid,
-        const T& item)
+bool inline RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const T& item)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     if (d_lastTid != tid) {
         d_lastTid = tid;
-        if (!writeRecordUnsafe(RecordType::CONTEXT_SWITCH, tid)) {
+        if (!writeRecordUnsafe(ContextSwitch{tid})) {
             return false;
         }
     }
-    return writeRecordUnsafe(token, item);
+    return writeRecordUnsafe(item);
 }
 
-template<typename T>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const T& item)
+bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
+{
+    static_assert(std::is_trivially_copyable<FramePop>::value, "FramePop cannot be trivially copied");
+
+    RecordTypeAndFlags token{RecordType::FRAME_POP, 0};
+    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
+           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
+}
+
+bool inline RecordWriter::writeRecordUnsafe(const FramePush& record)
+{
+    static_assert(std::is_trivially_copyable<FramePush>::value, "FramePush cannot be trivially copied");
+
+    RecordTypeAndFlags token{RecordType::FRAME_PUSH, 0};
+    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
+           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
+}
+
+bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
 {
     static_assert(
-            std::is_trivially_copyable<T>::value,
-            "Called writeRecord on binary records which cannot be trivially copied");
+            std::is_trivially_copyable<MemoryRecord>::value,
+            "MemoryRecord cannot be trivially copied");
 
-    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(RecordType))
-           && d_sink->writeAll(reinterpret_cast<const char*>(&item), sizeof(T));
+    RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
+    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
+           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
 }
 
-template<>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const AllocationRecord& record)
+bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)
 {
-    d_stats.n_allocations += 1;
-    return writeSimpleType(RecordTypeAndFlags{token, static_cast<unsigned char>(record.allocator)})
-           && writeSimpleType(record.address) && writeVarint(record.size);
+    static_assert(
+            std::is_trivially_copyable<ContextSwitch>::value,
+            "ContextSwitch cannot be trivially copied");
+
+    RecordTypeAndFlags token{RecordType::CONTEXT_SWITCH, 0};
+    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
+           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
 }
 
-template<>
-bool inline RecordWriter::writeRecordUnsafe(
-        const RecordType& token,
-        const NativeAllocationRecord& record)
+bool inline RecordWriter::writeRecordUnsafe(const Segment& record)
+{
+    static_assert(std::is_trivially_copyable<Segment>::value, "Segment cannot be trivially copied");
+
+    RecordTypeAndFlags token{RecordType::SEGMENT, 0};
+    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
+           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
+}
+
+bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
 {
     d_stats.n_allocations += 1;
-    return writeSimpleType(RecordTypeAndFlags{token, static_cast<unsigned char>(record.allocator)})
-           && writeSimpleType(record.address) && writeVarint(record.size)
+    RecordTypeAndFlags token{RecordType::ALLOCATION, static_cast<unsigned char>(record.allocator)};
+    return writeSimpleType(token) && writeSimpleType(record.address) && writeVarint(record.size);
+}
+
+bool inline RecordWriter::writeRecordUnsafe(const NativeAllocationRecord& record)
+{
+    d_stats.n_allocations += 1;
+    RecordTypeAndFlags token{
+            RecordType::ALLOCATION_WITH_NATIVE,
+            static_cast<unsigned char>(record.allocator)};
+    return writeSimpleType(token) && writeSimpleType(record.address) && writeVarint(record.size)
            && writeVarint(record.native_frame_id);
 }
 
-template<>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const pyrawframe_map_val_t& item)
+bool inline RecordWriter::writeRecordUnsafe(const pyrawframe_map_val_t& item)
 {
     d_stats.n_frames += 1;
+    RecordTypeAndFlags token{RecordType::FRAME_INDEX, 0};
     return writeSimpleType(token) && writeSimpleType(item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
            && writeSimpleType(item.second.lineno);
 }
 
-template<>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const SegmentHeader& item)
+bool inline RecordWriter::writeRecordUnsafe(const SegmentHeader& item)
 {
+    RecordTypeAndFlags token{RecordType::SEGMENT_HEADER, 0};
     return writeSimpleType(token) && writeString(item.filename) && writeSimpleType(item.num_segments)
            && writeSimpleType(item.addr);
 }
 
-template<>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const ThreadRecord& record)
+bool inline RecordWriter::writeRecordUnsafe(const ThreadRecord& record)
 {
+    RecordTypeAndFlags token{RecordType::THREAD_RECORD, 0};
     return writeSimpleType(token) && writeString(record.name);
 }
 
-template<>
-bool inline RecordWriter::writeRecordUnsafe(const RecordType& token, const UnresolvedNativeFrame& record)
+bool inline RecordWriter::writeRecordUnsafe(const UnresolvedNativeFrame& record)
 {
-    return writeSimpleType(token) && writeSimpleType(record.ip) && writeVarint(record.index);
+    return writeSimpleType(RecordTypeAndFlags{RecordType::NATIVE_TRACE_INDEX, 0})
+           && writeSimpleType(record.ip) && writeVarint(record.index);
+}
+
+bool inline RecordWriter::writeRecordUnsafe(const MemoryMapStart&)
+{
+    RecordTypeAndFlags token{RecordType::MEMORY_MAP_START, 0};
+    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token));
 }
 
 }  // namespace memray::tracking_api

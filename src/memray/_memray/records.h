@@ -105,6 +105,10 @@ struct Allocation
     PyObject* toPythonObject() const;
 };
 
+struct MemoryMapStart
+{
+};
+
 struct SegmentHeader
 {
     const char* filename;
@@ -200,6 +204,11 @@ struct UnresolvedNativeFrame
 {
     uintptr_t ip;
     uint32_t index;
+};
+
+struct ContextSwitch
+{
+    thread_id_t tid;
 };
 
 template<typename FrameType>
