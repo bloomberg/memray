@@ -27,7 +27,7 @@ class RecordWriter
     void operator=(RecordWriter&&) = delete;
 
     template<typename T>
-    bool inline writeSimpleType(T&& item);
+    bool inline writeSimpleType(const T& item);
     bool inline writeString(const char* the_string);
     bool inline writeVarint(size_t val);
     template<typename T>
@@ -62,8 +62,12 @@ class RecordWriter
 };
 
 template<typename T>
-bool inline RecordWriter::writeSimpleType(T&& item)
+bool inline RecordWriter::writeSimpleType(const T& item)
 {
+    static_assert(
+            std::is_trivially_copyable<T>::value,
+            "writeSimpleType called on non trivially copyable type");
+
     return d_sink->writeAll(reinterpret_cast<const char*>(&item), sizeof(item));
 };
 
@@ -117,7 +121,7 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 
         to_pop -= 1;  // i.e. 0 means pop 1 frame, 63 means pop 64 frames
         RecordTypeAndFlags token{RecordType::FRAME_POP, to_pop};
-        if (!d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))) {
+        if (!writeSimpleType(token)) {
             return false;
         }
     }
@@ -128,33 +132,26 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 bool inline RecordWriter::writeRecordUnsafe(const FramePush& record)
 {
     RecordTypeAndFlags token{RecordType::FRAME_PUSH, 0};
-    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
-           && writeVarint(record.frame_id);
+    return writeSimpleType(token) && writeVarint(record.frame_id);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
 {
     RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
-    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
-           && writeVarint(record.rss) && writeVarint(record.ms_since_epoch - d_stats.start_time);
+    return writeSimpleType(token) && writeVarint(record.rss)
+           && writeVarint(record.ms_since_epoch - d_stats.start_time);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)
 {
-    static_assert(
-            std::is_trivially_copyable<ContextSwitch>::value,
-            "ContextSwitch cannot be trivially copied");
-
     RecordTypeAndFlags token{RecordType::CONTEXT_SWITCH, 0};
-    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
-           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
+    return writeSimpleType(token) && writeSimpleType(record);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const Segment& record)
 {
     RecordTypeAndFlags token{RecordType::SEGMENT, 0};
-    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
-           && writeSimpleType(record.vaddr) && writeVarint(record.memsz);
+    return writeSimpleType(token) && writeSimpleType(record.vaddr) && writeVarint(record.memsz);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
@@ -205,7 +202,7 @@ bool inline RecordWriter::writeRecordUnsafe(const UnresolvedNativeFrame& record)
 bool inline RecordWriter::writeRecordUnsafe(const MemoryMapStart&)
 {
     RecordTypeAndFlags token{RecordType::MEMORY_MAP_START, 0};
-    return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token));
+    return writeSimpleType(token);
 }
 
 }  // namespace memray::tracking_api
