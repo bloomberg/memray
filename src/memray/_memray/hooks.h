@@ -111,6 +111,9 @@ enum class AllocatorKind {
 AllocatorKind
 allocatorKind(const Allocator& allocator);
 
+bool
+isDeallocator(const Allocator& allocator);
+
 #define FOR_EACH_HOOKED_FUNCTION(f) extern SymbolHook<decltype(&::f)> f;
 MEMRAY_HOOKED_FUNCTIONS
 #undef FOR_EACH_HOOKED_FUNCTION

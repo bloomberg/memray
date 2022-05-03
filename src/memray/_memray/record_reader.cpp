@@ -243,7 +243,7 @@ RecordReader::processAllocationRecord(const AllocationRecord& record)
     d_latest_allocation.size = record.size;
     d_latest_allocation.allocator = record.allocator;
     d_latest_allocation.native_frame_id = 0;
-    if (d_track_stacks) {
+    if (d_track_stacks && !hooks::isDeallocator(record.allocator)) {
         auto& stack = d_stack_traces[d_latest_allocation.tid];
         d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
     } else {

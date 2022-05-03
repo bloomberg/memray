@@ -507,14 +507,6 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
     }
     RecursionGuard guard;
 
-    // Grab a reference to the TLS variable to guarantee it's only resolved once.
-    auto& python_stack_tracker = t_python_stack_tracker;
-    int lineno = python_stack_tracker.getCurrentPythonLineNumber();
-
-    python_stack_tracker.setMostRecentFrameLineNumber(lineno);
-    python_stack_tracker.emitPendingPops();
-    python_stack_tracker.emitPendingPushes();
-
     AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
     if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;

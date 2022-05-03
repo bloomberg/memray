@@ -66,13 +66,8 @@ def test_traceback(tmpdir):
     ]
     assert len(frees) == 1
     (free,) = frees
-    traceback = list(free.stack_trace())
-    assert traceback[-4:] == [
-        ("alloc_func3", __file__, 20),
-        ("alloc_func2", __file__, 27),
-        ("alloc_func1", __file__, 34),
-        ("test_traceback", __file__, 47),
-    ]
+    with pytest.raises(NotImplementedError):
+        free.stack_trace()
 
 
 def test_traceback_for_high_watermark(tmpdir):
@@ -96,7 +91,7 @@ def test_traceback_for_high_watermark(tmpdir):
         ("alloc_func3", __file__, 18),
         ("alloc_func2", __file__, 27),
         ("alloc_func1", __file__, 34),
-        ("test_traceback_for_high_watermark", __file__, 86),
+        ("test_traceback_for_high_watermark", __file__, 81),
     ]
 
 
@@ -148,13 +143,13 @@ def test_cython_traceback(tmpdir):
     assert traceback[-3:] == [
         ("valloc", ANY, 74),
         ("_cython_nested_allocation", ANY, 92),
-        ("test_cython_traceback", ANY, 137),
+        ("test_cython_traceback", ANY, 132),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
         ("_cython_nested_allocation", ANY, 92),
-        ("test_cython_traceback", ANY, 137),
+        ("test_cython_traceback", ANY, 132),
     ]
 
     frees = [
@@ -164,11 +159,8 @@ def test_cython_traceback(tmpdir):
     ]
     assert len(frees) == 1
     (free,) = frees
-    traceback = list(free.stack_trace())
-    assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 92),
-        ("test_cython_traceback", ANY, 137),
-    ]
+    with pytest.raises(NotImplementedError):
+        free.stack_trace()
 
 
 def test_records_can_be_retrieved_twice(tmpdir):
@@ -526,14 +518,13 @@ class TestMmap:
             element[0] for element in mmap_record.stack_trace()
         }
 
-        mmunmap_record = next(
+        munmap_record = next(
             (record for record in records if AllocatorType.MUNMAP == record.allocator),
             None,
         )
-        assert mmunmap_record is not None
-        assert "allocating_function" in {
-            element[0] for element in mmunmap_record.stack_trace()
-        }
+        assert munmap_record is not None
+        with pytest.raises(NotImplementedError):
+            munmap_record.stack_trace()
 
     @pytest.mark.valgrind
     def test_mmap_in_thread(self, tmpdir):
@@ -568,11 +559,10 @@ class TestMmap:
             element[0] for element in mmap_record.stack_trace()
         }
 
-        mmunmap_record = next(
+        munmap_record = next(
             (record for record in records if AllocatorType.MUNMAP == record.allocator),
             None,
         )
-        assert mmunmap_record is not None
-        assert "allocating_function" in {
-            element[0] for element in mmunmap_record.stack_trace()
-        }
+        assert munmap_record is not None
+        with pytest.raises(NotImplementedError):
+            munmap_record.stack_trace()

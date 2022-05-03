@@ -146,6 +146,9 @@ cdef class AllocationRecord:
     def stack_trace(self, max_stacks=None):
         assert self._reader.get() != NULL, "Cannot get stack trace without reader."
         if self._stack_trace is None:
+            if self.allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
+                raise NotImplementedError("Stack traces for deallocations aren't captured.")
+
             if max_stacks is None:
                 self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4])
             else:
@@ -155,6 +158,9 @@ cdef class AllocationRecord:
     def native_stack_trace(self, max_stacks=None):
         assert self._reader.get() != NULL, "Cannot get stack trace without reader."
         if self._native_stack_trace is None:
+            if self.allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
+                raise NotImplementedError("Stack traces for deallocations aren't captured.")
+
             if max_stacks is None:
                 self._native_stack_trace = self._reader.get().Py_GetNativeStackFrame(
                         self._tuple[6], self._tuple[7])

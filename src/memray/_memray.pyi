@@ -79,7 +79,8 @@ class FileReader:
     def __init__(self, file_name: Union[str, Path]) -> None: ...
     def get_allocation_records(self) -> Iterable[AllocationRecord]: ...
     def get_high_watermark_allocation_records(
-        self, merge_threads: bool
+        self,
+        merge_threads: bool = ...,
     ) -> Iterable[AllocationRecord]: ...
     def get_leaked_allocation_records(
         self, merge_threads: bool
