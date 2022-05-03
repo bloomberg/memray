@@ -134,13 +134,9 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePush& record)
 
 bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
 {
-    static_assert(
-            std::is_trivially_copyable<MemoryRecord>::value,
-            "MemoryRecord cannot be trivially copied");
-
     RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
     return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
-           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
+           && writeVarint(record.rss) && writeVarint(record.ms_since_epoch - d_stats.start_time);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)

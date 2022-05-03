@@ -359,7 +359,11 @@ RecordReader::processThreadRecord(const std::string& name)
 bool
 RecordReader::parseMemoryRecord(MemoryRecord* record)
 {
-    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+    if (!readVarint(&record->rss) || !readVarint(&record->ms_since_epoch)) {
+        return false;
+    }
+    record->ms_since_epoch += d_header.stats.start_time;
+    return true;
 }
 
 bool
