@@ -152,11 +152,9 @@ bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)
 
 bool inline RecordWriter::writeRecordUnsafe(const Segment& record)
 {
-    static_assert(std::is_trivially_copyable<Segment>::value, "Segment cannot be trivially copied");
-
     RecordTypeAndFlags token{RecordType::SEGMENT, 0};
     return d_sink->writeAll(reinterpret_cast<const char*>(&token), sizeof(token))
-           && d_sink->writeAll(reinterpret_cast<const char*>(&record), sizeof(record));
+           && writeSimpleType(record.vaddr) && writeVarint(record.memsz);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
