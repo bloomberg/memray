@@ -337,7 +337,9 @@ RecordReader::processSegmentHeader(const std::string& filename, size_t num_segme
 bool
 RecordReader::parseSegment(Segment* segment)
 {
-    if (!d_input->read(reinterpret_cast<char*>(segment), sizeof(*segment))) {
+    if (!d_input->read(reinterpret_cast<char*>(&segment->vaddr), sizeof(segment->vaddr))
+        || !readVarint(&segment->memsz))
+    {
         return false;
     }
     return true;
