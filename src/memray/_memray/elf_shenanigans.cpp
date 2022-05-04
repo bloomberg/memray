@@ -128,21 +128,21 @@ patch_symbols(const Dyn* dyn_info_struct, const Addr base, bool restore_original
      */
 
     LOG(DEBUG) << "Patching symbols with RELS relocation type";
-    RelTable rels_relocations_table(dyn_info_struct);
+    RelTable rels_relocations_table(base, dyn_info_struct);
     overwrite_elf_table(rels_relocations_table, symbols, base, restore_original);
 
     LOG(DEBUG) << "Patching symbols with RELAS relocation type";
-    RelaTable relas_relocations_table(dyn_info_struct);
+    RelaTable relas_relocations_table(base, dyn_info_struct);
     overwrite_elf_table(relas_relocations_table, symbols, base, restore_original);
 
     LOG(DEBUG) << "Patching symbols with JMPRELS relocation type";
     switch (get_jump_table_type(dyn_info_struct)) {
         case DT_REL: {
-            JmpRelTable jmp_relocations_table(dyn_info_struct);
+            JmpRelTable jmp_relocations_table(base, dyn_info_struct);
             overwrite_elf_table(jmp_relocations_table, symbols, base, restore_original);
         } break;
         case DT_RELA: {
-            JmpRelaTable jmp_relocations_table(dyn_info_struct);
+            JmpRelaTable jmp_relocations_table(base, dyn_info_struct);
             overwrite_elf_table(jmp_relocations_table, symbols, base, restore_original);
         } break;
         default: {
