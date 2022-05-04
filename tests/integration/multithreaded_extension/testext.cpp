@@ -5,15 +5,14 @@
 #include <pthread.h>
 #include <malloc.h>
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
+namespace {  // unnamed
 
 const int NUM_THREADS = 100;
 const int NUM_BUFFERS = 100;
 pthread_t threads[NUM_THREADS];
 
-void*
-worker(void*)
+extern "C" void
+allocate_memory()
 {
     unsigned long* buffers[NUM_BUFFERS];
     for (int i=0; i < NUM_BUFFERS; ++i) {
@@ -22,6 +21,12 @@ worker(void*)
     for (int i=0; i < NUM_BUFFERS; ++i) {
         free(buffers[i]);
     }
+}
+
+extern "C" void*
+worker(void*)
+{
+    allocate_memory();
     return NULL;
 }
 
@@ -77,7 +82,7 @@ run_valloc_at_exit(PyObject*, PyObject*)
     Py_RETURN_NONE;
 }
 
-#pragma GCC pop_options
+}  // unnamed namespace
 
 static PyMethodDef methods[] = {
         {"run", run, METH_NOARGS, "Run a bunch of threads"},

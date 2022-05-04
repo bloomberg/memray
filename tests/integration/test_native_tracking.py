@@ -56,7 +56,7 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
 
     assert len(memaligns) == 100 * 100  # 100 threads allocate 100 times in testext
     assert all(len(memalign.stack_trace()) == 0 for memalign in memaligns)
-    expected_symbols = ["worker(void*)", "start_thread"]
+    expected_symbols = ["allocate_memory", "worker"]
     assert all(
         expected_symbols == [stack[0] for stack in record.native_stack_trace()][:2]
         for record in memaligns
