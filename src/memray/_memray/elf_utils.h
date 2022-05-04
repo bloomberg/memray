@@ -38,18 +38,32 @@ using Sym = ElfW(Sym);
 using Sxword = ElfW(Sxword);
 using Xword = ElfW(Xword);
 
+template<class T, class U>
+T
+ensureRelocatedAddress(const Addr base, const U addr)
+{
+    // Depending on the libc version, some values may be already relocated
+    // or not. So we need to check first if the relocation already happened
+    // and make it ourselves if that is not the case.
+    auto the_addr = reinterpret_cast<Addr>(addr);
+    if (the_addr < base) {
+        return reinterpret_cast<T>(base + the_addr);
+    }
+    return reinterpret_cast<T>(the_addr);
+}
+
 template<typename T, Sxword AddrTag, Sxword SizeTag>
 struct DynamicInfoTable
 {
     T* table = nullptr;
     Xword size = {};
 
-    explicit DynamicInfoTable(const Dyn* dynamic_section)
+    explicit DynamicInfoTable(const Addr base, const Dyn* dynamic_section)
     {
         // Obtain the table address and the size from the tags in the dynamic section
         for (; dynamic_section->d_tag != DT_NULL; ++dynamic_section) {
             if (dynamic_section->d_tag == AddrTag) {
-                table = reinterpret_cast<T*>(dynamic_section->d_un.d_ptr);
+                table = ensureRelocatedAddress<T*>(base, dynamic_section->d_un.d_ptr);
             } else if (dynamic_section->d_tag == SizeTag) {
                 size = dynamic_section->d_un.d_val;
             }
@@ -82,27 +96,14 @@ struct SymbolTable
     explicit SymbolTable(Addr base, const Dyn* dynamic_section)
     : base(base)
     , dynamic_section(dynamic_section)
-    , string_table(dynamic_section)
-    , symbol_table(dynamic_section)
+    , string_table(base, dynamic_section)
+    , symbol_table(base, dynamic_section)
     {
     }
 
     const char* getSymbolNameByIndex(size_t index) const
     {
         return string_table.table + symbol_table.table[index].st_name;
-    }
-
-    template<class T, class U>
-    T ensureRelocatedAddress(const U addr) const
-    {
-        // Depending on the libc version, some values may be already relocated
-        // or not. So we need to check first if the relocation already happened
-        // and make it ourselves if that is not the case.
-        auto the_addr = reinterpret_cast<Addr>(addr);
-        if (the_addr < base) {
-            return reinterpret_cast<T>(base + the_addr);
-        }
-        return reinterpret_cast<T>(the_addr);
     }
 
     static inline bool isDefinedGlobalSymbol(ElfW(Sym) * sym)
@@ -147,7 +148,7 @@ struct SymbolTable
     uintptr_t findSymbolByElfHashTable(const char* name, const ElfW(Dyn) * dt_hash_base) const
     {
         // See https://www.gabriel.urdhr.fr/2015/09/28/elf-file-format/#hash-tables
-        auto* dt_hash = ensureRelocatedAddress<ElfW(Word)*>(dt_hash_base->d_un.d_ptr);
+        auto* dt_hash = ensureRelocatedAddress<ElfW(Word)*>(base, dt_hash_base->d_un.d_ptr);
         size_t nbucket_ = dt_hash[0];
         uint32_t* bucket_ = dt_hash + 2;
         uint32_t* chain_ = bucket_ + nbucket_;
@@ -167,8 +168,8 @@ struct SymbolTable
 
         uint32_t hash = elf_hash(reinterpret_cast<const uint8_t*>(name));
         for (uint32_t n = bucket_[hash % nbucket_]; n != 0; n = chain_[n]) {
-            auto* sym = ensureRelocatedAddress<ElfW(Sym)*>(symbol_table.table + n);
-            auto* sym_name = ensureRelocatedAddress<char*>(string_table.table + sym->st_name);
+            auto* sym = ensureRelocatedAddress<ElfW(Sym)*>(base, symbol_table.table + n);
+            auto* sym_name = ensureRelocatedAddress<char*>(base, string_table.table + sym->st_name);
             if (isDefinedGlobalSymbol(sym) && strcmp(sym_name, name) == 0) {
                 return base + sym->st_value;
             }
@@ -188,7 +189,7 @@ struct SymbolTable
         // It has its own hashing function, its own layout, it adds restrictions for the symbol table and
         // contains an additional bloom filter to stop lookup for missing symbols early.
 
-        auto* hashtab = reinterpret_cast<ElfW(Word)*>(dt_gnu_hash_base->d_un.d_ptr);
+        auto* hashtab = ensureRelocatedAddress<ElfW(Word)*>(base, dt_gnu_hash_base->d_un.d_ptr);
 
         // The hash function is adapted from the dl_new_hash() in the linker source:
         // https://github.com/bminor/glibc/blob/97e42bd482b62d7b74889be11c98b0bbb4059dcd/elf/dl-lookup.c#L572-L579
