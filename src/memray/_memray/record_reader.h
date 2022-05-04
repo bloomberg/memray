@@ -77,17 +77,41 @@ class RecordReader
     MemoryRecord d_latest_memory_record;
 
     // Methods
-    [[nodiscard]] bool parseFramePush();
-    [[nodiscard]] bool parseFramePop();
-    [[nodiscard]] bool parseFrameIndex();
-    [[nodiscard]] bool parseNativeFrameIndex();
-    [[nodiscard]] bool parseAllocationRecord();
-    [[nodiscard]] bool parseNativeAllocationRecord();
-    [[nodiscard]] bool parseSegmentHeader();
-    [[nodiscard]] bool parseSegment(Segment& segment);
-    [[nodiscard]] bool parseThreadRecord();
-    [[nodiscard]] bool parseMemoryRecord();
-    [[nodiscard]] bool parseContextSwitch();
+    [[nodiscard]] bool parseFramePush(FramePush* record);
+    [[nodiscard]] bool processFramePush(const FramePush& record);
+
+    [[nodiscard]] bool parseFramePop(FramePop* record);
+    [[nodiscard]] bool processFramePop(const FramePop& record);
+
+    [[nodiscard]] bool parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val);
+    [[nodiscard]] bool processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_val);
+
+    [[nodiscard]] bool parseNativeFrameIndex(UnresolvedNativeFrame* frame);
+    [[nodiscard]] bool processNativeFrameIndex(const UnresolvedNativeFrame& frame);
+
+    [[nodiscard]] bool parseAllocationRecord(AllocationRecord* record);
+    [[nodiscard]] bool processAllocationRecord(const AllocationRecord& record);
+
+    [[nodiscard]] bool parseNativeAllocationRecord(NativeAllocationRecord* record);
+    [[nodiscard]] bool processNativeAllocationRecord(const NativeAllocationRecord& record);
+
+    [[nodiscard]] bool parseMemoryMapStart();
+    [[nodiscard]] bool processMemoryMapStart();
+
+    [[nodiscard]] bool parseSegmentHeader(std::string* filename, size_t* num_segments, uintptr_t* addr);
+    [[nodiscard]] bool
+    processSegmentHeader(const std::string& filename, size_t num_segments, uintptr_t addr);
+
+    [[nodiscard]] bool parseSegment(Segment* segment);
+
+    [[nodiscard]] bool parseThreadRecord(std::string* name);
+    [[nodiscard]] bool processThreadRecord(const std::string& name);
+
+    [[nodiscard]] bool parseMemoryRecord(MemoryRecord* record);
+    [[nodiscard]] bool processMemoryRecord(const MemoryRecord& record);
+
+    [[nodiscard]] bool parseContextSwitch(thread_id_t* tid);
+    [[nodiscard]] bool processContextSwitch(thread_id_t tid);
 
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
