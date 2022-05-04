@@ -23,8 +23,12 @@
 #include "record_writer.h"
 #include "records.h"
 
-#ifdef MEMRAY_TLS_MODEL
-#    define MEMRAY_FAST_TLS __attribute__((tls_model(MEMRAY_TLS_MODEL)))
+#if defined(USE_MEMRAY_TLS_MODEL)
+#    if defined(__GLIBC__)
+#        define MEMRAY_FAST_TLS __attribute__((tls_model("initial-exec")))
+#    else
+#        define MEMRAY_FAST_TLS __attribute__((tls_model("local-dynamic")))
+#    endif
 #else
 #    define MEMRAY_FAST_TLS
 #endif

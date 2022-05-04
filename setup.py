@@ -173,7 +173,7 @@ if os.getenv("NO_MEMRAY_FAST_TLS", None) is not None:
     MEMRAY_FAST_TLS = False
 
 if MEMRAY_FAST_TLS:
-    DEFINE_MACROS.append(("MEMRAY_TLS_MODEL", '"initial-exec"'))
+    DEFINE_MACROS.append(("USE_MEMRAY_TLS_MODEL", "1"))
 
 MEMRAY_EXTENSION = Extension(
     name="memray._memray",
