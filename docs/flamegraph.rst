@@ -60,7 +60,7 @@ Flame graphs can be interpreted as follows:
   mean more memory was allocated by the given node and those are the
   most important to understand first.
 
-- Major forks in the flame graph (when a node splits in several ones in
+- Major forks in the flame graph (when a node splits into several ones in
   the next level) can be useful to study: these nodes can indicate
   a logical grouping of code, where a function processes work in stages,
   each with its own function. It can also be caused by a conditional
@@ -146,9 +146,9 @@ flame graph looks like this:
 The top edge shows that function ``g()`` allocates the most memory,
 ``d()`` is wider, but its exposed top edge is smaller, which means that
 ``d()`` itself allocated less memory than the one allocated by the
-functions called by it. Functions including ``b()`` and ``c()`` do not
-not allocate memory themselves directly; rather, their child functions
-did the allocation.
+functions called by it. Functions including ``b()`` and ``c()`` do
+not allocate memory themselves directly; rather, the functions they
+called did the allocating.
 
 Functions beneath ``g()`` show its ancestry: ``g()`` was called by
 ``f()``, which was called by ``d()``, and so on.
@@ -173,7 +173,7 @@ memory allocated by ``missing()`` didn't contribute at all to the total
 amount of memory. This is because the memory allocated by ``missing()``
 is deallocated as soon as the call ends.
 
-With this information we know that if you need to chose a place to start
+With this information, we know that if you need to choose a place to start
 looking for optimizations, you should start looking at ``g()``, then
 ``a()`` and then ``i()`` (in that order) as these are the places that
 allocated the most memory when the program reached its maximum. Of
@@ -230,13 +230,13 @@ if ``--split-threads`` is used, the allocation patterns of individual
 threads can be analyzed.
 
 When opening the report, the same merged thread view is presented, but
-a new "Filter Thread" drop down will be shown. This can be used to
+a new "Filter Thread" dropdown will be shown. This can be used to
 select a specific thread to display a flame graph for that one thread:
 
 .. image:: _static/images/filter_thread_dropdown.png
 
 To go back to the merged view, the "Reset" entry can be used in the
-drop down menu.
+dropdown menu.
 
 Note that the root node (displayed as **memray**) is always present
 and is displayed as thread 0.

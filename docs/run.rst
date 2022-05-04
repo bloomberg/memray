@@ -43,7 +43,9 @@ disabled. Some of the most important allocations happen when operating on NumPy 
 
 .. image:: _static/images/mandelbrot_operation_non_native.png
 
-Here, we can see some that the allocation happens when doing some math on NumPy arrays but unfortunately this doesn't inform us a of what exact operation is allocating memory or how temporaries are being used. We also don't know if the memory was allocated by NumPy or by the interpreter itself. By using the native tracking mode with Memray we can get a much richer report:
+Here, we can see that the allocation happens when doing some math on NumPy arrays but unfortunately this doesn't inform us
+of what exact operation is allocating memory or how temporaries are being used. We also don't know if the memory was
+allocated by NumPy or by the interpreter itself. By using the native tracking mode with Memray we can get a much richer report:
 
 .. image:: _static/images/mandelbrot_operation_native.png
 

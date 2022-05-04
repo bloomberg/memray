@@ -16,7 +16,7 @@ How ``pymalloc`` works
 Requests greater than 512 bytes are routed to the system's allocator. This
 means that even if ``pymalloc`` is active, it will only affect requests for 512
 bytes or less. For those small requests, the ``pymalloc`` allocator will
-allocate big chunks of memory from the system allocator, and then subdivide
+allocate big chunks of memory from the system allocator and then subdivide
 those big chunks.
 
 .. image:: _static/images/pymalloc.png
@@ -27,7 +27,7 @@ those big chunks.
 
 - Arenas: These are chunks of memory that ``pymalloc`` directly requests from
   the system allocator using ``mmap``. Arenas are always a multiple of
-  4 kilobytes. Arenas are subdivided in pools of different types.
+  4 kilobytes. Arenas are subdivided into pools of different types.
 - Pools: Pools contain fixed size blocks of memory. Each pool only contains
   blocks of a single consistent size, though different pools have blocks of
   different sizes. Pools are used to easily find, allocate, and free memory
@@ -75,7 +75,7 @@ existing memory that has previously been used for other Python objects. This
 has two main consequences:
 
 - Requests for **small** amounts of memory that can be satisfied from an
-  existing arena won't result in a call to the system allocator, and therefore
+  existing arena won't result in a call to the system allocator and therefore
   won't appear in the profiler reports at all.
 
 - Requests for **small** amounts of memory that can't be satisfied from an

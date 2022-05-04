@@ -72,7 +72,7 @@ def readkey() -> str:  # pragma: no cover
 
 
 class LiveCommand:
-    """Remotely monitor allocations in a text-based interface."""
+    """Remotely monitor allocations in a text-based interface"""
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(

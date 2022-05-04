@@ -13,7 +13,7 @@ representation:
 * Only the 10 source locations responsible for the most allocated bytes are
   displayed. This is configurable with the ``--biggest-allocs`` command line
   parameter.
-* The total memory and percentage shown in the root node of the tree is
+* The total memory and percentage shown in the root node of the tree are
   calculated based only on the allocations that are shown. Since any allocation
   not big enough to be shown will not be included there, the reported total
   memory of the root node is normally less than the process's peak memory size.
