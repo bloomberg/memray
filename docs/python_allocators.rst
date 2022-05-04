@@ -6,7 +6,7 @@ system allocator (malloc, free, realloc, etc). Although the system allocator is
 quite fast and efficient, it is still generic and is not tuned to the specific
 allocation patterns of the Python interpreter, especially those regarding small
 Python objects. To improve performance and reduce fragmentation, Python has
-a specialized allocator that handles an allocation of small objects and defers to
+a specialized allocator that handles allocation of small objects and defers to
 the system allocator for large ones. This allocator is called ``pymalloc``.
 
 
@@ -80,7 +80,7 @@ has two main consequences:
 
 - Requests for **small** amounts of memory that can't be satisfied from an
   existing arena will result in a new arena being allocated from the system
-  allocator, which will be shown as a ``mmap`` request whose size is
+  allocator, which will be shown as an ``mmap`` request whose size is
   a multiple of 4 kilobytes.
 
 This may look confusing, and you may wish to deactivate ``pymalloc`` when

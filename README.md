@@ -4,14 +4,13 @@
 
 ---
 
+![OS Linux](https://img.shields.io/badge/OS-Linux-blue)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/memray)
 ![PyPI - Implementation](https://img.shields.io/pypi/implementation/memray)
 ![PyPI](https://img.shields.io/pypi/v/memray)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/memray)
 [![Tests](https://github.com/bloomberg/memray/actions/workflows/build.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build.yml)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)
-![OS Linux](https://img.shields.io/badge/OS-Linux-blue)
-
 
 <p align="center"><img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/output.png" alt="Memray output"></p>
 
@@ -24,7 +23,7 @@ Notable features:
 
 - 🕵️‍♀️ Traces every function call so it can accurately represent the call stack, unlike sampling profilers.
 - ℭ Also handles native calls in C/C++ libraries so the entire call stack is present in the results.
-- 🏎 Blazing fast! Profiling causes a minimal slowdown in the application. Tracking native code is somewhat slower,
+- 🏎 Blazing fast! Profiling slows the application only slightly. Tracking native code is somewhat slower,
   but this can be enabled or disabled on demand.
 - 📈 It can generate various reports about the collected memory usage data, like flame graphs.
 - 🧵 Works with Python threads.
@@ -55,7 +54,7 @@ system where you are doing the installation.
 
 ## Building from source
 
-If you wish to build Memray from a source you need the following binary dependencies in your system:
+If you wish to build Memray from source you need the following binary dependencies in your system:
 
 - libunwind
 
@@ -111,7 +110,7 @@ optional arguments:
   -h, --help            Show this help message and exit
   -v, --verbose         Increase verbosity. Option is additive and can be specified up to 3 times
 
-Please submit feedback, ideas, and bugs by filing a new issue at https://github.com/bloomberg/memray/issues
+Please submit feedback, ideas, and bug reports by filing a new issue at https://github.com/bloomberg/memray/issues
 ```
 
 To use Memray over a script or a single python file you can use

@@ -51,7 +51,7 @@ allocated by NumPy or by the interpreter itself. By using the native tracking mo
 
 In this native report, we can see all the internal C calls that are underneath. We can see that the memory allocation
 happens when the NumPy arrays are being added, due to ``PyNumber_Add`` appearing in the stack trace. Based on
-``PyNumber_Multiply`` not appear in the stack trace, we can conclude that the temporary array created by NumPy is
+``PyNumber_Multiply`` not appearing in the stack trace, we can conclude that the temporary array created by NumPy is
 immediately freed (or that it didn't need to allocate memory in the first place, perhaps because it could reuse some
 already allocated memory).
 
@@ -80,7 +80,7 @@ This will add native stack information to the result file, which any reporter wi
    need to be inspected by Memray to get the correct symbol names.
 
 When reporters display native information they will normally use a different color for the Python frames than the native
-frames. This can also be distinguished by looking at the file name in a frame since Python frames will generally come
+frames. This can also be distinguished by looking at the file name in a frame, since Python frames will generally come
 from source files with a ``.py`` extension.
 
 .. _Live tracking:

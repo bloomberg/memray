@@ -147,8 +147,8 @@ The top edge shows that function ``g()`` allocates the most memory,
 ``d()`` is wider, but its exposed top edge is smaller, which means that
 ``d()`` itself allocated less memory than the one allocated by the
 functions called by it. Functions including ``b()`` and ``c()`` do
-not allocate memory themselves directly; rather, their child functions
-did the allocation.
+not allocate memory themselves directly; rather, the functions they
+called did the allocating.
 
 Functions beneath ``g()`` show its ancestry: ``g()`` was called by
 ``f()``, which was called by ``d()``, and so on.
