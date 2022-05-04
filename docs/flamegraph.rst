@@ -175,7 +175,7 @@ is deallocated as soon as the call ends.
 
 With this information, we know that if you need to choose a place to start
 looking for optimizations, you should start looking at ``g()``, then
-``a()`` and then ``i()`` (in that order) as these are the places that
+``e()`` and then ``i()`` (in that order) as these are the places that
 allocated the most memory when the program reached its maximum. Of
 course, the actual optimization may be done in the callers of these
 functions, but you have a way to start understanding where to optimize.
