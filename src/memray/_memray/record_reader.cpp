@@ -113,12 +113,14 @@ RecordReader::isOpen() const noexcept
 }
 
 bool
-RecordReader::parseFramePush()
+RecordReader::parseFramePush(FramePush* record)
 {
-    FramePush record{};
-    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
-        return false;
-    }
+    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+}
+
+bool
+RecordReader::processFramePush(const FramePush& record)
+{
     if (!d_track_stacks) {
         return true;
     }
@@ -135,38 +137,42 @@ RecordReader::parseFramePush()
 }
 
 bool
-RecordReader::parseFramePop()
+RecordReader::parseFramePop(FramePop* record)
 {
-    FramePop record{};
-    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
-        return false;
-    }
+    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+}
+
+bool
+RecordReader::processFramePop(const FramePop& record)
+{
     if (!d_track_stacks) {
         return true;
     }
     thread_id_t tid = d_current_thread;
 
     assert(!d_stack_traces[tid].empty());
-    while (record.count) {
-        --record.count;
+    auto count = record.count;
+    while (count) {
+        --count;
         d_stack_traces[tid].pop_back();
     }
     return true;
 }
 
 bool
-RecordReader::parseFrameIndex()
+RecordReader::parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val)
 {
-    tracking_api::pyframe_map_val_t pyframe_val;
-    if (!d_input->read(reinterpret_cast<char*>(&pyframe_val.first), sizeof(pyframe_val.first))
-        || !d_input->getline(pyframe_val.second.function_name, '\0')
-        || !d_input->getline(pyframe_val.second.filename, '\0')
-        || !d_input->read(
-                reinterpret_cast<char*>(&pyframe_val.second.lineno),
-                sizeof(pyframe_val.second.lineno)))
-    {
-        return false;
-    }
+    return d_input->read(reinterpret_cast<char*>(&pyframe_val->first), sizeof(pyframe_val->first))
+           && d_input->getline(pyframe_val->second.function_name, '\0')
+           && d_input->getline(pyframe_val->second.filename, '\0')
+           && d_input->read(
+                   reinterpret_cast<char*>(&pyframe_val->second.lineno),
+                   sizeof(pyframe_val->second.lineno));
+}
+
+bool
+RecordReader::processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_val)
+{
     if (!d_track_stacks) {
         return true;
     }
@@ -179,12 +185,14 @@ RecordReader::parseFrameIndex()
 }
 
 bool
-RecordReader::parseNativeFrameIndex()
+RecordReader::parseNativeFrameIndex(UnresolvedNativeFrame* frame)
 {
-    UnresolvedNativeFrame frame{};
-    if (!d_input->read(reinterpret_cast<char*>(&frame), sizeof(frame))) {
-        return false;
-    }
+    return d_input->read(reinterpret_cast<char*>(frame), sizeof(*frame));
+}
+
+bool
+RecordReader::processNativeFrameIndex(const UnresolvedNativeFrame& frame)
+{
     if (!d_track_stacks) {
         return true;
     }
@@ -194,12 +202,14 @@ RecordReader::parseNativeFrameIndex()
 }
 
 bool
-RecordReader::parseAllocationRecord()
+RecordReader::parseAllocationRecord(AllocationRecord* record)
 {
-    AllocationRecord record;
-    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
-        return false;
-    }
+    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+}
+
+bool
+RecordReader::processAllocationRecord(const AllocationRecord& record)
+{
     d_latest_allocation.tid = d_current_thread;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
@@ -217,13 +227,14 @@ RecordReader::parseAllocationRecord()
 }
 
 bool
-RecordReader::parseNativeAllocationRecord()
+RecordReader::parseNativeAllocationRecord(NativeAllocationRecord* record)
 {
-    NativeAllocationRecord record;
-    if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
-        return false;
-    }
+    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+}
 
+bool
+RecordReader::processNativeAllocationRecord(const NativeAllocationRecord& record)
+{
     d_latest_allocation.tid = d_current_thread;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
@@ -243,22 +254,42 @@ RecordReader::parseNativeAllocationRecord()
 }
 
 bool
-RecordReader::parseSegmentHeader()
+RecordReader::parseMemoryMapStart()
 {
-    std::string filename;
-    uintptr_t addr;
-    size_t num_segments;
-    if (!d_input->getline(filename, '\0')
-        || !d_input->read(reinterpret_cast<char*>(&num_segments), sizeof(num_segments))
-        || !d_input->read(reinterpret_cast<char*>(&addr), sizeof(addr)))
-    {
-        return false;
-    }
+    // Currently nothing to do (this record type has no body)
+    return true;
+}
 
+bool
+RecordReader::processMemoryMapStart()
+{
+    std::lock_guard<std::mutex> lock(d_mutex);
+    d_symbol_resolver.clearSegments();
+    return true;
+}
+
+bool
+RecordReader::parseSegmentHeader(std::string* filename, size_t* num_segments, uintptr_t* addr)
+{
+    return d_input->getline(*filename, '\0')
+           && d_input->read(reinterpret_cast<char*>(num_segments), sizeof(*num_segments))
+           && d_input->read(reinterpret_cast<char*>(addr), sizeof(*addr));
+}
+
+bool
+RecordReader::processSegmentHeader(const std::string& filename, size_t num_segments, uintptr_t addr)
+{
     std::vector<Segment> segments(num_segments);
     for (size_t i = 0; i < num_segments; i++) {
+        RecordType record_type;
+        if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(record_type))
+            || (record_type != RecordType::SEGMENT))
+        {
+            return false;
+        }
+
         Segment segment{};
-        if (!parseSegment(segment)) {
+        if (!parseSegment(&segment)) {
             return false;
         }
         if (d_track_stacks) {
@@ -274,47 +305,50 @@ RecordReader::parseSegmentHeader()
 }
 
 bool
-RecordReader::parseSegment(Segment& segment)
+RecordReader::parseSegment(Segment* segment)
 {
-    RecordType record_type;
-    if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(record_type))) {
-        return false;
-    }
-    assert(record_type == RecordType::SEGMENT);
-    if (!d_input->read(reinterpret_cast<char*>(&segment), sizeof(Segment))) {
+    if (!d_input->read(reinterpret_cast<char*>(segment), sizeof(*segment))) {
         return false;
     }
     return true;
 }
 
 bool
-RecordReader::parseThreadRecord()
+RecordReader::parseThreadRecord(std::string* name)
 {
-    std::string name;
-    if (!d_input->getline(name, '\0')) {
-        return false;
-    }
+    return d_input->getline(*name, '\0');
+}
+
+bool
+RecordReader::processThreadRecord(const std::string& name)
+{
     d_thread_names[d_current_thread] = name;
     return true;
 }
 
 bool
-RecordReader::parseMemoryRecord()
+RecordReader::parseMemoryRecord(MemoryRecord* record)
 {
-    if (!d_input->read(reinterpret_cast<char*>(&d_latest_memory_record), sizeof(d_latest_memory_record)))
-    {
-        return false;
-    }
+    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+}
+
+bool
+RecordReader::processMemoryRecord(const MemoryRecord& record)
+{
+    d_latest_memory_record = record;
     return true;
 }
 
 bool
-RecordReader::parseContextSwitch()
+RecordReader::parseContextSwitch(thread_id_t* tid)
 {
-    if (!d_input->read(reinterpret_cast<char*>(&d_current_thread), sizeof(d_current_thread))) {
-        return false;
-    }
+    return d_input->read(reinterpret_cast<char*>(tid), sizeof(*tid));
+}
 
+bool
+RecordReader::processContextSwitch(thread_id_t tid)
+{
+    d_current_thread = tid;
     return true;
 }
 
@@ -332,77 +366,90 @@ RecordReader::nextRecord()
                 // Skip it. All remaining bytes should be 0.
             } break;
             case RecordType::ALLOCATION: {
-                if (!parseAllocationRecord()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse allocation record";
+                AllocationRecord record;
+                if (!parseAllocationRecord(&record) || !processAllocationRecord(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process allocation record";
                     return RecordResult::ERROR;
                 }
                 return RecordResult::ALLOCATION_RECORD;
-            }
+            } break;
             case RecordType::ALLOCATION_WITH_NATIVE: {
-                if (!parseNativeAllocationRecord()) {
+                NativeAllocationRecord record;
+                if (!parseNativeAllocationRecord(&record) || !processNativeAllocationRecord(record)) {
                     if (d_input->is_open()) {
-                        LOG(ERROR) << "Failed to parse allocation record with native info";
+                        LOG(ERROR) << "Failed to process allocation record with native info";
                     }
                     return RecordResult::ERROR;
                 }
                 return RecordResult::ALLOCATION_RECORD;
-            }
+            } break;
             case RecordType::MEMORY_RECORD: {
-                if (!parseMemoryRecord()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse memory record";
+                MemoryRecord record;
+                if (!parseMemoryRecord(&record) || !processMemoryRecord(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process memory record";
                     return RecordResult::ERROR;
                 }
                 return RecordResult::MEMORY_RECORD;
-            }
-            case RecordType::CONTEXT_SWITCH: {
-                if (!parseContextSwitch()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse context switch record";
-                    return RecordResult::ERROR;
-                }
-                break;
             } break;
-            case RecordType::FRAME_PUSH:
-                if (!parseFramePush()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame push";
+            case RecordType::CONTEXT_SWITCH: {
+                thread_id_t tid;
+                if (!parseContextSwitch(&tid) || !processContextSwitch(tid)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process context switch record";
                     return RecordResult::ERROR;
                 }
-                break;
-            case RecordType::FRAME_POP:
-                if (!parseFramePop()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame pop";
+            } break;
+            case RecordType::FRAME_PUSH: {
+                FramePush record;
+                if (!parseFramePush(&record) || !processFramePush(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process frame push";
                     return RecordResult::ERROR;
                 }
-                break;
-            case RecordType::FRAME_INDEX:
-                if (!parseFrameIndex()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse frame index";
+            } break;
+            case RecordType::FRAME_POP: {
+                FramePop record;
+                if (!parseFramePop(&record) || !processFramePop(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process frame pop";
                     return RecordResult::ERROR;
                 }
-                break;
-            case RecordType::NATIVE_TRACE_INDEX:
-                if (!parseNativeFrameIndex()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse native frame index";
+            } break;
+            case RecordType::FRAME_INDEX: {
+                tracking_api::pyframe_map_val_t record;
+                if (!parseFrameIndex(&record) || !processFrameIndex(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process frame index";
                     return RecordResult::ERROR;
                 }
-                break;
+            } break;
+            case RecordType::NATIVE_TRACE_INDEX: {
+                UnresolvedNativeFrame record;
+                if (!parseNativeFrameIndex(&record) || !processNativeFrameIndex(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process native frame index";
+                    return RecordResult::ERROR;
+                }
+            } break;
             case RecordType::MEMORY_MAP_START: {
-                std::lock_guard<std::mutex> lock(d_mutex);
-                d_symbol_resolver.clearSegments();
-                break;
-            }
-            case RecordType::SEGMENT_HEADER:
-                if (!parseSegmentHeader()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse segment header";
+                if (!parseMemoryMapStart() || !processMemoryMapStart()) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process memory map start";
                     return RecordResult::ERROR;
                 }
-                break;
+            } break;
+            case RecordType::SEGMENT_HEADER: {
+                std::string filename;
+                size_t num_segments;
+                uintptr_t addr;
+                if (!parseSegmentHeader(&filename, &num_segments, &addr)
+                    || !processSegmentHeader(filename, num_segments, addr))
+                {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process segment header";
+                    return RecordResult::ERROR;
+                }
+            } break;
             case RecordType::THREAD_RECORD: {
-                if (!parseThreadRecord()) {
-                    if (d_input->is_open()) LOG(ERROR) << "Failed to parse thread record";
+                std::string name;
+                if (!parseThreadRecord(&name) || !processThreadRecord(name)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process thread record";
                     return RecordResult::ERROR;
                 }
-                break;
-            }
+            } break;
             default:
                 if (d_input->is_open()) LOG(ERROR) << "Invalid record type";
                 return RecordResult::ERROR;
@@ -568,7 +615,7 @@ RecordReader::dumpAllRecords()
                 printf("ALLOCATION_WITH_NATIVE ");
 
                 NativeAllocationRecord record;
-                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                if (!parseNativeAllocationRecord(&record)) {
                     Py_RETURN_NONE;
                 }
 
@@ -592,7 +639,7 @@ RecordReader::dumpAllRecords()
                 printf("ALLOCATION ");
 
                 AllocationRecord record;
-                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                if (!parseAllocationRecord(&record)) {
                     Py_RETURN_NONE;
                 }
 
@@ -613,7 +660,7 @@ RecordReader::dumpAllRecords()
                 printf("FRAME_PUSH ");
 
                 FramePush record;
-                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                if (!parseFramePush(&record)) {
                     Py_RETURN_NONE;
                 }
 
@@ -623,7 +670,7 @@ RecordReader::dumpAllRecords()
                 printf("FRAME_POP ");
 
                 FramePop record;
-                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                if (!parseFramePop(&record)) {
                     Py_RETURN_NONE;
                 }
 
@@ -633,13 +680,7 @@ RecordReader::dumpAllRecords()
                 printf("FRAME_ID ");
 
                 tracking_api::pyframe_map_val_t record;
-                if (!d_input->read(reinterpret_cast<char*>(&record.first), sizeof(record.first))
-                    || !d_input->getline(record.second.function_name, '\0')
-                    || !d_input->getline(record.second.filename, '\0')
-                    || !d_input->read(
-                            reinterpret_cast<char*>(&record.second.lineno),
-                            sizeof(record.second.lineno)))
-                {
+                if (!parseFrameIndex(&record)) {
                     Py_RETURN_NONE;
                 }
 
@@ -653,7 +694,7 @@ RecordReader::dumpAllRecords()
                 printf("NATIVE_FRAME_ID ");
 
                 UnresolvedNativeFrame record;
-                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                if (!parseNativeFrameIndex(&record)) {
                     Py_RETURN_NONE;
                 }
 
@@ -661,6 +702,9 @@ RecordReader::dumpAllRecords()
             } break;
             case RecordType::MEMORY_MAP_START: {
                 printf("MEMORY_MAP_START\n");
+                if (!parseMemoryMapStart()) {
+                    Py_RETURN_NONE;
+                }
             } break;
             case RecordType::SEGMENT_HEADER: {
                 printf("SEGMENT_HEADER ");
@@ -668,10 +712,7 @@ RecordReader::dumpAllRecords()
                 std::string filename;
                 size_t num_segments;
                 uintptr_t addr;
-                if (!d_input->getline(filename, '\0')
-                    || !d_input->read(reinterpret_cast<char*>(&num_segments), sizeof(num_segments))
-                    || !d_input->read(reinterpret_cast<char*>(&addr), sizeof(addr)))
-                {
+                if (!parseSegmentHeader(&filename, &num_segments, &addr)) {
                     Py_RETURN_NONE;
                 }
 
@@ -684,7 +725,7 @@ RecordReader::dumpAllRecords()
                 printf("SEGMENT ");
 
                 Segment record;
-                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                if (!parseSegment(&record)) {
                     Py_RETURN_NONE;
                 }
 
@@ -694,7 +735,7 @@ RecordReader::dumpAllRecords()
                 printf("THREAD ");
 
                 std::string name;
-                if (!d_input->getline(name, '\0')) {
+                if (!parseThreadRecord(&name)) {
                     Py_RETURN_NONE;
                 }
 
@@ -702,8 +743,9 @@ RecordReader::dumpAllRecords()
             } break;
             case RecordType::MEMORY_RECORD: {
                 printf("MEMORY_RECORD ");
+
                 MemoryRecord record;
-                if (!d_input->read(reinterpret_cast<char*>(&record), sizeof(record))) {
+                if (!parseMemoryRecord(&record)) {
                     Py_RETURN_NONE;
                 }
 
@@ -711,8 +753,9 @@ RecordReader::dumpAllRecords()
             } break;
             case RecordType::CONTEXT_SWITCH: {
                 printf("CONTEXT_SWITCH ");
+
                 thread_id_t tid;
-                if (!d_input->read(reinterpret_cast<char*>(&tid), sizeof(tid))) {
+                if (!parseContextSwitch(&tid)) {
                     Py_RETURN_NONE;
                 }
 
