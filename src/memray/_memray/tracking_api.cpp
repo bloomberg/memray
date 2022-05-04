@@ -19,25 +19,6 @@ using namespace std::chrono_literals;
 
 namespace {
 
-struct RecursionGuard
-{
-    RecursionGuard()
-    : wasLocked(isActive)
-    {
-        isActive = true;
-    }
-
-    ~RecursionGuard()
-    {
-        isActive = wasLocked;
-    }
-
-    const bool wasLocked;
-    MEMRAY_FAST_TLS static thread_local bool isActive;
-};
-
-MEMRAY_FAST_TLS thread_local bool RecursionGuard::isActive = false;
-
 std::string
 get_executable()
 {
@@ -63,6 +44,8 @@ std::atomic<unsigned int> g_tracker_generation;
 }  // namespace
 
 namespace memray::tracking_api {
+
+MEMRAY_FAST_TLS thread_local bool RecursionGuard::isActive = false;
 
 static inline thread_id_t
 thread_id()
