@@ -31,6 +31,23 @@
 
 namespace memray::tracking_api {
 
+struct RecursionGuard
+{
+    RecursionGuard()
+    : wasLocked(isActive)
+    {
+        isActive = true;
+    }
+
+    ~RecursionGuard()
+    {
+        isActive = wasLocked;
+    }
+
+    const bool wasLocked;
+    MEMRAY_FAST_TLS static thread_local bool isActive;
+};
+
 // Trace function interface
 
 /**

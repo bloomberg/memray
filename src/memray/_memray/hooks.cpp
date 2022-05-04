@@ -106,6 +106,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
     return ptr;
 }
 
+#if defined(__GLIBC__)
 void*
 mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept
 {
@@ -114,6 +115,7 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) n
     tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
     return ptr;
 }
+#endif
 
 int
 munmap(void* addr, size_t length) noexcept
@@ -210,6 +212,7 @@ valloc(size_t size) noexcept
     return ret;
 }
 
+#if defined(__GLIBC__)
 void*
 pvalloc(size_t size) noexcept
 {
@@ -221,6 +224,7 @@ pvalloc(size_t size) noexcept
     }
     return ret;
 }
+#endif
 
 void*
 dlopen(const char* filename, int flag) noexcept
