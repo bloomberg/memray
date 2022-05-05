@@ -226,6 +226,16 @@ struct ContextSwitch
     thread_id_t tid;
 };
 
+struct DeltaEncodedFields
+{
+    thread_id_t thread_id{};
+    uintptr_t instruction_pointer{};
+    uintptr_t data_pointer{};
+    frame_id_t native_frame_id{};
+    frame_id_t python_frame_id{};
+    int python_line_number{};
+};
+
 template<typename FrameType>
 class FrameCollection
 {

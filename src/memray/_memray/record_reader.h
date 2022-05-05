@@ -79,14 +79,7 @@ class RecordReader
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
-    thread_id_t d_current_thread{};
-    uintptr_t d_last_instruction_pointer{};
-    uintptr_t d_last_data_pointer{};
-    frame_id_t d_last_native_frame_id{};
-    frame_id_t d_last_python_frame_id{};
-    std::string d_last_python_filename{};
-    std::string d_last_native_filename{};
-    int d_last_python_line_number{};
+    DeltaEncodedFields d_last;
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;
     MemoryRecord d_latest_memory_record;
