@@ -193,7 +193,11 @@ memalign(size_t alignment, size_t size) noexcept
 {
     assert(hooks::memalign);
 
-    void* ret = hooks::memalign(alignment, size);
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::memalign(alignment, size);
+    }
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::MEMALIGN);
     }
@@ -205,7 +209,11 @@ valloc(size_t size) noexcept
 {
     assert(hooks::valloc);
 
-    void* ret = hooks::valloc(size);
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::valloc(size);
+    }
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::VALLOC);
     }
