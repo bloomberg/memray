@@ -61,14 +61,7 @@ class RecordWriter
     std::mutex d_mutex;
     HeaderRecord d_header{};
     TrackerStats d_stats{};
-    thread_id_t d_lastTid{};
-    uintptr_t d_lastInstructionPointer{};
-    uintptr_t d_lastDataPointer{};
-    frame_id_t d_lastNativeFrameId{};
-    std::string d_lastNativeFilename{};
-    frame_id_t d_lastPythonFrameId{};
-    std::string d_lastPythonFilename{};
-    int d_lastPythonLineNumber{};
+    DeltaEncodedFields d_last;
 };
 
 template<typename T>
@@ -131,8 +124,8 @@ template<typename T>
 bool inline RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const T& item)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
-    if (d_lastTid != tid) {
-        d_lastTid = tid;
+    if (d_last.thread_id != tid) {
+        d_last.thread_id = tid;
         if (!writeRecordUnsafe(ContextSwitch{tid})) {
             return false;
         }
@@ -160,7 +153,7 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 bool inline RecordWriter::writeRecordUnsafe(const FramePush& record)
 {
     RecordTypeAndFlags token{RecordType::FRAME_PUSH, 0};
-    return writeSimpleType(token) && writeIntegralDelta(&d_lastPythonFrameId, record.frame_id);
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, record.frame_id);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
@@ -186,7 +179,7 @@ bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
 {
     d_stats.n_allocations += 1;
     RecordTypeAndFlags token{RecordType::ALLOCATION, static_cast<unsigned char>(record.allocator)};
-    return writeSimpleType(token) && writeIntegralDelta(&d_lastDataPointer, record.address)
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
            && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
                || writeVarint(record.size));
 }
@@ -197,18 +190,18 @@ bool inline RecordWriter::writeRecordUnsafe(const NativeAllocationRecord& record
     RecordTypeAndFlags token{
             RecordType::ALLOCATION_WITH_NATIVE,
             static_cast<unsigned char>(record.allocator)};
-    return writeSimpleType(token) && writeIntegralDelta(&d_lastDataPointer, record.address)
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
            && writeVarint(record.size)
-           && writeIntegralDelta(&d_lastNativeFrameId, record.native_frame_id);
+           && writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const pyrawframe_map_val_t& item)
 {
     d_stats.n_frames += 1;
     RecordTypeAndFlags token{RecordType::FRAME_INDEX, 0};
-    return writeSimpleType(token) && writeIntegralDelta(&d_lastPythonFrameId, item.first)
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
-           && writeIntegralDelta(&d_lastPythonLineNumber, item.second.lineno);
+           && writeIntegralDelta(&d_last.python_line_number, item.second.lineno);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const SegmentHeader& item)
@@ -227,8 +220,8 @@ bool inline RecordWriter::writeRecordUnsafe(const ThreadRecord& record)
 bool inline RecordWriter::writeRecordUnsafe(const UnresolvedNativeFrame& record)
 {
     return writeSimpleType(RecordTypeAndFlags{RecordType::NATIVE_TRACE_INDEX, 0})
-           && writeIntegralDelta(&d_lastInstructionPointer, record.ip)
-           && writeIntegralDelta(&d_lastNativeFrameId, record.index);
+           && writeIntegralDelta(&d_last.instruction_pointer, record.ip)
+           && writeIntegralDelta(&d_last.native_frame_id, record.index);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const MemoryMapStart&)

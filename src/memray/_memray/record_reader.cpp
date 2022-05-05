@@ -151,7 +151,7 @@ RecordReader::isOpen() const noexcept
 bool
 RecordReader::parseFramePush(FramePush* record)
 {
-    return readIntegralDelta(&d_last_python_frame_id, &record->frame_id);
+    return readIntegralDelta(&d_last.python_frame_id, &record->frame_id);
 }
 
 bool
@@ -160,7 +160,7 @@ RecordReader::processFramePush(const FramePush& record)
     if (!d_track_stacks) {
         return true;
     }
-    thread_id_t tid = d_current_thread;
+    thread_id_t tid = d_last.thread_id;
     auto [it, inserted] = d_stack_traces.emplace(tid, stack_t{});
     auto& stack = it->second;
     if (inserted) {
@@ -185,7 +185,7 @@ RecordReader::processFramePop(const FramePop& record)
     if (!d_track_stacks) {
         return true;
     }
-    thread_id_t tid = d_current_thread;
+    thread_id_t tid = d_last.thread_id;
 
     assert(!d_stack_traces[tid].empty());
     auto count = record.count;
@@ -199,10 +199,10 @@ RecordReader::processFramePop(const FramePop& record)
 bool
 RecordReader::parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val)
 {
-    return readIntegralDelta(&d_last_python_frame_id, &pyframe_val->first)
+    return readIntegralDelta(&d_last.python_frame_id, &pyframe_val->first)
            && d_input->getline(pyframe_val->second.function_name, '\0')
            && d_input->getline(pyframe_val->second.filename, '\0')
-           && readIntegralDelta(&d_last_python_line_number, &pyframe_val->second.lineno);
+           && readIntegralDelta(&d_last.python_line_number, &pyframe_val->second.lineno);
 }
 
 bool
@@ -222,8 +222,8 @@ RecordReader::processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_v
 bool
 RecordReader::parseNativeFrameIndex(UnresolvedNativeFrame* frame)
 {
-    return readIntegralDelta(&d_last_instruction_pointer, &frame->ip)
-           && readIntegralDelta(&d_last_native_frame_id, &frame->index);
+    return readIntegralDelta(&d_last.instruction_pointer, &frame->ip)
+           && readIntegralDelta(&d_last.native_frame_id, &frame->index);
 }
 
 bool
@@ -242,7 +242,7 @@ RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags
 {
     record->allocator = static_cast<hooks::Allocator>(flags);
 
-    if (!readIntegralDelta(&d_last_data_pointer, &record->address)) {
+    if (!readIntegralDelta(&d_last.data_pointer, &record->address)) {
         return false;
     }
 
@@ -258,7 +258,7 @@ RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags
 bool
 RecordReader::processAllocationRecord(const AllocationRecord& record)
 {
-    d_latest_allocation.tid = d_current_thread;
+    d_latest_allocation.tid = d_last.thread_id;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
     d_latest_allocation.allocator = record.allocator;
@@ -279,14 +279,14 @@ RecordReader::parseNativeAllocationRecord(NativeAllocationRecord* record, unsign
 {
     record->allocator = static_cast<hooks::Allocator>(flags);
 
-    return readIntegralDelta(&d_last_data_pointer, &record->address) && readVarint(&record->size)
-           && readIntegralDelta(&d_last_native_frame_id, &record->native_frame_id);
+    return readIntegralDelta(&d_last.data_pointer, &record->address) && readVarint(&record->size)
+           && readIntegralDelta(&d_last.native_frame_id, &record->native_frame_id);
 }
 
 bool
 RecordReader::processNativeAllocationRecord(const NativeAllocationRecord& record)
 {
-    d_latest_allocation.tid = d_current_thread;
+    d_latest_allocation.tid = d_last.thread_id;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
     d_latest_allocation.allocator = record.allocator;
@@ -374,7 +374,7 @@ RecordReader::parseThreadRecord(std::string* name)
 bool
 RecordReader::processThreadRecord(const std::string& name)
 {
-    d_thread_names[d_current_thread] = name;
+    d_thread_names[d_last.thread_id] = name;
     return true;
 }
 
@@ -404,7 +404,7 @@ RecordReader::parseContextSwitch(thread_id_t* tid)
 bool
 RecordReader::processContextSwitch(thread_id_t tid)
 {
-    d_current_thread = tid;
+    d_last.thread_id = tid;
     return true;
 }
 
