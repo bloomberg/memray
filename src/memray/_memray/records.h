@@ -38,6 +38,21 @@ enum class RecordType : unsigned char {
 
 struct RecordTypeAndFlags
 {
+    RecordTypeAndFlags()
+    : record_type(RecordType::UNINITIALIZED)
+    , flags(0)
+    {
+    }
+
+    RecordTypeAndFlags(RecordType record_type_, unsigned char flags_)
+    : record_type(record_type_)
+    , flags(flags_)
+    {
+        // Ensure both values fit into 4 bits
+        assert(static_cast<int>(record_type_) == (static_cast<int>(record_type_) & 0x0f));
+        assert(static_cast<int>(flags_) == (static_cast<int>(flags_) & 0x0f));
+    }
+
     RecordType record_type : 4;
     unsigned char flags : 4;
 };
