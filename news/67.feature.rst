@@ -1,0 +1,1 @@
+The capture files produced by ``memray run`` are now around 90% smaller thanks to a more efficient encoding scheme for the binary files.
