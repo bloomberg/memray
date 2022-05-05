@@ -47,8 +47,12 @@ def test_simple_allocation_tracking(allocator_func, allocator_type, tmp_path):
 
     # WHEN
     with Tracker(output):
-        getattr(allocator, allocator_func)(1234)
-        allocator.free()
+        res = getattr(allocator, allocator_func)(1234)
+        if res:
+            allocator.free()
+
+    if not res:
+        pytest.skip("Allocator {allocator_func} not supported in this platform")
 
     # THEN
     allocations = list(FileReader(output).get_allocation_records())
@@ -188,8 +192,12 @@ class TestHighWatermark:
 
         # WHEN
         with Tracker(output):
-            getattr(allocator, allocator_func)(1234)
-            allocator.free()
+            res = getattr(allocator, allocator_func)(1234)
+            if res:
+                allocator.free()
+
+        if not res:
+            pytest.skip("Allocator {allocator_func} not supported in this platform")
 
         # THEN
         peak_allocations_unfiltered = FileReader(
