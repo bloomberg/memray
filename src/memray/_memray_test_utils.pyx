@@ -52,31 +52,38 @@ cdef class MemoryAllocator:
     @cython.profile(True)
     def malloc(self, size_t size):
         self.ptr = malloc(size)
+        return self.ptr != NULL
 
     @cython.profile(True)
     def calloc(self, size_t size):
         self.ptr = calloc(1, size)
+        return self.ptr != NULL
 
     @cython.profile(True)
     def realloc(self, size_t size):
         self.ptr = malloc(1)
         self.ptr = realloc(self.ptr, size)
+        return self.ptr != NULL
 
     @cython.profile(True)
     def posix_memalign(self, size_t size):
         posix_memalign(&self.ptr, sizeof(void*), size)
+        return self.ptr != NULL
 
     @cython.profile(True)
     def memalign(self, size_t size):
         self.ptr = memalign(sizeof(void*), size)
+        return self.ptr != NULL
 
     @cython.profile(True)
     def valloc(self, size_t size):
         self.ptr = valloc(size)
+        return self.ptr != NULL
 
     @cython.profile(True)
     def pvalloc(self, size_t size):
         self.ptr = pvalloc(size)
+        return self.ptr != NULL
 
     @cython.profile(True)
     def run_in_pthread(self, callback):
