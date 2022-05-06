@@ -66,11 +66,12 @@ cpdef enum AllocatorType:
     CALLOC = 3
     REALLOC = 4
     POSIX_MEMALIGN = 5
-    MEMALIGN = 6
-    VALLOC = 7
-    PVALLOC = 8
-    MMAP = 9
-    MUNMAP = 10
+    ALIGNED_ALLOC = 6
+    MEMALIGN = 7
+    VALLOC = 8
+    PVALLOC = 9
+    MMAP = 10
+    MUNMAP = 11
 
 cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC = 1

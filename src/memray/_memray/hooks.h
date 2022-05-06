@@ -14,6 +14,7 @@
 
 #include <Python.h>
 
+#include "alloc.h"
 #include "logging.h"
 
 #if defined(__GLIBC__)
@@ -23,6 +24,7 @@
         FOR_EACH_HOOKED_FUNCTION(calloc)                                                                \
         FOR_EACH_HOOKED_FUNCTION(realloc)                                                               \
         FOR_EACH_HOOKED_FUNCTION(posix_memalign)                                                        \
+        FOR_EACH_HOOKED_FUNCTION(aligned_alloc)                                                         \
         FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
         FOR_EACH_HOOKED_FUNCTION(valloc)                                                                \
         FOR_EACH_HOOKED_FUNCTION(pvalloc)                                                               \
@@ -40,6 +42,7 @@
         FOR_EACH_HOOKED_FUNCTION(calloc)                                                                \
         FOR_EACH_HOOKED_FUNCTION(realloc)                                                               \
         FOR_EACH_HOOKED_FUNCTION(posix_memalign)                                                        \
+        FOR_EACH_HOOKED_FUNCTION(aligned_alloc)                                                         \
         FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
         FOR_EACH_HOOKED_FUNCTION(valloc)                                                                \
         FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                \
@@ -111,11 +114,12 @@ enum class Allocator : unsigned char {
     CALLOC = 3,
     REALLOC = 4,
     POSIX_MEMALIGN = 5,
-    MEMALIGN = 6,
-    VALLOC = 7,
-    PVALLOC = 8,
-    MMAP = 9,
-    MUNMAP = 10,
+    ALIGNED_ALLOC = 6,
+    MEMALIGN = 7,
+    VALLOC = 8,
+    PVALLOC = 9,
+    MMAP = 10,
+    MUNMAP = 11,
 };
 
 enum class AllocatorKind {
@@ -152,6 +156,9 @@ calloc(size_t num, size_t size) noexcept;
 
 int
 posix_memalign(void** memptr, size_t alignment, size_t size) noexcept;
+
+void*
+aligned_alloc(size_t alignment, size_t size) noexcept;
 
 void*
 memalign(size_t alignment, size_t size) noexcept;

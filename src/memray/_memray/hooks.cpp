@@ -49,6 +49,7 @@ allocatorKind(const Allocator& allocator)
         case Allocator::MALLOC:
         case Allocator::MEMALIGN:
         case Allocator::POSIX_MEMALIGN:
+        case Allocator::ALIGNED_ALLOC:
         case Allocator::PVALLOC:
         case Allocator::REALLOC:
         case Allocator::VALLOC: {
@@ -184,6 +185,18 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
     int ret = hooks::posix_memalign(memptr, alignment, size);
     if (!ret) {
         tracking_api::Tracker::trackAllocation(*memptr, size, hooks::Allocator::POSIX_MEMALIGN);
+    }
+    return ret;
+}
+
+void*
+aligned_alloc(size_t alignment, size_t size) noexcept
+{
+    assert(hooks::aligned_alloc);
+
+    void* ret = hooks::aligned_alloc(alignment, size);
+    if (ret) {
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
     }
     return ret;
 }

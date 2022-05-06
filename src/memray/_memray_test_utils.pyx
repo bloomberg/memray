@@ -10,6 +10,7 @@ from posix.mman cimport PROT_WRITE
 from posix.mman cimport mmap
 from posix.mman cimport munmap
 
+from _memray.alloc cimport aligned_alloc
 from _memray.alloc cimport calloc
 from _memray.alloc cimport free
 from _memray.alloc cimport malloc
@@ -68,6 +69,11 @@ cdef class MemoryAllocator:
     @cython.profile(True)
     def posix_memalign(self, size_t size):
         posix_memalign(&self.ptr, sizeof(void*), size)
+        return self.ptr != NULL
+
+    @cython.profile(True)
+    def aligned_alloc(self, size_t size):
+        self.ptr = aligned_alloc(sizeof(void*), size)
         return self.ptr != NULL
 
     @cython.profile(True)

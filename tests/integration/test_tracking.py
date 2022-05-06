@@ -25,6 +25,7 @@ ALLOCATORS = [
     ("calloc", AllocatorType.CALLOC),
     ("memalign", AllocatorType.MEMALIGN),
     ("posix_memalign", AllocatorType.POSIX_MEMALIGN),
+    ("aligned_alloc", AllocatorType.ALIGNED_ALLOC),
     ("realloc", AllocatorType.REALLOC),
 ]
 

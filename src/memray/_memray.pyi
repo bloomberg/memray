@@ -65,6 +65,7 @@ class AllocatorType(enum.IntEnum):
     CALLOC: int
     REALLOC: int
     POSIX_MEMALIGN: int
+    ALIGNED_ALLOC: int
     MEMALIGN: int
     VALLOC: int
     PVALLOC: int
