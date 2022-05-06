@@ -18,40 +18,29 @@
 #include "logging.h"
 
 #if defined(__GLIBC__)
-#    define MEMRAY_HOOKED_FUNCTIONS                                                                     \
-        FOR_EACH_HOOKED_FUNCTION(malloc)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(free)                                                                  \
-        FOR_EACH_HOOKED_FUNCTION(calloc)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(realloc)                                                               \
-        FOR_EACH_HOOKED_FUNCTION(posix_memalign)                                                        \
-        FOR_EACH_HOOKED_FUNCTION(aligned_alloc)                                                         \
-        FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
-        FOR_EACH_HOOKED_FUNCTION(valloc)                                                                \
+#    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS                                                            \
         FOR_EACH_HOOKED_FUNCTION(pvalloc)                                                               \
-        FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(dlclose)                                                               \
-        FOR_EACH_HOOKED_FUNCTION(mmap)                                                                  \
-        FOR_EACH_HOOKED_FUNCTION(mmap64)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(munmap)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(prctl)                                                                 \
-        FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)
+        FOR_EACH_HOOKED_FUNCTION(mmap64)
 #else
-#    define MEMRAY_HOOKED_FUNCTIONS                                                                     \
-        FOR_EACH_HOOKED_FUNCTION(malloc)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(free)                                                                  \
-        FOR_EACH_HOOKED_FUNCTION(calloc)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(realloc)                                                               \
-        FOR_EACH_HOOKED_FUNCTION(posix_memalign)                                                        \
-        FOR_EACH_HOOKED_FUNCTION(aligned_alloc)                                                         \
-        FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
-        FOR_EACH_HOOKED_FUNCTION(valloc)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(dlclose)                                                               \
-        FOR_EACH_HOOKED_FUNCTION(mmap)                                                                  \
-        FOR_EACH_HOOKED_FUNCTION(munmap)                                                                \
-        FOR_EACH_HOOKED_FUNCTION(prctl)                                                                 \
-        FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)
+#    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 #endif
+
+#define MEMRAY_HOOKED_FUNCTIONS                                                                         \
+    FOR_EACH_HOOKED_FUNCTION(malloc)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(free)                                                                      \
+    FOR_EACH_HOOKED_FUNCTION(calloc)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(realloc)                                                                   \
+    FOR_EACH_HOOKED_FUNCTION(posix_memalign)                                                            \
+    FOR_EACH_HOOKED_FUNCTION(aligned_alloc)                                                             \
+    FOR_EACH_HOOKED_FUNCTION(memalign)                                                                  \
+    FOR_EACH_HOOKED_FUNCTION(valloc)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
+    FOR_EACH_HOOKED_FUNCTION(mmap)                                                                      \
+    FOR_EACH_HOOKED_FUNCTION(munmap)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(prctl)                                                                     \
+    FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)                                                         \
+    MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 
 namespace memray::hooks {
 
