@@ -254,7 +254,10 @@ class TestRunSubcommand:
 
         # THEN
         captured = capsys.readouterr()
-        assert captured.err.strip() == "Only Python files can be executed under memray"
+        assert (
+            captured.err.strip()
+            == "Only valid Python files or commands can be executed under memray"
+        )
 
     @patch("memray.commands.run.os.getpid")
     def test_run_file_exists(self, getpid, tmp_path, monkeypatch, capsys):
