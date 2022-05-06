@@ -57,8 +57,9 @@ system where you are doing the installation.
 If you wish to build Memray from source you need the following binary dependencies in your system:
 
 - libunwind
+- liblz4
 
-Check your package manager on how to install these dependencies (for example `apt-get install libunwind-dev` in Debian-based systems).
+Check your package manager on how to install these dependencies (for example `apt-get install libunwind-dev liblz4-dev` in Debian-based systems).
 
 Once you have the binary dependencies installed, you can clone the repository and follow with the normal building process:
 

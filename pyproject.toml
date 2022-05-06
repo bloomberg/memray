@@ -51,4 +51,4 @@ build = ["cp37-*", "cp38-*", "cp39-*", "cp310-*"]
 skip = "*musllinux*"
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y libunwind-devel"
+before-all = "yum install -y libunwind-devel lz4-devel"

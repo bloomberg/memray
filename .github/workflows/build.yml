@@ -52,7 +52,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy libunwind-dev pkg-config npm
+        sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
@@ -68,7 +68,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Set up dependencies
       run: |
-        apk add --update build-base libunwind-dev musl-dev python3-dev
+        apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
@@ -90,7 +90,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy clang-format npm libunwind-dev pkg-config
+        sudo apt-get install -qy clang-format npm libunwind-dev liblz4-dev pkg-config
         npm install -g prettier
     - name: Install Python dependencies
       run: |
@@ -117,7 +117,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy libunwind-dev pkg-config npm valgrind
+        sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm valgrind
     - name: Install Python dependencies and package
       run: |
         python3 -m pip install --upgrade pip
