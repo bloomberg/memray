@@ -3,7 +3,7 @@ cdef extern from "alloc.h" nogil:
     void free (void *ptr)
     void *malloc (size_t size)
     int posix_memalign(void** memptr, size_t alignment, size_t size)
-    void* aligned_alloc(long unsigned int alignment, long unsigned int size)
+    void* aligned_alloc(size_t alignment, size_t size)
     void *realloc (void *ptr, size_t newsize)
     void* valloc(size_t size)
     void* memalign(size_t alignment, size_t size)
