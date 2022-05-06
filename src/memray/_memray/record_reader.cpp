@@ -36,6 +36,8 @@ allocatorName(hooks::Allocator allocator)
             return "realloc";
         case hooks::Allocator::POSIX_MEMALIGN:
             return "posix_memalign";
+        case hooks::Allocator::ALIGNED_ALLOC:
+            return "aligned_alloc";
         case hooks::Allocator::MEMALIGN:
             return "memalign";
         case hooks::Allocator::VALLOC:
