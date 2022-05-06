@@ -193,7 +193,7 @@ MEMRAY_EXTENSION = Extension(
         "src/memray/_memray/socket_reader_thread.cpp",
         "src/memray/_memray/native_resolver.cpp",
     ],
-    libraries=["unwind"],
+    libraries=["unwind", "lz4"],
     library_dirs=[str(LIBBACKTRACE_LIBDIR)],
     include_dirs=["src", str(LIBBACKTRACE_INCLUDEDIRS)],
     language="c++",
