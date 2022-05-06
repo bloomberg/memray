@@ -25,22 +25,32 @@ namespace memray::io {
 FileSource::FileSource(const std::string& file_name)
 : d_file_name(file_name)
 {
-    d_stream.open(d_file_name, std::ios::binary | std::ios::in);
-    if (!d_stream) {
+    d_raw_stream = std::make_shared<std::ifstream>(d_file_name, std::ios::binary | std::ios::in);
+    if (!(*d_raw_stream)) {
         throw IoError{"Could not open file " + file_name + ": " + std::string(strerror(errno))};
+    }
+    char lz4_magic[] = {0x04, 0x22, 0x4D, 0x18};
+    char file_magic[sizeof(lz4_magic)] = {};
+    d_raw_stream->read(file_magic, sizeof(file_magic));
+    d_raw_stream->seekg(0, std::ios::beg);
+
+    if (0 == memcmp(lz4_magic, file_magic, sizeof(lz4_magic))) {
+        d_stream = std::make_shared<lz4_stream::istream>(*d_raw_stream);
+    } else {
+        d_stream = d_raw_stream;
     }
 }
 
 bool
 FileSource::read(char* stream, ssize_t length)
 {
-    return !d_stream.read(stream, length).fail();
+    return !d_stream->read(stream, length).fail();
 }
 
 bool
 FileSource::getline(std::string& result, char delimiter)
 {
-    std::getline(d_stream, result, delimiter);
+    std::getline(*d_stream, result, delimiter);
     if (!d_stream) {
         return false;
     }
@@ -56,13 +66,13 @@ FileSource::close()
 void
 FileSource::_close()
 {
-    d_stream.close();
+    d_raw_stream->close();
 }
 
 bool
 FileSource::is_open()
 {
-    return d_stream.is_open();
+    return d_raw_stream->is_open();
 }
 
 FileSource::~FileSource()

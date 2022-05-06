@@ -4,6 +4,7 @@ RUN apt-get update \
     && apt-get install -y --force-yes --no-install-recommends \
     build-essential \
     libunwind-dev \
+    liblz4-dev \
     pkg-config \
     python3-dev \
     python3-dbg \

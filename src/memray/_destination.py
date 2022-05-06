@@ -21,6 +21,7 @@ class FileDestination(Destination):
 
     path: typing.Union[pathlib.Path, str]
     overwrite: bool = False
+    compress: bool = True
 
 
 @dataclass(frozen=True)

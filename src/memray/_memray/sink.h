@@ -21,7 +21,7 @@ class Sink
 class FileSink : public memray::io::Sink
 {
   public:
-    FileSink(const std::string& file_name, bool overwrite);
+    FileSink(const std::string& file_name, bool overwrite, bool compress);
     ~FileSink() override;
     FileSink(FileSink&) = delete;
     FileSink(FileSink&&) = delete;
@@ -37,7 +37,9 @@ class FileSink : public memray::io::Sink
     bool slideWindow();
     size_t bytesBeyondBufferNeedle();
 
+    std::string d_filename;
     std::string d_fileNameStem;
+    bool d_compress{1};
     int d_fd{-1};
     size_t d_fileSize{0};
     const size_t BUFFER_SIZE{16 * 1024 * 1024};  // 16 MiB

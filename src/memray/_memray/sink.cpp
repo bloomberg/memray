@@ -14,6 +14,7 @@
 #include <Python.h>
 
 #include "exceptions.h"
+#include "lz4_stream.h"
 #include "sink.h"
 
 namespace memray::io {
@@ -68,8 +69,10 @@ FileSink::writeAll(const char* data, size_t length)
     return true;
 }
 
-FileSink::FileSink(const std::string& file_name, bool overwrite)
-: d_fileNameStem(removeSuffix(file_name, "." + std::to_string(::getpid())))
+FileSink::FileSink(const std::string& file_name, bool overwrite, bool compress)
+: d_filename(file_name)
+, d_fileNameStem(removeSuffix(file_name, "." + std::to_string(::getpid())))
+, d_compress(compress)
 {
     int flags = O_CREAT | O_RDWR | O_TRUNC | O_CLOEXEC;
     if (!overwrite) {
@@ -167,7 +170,7 @@ std::unique_ptr<Sink>
 FileSink::cloneInChildProcess()
 {
     std::string file_name = d_fileNameStem + "." + std::to_string(::getpid());
-    return std::make_unique<FileSink>(file_name, true);
+    return std::make_unique<FileSink>(file_name, true, d_compress);
 }
 
 FileSink::~FileSink()
@@ -180,6 +183,38 @@ FileSink::~FileSink()
     }
     if (d_fd != -1) {
         ::close(d_fd);
+    }
+
+    if (d_compress) {
+        std::ifstream in_file(d_filename);
+        std::string tmp_filename = d_filename + ".lz4.tmp";
+        std::ofstream out_file(tmp_filename);
+        bool success = true;
+
+        // lz4_stream is using exceptions rather than failbit/badbit
+        try {
+            lz4_stream::ostream lz4_stream(out_file);
+            std::vector<char> buf(16 * 1024);
+            while (in_file) {
+                in_file.read(&buf[0], buf.size());
+                lz4_stream.write(&buf[0], in_file.gcount());
+            }
+        } catch (...) {
+            success = false;
+        }
+
+        out_file.close();
+        if (!in_file.eof() || !out_file) {
+            success = false;
+        }
+
+        if (!success) {
+            std::cerr << "Failed to compress input file" << std::endl;
+            ::unlink(tmp_filename.c_str());
+        } else if (0 != std::rename(tmp_filename.c_str(), d_filename.c_str())) {
+            std::perror("Error moving compressed file back to original name");
+            ::unlink(tmp_filename.c_str());
+        }
     }
 }
 

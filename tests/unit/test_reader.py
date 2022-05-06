@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from memray import FileDestination
 from memray import FileReader
 from memray import Tracker
 from memray._memray import MemoryAllocator
@@ -35,7 +36,8 @@ def test_rejects_different_header_version(tmp_path):
 
     # WHEN
     # Create a valid allocation record file
-    with Tracker(output):
+    destination = FileDestination(output, overwrite=False, compress=False)
+    with Tracker(destination=destination):
         allocator.valloc(1024)
 
     # Change the header version to zero
