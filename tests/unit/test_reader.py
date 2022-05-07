@@ -36,7 +36,7 @@ def test_rejects_different_header_version(tmp_path):
 
     # WHEN
     # Create a valid allocation record file
-    destination = FileDestination(output, overwrite=False, compress=False)
+    destination = FileDestination(output, overwrite=False, compress_on_exit=False)
     with Tracker(destination=destination):
         allocator.valloc(1024)
 
