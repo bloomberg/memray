@@ -155,7 +155,9 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
         """
     ).strip()
 
-    destination = FileDestination(path=filename, overwrite=args.force)
+    destination = FileDestination(
+        path=filename, overwrite=args.force, compress_on_exit=args.compress_on_exit
+    )
     try:
         _run_tracker(
             destination=destination,
@@ -225,6 +227,19 @@ class RunCommand:
             help="If the output file already exists, overwrite it",
             action="store_true",
             default=False,
+        )
+        parser.add_argument(
+            "--compress-on-exit",
+            help="Compress the resulting file using lz4 after tracking completes",
+            dest="compress_on_exit",
+            default=True,
+            action="store_true",
+        )
+        parser.add_argument(
+            "--no-compress",
+            help="Do not compress the resulting file using lz4",
+            dest="compress_on_exit",
+            action="store_false",
         )
         parser.add_argument(
             "-c",
