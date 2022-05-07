@@ -1,7 +1,9 @@
 #pragma once
 
 #include <functional>
+#include <map>
 #include <optional>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -75,7 +77,7 @@ class IntervalTree
 
         for (auto& [interval, value] : d_intervals) {
             std::optional<Interval> intersection = interval.intersection(removed_interval);
-            // This interval doesn't contain the element to removed_interval, so don't removed_interval
+            // This interval doesn't contain the element to remove, so don't remove
             // anything
             if (!intersection) {
                 new_intervals.emplace_back(interval, value);
@@ -119,13 +121,32 @@ class IntervalTree
         return removed_intervals;
     }
 
-    size_t size()
+    std::vector<Interval> findIntersection(uintptr_t start, size_t size)
+    {
+        std::vector<Interval> ret;
+        const auto needle = Interval(start, start + size);
+        for (auto& [interval, _] : d_intervals) {
+            std::optional<Interval> intersection = interval.intersection(needle);
+            if (intersection) {
+                ret.push_back(intersection.value());
+            }
+        }
+
+        return ret;
+    }
+
+    size_t size() const
     {
         size_t result = 0;
         std::for_each(d_intervals.begin(), d_intervals.end(), [&](const auto& pair) {
             result += pair.first.size();
         });
         return result;
+    }
+
+    void clear()
+    {
+        d_intervals.clear();
     }
 
     iterator begin()
@@ -138,12 +159,22 @@ class IntervalTree
         return d_intervals.end();
     }
 
-    const_iterator cbegin()
+    const_iterator begin() const
+    {
+        return d_intervals.begin();
+    }
+
+    const_iterator end() const
+    {
+        return d_intervals.end();
+    }
+
+    const_iterator cbegin() const
     {
         return d_intervals.cbegin();
     }
 
-    const_iterator cend()
+    const_iterator cend() const
     {
         return d_intervals.cend();
     }
@@ -152,7 +183,6 @@ class IntervalTree
 class SnapshotAllocationAggregator
 {
   private:
-    size_t d_index{0};
     IntervalTree<Allocation> d_interval_tree;
     std::unordered_map<uintptr_t, Allocation> d_ptr_to_allocation{};
 
@@ -161,34 +191,47 @@ class SnapshotAllocationAggregator
     reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads);
 };
 
-PyObject*
-Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t& stack_to_allocation);
-
-struct HighWatermark
+struct HighWaterMark
 {
     size_t index{0};
     size_t peak_memory{0};
 };
 
-class HighWatermarkFinder
+class StreamingAllocationAggregator
 {
-  public:
-    HighWatermarkFinder() = default;
-    void processAllocation(const Allocation& allocation);
-    HighWatermark getHighWatermark() const noexcept;
-
   private:
-    HighWatermarkFinder(const HighWatermarkFinder&) = delete;
-    HighWatermarkFinder& operator=(const HighWatermarkFinder&) = delete;
-
-    void updatePeak(size_t index) noexcept;
-
-    HighWatermark d_last_high_water_mark;
-    size_t d_current_memory{0};
+    size_t d_high_water_mark_index{0};
+    size_t d_high_water_mark_memory{0};
     size_t d_allocations_seen{0};
-    std::unordered_map<uintptr_t, size_t> d_ptr_to_allocation_size{};
-    IntervalTree<Allocation> d_mmap_intervals;
+
+    IntervalTree<Allocation> d_high_water_mark_ranges;
+    std::unordered_map<uintptr_t, Allocation> d_high_water_mark_ptrs;
+
+    size_t d_delta_freed_size{0};
+    IntervalTree<int> d_delta_freed_ranges;
+    std::set<uintptr_t> d_delta_freed_ptrs{};
+
+    size_t d_delta_allocated_size{0};
+    IntervalTree<Allocation> d_delta_allocated_ranges;
+    std::map<uintptr_t, Allocation> d_delta_allocated_ptrs{};
+
+    bool atHighWaterMark() const;
+    void applyDeltaToSnapshot(
+            IntervalTree<Allocation>* allocated_ranges,
+            std::unordered_map<uintptr_t, Allocation>* allocated_ptrs);
+    void resetDelta();
+    void addAllocationWhileAtHighWaterMark(const Allocation& allocation);
+    void addAllocationWhileNotAtHighWaterMark(const Allocation& allocation);
+
+  public:
+    void addAllocation(const Allocation& allocation);
+    reduced_snapshot_map_t getHighWaterMarkAllocations(bool merge_threads);
+    reduced_snapshot_map_t getLeakedAllocations(bool merge_threads);
+    HighWaterMark getHighWaterMark() const noexcept;
 };
+
+PyObject*
+Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t& stack_to_allocation);
 
 PyObject*
 Py_GetSnapshotAllocationRecords(
