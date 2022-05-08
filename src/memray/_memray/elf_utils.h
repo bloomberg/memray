@@ -46,20 +46,6 @@ using Elf_Ehdr = ElfW(Ehdr);
 using Elf_Phdr = ElfW(Phdr);
 using Elf_Dyn = ElfW(Dyn);
 
-template<class T, class U>
-T
-ensureRelocatedAddress(const Addr base, const U addr)
-{
-    // Depending on the libc version, some values may be already relocated
-    // or not. So we need to check first if the relocation already happened
-    // and make it ourselves if that is not the case.
-    auto the_addr = reinterpret_cast<Addr>(addr);
-    if (the_addr < base) {
-        return reinterpret_cast<T>(base + the_addr);
-    }
-    return reinterpret_cast<T>(the_addr);
-}
-
 template<typename T, Sxword AddrTag, Sxword SizeTag>
 struct DynamicInfoTable
 {
@@ -93,6 +79,9 @@ using RelTable = DynamicInfoTable<Rel, DT_REL, DT_RELSZ>;
 using RelaTable = DynamicInfoTable<Rela, DT_RELA, DT_RELASZ>;
 using JmpRelTable = DynamicInfoTable<Rel, DT_JMPREL, DT_PLTRELSZ>;
 using JmpRelaTable = DynamicInfoTable<Rela, DT_JMPREL, DT_PLTRELSZ>;
+
+bool
+dynamicTableNeedsRelocation(const char* file_name, const Addr base, const Dyn* dynamic_section);
 
 struct SymbolTable
 {

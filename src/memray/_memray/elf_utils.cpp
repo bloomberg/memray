@@ -8,6 +8,99 @@
 #include <sys/mman.h>
 
 namespace memray::elf {
+static uintptr_t
+stringTableOffset(const char* file_name)
+{
+    Elf_Ehdr header;
+    auto file = std::ifstream(file_name, std::ios::binary | std::ios::in);
+    if (!file) {
+        memray::LOG(memray::ERROR) << "Failed to open file " << file_name
+                                   << " for relocation validation.";
+        return 0;
+    }
+    if (file.read(reinterpret_cast<char*>(&header), sizeof(Elf_Ehdr)).fail()) {
+        memray::LOG(memray::ERROR) << "Failed to read ELF header for relocation validation.";
+        return 0;
+    }
+
+    file.seekg((long)header.e_phoff);
+
+    char phdr[header.e_phentsize * header.e_phnum];
+    if (file.read(phdr, header.e_phentsize * header.e_phnum).fail()) {
+        memray::LOG(memray::ERROR) << "Failed to read phnum entries for relocation validation.";
+        return 0;
+    }
+
+    // find dynamic
+    Elf_Phdr* dynamicEntry = nullptr;
+    for (size_t i = 0; i < header.e_phnum; i++) {
+        Elf_Phdr& entry = *((Elf_Phdr*)&phdr[header.e_phentsize * i]);
+        if (entry.p_type == PT_DYNAMIC) dynamicEntry = &entry;
+    }
+    if (dynamicEntry == nullptr) {
+        return 0;
+    }
+
+    size_t dynamicDataCount = dynamicEntry->p_filesz / sizeof(Elf_Dyn);
+    Elf_Dyn dynamicData[dynamicDataCount];
+    file.seekg((long)dynamicEntry->p_offset);
+
+    if (file.read(reinterpret_cast<char*>(dynamicData), sizeof(Elf_Dyn) * dynamicDataCount).fail()) {
+        memray::LOG(memray::ERROR) << "Failed to read PT_DYNAMIC entries for relocation validation.";
+        return {};
+    }
+
+    // find strtab
+    for (size_t i = 0; i < dynamicDataCount; i++) {
+        if (dynamicData[i].d_tag != DT_STRTAB) {
+            continue;
+        }
+        return dynamicData[i].d_un.d_val;
+    }
+    return 0;
+}
+
+bool
+dynamicTableNeedsRelocation(const char* file_name, const Addr base, const Dyn* dynamic_section)
+{
+    // When the base address is 0 we cannot distinguish offsets from virtual addresses.
+    if (base == 0) {
+        return false;
+    }
+
+    static bool resolved = false;
+    static bool needs_relocation = false;
+
+    // Check if we already know if this system requires relocations
+    if (resolved) {
+        return needs_relocation;
+    }
+
+    // Get offset of the string table from file
+    if (!file_name || file_name[0] == '\0') {
+        file_name = "/proc/self/exe";
+    }
+    uintptr_t string_table_offset = stringTableOffset(file_name);
+
+    // Get address or offset for the string table from the loaded dynamic table
+
+    uintptr_t string_table_addr = 0;
+    for (; dynamic_section->d_tag != DT_NULL; ++dynamic_section) {
+        if (dynamic_section->d_tag != DT_STRTAB) {
+            continue;
+        }
+        string_table_addr = static_cast<uintptr_t>(dynamic_section->d_un.d_ptr);
+    }
+
+    // Check if the string table address is an address or an offset
+    needs_relocation = string_table_addr == string_table_offset;
+    LOG(DEBUG) << "System needs relocations: " << needs_relocation;
+
+    // Ensure we cache the result, so we don't check every single library
+    resolved = true;
+    return needs_relocation;
+}
+
 SymbolTable::SymbolTable(Addr base, const Dyn* dynamic_section)
 : base(base)
 , dynamic_section(dynamic_section)
@@ -22,8 +115,8 @@ SymbolTable::getSymbolNameByIndex(size_t index) const
     return string_table.table + symbol_table.table[index].st_name;
 }
 
-static bool
-SymbolTable::isDefinedGlobalSymbol(ElfW(Sym) * sym)
+bool
+SymbolTable::isDefinedGlobalSymbol(Sym* sym)
 {
     unsigned char stb = ELF_ST_BIND(sym->st_info);
     if (stb == STB_GLOBAL || stb == STB_WEAK) {
@@ -32,9 +125,10 @@ SymbolTable::isDefinedGlobalSymbol(ElfW(Sym) * sym)
     return false;
 }
 
-static const ElfW(Dyn) * SymbolTable::findDynByTag(const ElfW(Dyn) * const section_ptr, ElfW(Sxword) tag)
+const Dyn*
+SymbolTable::findDynByTag(const Dyn* const section_ptr, Sxword tag)
 {
-    const ElfW(Dyn)* dyn = section_ptr;
+    const Dyn* dyn = section_ptr;
     while (dyn->d_tag != DT_NULL) {
         if (dyn->d_tag == tag) {
             return dyn;
@@ -49,12 +143,12 @@ SymbolTable::getSymbolAddress(const char* name) const
 {
     uintptr_t result = 0;
 
-    const ElfW(Dyn)* dt_gnu_hash_base = findDynByTag(dynamic_section, DT_GNU_HASH);
+    const Dyn* dt_gnu_hash_base = findDynByTag(dynamic_section, DT_GNU_HASH);
     if (dt_gnu_hash_base != nullptr) {
         result = findSymbolByGNUHashTable(name, dt_gnu_hash_base);
     } else {
         // Fallback to DT_HASH if DT_GNU_HASH is not available
-        const ElfW(Dyn)* dt_hash_base = findDynByTag(dynamic_section, DT_HASH);
+        const Dyn* dt_hash_base = findDynByTag(dynamic_section, DT_HASH);
         if (dt_hash_base != nullptr) {
             result = findSymbolByElfHashTable(name, dt_hash_base);
         }
@@ -64,10 +158,10 @@ SymbolTable::getSymbolAddress(const char* name) const
 }
 
 uintptr_t
-SymbolTable::findSymbolByElfHashTable(const char* name, const ElfW(Dyn) * dt_hash_base) const
+SymbolTable::findSymbolByElfHashTable(const char* name, const Dyn* dt_hash_base) const
 {
     // See https://www.gabriel.urdhr.fr/2015/09/28/elf-file-format/#hash-tables
-    auto* dt_hash = ensureRelocatedAddress<ElfW(Word)*>(base, dt_hash_base->d_un.d_ptr);
+    auto* dt_hash = reinterpret_cast<ElfW(Word)*>(base + dt_hash_base->d_un.d_ptr);
     size_t nbucket_ = dt_hash[0];
     uint32_t* bucket_ = dt_hash + 2;
     uint32_t* chain_ = bucket_ + nbucket_;
@@ -87,10 +181,10 @@ SymbolTable::findSymbolByElfHashTable(const char* name, const ElfW(Dyn) * dt_has
 
     uint32_t hash = elf_hash(reinterpret_cast<const uint8_t*>(name));
     for (uint32_t n = bucket_[hash % nbucket_]; n != 0; n = chain_[n]) {
-        auto* sym = ensureRelocatedAddress<ElfW(Sym)*>(base, symbol_table.table + n);
-        auto* sym_name = ensureRelocatedAddress<char*>(base, string_table.table + sym->st_name);
+        auto* sym = reinterpret_cast<Sym*>(symbol_table.table + n);
+        auto* sym_name = reinterpret_cast<const char*>(string_table.table + sym->st_name);
         if (isDefinedGlobalSymbol(sym) && strcmp(sym_name, name) == 0) {
-            return base + sym->st_value;
+            return sym->st_value;
         }
     }
 
@@ -98,7 +192,7 @@ SymbolTable::findSymbolByElfHashTable(const char* name, const ElfW(Dyn) * dt_has
 }
 
 uintptr_t
-SymbolTable::findSymbolByGNUHashTable(const char* name, const ElfW(Dyn) * dt_gnu_hash_base) const
+SymbolTable::findSymbolByGNUHashTable(const char* name, const Dyn* dt_gnu_hash_base) const
 {
     // Adapted from the holy source of the linker:
     // https://github.com/bminor/glibc/blob/97e42bd482b62d7b74889be11c98b0bbb4059dcd/elf/dl-lookup.c#L355-L569
@@ -109,7 +203,7 @@ SymbolTable::findSymbolByGNUHashTable(const char* name, const ElfW(Dyn) * dt_gnu
     // It has its own hashing function, its own layout, it adds restrictions for the symbol table and
     // contains an additional bloom filter to stop lookup for missing symbols early.
 
-    auto* hashtab = ensureRelocatedAddress<ElfW(Word)*>(base, dt_gnu_hash_base->d_un.d_ptr);
+    auto* hashtab = reinterpret_cast<ElfW(Word)*>(base + dt_gnu_hash_base->d_un.d_ptr);
 
     // The hash function is adapted from the dl_new_hash() in the linker source:
     // https://github.com/bminor/glibc/blob/97e42bd482b62d7b74889be11c98b0bbb4059dcd/elf/dl-lookup.c#L572-L579
@@ -161,7 +255,7 @@ SymbolTable::findSymbolByGNUHashTable(const char* name, const ElfW(Dyn) * dt_gnu
         const auto* sym_name = string_table.table + sym->st_name;
         const uint32_t hash = chain[symbol_index - symbol_offset];
         if ((namehash | 1) == (hash | 1) && isDefinedGlobalSymbol(sym) && strcmp(sym_name, name) == 0) {
-            return base + sym->st_value;
+            return sym->st_value;
         }
 
         // Chain ends with an element with the lowest bit set to 1: end of the chain
