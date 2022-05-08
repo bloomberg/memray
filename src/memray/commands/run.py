@@ -35,9 +35,6 @@ def _run_tracker(
     follow_fork: bool = False,
     trace_python_allocators: bool = False,
 ) -> None:
-    sys.argv = [args.script, *args.script_args]
-    if args.run_as_module:
-        sys.argv.insert(0, "-m")
     try:
         kwargs = {}
         if follow_fork:
@@ -49,14 +46,20 @@ def _run_tracker(
         raise MemrayCommandError(str(error), exit_code=1)
 
     with tracker:
-        sys.argv[1:] = args.script_args
         pid = os.getpid()
         try:
             if args.run_as_module:
+                sys.path[0] = os.getcwd()
+                # run_module will replace argv[0] with the script's path
+                sys.argv = ["", *args.script_args]
                 runpy.run_module(args.script, run_name="__main__", alter_sys=True)
             elif args.run_as_cmd:
+                sys.path[0] = ""
+                sys.argv = ["-c", *args.script_args]
                 exec(args.script, {"__name__": "__main__"})
             else:
+                sys.path[0] = str(pathlib.Path(args.script).resolve().parent.absolute())
+                sys.argv = [args.script, *args.script_args]
                 runpy.run_path(args.script, run_name="__main__")
         finally:
             if not args.quiet and post_run_message is not None and pid == os.getpid():
