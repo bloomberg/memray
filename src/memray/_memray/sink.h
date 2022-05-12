@@ -33,6 +33,7 @@ class FileSink : public memray::io::Sink
     std::unique_ptr<Sink> cloneInChildProcess() override;
 
   private:
+    void compress() noexcept;
     bool grow(size_t needed);
     bool slideWindow();
     size_t bytesBeyondBufferNeedle();
