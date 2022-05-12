@@ -135,6 +135,13 @@ COMPILER_DIRECTIVES = {
 EXTRA_COMPILE_ARGS = []
 UNDEF_MACROS = []
 
+# For Python 3.9+, hide all of our symbols except the module init function. For
+# Python 3.8 and earlier this isn't as easy, because PyMODINIT_FUNC doesn't
+# include __attribute__((visibility ("default"))), and Cython doesn't give us
+# a way to add the attribute. So, skip this optimization on 3.8 and earlier.
+if sys.version_info[:2] >= (3, 9):
+    EXTRA_COMPILE_ARGS.append("-fvisibility=hidden")
+
 if TEST_BUILD:
     COMPILER_DIRECTIVES = {
         "language_level": 3,
@@ -197,8 +204,8 @@ MEMRAY_EXTENSION = Extension(
     library_dirs=[str(LIBBACKTRACE_LIBDIR)],
     include_dirs=["src", str(LIBBACKTRACE_INCLUDEDIRS)],
     language="c++",
-    extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
-    extra_link_args=["-std=c++17", "-l:libbacktrace.a"],
+    extra_compile_args=["-std=c++17", "-Wall", "-flto", *EXTRA_COMPILE_ARGS],
+    extra_link_args=["-std=c++17", "-flto", "-l:libbacktrace.a"],
     define_macros=DEFINE_MACROS,
     undef_macros=UNDEF_MACROS,
 )
