@@ -137,10 +137,10 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 {
     size_t count = record.count;
     while (count) {
-        uint8_t to_pop = (count > 64 ? 64 : count);
+        uint8_t to_pop = (count > 16 ? 16 : count);
         count -= to_pop;
 
-        to_pop -= 1;  // i.e. 0 means pop 1 frame, 63 means pop 64 frames
+        to_pop -= 1;  // i.e. 0 means pop 1 frame, 15 means pop 16 frames
         RecordTypeAndFlags token{RecordType::FRAME_POP, to_pop};
         assert(token.flags == to_pop);
         if (!writeSimpleType(token)) {
