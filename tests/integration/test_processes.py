@@ -1,6 +1,8 @@
 from multiprocessing import Pool
 from pathlib import Path
 
+import pytest
+
 from memray import AllocatorType
 from memray import FileReader
 from memray import Tracker
@@ -15,6 +17,7 @@ def multiproc_func(repetitions):
         allocator.free()
 
 
+@pytest.mark.no_cover
 def test_allocations_with_multiprocessing(tmpdir):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
@@ -52,6 +55,7 @@ def test_allocations_with_multiprocessing(tmpdir):
     assert list(child_files) == []
 
 
+@pytest.mark.no_cover
 def test_allocations_with_multiprocessing_following_fork(tmpdir):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
