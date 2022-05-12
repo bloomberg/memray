@@ -163,6 +163,44 @@ def test_cython_traceback(tmpdir):
         free.stack_trace()
 
 
+def test_large_number_of_frame_pops_between_subsequent_allocations(tmpdir):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+
+    def allocate_deep(depth):
+        if depth <= 1:
+            return mmap.mmap(-1, 1234)
+        return allocate_deep(depth - 1)
+
+    # WHEN
+    with Tracker(output):
+        with allocate_deep(20):
+            with mmap.mmap(-1, 12345):
+                pass
+    records = list(FileReader(output).get_high_watermark_allocation_records())
+
+    # THEN
+    allocs = [
+        record
+        for record in records
+        if record.allocator == AllocatorType.MMAP and record.size == 1234
+    ]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+    traceback = list(alloc.stack_trace())
+    assert len(traceback) == 21
+
+    allocs = [
+        record
+        for record in records
+        if record.allocator == AllocatorType.MMAP and record.size == 12345
+    ]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+    traceback = list(alloc.stack_trace())
+    assert len(traceback) == 1
+
+
 def test_records_can_be_retrieved_twice(tmpdir):
     # GIVEN
     allocator = MemoryAllocator()

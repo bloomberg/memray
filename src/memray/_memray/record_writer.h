@@ -142,6 +142,7 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 
         to_pop -= 1;  // i.e. 0 means pop 1 frame, 63 means pop 64 frames
         RecordTypeAndFlags token{RecordType::FRAME_POP, to_pop};
+        assert(token.flags == to_pop);
         if (!writeSimpleType(token)) {
             return false;
         }
