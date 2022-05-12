@@ -60,23 +60,6 @@ jobs:
     - name: Run tox
       run: tox . -vvv
 
-  test_in_alpine:
-    name: 'Test in Alpine Linux'
-    runs-on: ubuntu-latest
-    container: python:3.10-alpine
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up dependencies
-      run: |
-        apk add --update build-base libunwind-dev musl-dev python3-dev
-    - name: Install Python dependencies
-      run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install tox tox-gh-actions
-    - name: Run tox
-      run: tox . -vvv
-
-
 
   lint_and_docs:
     name: 'Lint and Docs'

@@ -48,7 +48,6 @@ exclude="tests/integration/(native_extension|multithreaded_extension)/"
 
 [tool.cibuildwheel]
 build = ["cp37-*", "cp38-*", "cp39-*", "cp310-*"]
-skip = "*musllinux*"
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y libunwind-devel"
