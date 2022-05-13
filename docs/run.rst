@@ -83,6 +83,40 @@ When reporters display native information they will normally use a different col
 frames. This can also be distinguished by looking at the file name in a frame, since Python frames will generally come
 from source files with a ``.py`` extension.
 
+Python allocator tracking
+-------------------------
+
+Memray normally tracks allocation and deallocation requests made to the system
+allocator, but by default it won't see individual Python objects being created.
+That's because the Python interpreter normally uses its own memory pools for
+creating most objects, only making calls to the system allocator as needed to
+grow or shrink its memory pools. Our documentation on :doc:`python allocators
+<python_allocators>` describes this memory pooling in greater detail. This
+behavior speeds the Python interpreter up, and by extension speeds up profiling
+with Memray, while still allowing Memray to show you each place where your
+program needs to acquire more memory.
+
+You can ask Memray to show you each individual object being created and
+destroyed, instead, by proving the ``--track-python-allocators`` argument to
+the ``run`` subcommand. This records a lot more data and makes profiling much
+slower. It will show you all allocations, even ones that don't result in your
+program requesting more memory from the system because the interpreter already
+had memory available for reuse. It can be useful in some cases, though,
+especially when tracking down memory leaks.
+
+.. note::
+  This acts also as an alternative way to run with `PYTHONMALLOC=malloc` but
+  in a way that allows distiguishing allocations made by using the system
+  allocator directly and ones made by using the Python allocator.
+
+.. code:: shell
+
+  memray run --track-python-allocators example.py
+
+.. caution:: 
+  Tracking the Python allocators will result in much larger report files and
+  slower profiling due to the larger amount of data that needs to be collected.
+
 .. _Live tracking:
 
 Live tracking

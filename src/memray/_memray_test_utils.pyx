@@ -10,6 +10,18 @@ from posix.mman cimport PROT_WRITE
 from posix.mman cimport mmap
 from posix.mman cimport munmap
 
+from _memray.alloc cimport PyMem_Calloc
+from _memray.alloc cimport PyMem_Free
+from _memray.alloc cimport PyMem_Malloc
+from _memray.alloc cimport PyMem_RawCalloc
+from _memray.alloc cimport PyMem_RawFree
+from _memray.alloc cimport PyMem_RawMalloc
+from _memray.alloc cimport PyMem_RawRealloc
+from _memray.alloc cimport PyMem_Realloc
+from _memray.alloc cimport PyObject_Calloc
+from _memray.alloc cimport PyObject_Free
+from _memray.alloc cimport PyObject_Malloc
+from _memray.alloc cimport PyObject_Realloc
 from _memray.alloc cimport aligned_alloc
 from _memray.alloc cimport calloc
 from _memray.alloc cimport free
@@ -100,6 +112,73 @@ cdef class MemoryAllocator:
         with nogil:
             pthread_join(thread, NULL)
 
+
+cpdef enum PymallocDomain:
+    PYMALLOC_RAW = 1
+    PYMALLOC_MEM = 2
+    PYMALLOC_OBJECT = 3
+
+
+cdef class PymallocMemoryAllocator:
+    cdef void* ptr
+    cdef PymallocDomain domain
+
+    def __cinit__(self, PymallocDomain domain):
+        self.ptr = NULL
+        self.domain = domain
+
+    @cython.profile(True)
+    def free(self):
+        if self.ptr == NULL:
+            raise RuntimeError("Pointer cannot be NULL")
+        if self.domain == PYMALLOC_RAW:
+            PyMem_RawFree(self.ptr)
+        elif self.domain == PYMALLOC_MEM:
+            PyMem_Free(self.ptr)
+        elif self.domain == PYMALLOC_OBJECT:
+            PyObject_Free(self.ptr)
+        else:
+            raise RuntimeError("Invlid pymalloc domain")
+        self.ptr = NULL
+
+    @cython.profile(True)
+    def malloc(self, size_t size):
+        if self.domain == PYMALLOC_RAW:
+            self.ptr = PyMem_RawMalloc(size)
+        elif self.domain == PYMALLOC_MEM:
+            self.ptr = PyMem_Malloc(size)
+        elif self.domain == PYMALLOC_OBJECT:
+            self.ptr = PyObject_Malloc(size)
+        else:
+            raise RuntimeError("Invlid pymalloc domain")
+ 
+        return self.ptr != NULL
+
+    @cython.profile(True)
+    def calloc(self, size_t size):
+        if self.domain == PYMALLOC_RAW:
+            self.ptr = PyMem_RawCalloc(1, size)
+        elif self.domain == PYMALLOC_MEM:
+            self.ptr = PyMem_Calloc(1, size)
+        elif self.domain == PYMALLOC_OBJECT:
+            self.ptr = PyObject_Calloc(1, size)
+        else:
+            raise RuntimeError("Invlid pymalloc domain")
+ 
+        return self.ptr != NULL
+
+    @cython.profile(True)
+    def realloc(self, size_t size):
+        if self.domain == PYMALLOC_RAW:
+            self.ptr = PyMem_RawRealloc(self.ptr, size)
+        elif self.domain == PYMALLOC_MEM:
+            self.ptr = PyMem_Realloc(self.ptr, size)
+        elif self.domain == PYMALLOC_OBJECT:
+            self.ptr = PyObject_Realloc(self.ptr, size)
+        else:
+            raise RuntimeError("Invlid pymalloc domain")
+ 
+        return self.ptr != NULL
 
 @cython.profile(True)
 def _cython_nested_allocation(allocator_fn, size):

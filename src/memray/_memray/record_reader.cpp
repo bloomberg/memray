@@ -48,6 +48,14 @@ allocatorName(hooks::Allocator allocator)
             return "mmap";
         case hooks::Allocator::MUNMAP:
             return "munmap";
+        case hooks::Allocator::PYMALLOC_MALLOC:
+            return "pymalloc_malloc";
+        case hooks::Allocator::PYMALLOC_CALLOC:
+            return "pymalloc_calloc";
+        case hooks::Allocator::PYMALLOC_REALLOC:
+            return "pymalloc_realloc";
+        case hooks::Allocator::PYMALLOC_FREE:
+            return "pymalloc_free";
     }
 
     return nullptr;

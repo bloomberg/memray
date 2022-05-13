@@ -109,6 +109,10 @@ enum class Allocator : unsigned char {
     PVALLOC = 9,
     MMAP = 10,
     MUNMAP = 11,
+    PYMALLOC_MALLOC = 12,
+    PYMALLOC_CALLOC = 13,
+    PYMALLOC_REALLOC = 14,
+    PYMALLOC_FREE = 15,
 };
 
 enum class AllocatorKind {
@@ -180,6 +184,15 @@ prctl(int option, ...) noexcept;
 
 PyGILState_STATE
 PyGILState_Ensure() noexcept;
+
+void*
+pymalloc_malloc(void* ctx, size_t size) noexcept;
+void*
+pymalloc_realloc(void* ctx, void* ptr, size_t new_size) noexcept;
+void*
+pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept;
+void
+pymalloc_free(void* ctx, void* ptr) noexcept;
 
 }  // namespace memray::intercept
 

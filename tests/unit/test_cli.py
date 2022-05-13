@@ -64,6 +64,20 @@ class TestRunSubCommand:
             native_traces=True,
         )
 
+    def test_run_with_pymalloc_tracing(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
+        getpid_mock.return_value = 0
+        assert 0 == main(["run", "--trace-python-allocators", "-m", "foobar"])
+        runpy_mock.run_module.assert_called_with(
+            "foobar", run_name="__main__", alter_sys=True
+        )
+        tracker_mock.assert_called_with(
+            destination=FileDestination("memray-foobar.0.bin", overwrite=False),
+            native_traces=False,
+            trace_python_allocators=True,
+        )
+
     def test_run_override_output(
         self, getpid_mock, runpy_mock, tracker_mock, validate_mock
     ):

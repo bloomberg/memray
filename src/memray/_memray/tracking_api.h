@@ -199,7 +199,8 @@ class Tracker
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
             unsigned int memory_interval,
-            bool follow_fork);
+            bool follow_fork,
+            bool trace_python_allocators);
     static PyObject* destroyTracker();
     static Tracker* getTracker();
 
@@ -292,6 +293,7 @@ class Tracker
     bool d_unwind_native_frames;
     unsigned int d_memory_interval;
     bool d_follow_fork;
+    bool d_trace_python_allocators;
     elf::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
 
@@ -303,12 +305,15 @@ class Tracker
     void invalidate_module_cache_impl();
     void updateModuleCacheImpl();
     void registerThreadNameImpl(const char* name);
+    void registerPymallocHooks() const noexcept;
+    void unregisterPymallocHooks() const noexcept;
 
     explicit Tracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
             unsigned int memory_interval,
-            bool follow_fork);
+            bool follow_fork,
+            bool trace_python_allocators);
 
     static void prepareFork();
     static void parentFork();

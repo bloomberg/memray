@@ -33,6 +33,7 @@ def _run_tracker(
     args: argparse.Namespace,
     post_run_message: Optional[str] = None,
     follow_fork: bool = False,
+    trace_python_allocators: bool = False,
 ) -> None:
     sys.argv = [args.script, *args.script_args]
     if args.run_as_module:
@@ -41,6 +42,8 @@ def _run_tracker(
         kwargs = {}
         if follow_fork:
             kwargs["follow_fork"] = True
+        if trace_python_allocators:
+            kwargs["trace_python_allocators"] = True
         tracker = Tracker(destination=destination, native_traces=args.native, **kwargs)
     except OSError as error:
         raise MemrayCommandError(str(error), exit_code=1)
@@ -164,6 +167,7 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
             args=args,
             post_run_message=example_report_generation_message,
             follow_fork=args.follow_fork,
+            trace_python_allocators=args.trace_python_allocators,
         )
     except OSError as error:
         raise MemrayCommandError(str(error), exit_code=1)
@@ -213,6 +217,12 @@ class RunCommand:
             "--follow-fork",
             action="store_true",
             help="Record allocations in child processes forked from the tracked script",
+            default=False,
+        )
+        parser.add_argument(
+            "--trace-python-allocators",
+            action="store_true",
+            help="Record allocations made by the Pymalloc allocator",
             default=False,
         )
         parser.add_argument(

@@ -16,6 +16,8 @@ from memray import FileReader
 from memray import Tracker
 from memray._memray import MmapAllocator
 from memray._test import MemoryAllocator
+from memray._test import PymallocDomain
+from memray._test import PymallocMemoryAllocator
 from tests.utils import filter_relevant_allocations
 
 ALLOCATORS = [
@@ -28,6 +30,19 @@ ALLOCATORS = [
     ("aligned_alloc", AllocatorType.ALIGNED_ALLOC),
     ("realloc", AllocatorType.REALLOC),
 ]
+
+PYMALLOC_ALLOCATORS = [
+    ("malloc", AllocatorType.PYMALLOC_MALLOC),
+    ("calloc", AllocatorType.PYMALLOC_CALLOC),
+    ("realloc", AllocatorType.PYMALLOC_REALLOC),
+]
+
+PYMALLOC_DOMAINS = [
+    PymallocDomain.PYMALLOC_RAW,
+    PymallocDomain.PYMALLOC_MEM,
+    PymallocDomain.PYMALLOC_OBJECT,
+]
+
 
 PAGE_SIZE = mmap.PAGESIZE
 
@@ -71,6 +86,73 @@ def test_simple_allocation_tracking(allocator_func, allocator_type, tmp_path):
         if event.address == alloc.address and event.allocator == AllocatorType.FREE
     ]
     assert len(frees) >= 1
+
+
+@pytest.mark.parametrize("domain", PYMALLOC_DOMAINS)
+@pytest.mark.parametrize(["allocator_func", "allocator_type"], PYMALLOC_ALLOCATORS)
+def test_simple_pymalloc_allocation_tracking(
+    allocator_func, allocator_type, domain, tmp_path
+):
+    # GIVEN
+    allocator = PymallocMemoryAllocator(domain)
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    the_allocator = getattr(allocator, allocator_func)
+    with Tracker(output, trace_python_allocators=True):
+        res = the_allocator(1234)
+        if res:
+            allocator.free()
+
+    if not res:
+        pytest.skip("Allocator {allocator_func} not supported in this platform")
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+    allocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == allocator_type
+    ]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == alloc.address
+        and event.allocator == AllocatorType.PYMALLOC_FREE
+    ]
+    assert len(frees) >= 1
+
+
+@pytest.mark.parametrize("domain", PYMALLOC_DOMAINS)
+@pytest.mark.parametrize(["allocator_func", "allocator_type"], PYMALLOC_ALLOCATORS)
+def test_pymalloc_allocation_tracking_deactivated(
+    allocator_func, allocator_type, domain, tmp_path
+):
+    # GIVEN
+    allocator = PymallocMemoryAllocator(domain)
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    the_allocator = getattr(allocator, allocator_func)
+    with Tracker(output, trace_python_allocators=False):
+        res = the_allocator(1234)
+        if res:
+            allocator.free()
+
+    if not res:
+        pytest.skip("Allocator {allocator_func} not supported in this platform")
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+    allocs = [event for event in allocations if event.allocator == allocator_type]
+    assert not allocs
+    frees = [
+        event for event in allocations if event.allocator == AllocatorType.PYMALLOC_FREE
+    ]
+    assert not frees
 
 
 def test_mmap_tracking(tmp_path):

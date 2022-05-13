@@ -1,0 +1,1 @@
+Add a new ``--track-python-allocators`` option to ``memray run`` that allows tracking all allocations made using the Python allocators. This will result in bigger output files and slower profiling but it allows getting insights about all of the interpreter's memory allocations.
