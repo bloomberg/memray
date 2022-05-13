@@ -133,15 +133,20 @@ class Tracker:
         self,
         file_name: Union[Path, str],
         *,
-        native_traces: bool = False,
-        trace_python_allocators: bool = False,
+        native_traces: bool = ...,
+        memory_interval_ms: int = ...,
+        follow_fork: bool = ...,
+        trace_python_allocators: bool = ...,
     ) -> None: ...
     @overload
     def __init__(
         self,
         *,
         destination: Destination,
-        native_traces: bool = False,
+        native_traces: bool = ...,
+        memory_interval_ms: int = ...,
+        follow_fork: bool = ...,
+        trace_python_allocators: bool = ...,
     ) -> None: ...
     def __enter__(self) -> Any: ...
     def __exit__(
