@@ -123,6 +123,8 @@ jobs:
         python3 -m pip install --upgrade pip
         python3 -m pip install -r requirements-test.txt
         python3 -m pip install -e .
+      env:
+        MEMRAY_MINIMIZE_INLINING: 1
     - name: Run Valgrind
       run: make valgrind
     - name: Run Helgrind

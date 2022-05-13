@@ -121,6 +121,8 @@ if "--test-build" in sys.argv:
 if os.getenv("CYTHON_TEST_MACROS", None) is not None:
     TEST_BUILD = True
 
+MINIMIZE_INLINING = os.getenv("MEMRAY_MINIMIZE_INLINING", "") != ""
+
 COMPILER_DIRECTIVES = {
     "language_level": 3,
     "embedsignature": True,
@@ -133,7 +135,14 @@ COMPILER_DIRECTIVES = {
     "c_string_encoding": "utf8",
 }
 EXTRA_COMPILE_ARGS = []
+EXTRA_LINK_ARGS = []
 UNDEF_MACROS = []
+
+if MINIMIZE_INLINING:
+    EXTRA_COMPILE_ARGS.append("-Og")
+else:
+    EXTRA_COMPILE_ARGS.append("-flto")
+    EXTRA_LINK_ARGS.append("-flto")
 
 # For Python 3.9+, hide all of our symbols except the module init function. For
 # Python 3.8 and earlier this isn't as easy, because PyMODINIT_FUNC doesn't
@@ -204,8 +213,8 @@ MEMRAY_EXTENSION = Extension(
     library_dirs=[str(LIBBACKTRACE_LIBDIR)],
     include_dirs=["src", str(LIBBACKTRACE_INCLUDEDIRS)],
     language="c++",
-    extra_compile_args=["-std=c++17", "-Wall", "-flto", *EXTRA_COMPILE_ARGS],
-    extra_link_args=["-std=c++17", "-flto", "-l:libbacktrace.a"],
+    extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
+    extra_link_args=["-std=c++17", "-l:libbacktrace.a", *EXTRA_LINK_ARGS],
     define_macros=DEFINE_MACROS,
     undef_macros=UNDEF_MACROS,
 )
