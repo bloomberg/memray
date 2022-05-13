@@ -245,6 +245,114 @@ class TestRunSubcommand:
         assert "Arg: arg1" in proc.stdout
         assert out_file.exists()
 
+    def test_sys_manipulations_when_running_script(self, tmp_path):
+        # GIVEN
+        out_file = tmp_path / "result.bin"
+        target_file = tmp_path / "test.py"
+        target_file.write_text("import some_adjacent_module")
+        other_file = tmp_path / "some_adjacent_module.py"
+        other_file.write_text("import sys; print(sys.argv); print(sys.path[0])")
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "run",
+                "--quiet",
+                "--output",
+                str(out_file),
+                str(target_file),
+                "some",
+                "provided args",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 0
+        argv, path0 = proc.stdout.splitlines()
+        assert argv == repr([str(target_file), "some", "provided args"])
+        assert path0 == str(tmp_path)
+        assert out_file.exists()
+
+    def test_sys_manipulations_when_running_module(self, tmp_path):
+        # GIVEN
+        out_file = tmp_path / "result.bin"
+        target_file = tmp_path / "test.py"
+        target_file.write_text("import some_adjacent_module")
+        other_file = tmp_path / "some_adjacent_module.py"
+        other_file.write_text("import sys; print(sys.argv); print(sys.path[0])")
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(tmp_path) + ":" + os.environ.get("PYTHONPATH", "")
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "run",
+                "--quiet",
+                "--output",
+                str(out_file),
+                "-m",
+                "test",
+                "some",
+                "provided args",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        # THEN
+        assert proc.returncode == 0
+        argv, path0 = proc.stdout.splitlines()
+        assert argv == repr([str(target_file), "some", "provided args"])
+        assert path0 == os.getcwd()
+        assert out_file.exists()
+
+    def test_sys_manipulations_when_running_cmd(self, tmp_path):
+        # GIVEN
+        out_file = tmp_path / "result.bin"
+        other_file = tmp_path / "some_adjacent_module.py"
+        other_file.write_text("import sys; print(sys.argv); print(sys.path[0])")
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(tmp_path) + ":" + os.environ.get("PYTHONPATH", "")
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "run",
+                "--quiet",
+                "--output",
+                str(out_file),
+                "-c",
+                "import some_adjacent_module",
+                "some",
+                "provided args",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        # THEN
+        assert proc.returncode == 0
+        argv, path0 = proc.stdout.splitlines()
+        assert argv == repr(["-c", "some", "provided args"])
+        assert path0 == ""
+        assert out_file.exists()
+
     @pytest.mark.parametrize("option", [None, "--live", "--live-remote"])
     def test_run_file_that_is_not_python(self, capsys, option):
         """Execute a non-Python script and make sure that we raise a good error"""
