@@ -123,4 +123,8 @@ How can I deactivate ``pymalloc``
 ---------------------------------
 
 To deactivate ``pymalloc`` you can set the ``PYTHONMALLOC=malloc`` environment
-variable or execute Python with ``-Xdev``. 
+variable or execute Python with ``-Xdev``. Or, you can pass the
+``--track-python-allocators`` flag to ``memray run`` so that, even though
+``pymalloc`` is still used, Memray sees every call to the ``pymalloc``
+allocator instead of only the ones where it needs to make a request to the
+system allocator.

@@ -25,6 +25,24 @@ def filter_relevant_allocations(records, ranged=False):
             addresses.discard(record.address)
 
 
+def filter_relevant_pymalloc_allocations(records, size):
+    addresses = set()
+    filter_allocations = [
+        AllocatorType.PYMALLOC_MALLOC,
+        AllocatorType.PYMALLOC_REALLOC,
+        AllocatorType.PYMALLOC_CALLOC,
+    ]
+    filter_deallocations = [AllocatorType.PYMALLOC_FREE]
+    for record in records:
+        if record.allocator in filter_allocations and record.size == size:
+            yield record
+            addresses.add(record.address)
+        elif record.allocator in filter_deallocations:
+            if record.address in addresses:
+                yield record
+            addresses.discard(record.address)
+
+
 @dataclass
 class MockAllocationRecord:
     """Mimics :py:class:`memray._memray.AllocationRecord`."""

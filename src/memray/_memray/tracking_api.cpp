@@ -253,11 +253,13 @@ Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
         unsigned int memory_interval,
-        bool follow_fork)
+        bool follow_fork,
+        bool trace_python_allocators)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
+, d_trace_python_allocators(trace_python_allocators)
 {
     g_tracker_generation++;
 
@@ -281,6 +283,9 @@ Tracker::Tracker(
 
     RecursionGuard guard;
     tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
+    if (d_trace_python_allocators) {
+        registerPymallocHooks();
+    }
     d_patcher.overwrite_symbols();
 
     d_background_thread = std::make_unique<BackgroundThread>(d_writer, memory_interval);
@@ -296,6 +301,9 @@ Tracker::~Tracker()
     d_background_thread->stop();
     t_python_stack_tracker.reset(nullptr);
     d_patcher.restore_symbols();
+    if (d_trace_python_allocators) {
+        unregisterPymallocHooks();
+    }
     d_writer->writeHeader(true);
     d_writer.reset();
 
@@ -438,7 +446,8 @@ Tracker::childFork()
             std::move(new_writer),
             old_tracker->d_unwind_native_frames,
             old_tracker->d_memory_interval,
-            old_tracker->d_follow_fork));
+            old_tracker->d_follow_fork,
+            old_tracker->d_trace_python_allocators));
     RecursionGuard::isActive = false;
 }
 
@@ -634,11 +643,16 @@ Tracker::createTracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
         unsigned int memory_interval,
-        bool follow_fork)
+        bool follow_fork,
+        bool trace_python_allocators)
 {
     // Note: the GIL is used for synchronization of the singleton
-    d_instance_owner.reset(
-            new Tracker(std::move(record_writer), native_traces, memory_interval, follow_fork));
+    d_instance_owner.reset(new Tracker(
+            std::move(record_writer),
+            native_traces,
+            memory_interval,
+            follow_fork,
+            trace_python_allocators));
     Py_RETURN_NONE;
 }
 
@@ -654,6 +668,49 @@ Tracker*
 Tracker::getTracker()
 {
     return d_instance;
+}
+
+static struct
+{
+    PyMemAllocatorEx raw;
+    PyMemAllocatorEx mem;
+    PyMemAllocatorEx obj;
+} s_orig_pymalloc_allocators;
+
+void
+Tracker::registerPymallocHooks() const noexcept
+{
+    assert(d_trace_python_allocators);
+    PyMemAllocatorEx alloc;
+
+    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &alloc);
+    if (alloc.free == &intercept::pymalloc_free) {
+        // Nothing to do; our hooks are already installed.
+        return;
+    }
+
+    alloc.malloc = intercept::pymalloc_malloc;
+    alloc.calloc = intercept::pymalloc_calloc;
+    alloc.realloc = intercept::pymalloc_realloc;
+    alloc.free = intercept::pymalloc_free;
+    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
+    PyMem_GetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
+    PyMem_GetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
+    alloc.ctx = &s_orig_pymalloc_allocators.raw;
+    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &alloc);
+    alloc.ctx = &s_orig_pymalloc_allocators.mem;
+    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &alloc);
+    alloc.ctx = &s_orig_pymalloc_allocators.obj;
+    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &alloc);
+}
+
+void
+Tracker::unregisterPymallocHooks() const noexcept
+{
+    assert(d_trace_python_allocators);
+    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
+    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
+    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
 }
 
 // Trace Function interface

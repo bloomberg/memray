@@ -71,6 +71,10 @@ class AllocatorType(enum.IntEnum):
     PVALLOC: int
     MMAP: int
     MUNMAP: int
+    PYMALLOC_MALLOC: int
+    PYMALLOC_CALLOC: int
+    PYMALLOC_REALLOC: int
+    PYMALLOC_FREE: int
 
 def start_thread_trace(frame: FrameType, event: str, arg: Any) -> None: ...
 
@@ -130,6 +134,7 @@ class Tracker:
         file_name: Union[Path, str],
         *,
         native_traces: bool = False,
+        trace_python_allocators: bool = False,
     ) -> None: ...
     @overload
     def __init__(
@@ -157,6 +162,18 @@ class MemoryAllocator:
     def valloc(self, size: int) -> None: ...
     def pvalloc(self, size: int) -> None: ...
     def run_in_pthread(self, callback: Callable[[], None]) -> None: ...
+
+class PymallocDomain(enum.IntEnum):
+    PYMALLOC_RAW: int
+    PYMALLOC_MEM: int
+    PYMALLOC_OBJECT: int
+
+class PymallocMemoryAllocator:
+    def __init__(self, domain: PymallocDomain) -> None: ...
+    def free(self) -> None: ...
+    def malloc(self, size: int) -> None: ...
+    def calloc(self, size: int) -> None: ...
+    def realloc(self, size: int) -> None: ...
 
 class MmapAllocator:
     def __init__(self, size: int, address: int = 0) -> None: ...
