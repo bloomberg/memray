@@ -81,7 +81,7 @@
    <cython_cached_constants>
    Memcheck:Leak
    ...
-   fun:__Pyx_InitCachedConstants
+   fun:*__Pyx_InitCachedConstants*
    ...
 }
 
