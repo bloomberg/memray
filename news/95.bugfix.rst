@@ -1,0 +1,1 @@
+Fixed a bug in the :doc:`stats reporter <stats>` that could result in the largest allocations being omitted from the histogram.
