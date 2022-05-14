@@ -91,7 +91,7 @@ def get_histogram_databins(data: List[int], bins: int) -> List[Tuple[int, int]]:
 
     # Determine the upper bound in bytes for each bin
     steps = [int(math.exp(low + step * (i + 1))) for i in range(bins)]
-    dist = Counter((x - low) // step for x in it)
+    dist = Counter(min((x - low) // step, bins - 1) for x in it)
     return [(steps[b], dist[b]) for b in range(bins)]
 
 
@@ -112,7 +112,6 @@ def draw_histogram(data: List[int], bins: int, *, hist_scale_factor: int = 25) -
         )
 
     data_bins = get_histogram_databins(data, bins=bins)
-
     max_data_bin = max([t[1] for t in data_bins])
     scaled_data_bins = [
         math.ceil((v / max_data_bin) * hist_scale_factor) for _, v in data_bins

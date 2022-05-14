@@ -232,7 +232,7 @@ def test_get_histogram_databins():
         (32299, 3),
         (116099, 2),
         (417312, 6),
-        (1500000, 1),
+        (1500000, 2),
     ]
 
     # WHEN
@@ -274,6 +274,34 @@ def test_get_histogram_databins_rounding():
     assert expected_output == actual_output
 
 
+def test_get_histogram_over_bound():
+    """Data chosen to provoke a scenario where the computed allocation exceeds the upper limit.
+
+    In particular, so that:
+        Counter(min((x - low) // step, bins-1) for x in it) will default to placing it in the
+        last bin instead of creating a new record out of range of the bins.
+    """
+    input_data = [10000000000, 536, 536, 592, 576, 4486]
+    expected_output = [
+        (2859, 4),
+        (15252, 1),
+        (81360, 0),
+        (434009, 0),
+        (2315167, 0),
+        (12349970, 0),
+        (65879369, 0),
+        (351425246, 0),
+        (1874633954, 0),
+        (10000000000, 1),
+    ]
+
+    # WHEN
+    actual_output = get_histogram_databins(input_data, bins=10)
+
+    # THEN
+    assert expected_output == actual_output
+
+
 def test_get_histogram_databins_invalid_bins():
     with pytest.raises(ValueError):
         _ = get_histogram_databins([], bins=0)  # invalid bins value
@@ -305,7 +333,7 @@ def test_draw_histogram():
 \t< 31.542KB : 3 ▇▇▇▇▇▇▇▇▇▇▇▇▇
 \t< 113.378KB: 2 ▇▇▇▇▇▇▇▇▇
 \t< 407.531KB: 6 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
-\t<=1.431MB  : 1 ▇▇▇▇▇
+\t<=1.431MB  : 2 ▇▇▇▇▇▇▇▇▇
 \t----------------------------------------
 \tmax: 1.431MB"""
 
@@ -341,7 +369,7 @@ def test_draw_histogram_smaller_scale_factor():
 \t< 31.542KB : 3 ▇▇▇
 \t< 113.378KB: 2 ▇▇
 \t< 407.531KB: 6 ▇▇▇▇▇
-\t<=1.431MB  : 1 ▇
+\t<=1.431MB  : 2 ▇▇
 \t--------------------
 \tmax: 1.431MB"""
 
