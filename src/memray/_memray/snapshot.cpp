@@ -4,6 +4,13 @@
 
 namespace memray::api {
 
+bool
+LocationKey::operator==(const LocationKey& rhs) const
+{
+    return python_frame_id == rhs.python_frame_id && native_frame_id == rhs.native_frame_id
+           && thread_id == rhs.thread_id;
+}
+
 Interval::Interval(uintptr_t begin, uintptr_t end)
 : begin(begin)
 , end(end){};
@@ -85,11 +92,10 @@ SnapshotAllocationAggregator::getSnapshotAllocations(bool merge_threads)
     for (const auto& it : d_ptr_to_allocation) {
         const Allocation& record = it.second;
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.tid;
-        auto alloc_it = stack_to_allocation.find(std::pair(record.frame_index, thread_id));
+        auto loc_key = LocationKey{record.frame_index, record.native_frame_id, thread_id};
+        auto alloc_it = stack_to_allocation.find(loc_key);
         if (alloc_it == stack_to_allocation.end()) {
-            stack_to_allocation.insert(
-                    alloc_it,
-                    std::pair(std::pair(record.frame_index, thread_id), record));
+            stack_to_allocation.insert(alloc_it, std::pair(loc_key, record));
         } else {
             alloc_it->second.size += record.size;
             alloc_it->second.n_allocations += 1;
@@ -101,13 +107,12 @@ SnapshotAllocationAggregator::getSnapshotAllocations(bool merge_threads)
     // of the ranges in the interval tree.
     for (const auto& [range, allocation] : d_interval_tree) {
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : allocation.tid;
-        auto alloc_it = stack_to_allocation.find(std::pair(allocation.frame_index, thread_id));
+        auto loc_key = LocationKey{allocation.frame_index, allocation.native_frame_id, thread_id};
+        auto alloc_it = stack_to_allocation.find(loc_key);
         if (alloc_it == stack_to_allocation.end()) {
             Allocation new_alloc = allocation;
             new_alloc.size = range.size();
-            stack_to_allocation.insert(
-                    alloc_it,
-                    std::pair(std::pair(allocation.frame_index, thread_id), new_alloc));
+            stack_to_allocation.insert(alloc_it, std::pair(loc_key, new_alloc));
         } else {
             alloc_it->second.size += range.size();
             alloc_it->second.n_allocations += 1;
