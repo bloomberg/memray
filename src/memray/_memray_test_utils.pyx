@@ -211,3 +211,19 @@ cdef class MmapAllocator:
 @cython.profile(True)
 cdef void* _pthread_worker(void* arg) with gil:
     (<object> arg)()
+
+@cython.profile(False)
+def _cython_allocate_in_two_places(size_t size):
+    cdef void* a = allocation_place_a(size)
+    cdef void* b = allocation_place_b(size)
+    free(a)
+    free(b)
+
+@cython.profile(False)
+cdef void* allocation_place_a(size_t size):
+    return valloc(size)
+
+@cython.profile(False)
+cdef void* allocation_place_b(size_t size):
+    return valloc(size)
+ 

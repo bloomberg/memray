@@ -1,0 +1,1 @@
+Fixed a bug that caused Memray reporters to display incorrect stacks when ``--native`` tracking was enabled and native allocations from different locations occurred underneath the same Python stack.

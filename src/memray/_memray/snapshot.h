@@ -16,19 +16,31 @@ using namespace tracking_api;
 
 const thread_id_t NO_THREAD_INFO = 0;
 
+struct LocationKey
+{
+    size_t python_frame_id;
+    size_t native_frame_id;
+    thread_id_t thread_id;
+
+    bool operator==(const LocationKey& rhs) const;
+};
+
 struct index_thread_pair_hash
 {
-    std::size_t operator()(const std::pair<FrameTree::index_t, thread_id_t>& p) const
+    std::size_t operator()(const LocationKey& p) const
     {
-        // The indices and thread IDs are not likely to match as they are fundamentally different
-        // values and have different ranges, so xor should work here and not cause duplicate hashes.
-        return std::hash<FrameTree::index_t>{}(p.first) xor std::hash<thread_id_t>{}(p.second);
+        // Reduce the risk of the Python frame ID and native frame ID hashing
+        // to the same value and cancelling each other out by adding a fixed
+        // offset to one of them. Don't worry about collisions with the TID:
+        // it's of a fundamentally different type and collisions are unlikely.
+        return std::hash<size_t>{}(p.python_frame_id)
+               xor std::hash<size_t>{}(p.native_frame_id + 2147483647)
+               xor std::hash<thread_id_t>{}(p.thread_id);
     }
 };
 
 using allocations_t = std::vector<Allocation>;
-using reduced_snapshot_map_t = std::
-        unordered_map<std::pair<FrameTree::index_t, thread_id_t>, Allocation, index_thread_pair_hash>;
+using reduced_snapshot_map_t = std::unordered_map<LocationKey, Allocation, index_thread_pair_hash>;
 
 struct Interval
 {
