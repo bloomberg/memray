@@ -1,0 +1,1 @@
+Support ``memray run -c "..."`` to profile an in-line script provided on the command line.

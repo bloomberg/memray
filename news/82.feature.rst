@@ -1,0 +1,1 @@
+By default the capture file will now be compressed using LZ4 after tracking completes. This temporarily requires extra disk space while the compression runs, but results in roughly 75% less disk space required in the end. Compression can be disabled with ``--no-compress``.

@@ -1,0 +1,1 @@
+Reduce the size of the ``memray run`` capture file by around 20% by using a more efficient encoding for which allocator was used to perform a given allocation and whether we :ref:`captured a native stack <native tracking>` for that allocation.
