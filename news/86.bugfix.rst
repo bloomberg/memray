@@ -1,1 +1,0 @@
-Make ``memray run`` perform the same modifications to `sys.path` as the interpreter itself would when running a script.

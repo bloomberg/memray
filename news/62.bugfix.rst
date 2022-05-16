@@ -1,1 +1,0 @@
-Previously we attempted to read all allocation records into memory when processing a capture file in our reporters. This could fail on large files, so now we process the file in a streaming fashion instead.
