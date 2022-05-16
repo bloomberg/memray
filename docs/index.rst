@@ -56,3 +56,4 @@ Memray can help with the following problems:
    :caption: Project Information
 
    changelog
+   licenses
