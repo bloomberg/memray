@@ -1,1 +1,0 @@
-Ensure that wheels built by ``make dist`` are reproducible (so that running the build twice produces identical artifacts).

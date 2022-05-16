@@ -1,1 +1,0 @@
-Capture allocations made through the C99 ``aligned_alloc`` function.
