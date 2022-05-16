@@ -24,6 +24,9 @@ Memray can help with the following problems:
 - Find hotspots in code which cause a lot of allocations.
 
 
+.. image:: _static/images/quotes.png
+   :align: center
+
 .. note::
     Memray only works on Linux and cannot be installed on other platforms.
 
