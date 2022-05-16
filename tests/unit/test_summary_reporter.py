@@ -32,9 +32,9 @@ def test_with_multiple_allocations():
     # THEN
     expected = [
         "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-        "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-        "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-        "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+        "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+        "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+        "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
         "│ function4 at /src/lel_4.py          │ 1.000… │ 20.0… │ 1.00… │ 20.0… │     5 │",
         "│ function5 at /src/lel_5.py          │ 1.000… │ 20.0… │ 0.00… │ 0.00% │     5 │",
@@ -77,9 +77,9 @@ def test_with_multiple_allocations_and_native_traces():
     # THEN
     expected = [
         "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-        "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-        "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-        "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+        "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+        "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+        "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
         "│ parent at fun.pyx                   │ 4.990… │ 100.… │ 0.00… │ 0.00% │    15 │",
         "│ grandparent at fun.c                │ 4.990… │ 100.… │ 0.00… │ 0.00% │    15 │",
@@ -117,9 +117,9 @@ def test_sort_column():
     # THEN
     expected = [
         "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-        "┃ Location                            ┃  Total ┃ Total ┃  <Own ┃   Own ┃ Allo… ┃",
-        "┃                                     ┃ Memory ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-        "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+        "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+        "┃                                     ┃  Total ┃ Memo… ┃  <Own ┃ Memo… ┃ Allo… ┃",
+        "┃ Location                            ┃ Memory ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
         "│ function4 at /src/lel_4.py          │ 1.000… │ 20.0… │ 1.00… │ 20.0… │     5 │",
         "│ function3 at /src/lel_3.py          │ 1023.… │ 20.0… │ 1023… │ 20.0… │     4 │",
@@ -160,9 +160,9 @@ def test_max_rows():
     # THEN
     expected = [
         "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-        "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-        "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-        "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+        "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+        "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+        "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
         "│ function4 at /src/lel_4.py          │ 1.000… │ 20.0… │ 1.00… │ 20.0… │     5 │",
         "│ function5 at /src/lel_5.py          │ 1.000… │ 20.0… │ 0.00… │ 0.00% │     5 │",

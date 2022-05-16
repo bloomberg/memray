@@ -749,9 +749,9 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-            "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
         ]
@@ -784,9 +784,9 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-            "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "│ function1 at /src/lel.py            │ 1.000… │ 100.… │ 1.00… │ 100.… │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
@@ -821,9 +821,9 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-            "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     1 │",
             "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     1 │",
@@ -862,9 +862,9 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-            "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
@@ -901,9 +901,9 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-            "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     1 │",
             "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
@@ -940,9 +940,9 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-            "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     5 │",
             "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     4 │",
@@ -995,9 +995,9 @@ class TestTUITable:
         # THEN
         expected = [
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-            "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "│ parent at fun.py                    │ 30.00… │ 100.… │ 0.00… │ 0.00% │     3 │",
             "│ grandparent at fun.py               │ 30.00… │ 100.… │ 0.00… │ 0.00% │     3 │",
@@ -1039,8 +1039,7 @@ class TestTUILayout:
 
         # THEN
         expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
+            "Memray live tracking                                    Fri Jan  1 00:00:00 2021",
             "                                               ╭─ Memory ──────────────────────╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
             "                            some_program.py    │                             … │",
@@ -1050,9 +1049,9 @@ class TestTUILayout:
             "Current heap size: 15.000KB                         Max heap size seen: 15.000KB",
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃ Location                            ┃ <Total ┃ Total ┃   Own ┃   Own ┃ Allo… ┃",
-            "┃                                     ┃ Memor… ┃ Memo… ┃ Memo… ┃ Memo… ┃ Count ┃",
-            "┃                                     ┃        ┃     % ┃       ┃     % ┃       ┃",
+            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
+            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
+            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
             "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
             "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     5 │",
             "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     4 │",
