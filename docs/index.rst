@@ -47,3 +47,9 @@ Memray can help with the following problems:
    table
    tree
    stats
+
+.. toctree::
+   :hidden:
+   :caption: Project Information
+
+   changelog
