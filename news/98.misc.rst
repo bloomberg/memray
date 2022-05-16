@@ -1,0 +1,1 @@
+Support the latest versions of Rich (previously we pinned to an old version due to some formatting changes in more recent versions).

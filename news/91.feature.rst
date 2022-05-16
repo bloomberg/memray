@@ -1,0 +1,1 @@
+Speed up tracking by around 5% by building with link-time optimization (LTO).
