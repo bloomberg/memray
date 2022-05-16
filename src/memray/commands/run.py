@@ -241,18 +241,18 @@ class RunCommand:
             action="store_true",
             default=False,
         )
-        parser.add_argument(
+        compression = parser.add_mutually_exclusive_group()
+        compression.add_argument(
             "--compress-on-exit",
             help="Compress the resulting file using lz4 after tracking completes",
-            dest="compress_on_exit",
             default=True,
             action="store_true",
         )
-        parser.add_argument(
+        compression.add_argument(
             "--no-compress",
             help="Do not compress the resulting file using lz4",
-            dest="compress_on_exit",
-            action="store_false",
+            default=False,
+            action="store_true",
         )
         parser.add_argument(
             "-c",
@@ -292,6 +292,9 @@ class RunCommand:
             )
 
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+        if args.no_compress:
+            args.compress_on_exit = False
+
         if args.live_port is not None and not args.live_remote_mode:
             parser.error("The --live-port argument requires --live-remote")
         if args.follow_fork is True and (args.live_mode or args.live_remote_mode):
