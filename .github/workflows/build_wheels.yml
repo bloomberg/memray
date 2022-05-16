@@ -28,7 +28,7 @@ jobs:
         cibw_arch: [ "x86_64", "i686" ]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.4.0
@@ -48,7 +48,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build sdist
         run: pipx run build --sdist
