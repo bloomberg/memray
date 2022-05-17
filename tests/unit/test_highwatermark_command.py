@@ -162,7 +162,7 @@ class TestReportGeneration:
 
         # THEN
         calls = [
-            call(os.fspath(result_path)),
+            call(os.fspath(result_path), report_progress=True),
             call().get_high_watermark_allocation_records(merge_threads=merge_threads),
             call().get_memory_records(),
         ]
@@ -190,7 +190,7 @@ class TestReportGeneration:
 
         # THEN
         calls = [
-            call(os.fspath(result_path)),
+            call(os.fspath(result_path), report_progress=True),
             call().get_leaked_allocation_records(merge_threads=merge_threads),
             call().get_memory_records(),
         ]

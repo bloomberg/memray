@@ -27,7 +27,7 @@ class TreeCommand:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
             raise MemrayCommandError(f"No such file: {args.results}", exit_code=1)
-        reader = FileReader(os.fspath(args.results))
+        reader = FileReader(os.fspath(args.results), report_progress=True)
         try:
             snapshot = iter(
                 reader.get_high_watermark_allocation_records(merge_threads=False)
