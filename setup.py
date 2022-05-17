@@ -10,7 +10,7 @@ from sys import version_info
 
 from Cython.Build import cythonize
 from setuptools import Extension
-from setuptools import find_namespace_packages
+from setuptools import find_packages
 from setuptools import setup
 from setuptools.command.build_ext import build_ext as build_ext_orig
 
@@ -253,7 +253,7 @@ setup(
     ],
     license="Apache 2.0",
     package_dir={"": "src"},
-    packages=find_namespace_packages(where="src"),
+    packages=find_packages(where="src"),
     ext_modules=cythonize(
         [MEMRAY_EXTENSION],
         include_path=["src/memray"],
