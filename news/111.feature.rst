@@ -1,0 +1,1 @@
+Add a progress bar indicator to the record processing phases in the different reporters so users can have an approximate idea of how much time processing the result files will take.

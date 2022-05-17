@@ -44,7 +44,7 @@ class StatsCommand:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
             raise MemrayCommandError(f"No such file: {args.results}", exit_code=1)
-        reader = FileReader(os.fspath(args.results))
+        reader = FileReader(os.fspath(args.results), report_progress=True)
         try:
             if args.include_all_allocations:
                 snapshot = iter(reader.get_allocation_records())

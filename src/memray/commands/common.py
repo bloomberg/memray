@@ -73,7 +73,7 @@ class HighWatermarkCommand:
         merge_threads: Optional[bool] = None,
     ) -> None:
         try:
-            reader = FileReader(os.fspath(result_path))
+            reader = FileReader(os.fspath(result_path), report_progress=True)
             if show_memory_leaks:
                 snapshot = reader.get_leaked_allocation_records(
                     merge_threads=merge_threads if merge_threads is not None else True

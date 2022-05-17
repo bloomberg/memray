@@ -9,6 +9,13 @@ cimport cython
 import threading
 from datetime import datetime
 
+from rich.progress import Progress
+from rich.progress import SpinnerColumn
+
+from posix.time cimport CLOCK_MONOTONIC
+from posix.time cimport clock_gettime
+from posix.time cimport timespec
+
 from _memray.logging cimport setLogThreshold
 from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
@@ -335,6 +342,91 @@ def start_thread_trace(frame, event, arg):
     return start_thread_trace
 
 
+cdef class ProgressIndicator:
+    cdef bool _report_progress
+    cdef object _indicator
+    cdef object _context_manager
+    cdef object _task
+    cdef object _task_description
+    cdef object _total
+    cdef size_t _cumulative_num_processed
+    cdef size_t _update_interval
+    cdef size_t _ns_between_refreshes
+    cdef timespec _next_refresh
+
+    def __init__(self,
+        str task_description,
+        object total,
+        bool report_progress=True,
+        size_t refresh_per_second=10,
+    ):
+        self._report_progress = report_progress
+        self._total = total
+        self._cumulative_num_processed = 0
+        # Only check the elapsed time every N records
+        self._update_interval = 100_000
+        self._ns_between_refreshes = 1_000_000_000 // refresh_per_second
+        self._next_refresh.tv_sec = 0
+        self._next_refresh.tv_nsec = 0
+        self._task_description = task_description
+        self._task = None
+        self._context_manager = None
+        if report_progress:
+            self._indicator = Progress(
+                SpinnerColumn(),
+                *Progress.get_default_columns(),
+                auto_refresh=False,
+                transient=True,
+            )
+
+    def __enter__(self):
+        if not self._report_progress:
+            return self
+        self._context_manager = self._indicator.__enter__()
+        self._task = self._context_manager.add_task(
+            f"[blue]{self._task_description}...",
+            total=self._total
+        )
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if not self._report_progress:
+            return
+        return self._context_manager.__exit__(type, value, traceback)
+
+    cdef bool _time_for_refresh(self):
+        cdef timespec now
+        cdef int rc = clock_gettime(CLOCK_MONOTONIC, &now)
+
+        if 0 != rc:
+            return True
+
+        if now.tv_sec > self._next_refresh.tv_sec or (
+            now.tv_sec == self._next_refresh.tv_sec
+            and now.tv_nsec > self._next_refresh.tv_nsec
+        ):
+            self._next_refresh = now
+            self._next_refresh.tv_nsec += self._ns_between_refreshes
+            while self._next_refresh.tv_nsec > 1_000_000_000:
+                self._next_refresh.tv_nsec -= 1_000_000_000
+                self._next_refresh.tv_sec += 1
+            return True
+
+        return False
+
+    cdef update(self, size_t n_processed):
+        if not self._report_progress:
+            return
+        self._cumulative_num_processed += n_processed
+        if self._cumulative_num_processed % self._update_interval == 0:
+            if self._time_for_refresh():
+                assert(self._context_manager is not None)
+                self._context_manager.update(
+                    self._task, completed=self._cumulative_num_processed
+                )
+                self._context_manager.refresh()
+
+
 cdef class FileReader:
     cdef cppstring _path
 
@@ -342,14 +434,16 @@ cdef class FileReader:
     cdef vector[_MemoryRecord] _memory_records
     cdef HighWatermark _high_watermark
     cdef object _header
+    cdef bool _report_progress
 
-    def __cinit__(self, object file_name):
+    def __cinit__(self, object file_name, *, bool report_progress=False):
         try:
             self._file = open(file_name)
         except OSError as exc:
             raise OSError(f"Could not open file {file_name}: {exc.strerror}") from None
 
         self._path = "/proc/self/fd/" + str(self._file.fileno())
+        self._report_progress = report_progress
 
         # Initial pass to populate _header, _high_watermark, and _memory_records.
         cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
@@ -366,18 +460,27 @@ cdef class FileReader:
             n_memory_records_approx = (stats["end_time"] - stats["start_time"]) / 10
         self._memory_records.reserve(n_memory_records_approx)
 
+        cdef object total = stats['n_allocations'] or None
         cdef HighWatermarkFinder finder
-        while True:
-            PyErr_CheckSignals()
-            ret = reader.nextRecord()
-            if ret == RecordResult.RecordResultAllocationRecord:
-                finder.processAllocation(reader.getLatestAllocation())
-            elif ret == RecordResult.RecordResultMemoryRecord:
-                self._memory_records.push_back(reader.getLatestMemoryRecord())
-            else:
-                break
-        self._high_watermark = finder.getHighWatermark()
 
+        cdef ProgressIndicator progress_indicator = ProgressIndicator(
+            "Calculating high watermark",
+            total=total,
+            report_progress=self._report_progress
+        )
+        with progress_indicator:
+            while True:
+                PyErr_CheckSignals()
+                ret = reader.nextRecord()
+                if ret == RecordResult.RecordResultAllocationRecord:
+                    finder.processAllocation(reader.getLatestAllocation())
+                    progress_indicator.update(1)
+                elif ret == RecordResult.RecordResultMemoryRecord:
+                    self._memory_records.push_back(reader.getLatestMemoryRecord())
+                else:
+                    break
+        self._high_watermark = finder.getHighWatermark()
+    
     def __dealloc__(self):
         self.close()
 
@@ -408,16 +511,24 @@ cdef class FileReader:
         )
         cdef RecordReader* reader = reader_sp.get()
 
-        while records_to_process > 0:
-            PyErr_CheckSignals()
-            ret = reader.nextRecord()
-            if ret == RecordResult.RecordResultAllocationRecord:
-                aggregator.addAllocation(reader.getLatestAllocation())
-                records_to_process -= 1
-            elif ret == RecordResult.RecordResultMemoryRecord:
-                pass
-            else:
-                break
+        cdef ProgressIndicator progress_indicator = ProgressIndicator(
+            "Processing allocation records",
+            total=records_to_process,
+            report_progress=self._report_progress
+        )
+
+        with progress_indicator:
+            while records_to_process > 0:
+                PyErr_CheckSignals()
+                ret = reader.nextRecord()
+                if ret == RecordResult.RecordResultAllocationRecord:
+                    aggregator.addAllocation(reader.getLatestAllocation())
+                    records_to_process -= 1
+                    progress_indicator.update(1)
+                elif ret == RecordResult.RecordResultMemoryRecord:
+                    pass
+                else:
+                    break
 
         for elem in Py_ListFromSnapshotAllocationRecords(
             aggregator.getSnapshotAllocations(merge_threads)
