@@ -261,5 +261,4 @@ setup(
     cmdclass={
         "build_ext": BuildMemray,
     },
-    package_data={"memray": ["py.typed"]},
 )
