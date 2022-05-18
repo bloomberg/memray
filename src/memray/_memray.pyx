@@ -284,6 +284,9 @@ cdef class Tracker:
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
+        if sampling_interval == 0:
+            sampling_interval = 1
+
         cdef cppstring command_line = " ".join(sys.argv)
         self._native_traces = native_traces
         self._memory_interval_ms = memory_interval_ms
