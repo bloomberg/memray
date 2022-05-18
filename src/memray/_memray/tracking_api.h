@@ -193,7 +193,7 @@ class BernoulliSampler
     std::default_random_engine d_random_engine{};
     size_t d_sampling_interval_in_bytes;
     double d_sampling_probability;
-    long long d_bytes_until_next_sample;
+    size_t d_bytes_until_next_sample;
 };
 
 /**
@@ -320,7 +320,7 @@ class Tracker
     size_t d_sampling_interval;
     elf::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
-    static thread_local BernoulliSampler d_sampler;
+    static thread_local BernoulliSampler t_sampler;
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);

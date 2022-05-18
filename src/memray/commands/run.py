@@ -44,7 +44,7 @@ def _run_tracker(
             kwargs["follow_fork"] = True
         if trace_python_allocators:
             kwargs["trace_python_allocators"] = True
-        if sampling_interval:
+        if sampling_interval != 1:
             kwargs["sampling_interval"] = sampling_interval
         tracker = Tracker(destination=destination, native_traces=args.native, **kwargs)
     except OSError as error:
@@ -236,7 +236,7 @@ class RunCommand:
         )
         parser.add_argument(
             "--sampling-interval",
-            help="The amount of bytes to wait until sampling on avergage. "
+            help="The number of bytes allocated between samples on average. "
             "Set to 1 for perfect accuracy.",
             dest="sampling_interval",
             default=1,

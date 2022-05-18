@@ -4,7 +4,6 @@
 #include <mutex>
 #include <type_traits>
 #include <unistd.h>
-#include <unordered_set>
 #include <utility>
 
 #include <Python.h>
@@ -269,11 +268,12 @@ BernoulliSampler::calculateSampleSize(size_t size)
     }
 
     size_t n_samples = 0;
-    d_bytes_until_next_sample -= size;
-    while (d_bytes_until_next_sample <= 0) {
-        d_bytes_until_next_sample += poissonStep();
+    while (size >= d_bytes_until_next_sample) {
+        size -= d_bytes_until_next_sample;
+        d_bytes_until_next_sample = poissonStep();
         n_samples++;
     }
+    d_bytes_until_next_sample -= size;
 
     return d_sampling_interval_in_bytes * n_samples;
 }
@@ -492,8 +492,6 @@ Tracker::childFork()
             old_tracker->d_sampling_interval));
     RecursionGuard::isActive = false;
 }
-
-// static std::unordered_set<void*> pointers;
 
 static constexpr char TRACE_MARK = 42;
 

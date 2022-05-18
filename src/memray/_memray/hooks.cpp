@@ -262,7 +262,9 @@ aligned_alloc(size_t alignment, size_t size) noexcept
 
     // The **size** parameter has the added restriction that size should be a multiple of alignment
     // so we need to account for this when adding the overhead.
-    void* ret = hooks::aligned_alloc(alignment, size + alignment * MEMRAY_ALLOC_OVERHEAD);
+    assert(alignment > 0 && 0 == (alignment & (alignment - 1)));  // alignment must be a power of 2
+    size_t padded_size = (size + MEMRAY_ALLOC_OVERHEAD + alignment - 1) & -alignment;
+    void* ret = hooks::aligned_alloc(alignment, padded_size);
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
     }
