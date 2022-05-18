@@ -2,7 +2,7 @@ Sampling
 ========
 
 In this section we explain in detail what sampling profiling is and how it is implemented
-in Memray. 
+in Memray.
 
 Bernoulli process
 -----------------
@@ -43,7 +43,7 @@ This minimizes the amount of random numbers we need to generate.
 
 As is customary in this method, an optimization here is that if a given
 allocation is bigger than the average ammount of bytes we need to wait until the
-next sample, we take it directly as is very likely that we are going to sample
+next sample, we take it directly as it's very likely that we are going to sample
 it at least once.
 
 This process is entirely dependent on the probability of sampling a single byte in
@@ -94,9 +94,10 @@ our accuracy so we can choose the right value for every situation.
 
 In the following figure, you can see the probability of taking a sample
 for different sampling sizes, depending on the allocation size.  We can
-see from the chart below that if we 16X our sampling rate from 32B to 512B
-we still have a 95% chance of sampling anything above 1.5KiB. If we 64X it to
-2048B we still have an 80% chance to sample anything above 3.5KiB.
+see from the chart below that if raise our sample size by a factor of 16 from
+32B to 512B we have a 95% chance of collecting at least 1 sample after
+allocating 1.5KiB. If we multiply it by a factor of 64 to 2048B we still have
+an 80% chance of collecting at least 1 sample after 3.5KiB are allocated.
 
 .. image:: _static/images/sampling_probability.png
     :align: center
@@ -105,11 +106,11 @@ we still have a 95% chance of sampling anything above 1.5KiB. If we 64X it to
 In the following figure, the `Mean absolute percentage error
 <https://en.wikipedia.org/wiki/Mean_absolute_percentage_error>`_ is displayed
 for different sampling sizes and different allocation sizes under the assumption
-that the allocations that have at least one sample. These are the allocations that
+that the allocations have at least one sample. These are the allocations that
 will be dumped to the result file. You can read the graph in the following way:
 "Given a particular sampling rate and an allocation size, when the sampler finally
-decides to take a sample, how far off are we going to account for the allocation
-compared with its true size?". For example, considering allocations of 1 byte
+decides to take a sample, how far off can our approximation of the allocation size
+be from its true size?". For example, considering allocations of 1 byte
 and a sampling size of 1024 bytes, as the sampler sees the first allocations it
 will do nothing because the sampling size is much bigger (1024 bytes vs 1 bytes)
 but when it finally decides to take a sample (how many bytes it will wait for

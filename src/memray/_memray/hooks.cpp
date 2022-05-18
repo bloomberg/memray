@@ -221,11 +221,11 @@ realloc(void* ptr, size_t size) noexcept
 {
     assert(hooks::realloc);
 
-    if (ptr != nullptr) {
-        tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
-    }
     void* ret = hooks::realloc(ptr, size + MEMRAY_ALLOC_OVERHEAD);
     if (ret) {
+        if (ptr != nullptr) {
+            tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+        }
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::REALLOC);
     }
     return ret;

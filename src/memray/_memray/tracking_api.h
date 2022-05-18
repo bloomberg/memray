@@ -182,7 +182,7 @@ class BernoulliSampler
 {
   public:
     // Methods
-    void setSamplingInterval(size_t sampling_interval);
+    BernoulliSampler(size_t sampling_interval);
     size_t calculateSampleSize(size_t size);
 
   private:
@@ -190,10 +190,9 @@ class BernoulliSampler
     size_t poissonStep();
 
     // Data members
-    std::default_random_engine d_random_engine{};
     size_t d_sampling_interval_in_bytes;
     double d_sampling_probability;
-    size_t d_bytes_until_next_sample;
+    std::atomic<size_t> d_bytes_until_next_sample;
 };
 
 /**
@@ -320,7 +319,7 @@ class Tracker
     size_t d_sampling_interval;
     elf::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
-    static thread_local BernoulliSampler t_sampler;
+    BernoulliSampler d_sampler;
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);

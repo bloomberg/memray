@@ -33,7 +33,8 @@ Although Memray is a tracing profiler (this means that Memray will record
 every single allocation and deallocation that the traced program makes), it can
 also act as a sampling profiler. This is especially useful for profiling the
 performance of a long running program, as the result files from these programs
-tend to be very large and can be difficult to analyze. When using Memray as a
+tend to be very large and can be difficult to analyze since the reporters will
+take a long time to process these large capture files. When using Memray as a
 sampling profiler, a statistical process known as a "Bernoulli process" will be
 used to sample the program instead. The result file in this mode will not
 accurately represent all allocations that ever happened but a

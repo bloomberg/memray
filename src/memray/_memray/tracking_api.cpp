@@ -2,6 +2,7 @@
 #include <limits.h>
 #include <link.h>
 #include <mutex>
+#include <stdint.h>
 #include <type_traits>
 #include <unistd.h>
 #include <utility>
@@ -13,8 +14,6 @@
 #include "record_writer.h"
 #include "records.h"
 #include "tracking_api.h"
-
-#include <stdint.h>
 
 using namespace memray::exception;
 using namespace std::chrono_literals;
@@ -250,10 +249,8 @@ std::atomic<bool> Tracker::d_active = false;
 std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
-thread_local BernoulliSampler Tracker::d_sampler{};
 
-void
-BernoulliSampler::setSamplingInterval(size_t sampling_interval)
+BernoulliSampler::BernoulliSampler(size_t sampling_interval)
 {
     d_sampling_interval_in_bytes = sampling_interval;
     d_sampling_probability = 1.0 / d_sampling_interval_in_bytes;
@@ -268,12 +265,43 @@ BernoulliSampler::calculateSampleSize(size_t size)
     }
 
     size_t n_samples = 0;
-    while (size >= d_bytes_until_next_sample) {
-        size -= d_bytes_until_next_sample;
-        d_bytes_until_next_sample = poissonStep();
-        n_samples++;
+    size_t next_step = 0;
+    while (size) {
+        size_t loaded_bytes_until_next_sample =
+                d_bytes_until_next_sample.load(std::memory_order::memory_order_relaxed);
+        if (size >= loaded_bytes_until_next_sample) {
+            // We're being sampled! We need to replace our atomic entirely.
+            // Randomly decide when to stop next, if we haven't already.
+            if (!next_step) {
+                next_step = poissonStep();
+            }
+
+            if (!d_bytes_until_next_sample.compare_exchange_weak(
+                        loaded_bytes_until_next_sample,
+                        next_step,
+                        std::memory_order::memory_order_relaxed))
+            {
+                continue;  // Didn't update the atomic; loop and try again.
+            }
+
+            // Successfully updated the atomic; some bytes are accounted for.
+            next_step = 0;  // Our random number has been used
+            size -= loaded_bytes_until_next_sample;
+            n_samples++;
+        } else {
+            // We're not being sampled; just decrement our atomic.
+            if (!d_bytes_until_next_sample.compare_exchange_weak(
+                        loaded_bytes_until_next_sample,
+                        loaded_bytes_until_next_sample - size,
+                        std::memory_order::memory_order_relaxed))
+            {
+                continue;  // Didn't update the atomic; loop and try again.
+            }
+
+            // Successfully updated the atomic; all bytes are accounted for.
+            size = 0;
+        }
     }
-    d_bytes_until_next_sample -= size;
 
     return d_sampling_interval_in_bytes * n_samples;
 }
@@ -281,8 +309,10 @@ BernoulliSampler::calculateSampleSize(size_t size)
 size_t
 BernoulliSampler::poissonStep()
 {
+    static_assert(std::is_trivially_destructible<std::default_random_engine>::value);
+    static thread_local std::default_random_engine s_random_engine;
     std::exponential_distribution<double> exponential_dist(d_sampling_probability);
-    return static_cast<size_t>(exponential_dist(d_random_engine)) + 1;
+    return static_cast<size_t>(exponential_dist(s_random_engine)) + 1;
 }
 
 Tracker::Tracker(
@@ -298,6 +328,7 @@ Tracker::Tracker(
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
 , d_sampling_interval(sampling_interval)
+, d_sampler(sampling_interval)
 {
     g_tracker_generation++;
 
@@ -328,7 +359,6 @@ Tracker::Tracker(
 
     d_background_thread = std::make_unique<BackgroundThread>(d_writer, memory_interval);
     d_background_thread->start();
-    d_sampler.setSamplingInterval(sampling_interval);
 
     tracking_api::Tracker::activate();
 }

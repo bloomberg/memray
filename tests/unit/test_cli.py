@@ -49,7 +49,6 @@ class TestRunSubCommand:
         tracker_mock.assert_called_with(
             destination=FileDestination("memray-foobar.0.bin", overwrite=False),
             native_traces=False,
-            sampling_interval=1,
         )
 
     def test_run_with_native_mode(
@@ -63,7 +62,6 @@ class TestRunSubCommand:
         tracker_mock.assert_called_with(
             destination=FileDestination("memray-foobar.0.bin", overwrite=False),
             native_traces=True,
-            sampling_interval=1,
         )
 
     def test_run_with_pymalloc_tracing(
@@ -78,7 +76,6 @@ class TestRunSubCommand:
             destination=FileDestination("memray-foobar.0.bin", overwrite=False),
             native_traces=False,
             trace_python_allocators=True,
-            sampling_interval=1,
         )
 
     def test_run_override_output(
@@ -91,7 +88,6 @@ class TestRunSubCommand:
         tracker_mock.assert_called_with(
             destination=FileDestination("my_output", overwrite=False),
             native_traces=False,
-            sampling_interval=1,
         )
 
     def test_run_overwrite_output_file(
@@ -104,7 +100,6 @@ class TestRunSubCommand:
         tracker_mock.assert_called_with(
             destination=FileDestination("my_output", overwrite=True),
             native_traces=False,
-            sampling_interval=1,
         )
 
     def test_run_module(self, getpid_mock, runpy_mock, tracker_mock, validate_mock):
@@ -149,7 +144,6 @@ class TestRunSubCommand:
                 "./directory/memray-foobar.py.0.bin", overwrite=False
             ),
             native_traces=False,
-            sampling_interval=1,
         )
 
     @patch("memray.commands.run.subprocess.Popen")
@@ -196,7 +190,6 @@ class TestRunSubCommand:
         tracker_mock.assert_called_with(
             destination=SocketDestination(server_port=1234, address="127.0.0.1"),
             native_traces=False,
-            sampling_interval=1,
         )
 
     def test_run_with_live_remote_and_live_port(
@@ -220,7 +213,6 @@ class TestRunSubCommand:
         tracker_mock.assert_called_with(
             destination=SocketDestination(server_port=1111, address="127.0.0.1"),
             native_traces=False,
-            sampling_interval=1,
         )
 
     def test_run_with_live_port_but_not_live_remote(
@@ -248,7 +240,6 @@ class TestRunSubCommand:
             destination=FileDestination("memray-foobar.0.bin", overwrite=False),
             native_traces=False,
             follow_fork=True,
-            sampling_interval=1,
         )
 
     def test_run_with_follow_fork_and_live_mode(
