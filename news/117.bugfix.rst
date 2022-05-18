@@ -1,0 +1,1 @@
+Fix a crash with SIGBUS when the file system fills up while ``memray run`` is writing a capture file.
