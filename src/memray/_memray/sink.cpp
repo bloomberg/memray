@@ -136,19 +136,15 @@ FileSink::grow(size_t needed)
     new_size = (new_size / 4096 + 1) * 4096;
     assert(new_size > d_fileSize);  // check for overflow
 
-    // Seek to 1 byte before the new size
-    off_t offset = lseek(d_fd, new_size - 1, SEEK_SET);
-    if (offset == -1) {
-        return false;
-    }
-
-    // Then write 1 byte.
-    ssize_t rc;
+    off_t delta = new_size - d_fileSize;
+    int rc;
     do {
-        rc = write(d_fd, "\0", 1);
-    } while (rc < 0 && errno == EINTR);
+        // posix_fallocate returns an error number instead of setting errno
+        rc = posix_fallocate(d_fd, d_fileSize, delta);
+    } while (rc == EINTR);
 
-    if (rc < 0) {
+    if (rc != 0) {
+        errno = rc;
         return false;
     }
 
