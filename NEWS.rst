@@ -23,7 +23,7 @@ Features
 - Capture allocations made through the C99 ``aligned_alloc`` function. (#79)
 - By default the capture file will now be compressed using LZ4 after tracking completes. This temporarily requires extra disk space while the compression runs, but results in roughly 75% less disk space required in the end. Compression can be disabled with ``--no-compress``. (#82)
 - Speed up tracking by around 5% by building with link-time optimization (LTO). (#91)
-- Add a new ``--track-python-allocators`` option to ``memray run`` that allows tracking all allocations made using the Python allocators. This will result in bigger output files and slower profiling but it allows getting insights about all of the interpreter's memory allocations. (#92)
+- Add a new ``--trace-python-allocators`` option to ``memray run`` that allows tracking all allocations made using the Python allocators. This will result in bigger output files and slower profiling but it allows getting insights about all of the interpreter's memory allocations. (#92)
 
 
 Bug Fixes
