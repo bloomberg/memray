@@ -97,7 +97,7 @@ with Memray, while still allowing Memray to show you each place where your
 program needs to acquire more memory.
 
 You can ask Memray to show you each individual object being created and
-destroyed, instead, by proving the ``--track-python-allocators`` argument to
+destroyed, instead, by proving the ``--trace-python-allocators`` argument to
 the ``run`` subcommand. This records a lot more data and makes profiling much
 slower. It will show you all allocations, even ones that don't result in your
 program requesting more memory from the system because the interpreter already
@@ -111,7 +111,7 @@ especially when tracking down memory leaks.
 
 .. code:: shell
 
-  memray run --track-python-allocators example.py
+  memray run --trace-python-allocators example.py
 
 .. caution:: 
   Tracking the Python allocators will result in much larger report files and
