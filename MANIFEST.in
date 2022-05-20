@@ -19,7 +19,7 @@ recursive-exclude tests *
 recursive-exclude news *
 recursive-exclude vendor *
 
-inlude README.md
+include README.md
 include Makefile
 include pyproject.toml
 include package.json
