@@ -78,14 +78,14 @@ RecordReader::readHeader(HeaderRecord& header)
     }
     header.command_line.reserve(4096);
     if (!d_input->read(reinterpret_cast<char*>(&header.native_traces), sizeof(header.native_traces))
-        || !d_input->read(reinterpret_cast<char*>(&header.stats), sizeof(header.stats))
+        || !d_input->read(reinterpret_cast<char*>(&header.start_time), sizeof(header.start_time))
         || !d_input->getline(header.command_line, '\0'))
     {
         throw std::ios_base::failure("Failed to read input file.");
     }
 
     if (!d_input->read(reinterpret_cast<char*>(&header.pid), sizeof(header.pid))) {
-        throw std::ios_base::failure("Failed to read tPID from input file.");
+        throw std::ios_base::failure("Failed to read PID from input file.");
     }
     if (!d_input->read(
                 reinterpret_cast<char*>(&header.python_allocator),
@@ -140,8 +140,6 @@ RecordReader::RecordReader(std::unique_ptr<Source> source, bool track_stacks)
     d_thread_names.reserve(16);
 
     if (d_track_stacks) {
-        TrackerStats& stats = d_header.stats;
-        d_frame_map.reserve(stats.n_frames);
         d_native_frames.reserve(d_header.native_traces ? 2048 : 0);
     }
 }
@@ -394,7 +392,7 @@ RecordReader::parseMemoryRecord(MemoryRecord* record)
     if (!readVarint(&record->rss) || !readVarint(&record->ms_since_epoch)) {
         return false;
     }
-    record->ms_since_epoch += d_header.stats.start_time;
+    record->ms_since_epoch += d_header.start_time;
     return true;
 }
 
@@ -418,6 +416,20 @@ RecordReader::processContextSwitch(thread_id_t tid)
     return true;
 }
 
+bool
+RecordReader::parseTrackerStats(TrackerStats* record)
+{
+    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+}
+
+bool
+RecordReader::processTrackerStats(const TrackerStats& record)
+{
+    d_latest_stats = record;
+    d_frame_map.reserve(record.n_frames);
+    return true;
+}
+
 RecordReader::RecordResult
 RecordReader::nextRecord()
 {
@@ -430,8 +442,20 @@ RecordReader::nextRecord()
         }
 
         switch (record_type_and_flags.record_type) {
-            case RecordType::UNINITIALIZED: {
-                // Skip it. All remaining bytes should be 0.
+            case RecordType::OTHER: {
+                switch (static_cast<OtherRecordType>(record_type_and_flags.flags)) {
+                    case OtherRecordType::PADDING: {
+                        // Skip it.
+                    } break;
+                    case OtherRecordType::STATS: {
+                        TrackerStats record;
+                        if (!parseTrackerStats(&record) || !processTrackerStats(record)) {
+                            if (d_input->is_open()) LOG(ERROR) << "Failed to process stats record";
+                            return RecordResult::ERROR;
+                        }
+                        return RecordResult::STATS_RECORD;
+                    } break;
+                }
             } break;
             case RecordType::ALLOCATION: {
                 AllocationRecord record;
@@ -623,6 +647,12 @@ RecordReader::getThreadName(thread_id_t tid)
     return "";
 }
 
+TrackerStats
+RecordReader::getLatestStats() const noexcept
+{
+    return d_latest_stats;
+}
+
 Allocation
 RecordReader::getLatestAllocation() const noexcept
 {
@@ -653,17 +683,13 @@ RecordReader::dumpAllRecords()
             python_allocator = "other";
             break;
     }
-    printf("HEADER magic=%.*s version=%d native_traces=%s"
-           " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
+    printf("HEADER magic=%.*s version=%d native_traces=%s start_time=%lld"
            " pid=%d command_line=%s python_allocator=%s\n",
            (int)sizeof(d_header.magic),
            d_header.magic,
            d_header.version,
            d_header.native_traces ? "true" : "false",
-           d_header.stats.n_allocations,
-           d_header.stats.n_frames,
-           d_header.stats.start_time,
-           d_header.stats.end_time,
+           d_header.start_time,
            d_header.pid,
            d_header.command_line.c_str(),
            python_allocator.c_str());
@@ -681,8 +707,22 @@ RecordReader::dumpAllRecords()
         }
 
         switch (record_type_and_flags.record_type) {
-            case RecordType::UNINITIALIZED: {
-                // Skip it. All remaining bytes should be 0.
+            case RecordType::OTHER: {
+                switch (static_cast<OtherRecordType>(record_type_and_flags.flags)) {
+                    case OtherRecordType::PADDING: {
+                        // Skip it.
+                    } break;
+                    case OtherRecordType::STATS: {
+                        TrackerStats record;
+                        if (!parseTrackerStats(&record)) {
+                            Py_RETURN_NONE;
+                        }
+                        printf("TRACKER_STATS time=%lld n_allocations=%zd n_frames=%zd\n",
+                               record.time,
+                               record.n_allocations,
+                               record.n_frames);
+                    } break;
+                }
             } break;
             case RecordType::ALLOCATION_WITH_NATIVE: {
                 printf("ALLOCATION_WITH_NATIVE ");

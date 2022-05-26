@@ -1,6 +1,7 @@
 from _memray.records cimport Allocation
 from _memray.records cimport HeaderRecord
 from _memray.records cimport MemoryRecord
+from _memray.records cimport TrackerStats
 from _memray.source cimport Source
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
@@ -12,6 +13,7 @@ cdef extern from "record_reader.h" namespace "memray::api":
     cdef enum RecordResult 'memray::api::RecordReader::RecordResult':
         RecordResultAllocationRecord 'memray::api::RecordReader::RecordResult::ALLOCATION_RECORD'
         RecordResultMemoryRecord 'memray::api::RecordReader::RecordResult::MEMORY_RECORD'
+        RecordResultStatsRecord 'memray::api::RecordReader::RecordResult::STATS_RECORD'
         RecordResultError 'memray::api::RecordReader::RecordResult::ERROR'
         RecordResultEndOfFile 'memray::api::RecordReader::RecordResult::END_OF_FILE'
 
@@ -30,3 +32,4 @@ cdef extern from "record_reader.h" namespace "memray::api":
         string getThreadName(long int tid) except+
         Allocation getLatestAllocation()
         MemoryRecord getLatestMemoryRecord()
+        TrackerStats getLatestStats()

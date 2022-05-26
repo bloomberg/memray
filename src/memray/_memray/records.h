@@ -14,14 +14,14 @@
 namespace memray::tracking_api {
 
 const char MAGIC[] = "memray";
-const int CURRENT_HEADER_VERSION = 7;
+const int CURRENT_HEADER_VERSION = 8;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
 using millis_t = long long;
 
 enum class RecordType : unsigned char {
-    UNINITIALIZED = 0,
+    OTHER = 0,
     ALLOCATION = 1,
     ALLOCATION_WITH_NATIVE = 2,
     FRAME_INDEX = 3,
@@ -36,10 +36,15 @@ enum class RecordType : unsigned char {
     CONTEXT_SWITCH = 12,
 };
 
+enum class OtherRecordType : unsigned char {
+    PADDING = 0,
+    STATS = 1,
+};
+
 struct RecordTypeAndFlags
 {
     RecordTypeAndFlags()
-    : record_type(RecordType::UNINITIALIZED)
+    : record_type(RecordType::OTHER)
     , flags(0)
     {
     }
@@ -61,10 +66,9 @@ static_assert(sizeof(RecordTypeAndFlags) == 1);
 
 struct TrackerStats
 {
+    millis_t time{};
     size_t n_allocations{0};
     size_t n_frames{0};
-    millis_t start_time{};
-    millis_t end_time{};
 };
 
 enum PythonAllocatorType {
@@ -79,7 +83,7 @@ struct HeaderRecord
     char magic[sizeof(MAGIC)];
     int version{};
     bool native_traces{false};
-    TrackerStats stats{};
+    millis_t start_time{};
     std::string command_line;
     int pid{-1};
     PythonAllocatorType python_allocator;

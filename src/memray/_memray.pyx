@@ -434,6 +434,7 @@ cdef class FileReader:
     cdef vector[_MemoryRecord] _memory_records
     cdef HighWatermark _high_watermark
     cdef object _header
+    cdef object _stats
     cdef bool _report_progress
 
     def __cinit__(self, object file_name, *, bool report_progress=False):
@@ -453,26 +454,33 @@ cdef class FileReader:
         cdef RecordReader* reader = reader_sp.get()
 
         self._header = reader.getHeader()
-        stats = self._header["stats"]
+        self._memory_records.reserve(2048)
 
-        n_memory_records_approx = 2048
-        if 0 < stats["start_time"] < stats["end_time"]:
-            n_memory_records_approx = (stats["end_time"] - stats["start_time"]) / 10
-        self._memory_records.reserve(n_memory_records_approx)
-
-        cdef object total = stats['n_allocations'] or None
+        cdef object total = None
         cdef HighWatermarkFinder finder
 
-        cdef ProgressIndicator progress_indicator = ProgressIndicator(
-            "Calculating high watermark",
-            total=total,
-            report_progress=self._report_progress
-        )
-        with progress_indicator:
+        cdef ProgressIndicator progress_indicator = None
+        with contextlib.ExitStack() as stack:
             while True:
                 PyErr_CheckSignals()
                 ret = reader.nextRecord()
-                if ret == RecordResult.RecordResultAllocationRecord:
+                if ret == RecordResult.RecordResultStatsRecord:
+                    self._stats = reader.getLatestStats()
+                    if 0 < self._header["start_time"] < self._stats["time"]:
+                        n_memory_records_approx = (
+                            (self._stats["time"] - self._header["start_time"]) / 10
+                        )
+                        self._memory_records.reserve(n_memory_records_approx)
+                    total = self._stats["n_allocations"]
+                elif ret == RecordResult.RecordResultAllocationRecord:
+                    if progress_indicator is None:
+                        progress_indicator = ProgressIndicator(
+                            "Calculating high watermark",
+                            total=total,
+                            report_progress=self._report_progress,
+                        )
+                        stack.enter_context(progress_indicator)
+
                     finder.processAllocation(reader.getLatestAllocation())
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
@@ -480,7 +488,7 @@ cdef class FileReader:
                 else:
                     break
         self._high_watermark = finder.getHighWatermark()
-    
+
     def __dealloc__(self):
         self.close()
 
@@ -527,6 +535,8 @@ cdef class FileReader:
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
                     pass
+                elif ret == RecordResult.RecordResultStatsRecord:
+                    pass
                 else:
                     break
 
@@ -566,6 +576,8 @@ cdef class FileReader:
                 yield alloc
             elif ret == RecordResult.RecordResultMemoryRecord:
                 pass
+            elif ret == RecordResult.RecordResultStatsRecord:
+                pass
             else:
                 break
 
@@ -581,7 +593,6 @@ cdef class FileReader:
             return datetime.fromtimestamp(millis // 1000).replace(
                 microsecond=millis % 1000 * 1000)
 
-        stats = self._header["stats"]
         allocator_id_to_name = {
             PythonAllocatorType.PYTHON_ALLOCATOR_PYMALLOC: "pymalloc",
             PythonAllocatorType.PYTHON_ALLOCATOR_PYMALLOC_DEBUG: "pymalloc debug",
@@ -589,10 +600,10 @@ cdef class FileReader:
             PythonAllocatorType.PYTHON_ALLOCATOR_OTHER: "unknown",
         }
         python_allocator = allocator_id_to_name[self._header["python_allocator"]]
-        return Metadata(start_time=millis_to_dt(stats["start_time"]),
-                        end_time=millis_to_dt(stats["end_time"]),
-                        total_allocations=stats["n_allocations"],
-                        total_frames=stats["n_frames"],
+        return Metadata(start_time=millis_to_dt(self._header["start_time"]),
+                        end_time=millis_to_dt(self._stats["time"]),
+                        total_allocations=self._stats["n_allocations"],
+                        total_frames=self._stats["n_frames"],
                         peak_memory=self._high_watermark.peak_memory,
                         command_line=self._header["command_line"],
                         pid=self._header["pid"],

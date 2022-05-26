@@ -23,7 +23,8 @@ BackgroundSocketReader::backgroundThreadWorker()
                 break;
             }
 
-            case RecordResult::MEMORY_RECORD: {
+            case RecordResult::MEMORY_RECORD:
+            case RecordResult::STATS_RECORD: {
                 break;
             }
             case RecordResult::END_OF_FILE:

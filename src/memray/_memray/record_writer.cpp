@@ -36,17 +36,26 @@ RecordWriter::RecordWriter(
         const std::string& command_line,
         bool native_traces)
 : d_sink(std::move(sink))
-, d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
+, d_stats{duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()}
 {
     d_header = HeaderRecord{
             "",
             d_version,
             native_traces,
-            d_stats,
+            duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count(),
             command_line,
             ::getpid(),
             getPythonAllocator()};
     strncpy(d_header.magic, MAGIC, sizeof(d_header.magic));
+}
+
+RecordWriter::~RecordWriter()
+{
+    RecordTypeAndFlags token{RecordType::OTHER, static_cast<unsigned char>(OtherRecordType::STATS)};
+    d_stats.time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    if (writeSimpleType(token)) {
+        writeSimpleType(d_stats);
+    }
 }
 
 bool
@@ -54,17 +63,11 @@ RecordWriter::writeHeader(bool seek_to_start)
 {
     std::lock_guard<std::mutex> lock(d_mutex);
     if (seek_to_start) {
-        // If we can't seek to the beginning to the stream (e.g. dealing with a socket), just give
-        // up.
-        if (!d_sink->seek(0, SEEK_SET)) {
-            return false;
-        }
+        return true;
     }
 
-    d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-    d_header.stats = d_stats;
     if (!writeSimpleType(d_header.magic) or !writeSimpleType(d_header.version)
-        or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.stats)
+        or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.start_time)
         or !writeString(d_header.command_line.c_str()) or !writeSimpleType(d_header.pid)
         or !writeSimpleType(d_header.python_allocator))
     {

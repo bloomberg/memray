@@ -21,6 +21,8 @@ class RecordWriter
             const std::string& command_line,
             bool native_traces);
 
+    ~RecordWriter();
+
     RecordWriter(RecordWriter& other) = delete;
     RecordWriter(RecordWriter&& other) = delete;
     void operator=(const RecordWriter&) = delete;
@@ -161,7 +163,7 @@ bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
 {
     RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
     return writeSimpleType(token) && writeVarint(record.rss)
-           && writeVarint(record.ms_since_epoch - d_stats.start_time);
+           && writeVarint(record.ms_since_epoch - d_header.start_time);
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)

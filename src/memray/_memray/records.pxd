@@ -19,15 +19,14 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        vector[Frame] stack_trace
 
    struct TrackerStats:
+       long long time
        size_t n_allocations
        size_t n_frames
-       long long start_time
-       long long end_time
 
    struct HeaderRecord:
        int version
        bool native_traces
-       TrackerStats stats
+       long long start_time
        string command_line
        int pid
        int python_allocator

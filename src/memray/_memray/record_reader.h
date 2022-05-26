@@ -29,6 +29,7 @@ class RecordReader
 {
   public:
     enum class RecordResult {
+        STATS_RECORD,
         ALLOCATION_RECORD,
         MEMORY_RECORD,
         ERROR,
@@ -48,6 +49,7 @@ class RecordReader
     HeaderRecord getHeader() const noexcept;
     PyObject* dumpAllRecords();
     std::string getThreadName(thread_id_t tid);
+    TrackerStats getLatestStats() const noexcept;
     Allocation getLatestAllocation() const noexcept;
     MemoryRecord getLatestMemoryRecord() const noexcept;
 
@@ -81,6 +83,7 @@ class RecordReader
     std::vector<UnresolvedNativeFrame> d_native_frames{};
     DeltaEncodedFields d_last;
     std::unordered_map<thread_id_t, std::string> d_thread_names;
+    TrackerStats d_latest_stats;
     Allocation d_latest_allocation;
     MemoryRecord d_latest_memory_record;
 
@@ -120,6 +123,9 @@ class RecordReader
 
     [[nodiscard]] bool parseContextSwitch(thread_id_t* tid);
     [[nodiscard]] bool processContextSwitch(thread_id_t tid);
+
+    [[nodiscard]] bool parseTrackerStats(TrackerStats* record);
+    [[nodiscard]] bool processTrackerStats(const TrackerStats& record);
 
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
