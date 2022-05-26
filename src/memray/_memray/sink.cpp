@@ -1,4 +1,5 @@
 #include <cerrno>
+#include <chrono>
 #include <cstdio>
 
 #include <arpa/inet.h>
@@ -125,6 +126,55 @@ FileSink::seek(off_t offset, int whence)
     size_t bytesRemaining = d_fileSize - offset;
     d_bufferEnd = d_buffer + std::min(bytesRemaining, BUFFER_SIZE);
 
+    return true;
+}
+
+bool
+FileSink::allocateStats(tracking_api::TrackerStats** stats)
+{
+    using namespace std::chrono;
+
+    const size_t PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
+    const size_t MAPPING_SIZE = 2 * PAGE_SIZE;
+    if (d_statsMapping != nullptr) {
+        munmap(d_statsMapping, MAPPING_SIZE);
+    }
+
+    // Pad up to alignment requirement
+    char padding = 0;
+    const size_t alignment = alignof(tracking_api::TrackerStats);
+    while ((d_bufferNeedle - d_buffer) % alignment != alignment - 1) {
+        if (!writeAll(&padding, sizeof(padding))) {
+            return false;
+        }
+    }
+
+    tracking_api::RecordTypeAndFlags token{
+            tracking_api::RecordType::OTHER,
+            static_cast<unsigned>(tracking_api::OtherRecordType::STATS)};
+    if (!writeAll(reinterpret_cast<char*>(&token), sizeof(token))) {
+        return false;
+    }
+
+    size_t offset_within_file = d_bufferOffset + (d_bufferNeedle - d_buffer);
+    assert(0 == offset_within_file % alignment);
+
+    static_assert(std::is_trivially_copyable<tracking_api::TrackerStats>::value);
+    tracking_api::TrackerStats new_stats{
+            duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()};
+    if (!writeAll(reinterpret_cast<char*>(&new_stats), sizeof(new_stats))) {
+        return false;
+    }
+
+    size_t mapping_start = offset_within_file / PAGE_SIZE * PAGE_SIZE;
+    size_t offset_within_mapping = offset_within_file - mapping_start;
+    d_statsMapping = static_cast<char*>(
+            mmap(nullptr, MAPPING_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, d_fd, mapping_start));
+    if (d_statsMapping == MAP_FAILED) {
+        d_statsMapping = nullptr;
+        return false;
+    }
+    *stats = reinterpret_cast<tracking_api::TrackerStats*>(d_statsMapping + offset_within_mapping);
     return true;
 }
 
@@ -281,6 +331,13 @@ SocketSink::seek(__attribute__((unused)) off_t offset, __attribute__((unused)) i
     return false;
 }
 
+bool
+SocketSink::allocateStats(tracking_api::TrackerStats** stats)
+{
+    *stats = &d_stats;
+    return true;
+}
+
 std::unique_ptr<Sink>
 SocketSink::cloneInChildProcess()
 {
@@ -294,6 +351,7 @@ SocketSink::cloneInChildProcess()
 SocketSink::~SocketSink()
 {
     if (d_socket_open) {
+        writeAll(reinterpret_cast<char*>(&d_stats), sizeof(d_stats));
         flush();
         ::close(d_socket_fd);
         d_socket_open = false;
@@ -371,6 +429,13 @@ NullSink::writeAll(const char*, size_t)
 bool
 NullSink::seek(off_t, int)
 {
+    return true;
+}
+
+bool
+NullSink::allocateStats(tracking_api::TrackerStats** stats)
+{
+    *stats = &d_stats;
     return true;
 }
 

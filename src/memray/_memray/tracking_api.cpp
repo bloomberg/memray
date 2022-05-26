@@ -276,7 +276,7 @@ Tracker::Tracker(
         pthread_atfork(&prepareFork, &parentFork, &childFork);
     });
 
-    if (!d_writer->writeHeader(false)) {
+    if (!d_writer->writeHeader()) {
         throw IoError{"Failed to write output header"};
     }
     updateModuleCache();
@@ -304,7 +304,6 @@ Tracker::~Tracker()
     if (d_trace_python_allocators) {
         unregisterPymallocHooks();
     }
-    d_writer->writeHeader(true);
     d_writer.reset();
 
     // Note: this must not be unset before the hooks are uninstalled.

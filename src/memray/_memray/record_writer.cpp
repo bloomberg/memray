@@ -36,7 +36,6 @@ RecordWriter::RecordWriter(
         const std::string& command_line,
         bool native_traces)
 : d_sink(std::move(sink))
-, d_stats{duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()}
 {
     d_header = HeaderRecord{
             "",
@@ -51,25 +50,19 @@ RecordWriter::RecordWriter(
 
 RecordWriter::~RecordWriter()
 {
-    RecordTypeAndFlags token{RecordType::OTHER, static_cast<unsigned char>(OtherRecordType::STATS)};
-    d_stats.time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-    if (writeSimpleType(token)) {
-        writeSimpleType(d_stats);
+    if (d_stats) {
+        d_stats->time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     }
 }
 
 bool
-RecordWriter::writeHeader(bool seek_to_start)
+RecordWriter::writeHeader()
 {
     std::lock_guard<std::mutex> lock(d_mutex);
-    if (seek_to_start) {
-        return true;
-    }
-
     if (!writeSimpleType(d_header.magic) or !writeSimpleType(d_header.version)
         or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.start_time)
         or !writeString(d_header.command_line.c_str()) or !writeSimpleType(d_header.pid)
-        or !writeSimpleType(d_header.python_allocator))
+        or !writeSimpleType(d_header.python_allocator) or !d_sink->allocateStats(&d_stats))
     {
         return false;
     }

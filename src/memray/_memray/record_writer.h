@@ -51,7 +51,7 @@ class RecordWriter
     bool inline writeRecordUnsafe(const ThreadRecord& record);
     bool inline writeRecordUnsafe(const UnresolvedNativeFrame& record);
     bool inline writeRecordUnsafe(const MemoryMapStart&);
-    bool writeHeader(bool seek_to_start);
+    bool writeHeader();
 
     std::unique_lock<std::mutex> acquireLock();
     std::unique_ptr<RecordWriter> cloneInChildProcess();
@@ -62,7 +62,7 @@ class RecordWriter
     std::unique_ptr<memray::io::Sink> d_sink;
     std::mutex d_mutex;
     HeaderRecord d_header{};
-    TrackerStats d_stats{};
+    TrackerStats* d_stats{};
     DeltaEncodedFields d_last;
 };
 
@@ -180,7 +180,7 @@ bool inline RecordWriter::writeRecordUnsafe(const Segment& record)
 
 bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
 {
-    d_stats.n_allocations += 1;
+    d_stats->n_allocations += 1;
     RecordTypeAndFlags token{RecordType::ALLOCATION, static_cast<unsigned char>(record.allocator)};
     return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
            && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
@@ -189,7 +189,7 @@ bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
 
 bool inline RecordWriter::writeRecordUnsafe(const NativeAllocationRecord& record)
 {
-    d_stats.n_allocations += 1;
+    d_stats->n_allocations += 1;
     RecordTypeAndFlags token{
             RecordType::ALLOCATION_WITH_NATIVE,
             static_cast<unsigned char>(record.allocator)};
@@ -200,7 +200,7 @@ bool inline RecordWriter::writeRecordUnsafe(const NativeAllocationRecord& record
 
 bool inline RecordWriter::writeRecordUnsafe(const pyrawframe_map_val_t& item)
 {
-    d_stats.n_frames += 1;
+    d_stats->n_frames += 1;
     RecordTypeAndFlags token{RecordType::FRAME_INDEX, 0};
     return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)

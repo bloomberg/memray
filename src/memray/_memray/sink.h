@@ -15,6 +15,7 @@ class Sink
     virtual ~Sink(){};
     virtual bool writeAll(const char* data, size_t length) = 0;
     virtual bool seek(off_t offset, int whence) = 0;
+    virtual bool allocateStats(tracking_api::TrackerStats**) = 0;
     virtual std::unique_ptr<Sink> cloneInChildProcess() = 0;
 };
 
@@ -30,6 +31,7 @@ class FileSink : public memray::io::Sink
 
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
+    bool allocateStats(tracking_api::TrackerStats**) override;
     std::unique_ptr<Sink> cloneInChildProcess() override;
 
   private:
@@ -48,6 +50,9 @@ class FileSink : public memray::io::Sink
     char* d_buffer{nullptr};
     char* d_bufferEnd{nullptr};  // exclusive
     char* d_bufferNeedle{nullptr};
+
+    char* d_statsMapping{nullptr};
+    tracking_api::TrackerStats* d_stats{nullptr};
 };
 
 class SocketSink : public Sink
@@ -63,6 +68,7 @@ class SocketSink : public Sink
 
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
+    bool allocateStats(tracking_api::TrackerStats**) override;
     std::unique_ptr<Sink> cloneInChildProcess() override;
 
   private:
@@ -78,6 +84,8 @@ class SocketSink : public Sink
     const size_t BUFFER_SIZE{PIPE_BUF};
     std::unique_ptr<char[]> d_buffer{nullptr};
     char* d_bufferNeedle{nullptr};
+
+    tracking_api::TrackerStats d_stats;
 };
 
 class NullSink : public Sink
@@ -86,7 +94,11 @@ class NullSink : public Sink
     ~NullSink() override;
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
+    bool allocateStats(tracking_api::TrackerStats**) override;
     std::unique_ptr<Sink> cloneInChildProcess() override;
+
+  private:
+    tracking_api::TrackerStats d_stats;
 };
 
 }  // namespace memray::io
