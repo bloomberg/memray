@@ -128,6 +128,34 @@ FileSink::seek(off_t offset, int whence)
     return true;
 }
 
+tracking_api::TrackerStats*
+FileSink::allocateStats(const tracking_api::TrackerStats& stats)
+{
+    assert(nullptr == d_statsMapping);  // Must be called only once
+
+    // The TrackerStats are properly aligned in the output file only by chance.
+    // This assertion ensures we won't break this in the future.
+    size_t stats_offset = d_bufferOffset + (d_bufferNeedle - d_buffer);
+    assert(0 == stats_offset % alignof(tracking_api::TrackerStats));
+
+    if (!writeAll(reinterpret_cast<const char*>(&stats), sizeof(stats))) {
+        return nullptr;
+    }
+
+    const size_t page_size = sysconf(_SC_PAGE_SIZE);
+    const size_t mapping_size = 2 * page_size;  // Allow it to straddle 2 pages
+
+    size_t mapping_start = stats_offset / page_size * page_size;
+    size_t offset_within_mapping = stats_offset - mapping_start;
+    d_statsMapping = static_cast<char*>(
+            mmap(nullptr, mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, d_fd, mapping_start));
+    if (d_statsMapping == MAP_FAILED) {
+        d_statsMapping = nullptr;
+        return nullptr;
+    }
+    return reinterpret_cast<tracking_api::TrackerStats*>(d_statsMapping + offset_within_mapping);
+}
+
 bool
 FileSink::grow(size_t needed)
 {
@@ -281,6 +309,18 @@ SocketSink::seek(__attribute__((unused)) off_t offset, __attribute__((unused)) i
     return false;
 }
 
+tracking_api::TrackerStats*
+SocketSink::allocateStats(const tracking_api::TrackerStats& stats)
+{
+    assert(!d_statsAllocated);
+    if (!writeAll(reinterpret_cast<const char*>(&stats), sizeof(stats))) {
+        return nullptr;
+    }
+    d_statsAllocated = true;
+    d_stats = stats;
+    return &d_stats;
+}
+
 std::unique_ptr<Sink>
 SocketSink::cloneInChildProcess()
 {
@@ -372,6 +412,15 @@ bool
 NullSink::seek(off_t, int)
 {
     return true;
+}
+
+tracking_api::TrackerStats*
+NullSink::allocateStats(const tracking_api::TrackerStats& stats)
+{
+    assert(!d_statsAllocated);
+    d_statsAllocated = true;
+    d_stats = stats;
+    return &d_stats;
 }
 
 std::unique_ptr<Sink>

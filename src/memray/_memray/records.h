@@ -14,7 +14,7 @@
 namespace memray::tracking_api {
 
 const char MAGIC[] = "memray";
-const int CURRENT_HEADER_VERSION = 7;
+const int CURRENT_HEADER_VERSION = 8;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;

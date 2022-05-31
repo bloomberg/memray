@@ -36,37 +36,35 @@ RecordWriter::RecordWriter(
         const std::string& command_line,
         bool native_traces)
 : d_sink(std::move(sink))
-, d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
     d_header = HeaderRecord{
             "",
             d_version,
             native_traces,
-            d_stats,
+            TrackerStats{},
             command_line,
             ::getpid(),
             getPythonAllocator()};
+    auto now = system_clock::now().time_since_epoch();
+    d_header.stats.start_time = duration_cast<milliseconds>(now).count();
     strncpy(d_header.magic, MAGIC, sizeof(d_header.magic));
 }
 
+RecordWriter::~RecordWriter()
+{
+    if (d_stats) {
+        d_stats->end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    }
+}
+
 bool
-RecordWriter::writeHeader(bool seek_to_start)
+RecordWriter::writeHeader()
 {
     std::lock_guard<std::mutex> lock(d_mutex);
-    if (seek_to_start) {
-        // If we can't seek to the beginning to the stream (e.g. dealing with a socket), just give
-        // up.
-        if (!d_sink->seek(0, SEEK_SET)) {
-            return false;
-        }
-    }
-
-    d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-    d_header.stats = d_stats;
     if (!writeSimpleType(d_header.magic) or !writeSimpleType(d_header.version)
-        or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.stats)
-        or !writeString(d_header.command_line.c_str()) or !writeSimpleType(d_header.pid)
-        or !writeSimpleType(d_header.python_allocator))
+        or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.python_allocator)
+        or !(d_stats = d_sink->allocateStats(d_header.stats))
+        or !writeString(d_header.command_line.c_str()) or !writeSimpleType(d_header.pid))
     {
         return false;
     }

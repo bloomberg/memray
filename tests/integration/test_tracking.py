@@ -248,7 +248,8 @@ def test_tracking_with_SIGKILL(tmpdir):
     # THEN
     assert process.returncode == -signal.SIGKILL
 
-    records = list(FileReader(output).get_allocation_records())
+    reader = FileReader(output)
+    records = list(reader.get_allocation_records())
     vallocs = [
         record
         for record in filter_relevant_allocations(records)
@@ -256,6 +257,11 @@ def test_tracking_with_SIGKILL(tmpdir):
     ]
     (allocation, *rest) = vallocs
     assert allocation.size == 1024
+
+    assert reader.metadata.end_time < reader.metadata.start_time
+    assert reader.metadata.total_allocations == len(
+        list(reader.get_allocation_records())
+    )
 
 
 class TestHighWatermark:

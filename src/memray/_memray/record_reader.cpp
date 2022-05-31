@@ -78,6 +78,9 @@ RecordReader::readHeader(HeaderRecord& header)
     }
     header.command_line.reserve(4096);
     if (!d_input->read(reinterpret_cast<char*>(&header.native_traces), sizeof(header.native_traces))
+        || !d_input->read(
+                reinterpret_cast<char*>(&header.python_allocator),
+                sizeof(header.python_allocator))
         || !d_input->read(reinterpret_cast<char*>(&header.stats), sizeof(header.stats))
         || !d_input->getline(header.command_line, '\0'))
     {
@@ -85,12 +88,7 @@ RecordReader::readHeader(HeaderRecord& header)
     }
 
     if (!d_input->read(reinterpret_cast<char*>(&header.pid), sizeof(header.pid))) {
-        throw std::ios_base::failure("Failed to read tPID from input file.");
-    }
-    if (!d_input->read(
-                reinterpret_cast<char*>(&header.python_allocator),
-                sizeof(header.python_allocator))) {
-        throw std::ios_base::failure("Failed to read Python allocator type from input file.");
+        throw std::ios_base::failure("Failed to read PID from input file.");
     }
 }
 

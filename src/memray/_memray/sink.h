@@ -14,6 +14,7 @@ class Sink
   public:
     virtual ~Sink(){};
     virtual bool writeAll(const char* data, size_t length) = 0;
+    virtual tracking_api::TrackerStats* allocateStats(const tracking_api::TrackerStats& stats) = 0;
     virtual bool seek(off_t offset, int whence) = 0;
     virtual std::unique_ptr<Sink> cloneInChildProcess() = 0;
 };
@@ -29,6 +30,7 @@ class FileSink : public memray::io::Sink
     void operator=(const FileSink&&) = delete;
 
     bool writeAll(const char* data, size_t length) override;
+    tracking_api::TrackerStats* allocateStats(const tracking_api::TrackerStats& stats) override;
     bool seek(off_t offset, int whence) override;
     std::unique_ptr<Sink> cloneInChildProcess() override;
 
@@ -48,6 +50,9 @@ class FileSink : public memray::io::Sink
     char* d_buffer{nullptr};
     char* d_bufferEnd{nullptr};  // exclusive
     char* d_bufferNeedle{nullptr};
+
+    char* d_statsMapping{nullptr};
+    tracking_api::TrackerStats* d_stats{nullptr};
 };
 
 class SocketSink : public Sink
@@ -62,6 +67,7 @@ class SocketSink : public Sink
     void operator=(const SocketSink&&) = delete;
 
     bool writeAll(const char* data, size_t length) override;
+    tracking_api::TrackerStats* allocateStats(const tracking_api::TrackerStats& stats) override;
     bool seek(off_t offset, int whence) override;
     std::unique_ptr<Sink> cloneInChildProcess() override;
 
@@ -78,6 +84,9 @@ class SocketSink : public Sink
     const size_t BUFFER_SIZE{PIPE_BUF};
     std::unique_ptr<char[]> d_buffer{nullptr};
     char* d_bufferNeedle{nullptr};
+
+    bool d_statsAllocated{false};
+    tracking_api::TrackerStats d_stats{};
 };
 
 class NullSink : public Sink
@@ -85,8 +94,13 @@ class NullSink : public Sink
   public:
     ~NullSink() override;
     bool writeAll(const char* data, size_t length) override;
+    tracking_api::TrackerStats* allocateStats(const tracking_api::TrackerStats& stats) override;
     bool seek(off_t offset, int whence) override;
     std::unique_ptr<Sink> cloneInChildProcess() override;
+
+  private:
+    bool d_statsAllocated{false};
+    tracking_api::TrackerStats d_stats{};
 };
 
 }  // namespace memray::io
