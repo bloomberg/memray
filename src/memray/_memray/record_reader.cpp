@@ -430,8 +430,16 @@ RecordReader::nextRecord()
         }
 
         switch (record_type_and_flags.record_type) {
-            case RecordType::UNINITIALIZED: {
-                // Skip it. All remaining bytes should be 0.
+            case RecordType::OTHER: {
+                switch (static_cast<OtherRecordType>(record_type_and_flags.flags)) {
+                    case OtherRecordType::TRAILER: {
+                        return RecordResult::END_OF_FILE;
+                    } break;
+                    default: {
+                        if (d_input->is_open()) LOG(ERROR) << "Invalid record subtype";
+                        return RecordResult::ERROR;
+                    } break;
+                }
             } break;
             case RecordType::ALLOCATION: {
                 AllocationRecord record;
@@ -681,8 +689,17 @@ RecordReader::dumpAllRecords()
         }
 
         switch (record_type_and_flags.record_type) {
-            case RecordType::UNINITIALIZED: {
-                // Skip it. All remaining bytes should be 0.
+            case RecordType::OTHER: {
+                switch (static_cast<OtherRecordType>(record_type_and_flags.flags)) {
+                    case OtherRecordType::TRAILER: {
+                        printf("TRAILER\n");
+                        Py_RETURN_NONE;  // Treat as EOF
+                    } break;
+                    default: {
+                        printf("UNKNOWN OTHER RECORD TYPE %d\n", (int)record_type_and_flags.flags);
+                        Py_RETURN_NONE;
+                    } break;
+                }
             } break;
             case RecordType::ALLOCATION_WITH_NATIVE: {
                 printf("ALLOCATION_WITH_NATIVE ");

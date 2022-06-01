@@ -21,7 +21,7 @@ using thread_id_t = unsigned long;
 using millis_t = long long;
 
 enum class RecordType : unsigned char {
-    UNINITIALIZED = 0,
+    OTHER = 0,
     ALLOCATION = 1,
     ALLOCATION_WITH_NATIVE = 2,
     FRAME_INDEX = 3,
@@ -36,10 +36,14 @@ enum class RecordType : unsigned char {
     CONTEXT_SWITCH = 12,
 };
 
+enum class OtherRecordType : unsigned char {
+    TRAILER = 1,
+};
+
 struct RecordTypeAndFlags
 {
     RecordTypeAndFlags()
-    : record_type(RecordType::UNINITIALIZED)
+    : record_type(RecordType::OTHER)
     , flags(0)
     {
     }

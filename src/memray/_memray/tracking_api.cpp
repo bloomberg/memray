@@ -304,6 +304,7 @@ Tracker::~Tracker()
     if (d_trace_python_allocators) {
         unregisterPymallocHooks();
     }
+    d_writer->writeTrailer();
     d_writer->writeHeader(true);
     d_writer.reset();
 

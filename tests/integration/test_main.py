@@ -463,6 +463,7 @@ class TestParseSubcommand:
             "SEGMENT",
             "MEMORY_RECORD",
             "CONTEXT_SWITCH",
+            "TRAILER",
         ]
         code_file = tmp_path / "code.py"
         program = textwrap.dedent(

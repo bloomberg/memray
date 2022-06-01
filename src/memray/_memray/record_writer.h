@@ -50,6 +50,7 @@ class RecordWriter
     bool inline writeRecordUnsafe(const UnresolvedNativeFrame& record);
     bool inline writeRecordUnsafe(const MemoryMapStart&);
     bool writeHeader(bool seek_to_start);
+    bool writeTrailer();
 
     std::unique_lock<std::mutex> acquireLock();
     std::unique_ptr<RecordWriter> cloneInChildProcess();

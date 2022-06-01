@@ -73,6 +73,16 @@ RecordWriter::writeHeader(bool seek_to_start)
     return true;
 }
 
+bool
+RecordWriter::writeTrailer()
+{
+    std::lock_guard<std::mutex> lock(d_mutex);
+    // The FileSource will ignore trailing 0x00 bytes. This non-zero trailer
+    // marks the boundary between bytes we wrote and padding bytes.
+    RecordTypeAndFlags token{RecordType::OTHER, int(OtherRecordType::TRAILER)};
+    return writeSimpleType(token);
+}
+
 std::unique_lock<std::mutex>
 RecordWriter::acquireLock()
 {
