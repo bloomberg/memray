@@ -38,13 +38,21 @@ FileSource::FileSource(const std::string& file_name)
         d_stream = std::make_shared<lz4_stream::istream>(*d_raw_stream);
     } else {
         d_stream = d_raw_stream;
+        findReadableSize();
     }
 }
 
 bool
 FileSource::read(char* stream, ssize_t length)
 {
-    return !d_stream->read(stream, length).fail();
+    if (d_stream->read(stream, length).fail()) {
+        return false;
+    }
+    d_bytes_read += length;
+    if (d_readable_size && d_bytes_read > d_readable_size) {
+        return false;
+    }
+    return true;
 }
 
 bool
@@ -54,6 +62,10 @@ FileSource::getline(std::string& result, char delimiter)
     if (!d_stream) {
         return false;
     }
+    d_bytes_read += result.size() + 1;
+    if (d_readable_size && d_bytes_read > d_readable_size) {
+        return false;
+    }
     return true;
 }
 
@@ -61,6 +73,33 @@ void
 FileSource::close()
 {
     _close();
+}
+
+void
+FileSource::findReadableSize()
+{
+    // We grow the file in chunks and then overwrite the zero-filled data with
+    // valid data, which means that if the process is killed in the middle of
+    // tracking there will be some zero-filled bytes at the end of the file.
+    // Ignore any zeroed bytes at the end of the file, assuming they resulted
+    // from such premature termination (because when tracking ends successfully
+    // a TRAILER record is written at the end of the valid data). We may ignore
+    // some valid zero bytes that were part of a complete record, but since the
+    // record type cannot be all zeroes, we will at worst lose one valid record
+    // in order to recover from the file truncation. To ignore these, we count
+    // the zeroed bytes at the end of the file, and make calls to read() and
+    // getline() fail if they read into those bytes.
+    d_raw_stream->seekg(-1, d_raw_stream->end);
+    while (*d_raw_stream) {
+        char c = d_raw_stream->peek();
+        if (c != 0x00) {
+            d_readable_size = d_raw_stream->tellg() + std::streamoff(1);
+            break;
+        }
+        // If we're at BOF, this sets failbit and makes the loop break.
+        d_raw_stream->seekg(-1, d_raw_stream->cur);
+    }
+    d_raw_stream->seekg(0, d_raw_stream->beg);
 }
 
 void
