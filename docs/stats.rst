@@ -38,7 +38,7 @@ The general form of the ``stats`` subcommand is:
 
     memray stats [options] <results>
 
-The only argument the ``tree`` subcommand requires is the capture file
+The only argument the ``stats`` subcommand requires is the capture file
 previously generated using :doc:`the run subcommand <run>`.
 
 The output will be printed directly to the standard output of the terminal.
