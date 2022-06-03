@@ -1,4 +1,5 @@
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 import pytest
@@ -16,11 +17,20 @@ from tests.utils import MockAllocationRecord
 # data generator for tests
 def _generate_mock_allocations(
     count: int,
-    sizes: List[int] = [],
-    allocators: List[AT] = [],
-    n_allocations: List[int] = [],
-    stacks: List[List[Tuple[str, str, int]]] = [],
+    sizes: Optional[List[int]] = None,
+    allocators: Optional[List[AT]] = None,
+    n_allocations: Optional[List[int]] = None,
+    stacks: Optional[List[List[Tuple[str, str, int]]]] = None,
 ):
+    if sizes is None:
+        sizes = []
+    if allocators is None:
+        allocators = []
+    if n_allocations is None:
+        n_allocations = []
+    if stacks is None:
+        stacks = []
+
     sizes.extend([1024] * (count - len(sizes)))
     sizes = sizes[:count]
 
