@@ -34,11 +34,6 @@ def get_stats_data(data: Iterable[AllocationRecord]) -> _StatsData:
     shdata.allocation_type_counter = Counter(
         AllocatorType(alloc.allocator).name for alloc in data
     )
-
-    # remove FREE and MUNMAP from allocation_type
-    shdata.allocation_type_counter.pop("FREE", None)
-    shdata.allocation_type_counter.pop("MUNMAP", None)
-
     return shdata
 
 

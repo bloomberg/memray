@@ -1,3 +1,4 @@
+from _memray.hooks cimport Allocator
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.string cimport string
@@ -26,6 +27,7 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        int python_allocator
 
    cdef cppclass Allocation:
+       Allocator allocator
        size_t frame_index
        size_t n_allocations
        object toPythonObject()

@@ -16,6 +16,7 @@ from posix.time cimport CLOCK_MONOTONIC
 from posix.time cimport clock_gettime
 from posix.time cimport timespec
 
+from _memray.hooks cimport isDeallocator
 from _memray.logging cimport setLogThreshold
 from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
@@ -509,7 +510,12 @@ cdef class FileReader:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.close()
 
-    def _yield_unfreed_allocations(self, size_t records_to_process, bool merge_threads):
+    def _aggregate_allocations(
+        self,
+        size_t records_to_process,
+        bool merge_threads,
+        bool ignore_frees,
+    ):
         cdef SnapshotAllocationAggregator aggregator
         cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
             unique_ptr[FileSource](new FileSource(self._path))
@@ -527,7 +533,10 @@ cdef class FileReader:
                 PyErr_CheckSignals()
                 ret = reader.nextRecord()
                 if ret == RecordResult.RecordResultAllocationRecord:
-                    aggregator.addAllocation(reader.getLatestAllocation())
+                    if ignore_frees and isDeallocator(reader.getLatestAllocation().allocator):
+                        pass
+                    else:
+                        aggregator.addAllocation(reader.getLatestAllocation())
                     records_to_process -= 1
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
@@ -548,12 +557,23 @@ cdef class FileReader:
         self._ensure_not_closed()
         # If allocation 0 caused the peak, we need to process 1 record, etc
         cdef size_t max_records = self._high_watermark.index + 1
-        yield from self._yield_unfreed_allocations(max_records, merge_threads)
+        yield from self._aggregate_allocations(
+            max_records, merge_threads, ignore_frees=False
+        )
 
     def get_leaked_allocation_records(self, merge_threads=True):
         self._ensure_not_closed()
         cdef size_t max_records = self._header["stats"]["n_allocations"]
-        yield from self._yield_unfreed_allocations(max_records, merge_threads)
+        yield from self._aggregate_allocations(
+            max_records, merge_threads, ignore_frees=False
+        )
+
+    def get_all_allocation_records_aggregated(self, merge_threads=True):
+        self._ensure_not_closed()
+        cdef size_t max_records = self._header["stats"]["n_allocations"]
+        yield from self._aggregate_allocations(
+            max_records, merge_threads, ignore_frees=True
+        )
 
     def get_allocation_records(self):
         self._ensure_not_closed()

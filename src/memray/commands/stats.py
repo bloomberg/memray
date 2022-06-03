@@ -47,7 +47,9 @@ class StatsCommand:
         reader = FileReader(os.fspath(args.results), report_progress=True)
         try:
             if args.include_all_allocations:
-                snapshot = iter(reader.get_allocation_records())
+                snapshot = iter(
+                    reader.get_all_allocation_records_aggregated(merge_threads=True)
+                )
             else:
                 snapshot = iter(
                     reader.get_high_watermark_allocation_records(merge_threads=True)

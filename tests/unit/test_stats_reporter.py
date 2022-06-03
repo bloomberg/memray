@@ -69,23 +69,20 @@ def _generate_mock_allocations(
 def test_allocator_type_distribution():
     # GIVEN
     mag = _generate_mock_allocations(
-        7,
+        4,
         allocators=[
             AT.MALLOC,
             AT.CALLOC,
             AT.MALLOC,
             AT.MMAP,
-            AT.FREE,
-            AT.MUNMAP,
-            AT.FREE,
         ],
-    )  # contains FREE and MUNMAP
+    )
     shdata = get_stats_data(mag)
     expected_output = [
         "MALLOC: 2",
         "CALLOC: 1",
         "MMAP: 1",
-    ]  # does not contain FREE and MUNMAP, but has the others
+    ]
     actual_output = []
 
     # WHEN
