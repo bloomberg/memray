@@ -415,9 +415,9 @@ cdef class ProgressIndicator:
         return False
 
     cdef update(self, size_t n_processed):
+        self._cumulative_num_processed += n_processed
         if not self._report_progress:
             return
-        self._cumulative_num_processed += n_processed
         if self._cumulative_num_processed % self._update_interval == 0:
             if self._time_for_refresh():
                 assert(self._context_manager is not None)
@@ -425,6 +425,10 @@ cdef class ProgressIndicator:
                     self._task, completed=self._cumulative_num_processed
                 )
                 self._context_manager.refresh()
+
+    @property
+    def num_processed(self):
+        return self._cumulative_num_processed
 
 
 cdef class FileReader:
@@ -480,7 +484,8 @@ cdef class FileReader:
                 else:
                     break
         self._high_watermark = finder.getHighWatermark()
-    
+        stats["n_allocations"] = progress_indicator.num_processed
+
     def __dealloc__(self):
         self.close()
 
@@ -547,7 +552,7 @@ cdef class FileReader:
 
     def get_leaked_allocation_records(self, merge_threads=True):
         self._ensure_not_closed()
-        cdef size_t max_records = numeric_limits[size_t].max()
+        cdef size_t max_records = self._header["stats"]["n_allocations"]
         yield from self._yield_unfreed_allocations(max_records, merge_threads)
 
     def get_allocation_records(self):
