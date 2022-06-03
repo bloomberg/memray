@@ -86,8 +86,10 @@ def get_histogram_databins(data: List[int], bins: int) -> List[Tuple[int, int]]:
 
     low = math.log(min(data))
     high = math.log(max(data))
+    if low == high:
+        low = low / 2
     it = map(math.log, filter(lambda number: number != 0, data))
-    step = ((high - low) / bins) or low
+    step = (high - low) / bins
 
     # Determine the upper bound in bytes for each bin
     steps = [int(math.exp(low + step * (i + 1))) for i in range(bins)]

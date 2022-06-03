@@ -302,6 +302,28 @@ def test_get_histogram_over_bound():
     assert expected_output == actual_output
 
 
+def test_get_histogram_all_allocations_same_size():
+    input_data = [10000000000, 10000000000, 10000000000]
+    expected_output = [
+        (316227, 0),
+        (999999, 0),
+        (3162277, 0),
+        (10000000, 0),
+        (31622776, 0),
+        (100000000, 0),
+        (316227766, 0),
+        (999999999, 0),
+        (3162277660, 0),
+        (10000000000, 3),
+    ]
+
+    # WHEN
+    actual_output = get_histogram_databins(input_data, bins=10)
+
+    # THEN
+    assert expected_output == actual_output
+
+
 def test_get_histogram_databins_invalid_bins():
     with pytest.raises(ValueError):
         _ = get_histogram_databins([], bins=0)  # invalid bins value

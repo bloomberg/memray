@@ -1,0 +1,1 @@
+Fix the histogram used by the ``memray stats`` reporter to choose sane bin sizes when all captured allocations are the same size.
