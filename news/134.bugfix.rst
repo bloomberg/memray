@@ -1,0 +1,1 @@
+Fix the aggregation by location at the bottom of the ``memray stats`` report when the ``--include-all-allocations`` option is used.
