@@ -11,13 +11,6 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        string filename
        int lineno
 
-   struct AllocationRecord:
-       long int tid
-       uintptr_t address
-       size_t size
-       string allocator
-       vector[Frame] stack_trace
-
    struct TrackerStats:
        size_t n_allocations
        size_t n_frames
@@ -33,7 +26,6 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        int python_allocator
 
    cdef cppclass Allocation:
-       AllocationRecord record
        size_t frame_index
        size_t n_allocations
        object toPythonObject()
