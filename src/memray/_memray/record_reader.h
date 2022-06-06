@@ -5,6 +5,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stddef.h>
 #include <stdint.h>
 #include <string>
@@ -43,6 +44,8 @@ class RecordReader
             FrameTree::index_t index,
             size_t generation,
             size_t max_stacks = std::numeric_limits<size_t>::max());
+    std::optional<frame_id_t> getLatestPythonFrameId(const Allocation& allocation) const;
+    PyObject* Py_GetFrame(std::optional<frame_id_t> frame);
 
     RecordResult nextRecord();
     HeaderRecord getHeader() const noexcept;

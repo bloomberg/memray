@@ -41,3 +41,8 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        size_t rss
        size_t heap
 
+
+cdef extern from "<optional>":
+   # Cython doesn't have libcpp.optional yet, so just declare this opaquely.
+   cdef cppclass optional_frame_id_t "std::optional<memray::tracking_api::frame_id_t>":
+       pass

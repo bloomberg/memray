@@ -1,0 +1,1 @@
+Fix the ``memray stats`` histogram to be based on the actual sizes of all allocations. Previously it only saw the sizes after a rollup by stack had already been performed, so it was binning allocation sizes that had already been summed.

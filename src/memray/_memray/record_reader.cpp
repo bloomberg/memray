@@ -615,6 +615,24 @@ error:
     return nullptr;
 }
 
+std::optional<frame_id_t>
+RecordReader::getLatestPythonFrameId(const Allocation& allocation) const
+{
+    if (0 == allocation.frame_index) {
+        return {};
+    }
+    return d_tree.nextNode(allocation.frame_index).first;
+}
+
+PyObject*
+RecordReader::Py_GetFrame(std::optional<frame_id_t> frame)
+{
+    if (!frame) {
+        Py_RETURN_NONE;
+    }
+    return d_frame_map.at(frame.value()).toPythonObject(d_pystring_cache);
+}
+
 HeaderRecord
 RecordReader::getHeader() const noexcept
 {
