@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -6,11 +7,7 @@ import pytest
 
 from memray import AllocatorType as AT
 from memray.reporters.stats import draw_histogram
-from memray.reporters.stats import get_allocator_type_distribution
 from memray.reporters.stats import get_histogram_databins
-from memray.reporters.stats import get_stats_data
-from memray.reporters.stats import get_top_allocations_by_count
-from memray.reporters.stats import get_top_allocations_by_size
 from tests.utils import MockAllocationRecord
 
 
@@ -66,174 +63,26 @@ def _generate_mock_allocations(
 
 
 # tests begin here
-def test_allocator_type_distribution():
-    # GIVEN
-    mag = _generate_mock_allocations(
-        4,
-        allocators=[
-            AT.MALLOC,
-            AT.CALLOC,
-            AT.MALLOC,
-            AT.MMAP,
-        ],
-    )
-    shdata = get_stats_data(mag)
-    expected_output = [
-        "MALLOC: 2",
-        "CALLOC: 1",
-        "MMAP: 1",
-    ]
-    actual_output = []
-
-    # WHEN
-    for entry in get_allocator_type_distribution(shdata.allocation_type_counter):
-        actual_output.append(entry)
-
-    # THEN
-    assert expected_output == actual_output
-
-
-def test_allocator_type_distribution_no_allocators():
-    # GIVEN
-    mag = _generate_mock_allocations(0, allocators=[])
-    shdata = get_stats_data(mag)
-    expected_output = []
-    actual_output = []
-
-    # WHEN
-    for entry in get_allocator_type_distribution(shdata.allocation_type_counter):
-        actual_output.append(entry)
-
-    # THEN
-    assert expected_output == actual_output
-
-
-def test_top_allocations_by_size():
-    # GIVEN
-    mag = _generate_mock_allocations(
-        4,
-        sizes=[1024, 2048, 3072, 4096],
-        stacks=[
-            [("first", "f1.py", 1)],
-            [("second", "f2.py", 2)],
-            [("third", "f3.py", 3)],
-            [("fourth", "f4.py", 4)],
-        ],
-    )
-
-    expected_output = [
-        "fourth:f4.py:4 -> 4.000KB",
-        "third:f3.py:3 -> 3.000KB",
-        "second:f2.py:2 -> 2.000KB",
-    ]  # no "1" since we asked only for largest 3
-    actual_output = []
-
-    # WHEN
-    for entry in get_top_allocations_by_size(mag, num_largest=3):
-        actual_output.append(entry)
-
-    assert expected_output == actual_output
-
-
-def test_top_allocations_by_size_unavailable_strace():
-    # GIVEN
-    mag = _generate_mock_allocations(
-        4,
-        sizes=[1024, 2048, 3072, 4096],
-        stacks=[
-            [("first", "f1.py", 1)],
-            [("second", "f2.py", 2)],
-            [],  # missing stack trace
-            [("fourth", "f4.py", 4)],
-        ],
-    )
-
-    expected_output = [
-        "fourth:f4.py:4 -> 4.000KB",
-        "<stack trace unavailable> -> 3.000KB",
-        "second:f2.py:2 -> 2.000KB",
-    ]  # no "1" since we asked only for largest 3
-    actual_output = []
-
-    # WHEN
-    for entry in get_top_allocations_by_size(mag, num_largest=3):
-        actual_output.append(entry)
-
-    assert expected_output == actual_output
-
-
-def test_top_allocations_by_count():
-    # GIVEN
-    mag = _generate_mock_allocations(
-        4,
-        n_allocations=[11, 22, 33, 44],
-        stacks=[
-            [("first", "f1.py", 1)],
-            [("second", "f2.py", 2)],
-            [("third", "f3.py", 3)],
-            [("fourth", "f4.py", 4)],
-        ],
-    )
-
-    expected_output = [
-        "fourth:f4.py:4 -> 44",
-        "third:f3.py:3 -> 33",
-        "second:f2.py:2 -> 22",
-    ]  # no "1" since we asked only for largest 3
-    actual_output = []
-
-    # WHEN
-    for entry in get_top_allocations_by_count(mag, num_largest=3):
-        actual_output.append(entry)
-
-    assert expected_output == actual_output
-
-
-def test_top_allocations_by_count_unavailable_strace():
-    # GIVEN
-    mag = _generate_mock_allocations(
-        4,
-        n_allocations=[11, 22, 33, 44],
-        stacks=[
-            [("first", "f1.py", 1)],
-            [("second", "f2.py", 2)],
-            [("third", "f3.py", 3)],
-            [],
-        ],
-    )
-
-    expected_output = [
-        "<stack trace unavailable> -> 44",
-        "third:f3.py:3 -> 33",
-        "second:f2.py:2 -> 22",
-    ]  # no "1" since we asked only for largest 3
-    actual_output = []
-
-    # WHEN
-    for entry in get_top_allocations_by_count(mag, num_largest=3):
-        actual_output.append(entry)
-
-    assert expected_output == actual_output
-
-
 def test_get_histogram_databins():
     # GIVEN
-    input_data = [
-        2500,
-        11000,
-        11000,
-        12000,
-        60000,
-        65000,
-        120000,
-        125000,
-        125000,
-        160000,
-        170000,
-        180000,
-        800000,
-        1500000,
-    ]
+    input_data = Counter(
+        [
+            2500,
+            11000,
+            11000,
+            12000,
+            60000,
+            65000,
+            120000,
+            125000,
+            125000,
+            160000,
+            170000,
+            180000,
+            800000,
+            1500000,
+        ]
+    )
     expected_output = [
         (8986, 1),
         (32299, 3),
@@ -257,10 +106,12 @@ def test_get_histogram_databins_rounding():
         log(low) + sum([(log(high) - log(low)) / bins] * bins) > log(high)
     """
     # GIVEN
-    input_data = [
-        32,
-        1050856,
-    ]
+    input_data = Counter(
+        [
+            32,
+            1050856,
+        ]
+    )
     expected_output = [
         (90, 1),
         (256, 0),
@@ -288,7 +139,7 @@ def test_get_histogram_over_bound():
         Counter(min((x - low) // step, bins-1) for x in it) will default to placing it in the
         last bin instead of creating a new record out of range of the bins.
     """
-    input_data = [10000000000, 536, 536, 592, 576, 4486]
+    input_data = Counter([10000000000, 536, 536, 592, 576, 4486])
     expected_output = [
         (2859, 4),
         (15252, 1),
@@ -310,7 +161,7 @@ def test_get_histogram_over_bound():
 
 
 def test_get_histogram_all_allocations_same_size():
-    input_data = [10000000000, 10000000000, 10000000000]
+    input_data = Counter([10000000000, 10000000000, 10000000000])
     expected_output = [
         (316227, 0),
         (999999, 0),
@@ -340,22 +191,24 @@ def test_get_histogram_databins_invalid_bins():
 
 def test_draw_histogram():
     # GIVEN
-    input_data = [
-        2500,
-        11000,
-        11000,
-        12000,
-        60000,
-        65000,
-        120000,
-        125000,
-        125000,
-        160000,
-        170000,
-        180000,
-        800000,
-        1500000,
-    ]
+    input_data = Counter(
+        [
+            2500,
+            11000,
+            11000,
+            12000,
+            60000,
+            65000,
+            120000,
+            125000,
+            125000,
+            160000,
+            170000,
+            180000,
+            800000,
+            1500000,
+        ]
+    )
     expected_output = """min: 2.441KB
 \t----------------------------------------
 \t< 8.775KB  : 1 ▇▇▇▇▇
@@ -375,22 +228,24 @@ def test_draw_histogram():
 
 def test_draw_histogram_smaller_scale_factor():
     # GIVEN
-    input_data = [
-        2500,
-        11000,
-        11000,
-        12000,
-        60000,
-        65000,
-        120000,
-        125000,
-        125000,
-        160000,
-        170000,
-        180000,
-        800000,
-        1500000,
-    ]
+    input_data = Counter(
+        [
+            2500,
+            11000,
+            11000,
+            12000,
+            60000,
+            65000,
+            120000,
+            125000,
+            125000,
+            160000,
+            170000,
+            180000,
+            800000,
+            1500000,
+        ]
+    )
 
     expected_output = """min: 2.441KB
 \t--------------------
@@ -413,7 +268,7 @@ def test_draw_histogram_smaller_scale_factor():
 
 def test_draw_histogram_invalid_input():
     # test#1 - No input data
-    input_data = []
+    input_data = Counter()
     actual_output = draw_histogram(input_data, bins=5)
     assert "<no data for histogram>" == actual_output
 

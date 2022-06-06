@@ -2,8 +2,8 @@ import argparse
 import os
 from pathlib import Path
 
-from memray import FileReader
 from memray._errors import MemrayCommandError
+from memray._memray import compute_statistics
 from memray.reporters.stats import StatsReporter
 
 
@@ -12,13 +12,6 @@ class StatsCommand:
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("results", help="Results of the tracker run")
-        parser.add_argument(
-            "-a",
-            "--include-all-allocations",
-            help="Include all allocations in the results, instead of "
-            "peak-memory snapshot (Warning: could be much slower)",
-            action="store_true",
-        )
 
         def valid_positive_int(value: str) -> int:
             try:
@@ -44,21 +37,17 @@ class StatsCommand:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
             raise MemrayCommandError(f"No such file: {args.results}", exit_code=1)
-        reader = FileReader(os.fspath(args.results), report_progress=True)
         try:
-            if args.include_all_allocations:
-                snapshot = iter(
-                    reader.get_all_allocation_records_aggregated(merge_threads=True)
-                )
-            else:
-                snapshot = iter(
-                    reader.get_high_watermark_allocation_records(merge_threads=True)
-                )
+            stats = compute_statistics(
+                os.fspath(args.results),
+                report_progress=True,
+                num_largest=args.num_largest,
+            )
         except OSError as e:
             raise MemrayCommandError(
-                f"Failed to parse allocation records in {result_path}\nReason: {e}",
+                f"Failed to compute statistics for {result_path}\nReason: {e}",
                 exit_code=1,
             )
 
-        reporter = StatsReporter.from_snapshot(snapshot, args.num_largest)
+        reporter = StatsReporter(stats, args.num_largest)
         reporter.render()

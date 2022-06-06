@@ -17,6 +17,7 @@ from typing import overload
 from memray._destination import FileDestination as FileDestination
 from memray._destination import SocketDestination as SocketDestination
 from memray._metadata import Metadata
+from memray._stats import Stats
 
 from . import Destination
 
@@ -94,9 +95,6 @@ class FileReader:
     def get_leaked_allocation_records(
         self, merge_threads: bool
     ) -> Iterable[AllocationRecord]: ...
-    def get_all_allocation_records_aggregated(
-        self, merge_threads: bool
-    ) -> Iterable[AllocationRecord]: ...
     def get_memory_snapshots(self) -> Iterable[MemorySnapshot]: ...
     def __enter__(self) -> Any: ...
     def __exit__(
@@ -109,6 +107,12 @@ class FileReader:
     def closed(self) -> bool: ...
     def close(self) -> None: ...
 
+def compute_statistics(
+    file_name: Union[str, Path],
+    *,
+    report_progress: bool = False,
+    num_largest: int = 5,
+) -> Stats: ...
 def dump_all_records(file_name: Union[str, Path]) -> None: ...
 
 class SocketReader:

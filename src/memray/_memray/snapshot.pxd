@@ -1,5 +1,8 @@
 from _memray.records cimport Allocation
+from libc.stdint cimport uint64_t
 from libcpp cimport bool
+from libcpp.unordered_map cimport unordered_map
+from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 
 
@@ -19,6 +22,25 @@ cdef extern from "snapshot.h" namespace "memray::api":
     cdef cppclass SnapshotAllocationAggregator:
         void addAllocation(const Allocation&) except+
         reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads) except+
+
+    cdef cppclass LocationKey:
+        size_t python_frame_id
+        size_t native_frame_id
+        unsigned long thread_id
+
+    cdef cppclass index_thread_pair_hash:
+        pass
+
+    cdef cppclass AllocationStatsAggregator:
+        ctypedef pair[uint64_t, uint64_t] SizeAndCount
+        ctypedef unordered_map[LocationKey, SizeAndCount, index_thread_pair_hash] SizeAndCountByStack
+        void addAllocation(const Allocation&) except+
+        uint64_t totalAllocations()
+        uint64_t totalBytesAllocated()
+        uint64_t peakBytesAllocated()
+        const unordered_map[size_t, uint64_t] allocationCountBySize()
+        const unordered_map[int, uint64_t] allocationCountByAllocator()
+        const SizeAndCountByStack& sizeAndCountByStack()
 
     object Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t&) except+
     object Py_GetSnapshotAllocationRecords(const vector[Allocation]& all_records, size_t record_index, bool merge_threads) except+

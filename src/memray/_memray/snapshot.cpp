@@ -214,6 +214,23 @@ HighWatermarkFinder::getCurrentWatermark() const noexcept
     return d_current_memory;
 }
 
+void
+AllocationStatsAggregator::addAllocation(const Allocation& allocation)
+{
+    d_high_water_mark_finder.processAllocation(allocation);
+    if (hooks::isDeallocator(allocation.allocator)) {
+        return;
+    }
+    d_total_allocations += 1;
+    d_total_bytes_allocated += allocation.size;
+    d_allocation_count_by_size[allocation.size] += 1;
+    d_allocation_count_by_allocator[static_cast<int>(allocation.allocator)] += 1;
+    auto loc_key = LocationKey{allocation.frame_index, allocation.native_frame_id, NO_THREAD_INFO};
+    auto& size_and_count = d_size_and_count_by_stack[loc_key];
+    size_and_count.first += allocation.size;
+    size_and_count.second += 1;
+}
+
 PyObject*
 Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t& stack_to_allocation)
 {

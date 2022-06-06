@@ -1,0 +1,1 @@
+Remove the ``--include-all-allocations`` / ``-a`` argument to the ``memray stats`` reporter. Previously this was too slow to be used by default, but now that it has been sped up, it doesn't make sense to use anything else. The old default behavior of only processing allocations that made up the high water mark of the application's memory usage was confusing and misleading.

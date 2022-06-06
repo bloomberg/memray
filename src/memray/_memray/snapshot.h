@@ -203,6 +203,53 @@ class HighWatermarkFinder
     IntervalTree<Allocation> d_mmap_intervals;
 };
 
+class AllocationStatsAggregator
+{
+  public:
+    typedef std::pair<uint64_t, uint64_t> SizeAndCount;
+    typedef std::unordered_map<LocationKey, SizeAndCount, index_thread_pair_hash> SizeAndCountByStack;
+
+    void addAllocation(const Allocation& allocation);
+
+    uint64_t totalAllocations()
+    {
+        return d_total_allocations;
+    }
+
+    uint64_t totalBytesAllocated()
+    {
+        return d_total_bytes_allocated;
+    }
+
+    uint64_t peakBytesAllocated()
+    {
+        return d_high_water_mark_finder.getHighWatermark().peak_memory;
+    }
+
+    const std::unordered_map<size_t, uint64_t>& allocationCountBySize()
+    {
+        return d_allocation_count_by_size;
+    }
+
+    const std::unordered_map<int, uint64_t>& allocationCountByAllocator()
+    {
+        return d_allocation_count_by_allocator;
+    }
+
+    const SizeAndCountByStack& sizeAndCountByStack()
+    {
+        return d_size_and_count_by_stack;
+    }
+
+  private:
+    SizeAndCountByStack d_size_and_count_by_stack;
+    std::unordered_map<size_t, uint64_t> d_allocation_count_by_size;
+    std::unordered_map<int, uint64_t> d_allocation_count_by_allocator;
+    HighWatermarkFinder d_high_water_mark_finder;
+    uint64_t d_total_allocations{};
+    uint64_t d_total_bytes_allocated{};
+};
+
 PyObject*
 Py_GetSnapshotAllocationRecords(
         const allocations_t& all_records,
