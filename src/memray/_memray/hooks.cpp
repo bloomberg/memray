@@ -4,7 +4,122 @@
 #include "hooks.h"
 #include "tracking_api.h"
 
-namespace memray::hooks {
+namespace memray {
+namespace {  // unnamed
+
+class BernoulliSampler
+{
+  public:
+    // Methods
+    BernoulliSampler();
+    void setSamplingInterval(size_t sampling_interval);
+    size_t getSamplingInterval();
+    size_t calculateSampleSize(size_t size);
+
+  private:
+    // Methods
+    size_t poissonStep();
+
+    // Data members
+    size_t d_sampling_interval_in_bytes;
+    double d_sampling_probability;
+    std::atomic<size_t> d_bytes_until_next_sample;
+};
+
+BernoulliSampler::BernoulliSampler()
+{
+    setSamplingInterval(1);
+}
+
+void
+BernoulliSampler::setSamplingInterval(size_t sampling_interval)
+{
+    d_sampling_interval_in_bytes = sampling_interval;
+    d_sampling_probability = 1.0 / d_sampling_interval_in_bytes;
+    d_bytes_until_next_sample = poissonStep();
+}
+
+size_t
+BernoulliSampler::getSamplingInterval()
+{
+    return d_sampling_interval_in_bytes;
+}
+
+size_t
+BernoulliSampler::calculateSampleSize(size_t size)
+{
+    if (size >= d_sampling_interval_in_bytes) {
+        return size;
+    }
+
+    size_t n_samples = 0;
+    size_t next_step = 0;
+    while (size) {
+        size_t loaded_bytes_until_next_sample =
+                d_bytes_until_next_sample.load(std::memory_order::memory_order_relaxed);
+        if (size >= loaded_bytes_until_next_sample) {
+            // We're being sampled! We need to replace our atomic entirely.
+            // Randomly decide when to stop next, if we haven't already.
+            if (!next_step) {
+                next_step = poissonStep();
+            }
+
+            if (!d_bytes_until_next_sample.compare_exchange_weak(
+                        loaded_bytes_until_next_sample,
+                        next_step,
+                        std::memory_order::memory_order_relaxed))
+            {
+                continue;  // Didn't update the atomic; loop and try again.
+            }
+
+            // Successfully updated the atomic; some bytes are accounted for.
+            next_step = 0;  // Our random number has been used
+            size -= loaded_bytes_until_next_sample;
+            n_samples++;
+        } else {
+            // We're not being sampled; just decrement our atomic.
+            if (!d_bytes_until_next_sample.compare_exchange_weak(
+                        loaded_bytes_until_next_sample,
+                        loaded_bytes_until_next_sample - size,
+                        std::memory_order::memory_order_relaxed))
+            {
+                continue;  // Didn't update the atomic; loop and try again.
+            }
+
+            // Successfully updated the atomic; all bytes are accounted for.
+            size = 0;
+        }
+    }
+
+    return d_sampling_interval_in_bytes * n_samples;
+}
+
+size_t
+BernoulliSampler::poissonStep()
+{
+    static_assert(std::is_trivially_destructible<std::default_random_engine>::value);
+    static thread_local std::default_random_engine s_random_engine;
+    std::exponential_distribution<double> exponential_dist(d_sampling_probability);
+    return static_cast<size_t>(exponential_dist(s_random_engine)) + 1;
+}
+
+static BernoulliSampler s_sampler;
+
+}  // unnamed namespace
+
+namespace hooks {
+
+void
+setSamplingInterval(size_t sampling_interval)
+{
+    s_sampler.setSamplingInterval(sampling_interval);
+}
+
+size_t
+getSamplingInterval()
+{
+    return s_sampler.getSamplingInterval();
+}
 
 int
 phdr_symfind_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noexcept
@@ -98,11 +213,41 @@ ensureAllHooksAreValid()
 #undef FOR_EACH_HOOKED_FUNCTION
 }
 
-}  // namespace memray::hooks
+}  // namespace hooks
 
-namespace memray::intercept {
+namespace intercept {
 
 static constexpr size_t MEMRAY_ALLOC_OVERHEAD = 1;
+static constexpr char TRACE_MARK = 42;
+
+static inline void
+sampleAllocation(void* ptr, size_t size, hooks::Allocator allocator)
+{
+    if (!ptr) {
+        return;
+    }
+
+    if (s_sampler.getSamplingInterval() <= 1) {
+        tracking_api::Tracker::trackAllocation(ptr, size, allocator);
+    } else if (size_t sampled_size = s_sampler.calculateSampleSize(size)) {
+        size_t usable_size = malloc_usable_size(ptr);
+        static_cast<char*>(ptr)[usable_size - 1] = TRACE_MARK;
+        tracking_api::Tracker::trackAllocation(ptr, sampled_size, allocator);
+    }
+}
+
+static inline bool
+ptrWasSampled(void* ptr)
+{
+    if (ptr == nullptr) {
+        return false;
+    }
+    if (s_sampler.getSamplingInterval() <= 1) {
+        return true;
+    }
+    size_t usable_size = malloc_usable_size(ptr);
+    return static_cast<char*>(ptr)[usable_size - 1] == TRACE_MARK;
+}
 
 void*
 pymalloc_malloc(void* ctx, size_t size) noexcept
@@ -128,10 +273,7 @@ pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
     }
     if (ret) {
         if (ptr) {
-            tracking_api::Tracker::getTracker()->trackDeallocation(
-                    ptr,
-                    0,
-                    hooks::Allocator::PYMALLOC_FREE);
+            tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::PYMALLOC_FREE);
         }
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::PYMALLOC_REALLOC);
     }
@@ -198,7 +340,7 @@ malloc(size_t size) noexcept
     assert(hooks::malloc);
 
     void* ptr = hooks::malloc(size + MEMRAY_ALLOC_OVERHEAD);
-    tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::MALLOC);
+    sampleAllocation(ptr, size, hooks::Allocator::MALLOC);
     return ptr;
 }
 
@@ -209,7 +351,7 @@ free(void* ptr) noexcept
 
     // We need to call our API before we call the real free implementation
     // to make sure that the pointer is not reused in-between.
-    if (ptr != nullptr) {
+    if (ptrWasSampled(ptr)) {
         tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
     }
 
@@ -221,12 +363,13 @@ realloc(void* ptr, size_t size) noexcept
 {
     assert(hooks::realloc);
 
+    bool ptr_was_sampled = ptrWasSampled(ptr);
     void* ret = hooks::realloc(ptr, size + MEMRAY_ALLOC_OVERHEAD);
     if (ret) {
-        if (ptr != nullptr) {
+        if (ptr_was_sampled) {
             tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
         }
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::REALLOC);
+        sampleAllocation(ret, size, hooks::Allocator::REALLOC);
     }
     return ret;
 }
@@ -237,9 +380,7 @@ calloc(size_t num, size_t size) noexcept
     assert(hooks::calloc);
 
     void* ret = hooks::calloc(num, size + MEMRAY_ALLOC_OVERHEAD);
-    if (ret) {
-        tracking_api::Tracker::trackAllocation(ret, num * size, hooks::Allocator::CALLOC);
-    }
+    sampleAllocation(ret, num * size, hooks::Allocator::CALLOC);
     return ret;
 }
 
@@ -250,7 +391,7 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
 
     int ret = hooks::posix_memalign(memptr, alignment, size + MEMRAY_ALLOC_OVERHEAD);
     if (!ret) {
-        tracking_api::Tracker::trackAllocation(*memptr, size, hooks::Allocator::POSIX_MEMALIGN);
+        sampleAllocation(*memptr, size, hooks::Allocator::POSIX_MEMALIGN);
     }
     return ret;
 }
@@ -265,9 +406,7 @@ aligned_alloc(size_t alignment, size_t size) noexcept
     assert(alignment > 0 && 0 == (alignment & (alignment - 1)));  // alignment must be a power of 2
     size_t padded_size = (size + MEMRAY_ALLOC_OVERHEAD + alignment - 1) & -alignment;
     void* ret = hooks::aligned_alloc(alignment, padded_size);
-    if (ret) {
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
-    }
+    sampleAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
     return ret;
 }
 
@@ -281,9 +420,7 @@ memalign(size_t alignment, size_t size) noexcept
         tracking_api::RecursionGuard guard;
         ret = hooks::memalign(alignment, size + MEMRAY_ALLOC_OVERHEAD);
     }
-    if (ret) {
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::MEMALIGN);
-    }
+    sampleAllocation(ret, size, hooks::Allocator::MEMALIGN);
     return ret;
 }
 
@@ -297,9 +434,7 @@ valloc(size_t size) noexcept
         tracking_api::RecursionGuard guard;
         ret = hooks::valloc(size + MEMRAY_ALLOC_OVERHEAD);
     }
-    if (ret) {
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::VALLOC);
-    }
+    sampleAllocation(ret, size, hooks::Allocator::VALLOC);
     return ret;
 }
 
@@ -310,9 +445,7 @@ pvalloc(size_t size) noexcept
     assert(hooks::pvalloc);
 
     void* ret = hooks::pvalloc(size + MEMRAY_ALLOC_OVERHEAD);
-    if (ret) {
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::PVALLOC);
-    }
+    sampleAllocation(ret, size, hooks::Allocator::PVALLOC);
     return ret;
 }
 #endif
@@ -367,4 +500,5 @@ PyGILState_Ensure() noexcept
     return ret;
 }
 
-}  // namespace memray::intercept
+}  // namespace intercept
+}  // namespace memray

@@ -178,23 +178,6 @@ class NativeTrace
     std::vector<ip_t> d_data;
 };
 
-class BernoulliSampler
-{
-  public:
-    // Methods
-    BernoulliSampler(size_t sampling_interval);
-    size_t calculateSampleSize(size_t size);
-
-  private:
-    // Methods
-    size_t poissonStep();
-
-    // Data members
-    size_t d_sampling_interval_in_bytes;
-    double d_sampling_probability;
-    std::atomic<size_t> d_bytes_until_next_sample;
-};
-
 /**
  * Singleton managing all the global state and functionality of the tracing mechanism
  *
@@ -319,7 +302,6 @@ class Tracker
     size_t d_sampling_interval;
     elf::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
-    BernoulliSampler d_sampler;
 
     // Methods
     frame_id_t registerFrame(const RawFrame& frame);

@@ -250,71 +250,6 @@ std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
 
-BernoulliSampler::BernoulliSampler(size_t sampling_interval)
-{
-    d_sampling_interval_in_bytes = sampling_interval;
-    d_sampling_probability = 1.0 / d_sampling_interval_in_bytes;
-    d_bytes_until_next_sample = poissonStep();
-}
-
-size_t
-BernoulliSampler::calculateSampleSize(size_t size)
-{
-    if (size >= d_sampling_interval_in_bytes) {
-        return size;
-    }
-
-    size_t n_samples = 0;
-    size_t next_step = 0;
-    while (size) {
-        size_t loaded_bytes_until_next_sample =
-                d_bytes_until_next_sample.load(std::memory_order::memory_order_relaxed);
-        if (size >= loaded_bytes_until_next_sample) {
-            // We're being sampled! We need to replace our atomic entirely.
-            // Randomly decide when to stop next, if we haven't already.
-            if (!next_step) {
-                next_step = poissonStep();
-            }
-
-            if (!d_bytes_until_next_sample.compare_exchange_weak(
-                        loaded_bytes_until_next_sample,
-                        next_step,
-                        std::memory_order::memory_order_relaxed))
-            {
-                continue;  // Didn't update the atomic; loop and try again.
-            }
-
-            // Successfully updated the atomic; some bytes are accounted for.
-            next_step = 0;  // Our random number has been used
-            size -= loaded_bytes_until_next_sample;
-            n_samples++;
-        } else {
-            // We're not being sampled; just decrement our atomic.
-            if (!d_bytes_until_next_sample.compare_exchange_weak(
-                        loaded_bytes_until_next_sample,
-                        loaded_bytes_until_next_sample - size,
-                        std::memory_order::memory_order_relaxed))
-            {
-                continue;  // Didn't update the atomic; loop and try again.
-            }
-
-            // Successfully updated the atomic; all bytes are accounted for.
-            size = 0;
-        }
-    }
-
-    return d_sampling_interval_in_bytes * n_samples;
-}
-
-size_t
-BernoulliSampler::poissonStep()
-{
-    static_assert(std::is_trivially_destructible<std::default_random_engine>::value);
-    static thread_local std::default_random_engine s_random_engine;
-    std::exponential_distribution<double> exponential_dist(d_sampling_probability);
-    return static_cast<size_t>(exponential_dist(s_random_engine)) + 1;
-}
-
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
@@ -327,12 +262,11 @@ Tracker::Tracker(
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
-, d_sampling_interval(sampling_interval)
-, d_sampler(sampling_interval)
 {
     g_tracker_generation++;
 
-    // Note: this must be set before the hooks are installed.
+    // Note: these must be set before the hooks are installed.
+    hooks::setSamplingInterval(sampling_interval);
     d_instance = this;
 
     static std::once_flag once;
@@ -519,30 +453,8 @@ Tracker::childFork()
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators,
-            old_tracker->d_sampling_interval));
+            hooks::getSamplingInterval()));
     RecursionGuard::isActive = false;
-}
-
-static constexpr char TRACE_MARK = 42;
-
-static inline void
-markPtr(void* ptr, const hooks::Allocator& func)
-{
-    if (func == hooks::Allocator::MMAP || isPymalloc(func)) {
-        return;
-    }
-    size_t usable_size = malloc_usable_size(ptr);
-    static_cast<char*>(ptr)[usable_size - 1] = TRACE_MARK;
-}
-
-static inline bool
-isPtrMarked(void* ptr, const hooks::Allocator& func)
-{
-    if (func == hooks::Allocator::MUNMAP || isPymalloc(func)) {
-        return true;
-    }
-    size_t usable_size = malloc_usable_size(ptr);
-    return static_cast<char*>(ptr)[usable_size - 1] == TRACE_MARK;
 }
 
 void
@@ -552,16 +464,6 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
-
-    size_t sample_size = size;
-
-    if (d_sampling_interval > 1) {
-        sample_size = d_sampler.calculateSampleSize(size);
-        if (sample_size == 0) {
-            return;
-        }
-        markPtr(ptr, func);
-    }
 
     // Grab a reference to the TLS variable to guarantee it's only resolved once.
     auto& python_stack_tracker = t_python_stack_tracker;
@@ -580,13 +482,13 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
                 return d_writer->writeRecord(UnresolvedNativeFrame{ip, index});
             });
         }
-        NativeAllocationRecord record{reinterpret_cast<uintptr_t>(ptr), sample_size, func, native_index};
+        NativeAllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
         }
     } else {
-        AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), sample_size, func};
+        AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
@@ -601,10 +503,6 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
-
-    if (d_sampling_interval != 1 && !isPtrMarked(ptr, func)) {
-        return;
-    }
 
     AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
     if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {

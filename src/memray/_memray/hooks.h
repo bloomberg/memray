@@ -44,6 +44,13 @@
 
 namespace memray::hooks {
 
+// Note: Not thread safe; must be called before hooks are installed.
+void
+setSamplingInterval(size_t sampling_interval);
+
+size_t
+getSamplingInterval();
+
 struct symbol_query
 {
     size_t maps_visited;

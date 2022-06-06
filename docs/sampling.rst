@@ -73,7 +73,7 @@ follows is:
   optimization.
 
 * When an allocation occurs for a size smaller than our sampling size, we substract the size of the allocation from the amount of bytes
-    we must wait until before taking our next sample. If this number reaches zero, we take a sample and we draw another random number from
+  we must wait until before taking our next sample. If this number reaches zero, we take a sample and we draw another random number from
   the exponential distribution. The amount of times we had to draw from the exponential distribution is the number of samples
   the allocation should count as.
 
