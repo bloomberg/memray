@@ -80,8 +80,8 @@ cdef class MemoryAllocator:
 
     @cython.profile(True)
     def posix_memalign(self, size_t size):
-        posix_memalign(&self.ptr, sizeof(void*), size)
-        return self.ptr != NULL
+        rc = posix_memalign(&self.ptr, sizeof(void*), size)
+        return rc == 0 and self.ptr != NULL
 
     @cython.profile(True)
     def aligned_alloc(self, size_t size):
