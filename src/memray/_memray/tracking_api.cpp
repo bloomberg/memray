@@ -32,6 +32,17 @@ get_executable()
     return std::string(buff, len);
 }
 
+static inline bool
+isEntryFrame(PyFrameObject* frame)
+{
+#if PY_VERSION_HEX >= 0x030B0000
+    return _PyFrame_IsEntryFrame(frame);
+#else
+    (void)frame;
+    return true;
+#endif
+}
+
 static bool
 starts_with(const std::string& haystack, const std::string_view& needle)
 {
@@ -108,6 +119,8 @@ class PythonStackTracker
     };
 
   public:
+    static bool s_native_tracking_enabled;
+
     void reset(PyFrameObject* current_frame);
     void emitPendingPops();
     void emitPendingPushes();
@@ -125,6 +138,8 @@ class PythonStackTracker
 // See giant comment above.
 static_assert(std::is_trivially_destructible<PythonStackTracker>::value);
 MEMRAY_FAST_TLS thread_local PythonStackTracker t_python_stack_tracker;
+
+bool PythonStackTracker::s_native_tracking_enabled{false};
 
 void
 PythonStackTracker::reset(PyFrameObject* current_frame)
@@ -218,6 +233,9 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
     }
 
     int parent_lineno = getCurrentPythonLineNumber();
+    // If native tracking is not enabled, treat every frame as an entry frame.
+    // It doesn't matter to the reader, and is more efficient.
+    bool is_entry_frame = !s_native_tracking_enabled || isEntryFrame(frame);
 
     struct StackCreator
     {
@@ -237,7 +255,7 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 
     setMostRecentFrameLineNumber(parent_lineno);
     MEMRAY_FAST_TLS static thread_local StackCreator t_stack_creator;
-    t_stack_creator.stack.push_back({frame, {function, filename, 0}, false});
+    t_stack_creator.stack.push_back({frame, {function, filename, 0, is_entry_frame}, false});
     assert(d_stack);  // The above call sets d_stack if it wasn't already set.
     return 0;
 }
@@ -298,6 +316,7 @@ Tracker::Tracker(
     updateModuleCache();
 
     RecursionGuard guard;
+    PythonStackTracker::s_native_tracking_enabled = native_traces;
     tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
     if (d_trace_python_allocators) {
         registerPymallocHooks();
@@ -314,6 +333,7 @@ Tracker::~Tracker()
 {
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
+    PythonStackTracker::s_native_tracking_enabled = false;
     d_background_thread->stop();
     t_python_stack_tracker.reset(nullptr);
     d_patcher.restore_symbols();

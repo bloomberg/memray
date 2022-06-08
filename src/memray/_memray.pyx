@@ -191,25 +191,39 @@ cdef class AllocationRecord:
     cdef _is_eval_frame(self, object symbol):
         return "_PyEval_EvalFrameDefault" in symbol
 
-    def _pure_python_stack_trace(self, max_stacks):
-        for frame in self.stack_trace(max_stacks):
-            _, file, _ = frame
-            if file.endswith(".pyx"):
-                continue
-            yield frame
-
     def hybrid_stack_trace(self, max_stacks=None):
-        python_stack = tuple(self._pure_python_stack_trace(max_stacks))
-        n_python_frames_left = len(python_stack) if python_stack else None
-        python_stack = iter(python_stack)
-        for native_frame in self.native_stack_trace(max_stacks):
-            if n_python_frames_left == 0:
+        cdef vector[unsigned char] is_entry_frame
+        cdef list python_stack
+        if max_stacks is None:
+            python_stack = self._reader.get().Py_GetStackFrameAndEntryInfo(
+                self._tuple[4], &is_entry_frame
+            )
+        else:
+            python_stack = self._reader.get().Py_GetStackFrameAndEntryInfo(
+                self._tuple[4], &is_entry_frame, max_stacks
+            )
+
+        native_stack = self.native_stack_trace(max_stacks)
+
+        if not python_stack:
+            yield from native_stack
+            return
+
+        cdef size_t python_frame_index = 0
+        cdef size_t num_python_frames = len(python_stack)
+        for native_frame in native_stack:
+            if python_frame_index >= num_python_frames:
                 break
-            symbol, *_ = native_frame
+            symbol = native_frame[0]
             if self._is_eval_frame(symbol):
-                python_frame =  next(python_stack)
-                n_python_frames_left -= 1
-                yield python_frame
+                while python_frame_index < num_python_frames:
+                    python_frame = python_stack[python_frame_index]
+                    python_frame_index += 1
+                    if python_frame[1].endswith(".pyx"):
+                        break  # Stop if we hit a Cython frame; don't emit it
+                    yield python_frame
+                    if is_entry_frame[python_frame_index - 1]:
+                        break
             else:
                 yield native_frame
 

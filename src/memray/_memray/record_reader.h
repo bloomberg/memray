@@ -40,6 +40,10 @@ class RecordReader
     bool isOpen() const noexcept;
     PyObject*
     Py_GetStackFrame(FrameTree::index_t index, size_t max_stacks = std::numeric_limits<size_t>::max());
+    PyObject* Py_GetStackFrameAndEntryInfo(
+            FrameTree::index_t index,
+            std::vector<unsigned char>* is_entry_frame,
+            size_t max_stacks = std::numeric_limits<size_t>::max());
     PyObject* Py_GetNativeStackFrame(
             FrameTree::index_t index,
             size_t generation,
@@ -93,7 +97,7 @@ class RecordReader
     [[nodiscard]] bool parseFramePop(FramePop* record, unsigned int flags);
     [[nodiscard]] bool processFramePop(const FramePop& record);
 
-    [[nodiscard]] bool parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val);
+    [[nodiscard]] bool parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val, unsigned int flags);
     [[nodiscard]] bool processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_val);
 
     [[nodiscard]] bool parseNativeFrameIndex(UnresolvedNativeFrame* frame);

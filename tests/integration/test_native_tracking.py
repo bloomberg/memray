@@ -1,3 +1,4 @@
+import functools
 import shutil
 import subprocess
 import sys
@@ -235,14 +236,76 @@ def test_hybrid_stack_in_pure_python(tmpdir):
         == len(valloc.stack_trace()) - 2
         == MAX_RECURSIONS
     )
-    assert (
-        len(valloc.stack_trace())
-        <= len(hybrid_stack)
-        <= len(valloc.native_stack_trace())
-    )
+    assert len(valloc.stack_trace()) <= len(hybrid_stack)
+    if sys.version_info < (3, 11):
+        # The hybrid stack can be bigger than the native stack in 3.11, because
+        # non-entry frames are present in the hybrid stack but missing in the
+        # native stack. In 3.10 and earlier, the hybrid stack can't be bigger.
+        assert len(hybrid_stack) <= len(valloc.native_stack_trace())
 
     # The hybrid stack trace must run until the latest python function seen by the tracker
     assert hybrid_stack[-1] == "test_hybrid_stack_in_pure_python"
+
+
+def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = Path(tmpdir) / "test.bin"
+
+    def ham():
+        spam()
+
+    def spam():
+        functools.partial(foo)()
+
+    def foo():
+        bar()
+
+    def bar():
+        baz()
+
+    def baz():
+        return allocator.valloc(1234)
+
+    funcs = ("ham", "spam", "foo", "bar", "baz")
+
+    # WHEN
+
+    with Tracker(output, native_traces=True):
+        ham()
+
+    # THEN
+    records = list(FileReader(output).get_allocation_records())
+    vallocs = [
+        record
+        for record in filter_relevant_allocations(records)
+        if record.allocator == AllocatorType.VALLOC
+    ]
+
+    assert len(vallocs) == 1
+    (valloc,) = vallocs
+
+    hybrid_stack = tuple(frame[0] for frame in valloc.hybrid_stack_trace())
+    pos = {func: hybrid_stack.index(func) for func in funcs}
+    assert pos["ham"] > pos["spam"] > pos["foo"] > pos["bar"] > pos["baz"]
+    if sys.version_info >= (3, 11) and sys.implementation.name == "cpython":
+        # Some frames should be non-entry frames, and therefore adjacent to their caller
+        assert pos["ham"] == pos["spam"] + 1
+        assert pos["spam"] > pos["foo"] + 1  # map() introduces extra frames
+        assert pos["foo"] == pos["bar"] + 1
+        assert pos["bar"] == pos["baz"] + 1
+    else:
+        # All frames are entry frames; there are C frames between any 2 Python calls
+        assert pos["ham"] > pos["spam"] + 1
+        assert pos["spam"] > pos["foo"] + 1
+        assert pos["foo"] > pos["bar"] + 1
+        assert pos["bar"] > pos["baz"] + 1
+
+    # Cython frames don't show up with their Python name in the hybrid stack
+    assert "valloc" not in hybrid_stack
+
+    # Though they show up as Python functions in the non-hybrid stack
+    assert valloc.stack_trace()[0][0] == "valloc"
 
 
 def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
