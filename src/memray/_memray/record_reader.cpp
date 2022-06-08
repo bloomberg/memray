@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <inttypes.h>
 #include <stdexcept>
+#include <string_view>
 #include <unordered_map>
 
 #include "Python.h"
@@ -207,8 +208,9 @@ RecordReader::processFramePop(const FramePop& record)
 }
 
 bool
-RecordReader::parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val)
+RecordReader::parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val, unsigned int flags)
 {
+    pyframe_val->second.is_entry_frame = !(flags & 1);
     return readIntegralDelta(&d_last.python_frame_id, &pyframe_val->first)
            && d_input->getline(pyframe_val->second.function_name, '\0')
            && d_input->getline(pyframe_val->second.filename, '\0')
@@ -493,7 +495,8 @@ RecordReader::nextRecord()
             } break;
             case RecordType::FRAME_INDEX: {
                 tracking_api::pyframe_map_val_t record;
-                if (!parseFrameIndex(&record) || !processFrameIndex(record)) {
+                if (!parseFrameIndex(&record, record_type_and_flags.flags) || !processFrameIndex(record))
+                {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process frame index";
                     return RecordResult::ERROR;
                 }
@@ -541,9 +544,22 @@ RecordReader::nextRecord()
 PyObject*
 RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
 {
+    return Py_GetStackFrameAndEntryInfo(index, nullptr, max_stacks);
+}
+
+PyObject*
+RecordReader::Py_GetStackFrameAndEntryInfo(
+        unsigned int index,
+        std::vector<unsigned char>* is_entry_frame,
+        size_t max_stacks)
+{
     if (!d_track_stacks) {
         PyErr_SetString(PyExc_RuntimeError, "Stack tracking is disabled");
         return NULL;
+    }
+    if (is_entry_frame) {
+        is_entry_frame->clear();
+        is_entry_frame->reserve(64);
     }
     std::lock_guard<std::mutex> lock(d_mutex);
 
@@ -565,6 +581,9 @@ RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
         Py_DECREF(pyframe);
         if (ret != 0) {
             goto error;
+        }
+        if (is_entry_frame) {
+            is_entry_frame->push_back(frame.is_entry_frame);
         }
         current_index = next_index;
     }
@@ -787,15 +806,16 @@ RecordReader::dumpAllRecords()
                 printf("FRAME_ID ");
 
                 tracking_api::pyframe_map_val_t record;
-                if (!parseFrameIndex(&record)) {
+                if (!parseFrameIndex(&record, record_type_and_flags.flags)) {
                     Py_RETURN_NONE;
                 }
 
-                printf("frame_id=%zd function_name=%s filename=%s lineno=%d\n",
+                printf("frame_id=%zd function_name=%s filename=%s lineno=%d is_entry_frame=%d\n",
                        record.first,
                        record.second.function_name.c_str(),
                        record.second.filename.c_str(),
-                       record.second.lineno);
+                       record.second.lineno,
+                       record.second.is_entry_frame);
             } break;
             case RecordType::NATIVE_TRACE_INDEX: {
                 printf("NATIVE_FRAME_ID ");

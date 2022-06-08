@@ -153,11 +153,12 @@ struct RawFrame
     const char* function_name;
     const char* filename;
     int lineno;
+    bool is_entry_frame;
 
     auto operator==(const RawFrame& other) const -> bool
     {
         return (function_name == other.function_name && filename == other.filename
-                && lineno == other.lineno);
+                && lineno == other.lineno && is_entry_frame == other.is_entry_frame);
     }
 
     struct Hash
@@ -176,7 +177,7 @@ struct RawFrame
             auto the_func = std::hash<const char*>{}(frame.function_name);
             auto the_filename = std::hash<const char*>{}(frame.filename);
             auto lineno = std::hash<int>{}(frame.lineno);
-            return the_func ^ the_filename ^ lineno;
+            return the_func ^ the_filename ^ lineno ^ frame.is_entry_frame;
         }
     };
 };
@@ -186,13 +187,14 @@ struct Frame
     std::string function_name;
     std::string filename;
     int lineno{0};
+    bool is_entry_frame{true};
 
     PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;
 
     auto operator==(const Frame& other) const -> bool
     {
         return (function_name == other.function_name && filename == other.filename
-                && lineno == other.lineno);
+                && lineno == other.lineno && is_entry_frame == other.is_entry_frame);
     }
 
     struct Hash
@@ -211,7 +213,7 @@ struct Frame
             auto the_func = std::hash<std::string>{}(frame.function_name);
             auto the_filename = std::hash<std::string>{}(frame.filename);
             auto lineno = std::hash<int>{}(frame.lineno);
-            return the_func ^ the_filename ^ lineno;
+            return the_func ^ the_filename ^ lineno ^ frame.is_entry_frame;
         }
     };
 };

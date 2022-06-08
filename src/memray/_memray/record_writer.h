@@ -200,7 +200,7 @@ bool inline RecordWriter::writeRecordUnsafe(const NativeAllocationRecord& record
 bool inline RecordWriter::writeRecordUnsafe(const pyrawframe_map_val_t& item)
 {
     d_stats.n_frames += 1;
-    RecordTypeAndFlags token{RecordType::FRAME_INDEX, 0};
+    RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.second.is_entry_frame};
     return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
            && writeIntegralDelta(&d_last.python_line_number, item.second.lineno);
