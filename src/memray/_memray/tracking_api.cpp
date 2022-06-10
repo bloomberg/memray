@@ -1,3 +1,6 @@
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <cassert>
 #include <limits.h>
 #include <link.h>
@@ -5,8 +8,6 @@
 #include <type_traits>
 #include <unistd.h>
 #include <utility>
-
-#include <Python.h>
 
 #include "exceptions.h"
 #include "hooks.h"

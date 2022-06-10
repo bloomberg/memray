@@ -1,12 +1,13 @@
 #pragma once
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <fstream>
 #include <stddef.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
-
-#include "Python.h"
 
 #include "hooks.h"
 #include "python_helpers.h"

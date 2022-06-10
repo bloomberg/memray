@@ -1,5 +1,8 @@
 #pragma once
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -9,7 +12,6 @@
 #include <utility>
 #include <vector>
 
-#include "Python.h"
 #include <cxxabi.h>
 
 #include <libbacktrace/backtrace.h>

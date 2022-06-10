@@ -1,11 +1,12 @@
 #pragma once
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
-
-#include "Python.h"
 
 namespace memray::python_helpers {
 class PyUnicode_Cache
