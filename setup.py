@@ -170,6 +170,9 @@ if TEST_BUILD:
 
 DEFINE_MACROS = []
 
+# Ensure that we have a 64-bit off_t in all translation units.
+DEFINE_MACROS.append(("_FILE_OFFSET_BITS", "64"))
+
 # memray uses thread local storage (TLS) variables. As memray is compiled
 # into a Python extension, is a shared object. TLS variables in shared objects
 # use the most conservative and slow TLS model available by default:
