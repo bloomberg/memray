@@ -1,6 +1,9 @@
 #ifndef _MEMRAY_HOOKS_H
 #define _MEMRAY_HOOKS_H
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <sys/types.h>
 
 #include <cstdlib>
@@ -11,8 +14,6 @@
 #include <dlfcn.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
-
-#include <Python.h>
 
 #include "alloc.h"
 #include "logging.h"

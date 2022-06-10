@@ -1,5 +1,8 @@
 #pragma once
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <assert.h>
 #include <fstream>
 #include <functional>
@@ -11,8 +14,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include "Python.h"
 
 #include "frame_tree.h"
 #include "native_resolver.h"

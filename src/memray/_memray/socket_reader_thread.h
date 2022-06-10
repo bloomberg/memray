@@ -1,11 +1,13 @@
 #pragma once
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <atomic>
 #include <memory>
 #include <mutex>
 #include <thread>
 
-#include "Python.h"
 #include "record_reader.h"
 #include "snapshot.h"
 

@@ -1,12 +1,13 @@
 #define __STDC_FORMAT_MACROS
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <algorithm>
+#include <cinttypes>
 #include <cstdio>
-#include <inttypes.h>
 #include <stdexcept>
 #include <string_view>
 #include <unordered_map>
-
-#include "Python.h"
 
 #include "exceptions.h"
 #include "hooks.h"

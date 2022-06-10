@@ -1,3 +1,6 @@
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <cerrno>
 #include <cstdio>
 
@@ -10,8 +13,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <utility>
-
-#include <Python.h>
 
 #include "exceptions.h"
 #include "lz4_stream.h"

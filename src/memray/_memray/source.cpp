@@ -1,3 +1,6 @@
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstdio>
@@ -11,8 +14,6 @@
 
 #include <chrono>
 #include <thread>
-
-#include <Python.h>
 
 #include "exceptions.h"
 #include "logging.h"
