@@ -247,7 +247,7 @@ PythonStackTracker::popPythonFrame()
 std::atomic<bool> Tracker::d_active = false;
 std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
-MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{64};
+MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{128};
 
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,

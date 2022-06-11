@@ -317,7 +317,7 @@
    write(buf)
    ...
    fun:backtrace
-   fun:unwind
+   fun:fill
    ...
 }
 {
@@ -326,7 +326,7 @@
    msync(start)
    ...
    fun:backtrace
-   fun:unwind
+   fun:fill
    ...
 }
 {
@@ -334,7 +334,7 @@
    Memcheck:Cond
    ...
    fun:backtrace
-   fun:unwind
+   fun:fill
    ...
 }
 

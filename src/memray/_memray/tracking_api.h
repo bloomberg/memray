@@ -106,12 +106,13 @@ class NativeTrace
     }
     __attribute__((always_inline)) inline bool fill(size_t skip)
     {
-        size_t size = unwind(d_data.data());
-        if (size == MAX_SIZE) {
-            d_data.resize(0);
-            size = exact_unwind();
-            skip += 1;  // skip the non-inlined exact_unwind frame
-            MAX_SIZE = MAX_SIZE * 2 > size ? MAX_SIZE * 2 : size;
+        size_t size;
+        while (true) {
+            size = unw_backtrace((void**)d_data.data(), MAX_SIZE);
+            if (size < MAX_SIZE) {
+                break;
+            }
+            MAX_SIZE = MAX_SIZE * 2;
             d_data.resize(MAX_SIZE);
         }
         d_size = size > skip ? size - skip : 0;
@@ -139,37 +140,6 @@ class NativeTrace
 
   private:
     MEMRAY_FAST_TLS static thread_local size_t MAX_SIZE;
-    __attribute__((always_inline)) static inline int unwind(frame_id_t* data)
-    {
-        return unw_backtrace((void**)data, MAX_SIZE);
-    }
-
-    // This can not be inlined as some architectures (e.g. ppc64le) don't
-    // support inlining functions that call setjmp()
-    __attribute__((noinline)) size_t inline exact_unwind()
-    {
-        unw_context_t context;
-        if (unw_getcontext(&context) < 0) {
-            std::cerr << "WARNING: Failed to initialize libunwind's context" << std::endl;
-            return 0;
-        }
-
-        unw_cursor_t cursor;
-        if (unw_init_local(&cursor, &context) < 0) {
-            std::cerr << "WARNING: Failed to initialize libunwind's cursor" << std::endl;
-            return 0;
-        }
-
-        do {
-            unw_word_t ip;
-            if (unw_get_reg(&cursor, UNW_REG_IP, &ip) < 0) {
-                std::cerr << "WARNING: Failed to get instruction pointer" << std::endl;
-                return 0;
-            }
-            d_data.emplace_back(ip);
-        } while (unw_step(&cursor));
-        return d_data.size();
-    }
 
   private:
     size_t d_size = 0;
