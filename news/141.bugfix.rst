@@ -1,0 +1,1 @@
+Fixed a bug where aggregating native call stacks could give misleading results on aarch64 under some circumstances.
