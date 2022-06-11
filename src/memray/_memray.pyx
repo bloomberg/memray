@@ -22,7 +22,8 @@ from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
 from _memray.record_writer cimport RecordWriter
 from _memray.records cimport Allocation as _Allocation
-from _memray.records cimport MemoryRecord as _MemoryRecord
+from _memray.records cimport MemoryRecord
+from _memray.records cimport MemorySnapshot as _MemorySnapshot
 from _memray.sink cimport FileSink
 from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
@@ -213,7 +214,7 @@ cdef class AllocationRecord:
                 f"allocations={self.n_allocations}>")
 
 
-MemoryRecord = collections.namedtuple("MemoryRecord", "time rss")
+MemorySnapshot = collections.namedtuple("MemorySnapshot", "time rss heap")
 
 cdef class Tracker:
     """Context manager for tracking memory allocations in a Python script.
@@ -436,7 +437,7 @@ cdef class FileReader:
     cdef cppstring _path
 
     cdef object _file
-    cdef vector[_MemoryRecord] _memory_records
+    cdef vector[_MemorySnapshot] _memory_snapshots
     cdef HighWatermark _high_watermark
     cdef object _header
     cdef bool _report_progress
@@ -450,7 +451,7 @@ cdef class FileReader:
         self._path = "/proc/self/fd/" + str(self._file.fileno())
         self._report_progress = report_progress
 
-        # Initial pass to populate _header, _high_watermark, and _memory_records.
+        # Initial pass to populate _header, _high_watermark, and _memory_snapshots.
         cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
             unique_ptr[FileSource](new FileSource(self._path)),
             False
@@ -460,10 +461,10 @@ cdef class FileReader:
         self._header = reader.getHeader()
         stats = self._header["stats"]
 
-        n_memory_records_approx = 2048
+        n_memory_snapshots_approx = 2048
         if 0 < stats["start_time"] < stats["end_time"]:
-            n_memory_records_approx = (stats["end_time"] - stats["start_time"]) / 10
-        self._memory_records.reserve(n_memory_records_approx)
+            n_memory_snapshots_approx = (stats["end_time"] - stats["start_time"]) / 10
+        self._memory_snapshots.reserve(n_memory_snapshots_approx)
 
         cdef object total = stats['n_allocations'] or None
         cdef HighWatermarkFinder finder
@@ -473,6 +474,7 @@ cdef class FileReader:
             total=total,
             report_progress=self._report_progress
         )
+        cdef MemoryRecord memory_record
         with progress_indicator:
             while True:
                 PyErr_CheckSignals()
@@ -481,7 +483,14 @@ cdef class FileReader:
                     finder.processAllocation(reader.getLatestAllocation())
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
-                    self._memory_records.push_back(reader.getLatestMemoryRecord())
+                    memory_record = reader.getLatestMemoryRecord()
+                    self._memory_snapshots.push_back(
+                        _MemorySnapshot(
+                            memory_record.ms_since_epoch,
+                            memory_record.rss,
+                            finder.getCurrentWatermark(),
+                        )
+                    )
                 else:
                     break
         self._high_watermark = finder.getHighWatermark()
@@ -596,9 +605,9 @@ cdef class FileReader:
 
         reader.close()
 
-    def get_memory_records(self):
-        for record in self._memory_records:
-            yield MemoryRecord(record.ms_since_epoch, record.rss)
+    def get_memory_snapshots(self):
+        for record in self._memory_snapshots:
+            yield MemorySnapshot(record.ms_since_epoch, record.rss, record.heap)
 
     @property
     def metadata(self):

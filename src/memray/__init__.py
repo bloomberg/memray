@@ -3,7 +3,7 @@ from ._memray import AllocatorType
 from ._memray import Destination
 from ._memray import FileDestination
 from ._memray import FileReader
-from ._memray import MemoryRecord
+from ._memray import MemorySnapshot
 from ._memray import SocketDestination
 from ._memray import SocketReader
 from ._memray import Tracker
@@ -16,7 +16,7 @@ from ._version import __version__
 __all__ = [
     "AllocationRecord",
     "AllocatorType",
-    "MemoryRecord",
+    "MemorySnapshot",
     "dump_all_records",
     "start_thread_trace",
     "Tracker",

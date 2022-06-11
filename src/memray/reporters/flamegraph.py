@@ -8,7 +8,7 @@ from typing import Iterator
 from typing import TextIO
 
 from memray import AllocationRecord
-from memray import MemoryRecord
+from memray import MemorySnapshot
 from memray import Metadata
 from memray.reporters.frame_tools import StackFrame
 from memray.reporters.frame_tools import is_cpython_internal
@@ -58,7 +58,7 @@ class FlameGraphReporter:
         self,
         data: Dict[str, Any],
         *,
-        memory_records: Iterable[MemoryRecord],
+        memory_records: Iterable[MemorySnapshot],
     ) -> None:
         super().__init__()
         self.data = data
@@ -69,7 +69,7 @@ class FlameGraphReporter:
         cls,
         allocations: Iterator[AllocationRecord],
         *,
-        memory_records: Iterable[MemoryRecord],
+        memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
     ) -> "FlameGraphReporter":
         data: Dict[str, Any] = {

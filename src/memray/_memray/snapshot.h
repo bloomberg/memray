@@ -188,6 +188,7 @@ class HighWatermarkFinder
     HighWatermarkFinder() = default;
     void processAllocation(const Allocation& allocation);
     HighWatermark getHighWatermark() const noexcept;
+    size_t getCurrentWatermark() const noexcept;
 
   private:
     HighWatermarkFinder(const HighWatermarkFinder&) = delete;

@@ -35,3 +35,9 @@ cdef extern from "records.h" namespace "memray::tracking_api":
    struct MemoryRecord:
        unsigned long int ms_since_epoch
        size_t rss
+
+   struct MemorySnapshot:
+       unsigned long int ms_since_epoch
+       size_t rss
+       size_t heap
+

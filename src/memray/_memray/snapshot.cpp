@@ -208,6 +208,12 @@ HighWatermarkFinder::getHighWatermark() const noexcept
     return d_last_high_water_mark;
 }
 
+size_t
+HighWatermarkFinder::getCurrentWatermark() const noexcept
+{
+    return d_current_memory;
+}
+
 PyObject*
 Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t& stack_to_allocation)
 {

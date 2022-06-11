@@ -13,7 +13,7 @@ except ImportError:
 
 from memray import AllocationRecord
 from memray import FileReader
-from memray import MemoryRecord
+from memray import MemorySnapshot
 from memray._errors import MemrayCommandError
 from memray.reporters import BaseReporter
 
@@ -23,7 +23,7 @@ class ReporterFactory(Protocol):
         self,
         allocations: Iterable[AllocationRecord],
         *,
-        memory_records: Iterable[MemoryRecord],
+        memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
     ) -> BaseReporter:
         ...
@@ -82,7 +82,7 @@ class HighWatermarkCommand:
                 snapshot = reader.get_high_watermark_allocation_records(
                     merge_threads=merge_threads if merge_threads is not None else True
                 )
-            memory_records = tuple(reader.get_memory_records())
+            memory_records = tuple(reader.get_memory_snapshots())
             reporter = self.reporter_factory(
                 snapshot,
                 memory_records=memory_records,
