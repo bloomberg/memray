@@ -95,6 +95,13 @@ struct MemoryRecord
     size_t rss;
 };
 
+struct MemorySnapshot
+{
+    unsigned long int ms_since_epoch;
+    size_t rss;
+    size_t heap;
+};
+
 struct AllocationRecord
 {
     uintptr_t address;

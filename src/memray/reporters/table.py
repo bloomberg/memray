@@ -8,7 +8,7 @@ from typing import TextIO
 
 from memray import AllocationRecord
 from memray import AllocatorType
-from memray import MemoryRecord
+from memray import MemorySnapshot
 from memray import Metadata
 from memray.reporters.templates import render_report
 
@@ -18,7 +18,7 @@ class TableReporter:
         self,
         data: List[Dict[str, Any]],
         *,
-        memory_records: Iterable[MemoryRecord],
+        memory_records: Iterable[MemorySnapshot],
     ):
         super().__init__()
         self.data = data
@@ -29,7 +29,7 @@ class TableReporter:
         cls,
         allocations: Iterator[AllocationRecord],
         *,
-        memory_records: Iterable[MemoryRecord],
+        memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
     ) -> "TableReporter":
 

@@ -11,6 +11,7 @@ cdef extern from "snapshot.h" namespace "memray::api":
     cdef cppclass HighWatermarkFinder:
         void processAllocation(const Allocation&) except+
         HighWatermark getHighWatermark()
+        size_t getCurrentWatermark()
 
     cdef cppclass reduced_snapshot_map_t:
         pass

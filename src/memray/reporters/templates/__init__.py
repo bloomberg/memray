@@ -7,7 +7,7 @@ from typing import Union
 
 import jinja2
 
-from memray import MemoryRecord
+from memray import MemorySnapshot
 from memray import Metadata
 
 
@@ -29,7 +29,7 @@ def render_report(
     kind: str,
     data: Union[Dict[str, Any], Iterable[Dict[str, Any]]],
     metadata: Metadata,
-    memory_records: Iterable[MemoryRecord],
+    memory_records: Iterable[MemorySnapshot],
     show_memory_leaks: bool,
     merge_threads: bool,
 ) -> str:

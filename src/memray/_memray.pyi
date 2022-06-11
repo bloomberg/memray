@@ -22,7 +22,9 @@ from . import Destination
 
 PythonStackElement = Tuple[str, str, int]
 NativeStackElement = Tuple[str, str, int]
-MemoryRecord = NamedTuple("MemoryRecord", [("time", int), ("rss", int)])
+MemorySnapshot = NamedTuple(
+    "MemorySnapshot", [("time", int), ("rss", int), ("heap", int)]
+)
 
 def set_log_level(level: int) -> None: ...
 
@@ -95,7 +97,7 @@ class FileReader:
     def get_all_allocation_records_aggregated(
         self, merge_threads: bool
     ) -> Iterable[AllocationRecord]: ...
-    def get_memory_records(self) -> Iterable[MemoryRecord]: ...
+    def get_memory_snapshots(self) -> Iterable[MemorySnapshot]: ...
     def __enter__(self) -> Any: ...
     def __exit__(
         self,

@@ -1,16 +1,25 @@
 import _ from "lodash";
 
 export function initMemoryGraph(memory_records) {
-  const x = memory_records.map((a) => new Date(a[0]));
-  const y = memory_records.map((a) => a[1]);
+  const time = memory_records.map((a) => new Date(a[0]));
+  const resident_size = memory_records.map((a) => a[1]);
+  const heap_size = memory_records.map((a) => a[2]);
 
-  var trace = {
-    x,
-    y,
+  var resident_size_plot = {
+    x: time,
+    y: resident_size,
     mode: "lines",
+    name: "Resident size",
   };
 
-  var data = [trace];
+  var heap_size_plot = {
+    x: time,
+    y: heap_size,
+    mode: "lines",
+    name: "Heap size",
+  };
+
+  var data = [resident_size_plot, heap_size_plot];
 
   var layout = {
     xaxis: {
@@ -20,7 +29,7 @@ export function initMemoryGraph(memory_records) {
     },
     yaxis: {
       title: {
-        text: "Resident Size",
+        text: "Memory Size",
       },
       tickformat: ".4~s",
       exponentformat: "B",
@@ -43,6 +52,7 @@ export function initMemoryGraph(memory_records) {
       exponentformat: "B",
       ticksuffix: "B",
     },
+    showlegend: false,
   };
   var config = {
     responsive: true,
