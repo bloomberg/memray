@@ -1,0 +1,1 @@
+Fix the handling of the thread switch commands in the live mode TUI before the first allocation has been seen.

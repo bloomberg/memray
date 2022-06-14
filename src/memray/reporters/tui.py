@@ -197,6 +197,11 @@ class TUI:
         "a": 5,
     }
 
+    # Start with a non-empty list of threads so that we always have something
+    # to display. This avoids "Thread 1 of 0" and fixes a DivideByZeroError
+    # when switching threads before the first allocation is seen.
+    _DUMMY_THREAD_LIST = [0]
+
     def __init__(self, pid: Optional[int], cmd_line: Optional[str], native: bool):
         self.pid = pid or "???"
         if not cmd_line:
@@ -207,7 +212,7 @@ class TUI:
         self._native = native
         self._thread_idx = 0
         self._seen_threads: Set[int] = set()
-        self._threads: List[int] = []
+        self._threads: List[int] = self._DUMMY_THREAD_LIST
         self.n_samples = 0
         self.start = datetime.now()
         self._last_update = datetime.now()
@@ -360,8 +365,6 @@ class TUI:
 
     @property
     def current_thread(self) -> int:
-        if not self._threads:
-            return 0
         return self._threads[self._thread_idx]
 
     def next_thread(self) -> None:
@@ -382,6 +385,8 @@ class TUI:
         for record in self._snapshot:
             if record.tid in self._seen_threads:
                 continue
+            if self._threads is self._DUMMY_THREAD_LIST:
+                self._threads = []
             self._threads.append(record.tid)
             self._seen_threads.add(record.tid)
         self.n_samples += 1
