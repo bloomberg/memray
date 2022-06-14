@@ -38,8 +38,8 @@ cdef extern from "snapshot.h" namespace "memray::api":
         uint64_t totalAllocations()
         uint64_t totalBytesAllocated()
         uint64_t peakBytesAllocated()
-        const unordered_map[size_t, uint64_t] allocationCountBySize()
-        const unordered_map[int, uint64_t] allocationCountByAllocator()
+        const unordered_map[size_t, uint64_t]& allocationCountBySize()
+        const unordered_map[int, uint64_t]& allocationCountByAllocator()
         const SizeAndCountByStack& sizeAndCountByStack()
 
     object Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t&) except+
