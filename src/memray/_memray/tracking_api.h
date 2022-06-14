@@ -286,7 +286,7 @@ class Tracker
     };
 
     // Data members
-    FrameCollection<RawFrame> d_frames{0, 2};
+    FrameCollection<RawFrame> d_frames;
     static std::atomic<bool> d_active;
     static std::unique_ptr<Tracker> d_instance_owner;
     static std::atomic<Tracker*> d_instance;
