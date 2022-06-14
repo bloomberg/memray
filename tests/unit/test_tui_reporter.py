@@ -50,7 +50,7 @@ class TestTUIHeader:
             "2021",
             "                                               ╭─ Memory ─╮",
             f"(∩｀-´)⊃━☆ﾟ.*…PID: {out_str}      CMD: ???           │          │",
-            "              TID: 0x0      Thread 1 of 0      │          │",
+            "              TID: 0x0      Thread 1 of 1      │          │",
             "              Samples: 1    Duration: 0.0      │          │",
             "                            seconds            │          │",
             "                                               ╰──────────╯",
@@ -75,7 +75,7 @@ class TestTUIHeader:
             "                                               ╭─ Memory ─╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
             "                            some_command_to_te…│          │",
-            "              TID: 0x0      Thread 1 of 0      │          │",
+            "              TID: 0x0      Thread 1 of 1      │          │",
             "              Samples: 1    Duration: 0.0      │          │",
             "                            seconds            ╰──────────╯",
         ]
@@ -99,7 +99,7 @@ class TestTUIHeader:
             "                                               ╭─ Memory ─╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
             "                            aaaaaaaaaaaaaaaaaa…│          │",
-            "              TID: 0x0      Thread 1 of 0      │          │",
+            "              TID: 0x0      Thread 1 of 1      │          │",
             "              Samples: 1    Duration: 0.0      │          │",
             "                            seconds            ╰──────────╯",
         ]
@@ -124,7 +124,7 @@ class TestTUIHeader:
             "                                               ╭─ Memory ─╮",
             "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
             "                            some_program.py    │          │",
-            "              TID: 0x0      Thread 1 of 0      │          │",
+            "              TID: 0x0      Thread 1 of 1      │          │",
             "              Samples: 1    Duration: 0.0      │          │",
             "                            seconds            ╰──────────╯",
         ]
