@@ -244,10 +244,6 @@ template<typename FrameType>
 class FrameCollection
 {
   public:
-    explicit FrameCollection(const frame_id_t& starting_index, const unsigned int& index_increment)
-    : d_index_increment{index_increment}
-    , d_current_frame_id{starting_index} {};
-
     template<typename T>
     auto getIndex(T&& frame) -> std::pair<frame_id_t, bool>
     {
@@ -255,15 +251,14 @@ class FrameCollection
         if (it == d_frame_map.end()) {
             frame_id_t frame_id =
                     d_frame_map.emplace(std::forward<T>(frame), d_current_frame_id).first->second;
-            d_current_frame_id += d_index_increment;
+            d_current_frame_id++;
             return std::make_pair(frame_id, true);
         }
         return std::make_pair(it->second, false);
     }
 
   private:
-    const unsigned int d_index_increment;
-    frame_id_t d_current_frame_id;
+    frame_id_t d_current_frame_id{};
     std::unordered_map<FrameType, frame_id_t, typename FrameType::Hash> d_frame_map{};
 };
 

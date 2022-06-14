@@ -73,7 +73,6 @@ class RecordReader
     const bool d_track_stacks;
     HeaderRecord d_header;
     pyframe_map_t d_frame_map{};
-    FrameCollection<Frame> d_allocation_frames{1, 2};
     stack_traces_t d_stack_traces{};
     FrameTree d_tree{};
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
