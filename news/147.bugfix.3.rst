@@ -1,0 +1,1 @@
+Ensure our TUI isn't displaying stale data by periodically flushing the latest available data from the tracker (rather than only flushing when a buffer fills up).

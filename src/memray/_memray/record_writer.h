@@ -162,7 +162,7 @@ bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
 {
     RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
     return writeSimpleType(token) && writeVarint(record.rss)
-           && writeVarint(record.ms_since_epoch - d_stats.start_time);
+           && writeVarint(record.ms_since_epoch - d_stats.start_time) && d_sink->flush();
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)
