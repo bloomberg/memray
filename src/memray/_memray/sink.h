@@ -16,6 +16,10 @@ class Sink
     virtual bool writeAll(const char* data, size_t length) = 0;
     virtual bool seek(off_t offset, int whence) = 0;
     virtual std::unique_ptr<Sink> cloneInChildProcess() = 0;
+    virtual bool flush()
+    {
+        return true;
+    }
 };
 
 class FileSink : public memray::io::Sink
@@ -64,11 +68,11 @@ class SocketSink : public Sink
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
     std::unique_ptr<Sink> cloneInChildProcess() override;
+    bool flush() override;
 
   private:
     size_t freeSpaceInBuffer();
     void open();
-    bool flush();
 
     const std::string d_host;
     uint16_t d_port;
