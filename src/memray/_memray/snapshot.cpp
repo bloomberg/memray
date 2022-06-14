@@ -215,7 +215,9 @@ HighWatermarkFinder::getCurrentWatermark() const noexcept
 }
 
 void
-AllocationStatsAggregator::addAllocation(const Allocation& allocation)
+AllocationStatsAggregator::addAllocation(
+        const Allocation& allocation,
+        std::optional<frame_id_t> python_frame_id)
 {
     d_high_water_mark_finder.processAllocation(allocation);
     if (hooks::isDeallocator(allocation.allocator)) {
@@ -225,8 +227,7 @@ AllocationStatsAggregator::addAllocation(const Allocation& allocation)
     d_total_bytes_allocated += allocation.size;
     d_allocation_count_by_size[allocation.size] += 1;
     d_allocation_count_by_allocator[static_cast<int>(allocation.allocator)] += 1;
-    auto loc_key = LocationKey{allocation.frame_index, allocation.native_frame_id, NO_THREAD_INFO};
-    auto& size_and_count = d_size_and_count_by_stack[loc_key];
+    auto& size_and_count = d_size_and_count_by_location[python_frame_id];
     size_and_count.first += allocation.size;
     size_and_count.second += 1;
 }

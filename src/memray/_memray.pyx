@@ -1,6 +1,5 @@
 import collections
 import contextlib
-import heapq
 import os
 import pathlib
 import sys
@@ -652,7 +651,10 @@ def compute_statistics(
             PyErr_CheckSignals()
             ret = reader.nextRecord()
             if ret == RecordResult.RecordResultAllocationRecord:
-                aggregator.addAllocation(reader.getLatestAllocation())
+                aggregator.addAllocation(
+                    reader.getLatestAllocation(),
+                    reader.getLatestPythonFrameId(reader.getLatestAllocation()),
+                )
                 progress_indicator.update(1)
             elif ret == RecordResult.RecordResultMemoryRecord:
                 pass
@@ -667,42 +669,17 @@ def compute_statistics(
     allocation_count_by_allocator = {AllocatorType(k).name: v for k, v in tmp.items()}
     cdef dict allocation_count_by_size = aggregator.allocationCountBySize();
 
-    # We've aggregated sizes and counts by stack, but we want to aggregate them
-    # by source location instead. Ideally we wouldn't do this in Python, but
-    # there's currently no other way to look up a frame by ID.
-    size_and_count_by_location = collections.defaultdict(lambda: [0, 0])
+    # Convert top locations by bytes allocated/by allocation count to dicts
+    unknown = ("<unknown>", "<unknown>", 0)
 
-    # NOTE: We need to cast away the constness of the reference below
-    #       because Cython's iterator handling is not const-correct.
-    for location_key_and_size_and_count in <AllocationStatsAggregator.SizeAndCountByStack&>(
-        aggregator.sizeAndCountByStack()
-    ):
-        top_of_stack = reader.Py_GetStackFrame(
-            location_key_and_size_and_count.first.python_frame_id, 1
-        )
-        top_of_stack = top_of_stack or [("<unknown>", "<unknown>", 0)]
-        size_and_count = size_and_count_by_location[top_of_stack[0]]
-        size, count = location_key_and_size_and_count.second
-        size_and_count[0] += size
-        size_and_count[1] += count
-
-    # Now we've got sizes and counts by source location. Find the top locations.
-    locations_with_sizes = [
-        (size, loc)
-        for loc, (size, count) in size_and_count_by_location.items()
-    ]
     top_locations_by_size = [
-        (loc, size)
-        for size, loc in heapq.nlargest(num_largest, locations_with_sizes)
+        ((reader.Py_GetFrame(size_and_loc.second) or unknown), size_and_loc.first)
+        for size_and_loc in aggregator.topLocationsBySize(num_largest)
     ]
 
-    locations_with_counts = [
-        (count, loc)
-        for loc, (size, count) in size_and_count_by_location.items()
-    ]
     top_locations_by_count = [
-        (loc, count)
-        for count, loc in heapq.nlargest(num_largest, locations_with_counts)
+        ((reader.Py_GetFrame(count_and_loc.second) or unknown), count_and_loc.first)
+        for count_and_loc in aggregator.topLocationsByCount(num_largest)
     ]
 
     # And we're done!

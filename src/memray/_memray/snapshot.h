@@ -206,10 +206,7 @@ class HighWatermarkFinder
 class AllocationStatsAggregator
 {
   public:
-    typedef std::pair<uint64_t, uint64_t> SizeAndCount;
-    typedef std::unordered_map<LocationKey, SizeAndCount, index_thread_pair_hash> SizeAndCountByStack;
-
-    void addAllocation(const Allocation& allocation);
+    void addAllocation(const Allocation& allocation, std::optional<frame_id_t> python_frame_id);
 
     uint64_t totalAllocations()
     {
@@ -236,18 +233,52 @@ class AllocationStatsAggregator
         return d_allocation_count_by_allocator;
     }
 
-    const SizeAndCountByStack& sizeAndCountByStack()
+    std::vector<std::pair<uint64_t, std::optional<frame_id_t>>> topLocationsBySize(size_t num_largest)
     {
-        return d_size_and_count_by_stack;
+        return topLocationsBySizeAndCountField<0>(num_largest);
+    }
+
+    std::vector<std::pair<uint64_t, std::optional<frame_id_t>>> topLocationsByCount(int num_largest)
+    {
+        return topLocationsBySizeAndCountField<1>(num_largest);
     }
 
   private:
-    SizeAndCountByStack d_size_and_count_by_stack;
+    typedef std::pair<uint64_t, uint64_t> SizeAndCount;
+    typedef std::unordered_map<std::optional<frame_id_t>, SizeAndCount> SizeAndCountByLocation;
+
+    SizeAndCountByLocation d_size_and_count_by_location;
     std::unordered_map<size_t, uint64_t> d_allocation_count_by_size;
     std::unordered_map<int, uint64_t> d_allocation_count_by_allocator;
     HighWatermarkFinder d_high_water_mark_finder;
     uint64_t d_total_allocations{};
     uint64_t d_total_bytes_allocated{};
+
+    template<int field>
+    std::vector<
+            std::pair<typename std::tuple_element<field, SizeAndCount>::type, std::optional<frame_id_t>>>
+    topLocationsBySizeAndCountField(size_t num_largest)
+    {
+        if (num_largest == 0) {
+            return {};
+        }
+        if (num_largest > d_size_and_count_by_location.size()) {
+            num_largest = d_size_and_count_by_location.size();
+        }
+
+        std::vector<std::pair<uint64_t, std::optional<frame_id_t>>> heap;
+        heap.reserve(d_size_and_count_by_location.size());
+        for (auto it : d_size_and_count_by_location) {
+            auto location = it.first;
+            auto val = std::get<field>(it.second);
+            heap.push_back({val, location});
+        }
+        std::make_heap(heap.begin(), heap.end());
+        for (size_t i = 0; i < num_largest; ++i) {
+            std::pop_heap(heap.begin(), heap.end() - i);
+        }
+        return {heap.rbegin(), heap.rbegin() + num_largest};
+    }
 };
 
 PyObject*
