@@ -166,7 +166,7 @@ class TestRunSubCommand:
                 sys.executable,
                 "-c",
                 "from memray.commands.run import _child_process;"
-                '_child_process(1234,False,False,False,False,"./directory/foobar.py",'
+                "_child_process(1234,False,False,False,False,'./directory/foobar.py',"
                 "['arg1', 'arg2'])",
             ],
             stderr=-1,
