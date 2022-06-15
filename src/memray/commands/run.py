@@ -95,13 +95,12 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
 
     arguments = (
         f"{port},{args.native},{args.run_as_module},{args.run_as_cmd},{args.quiet},"
-        f'"{args.script}",{args.script_args}'
+        f"{args.script!r},{args.script_args}"
     )
     tracked_app_cmd = [
         sys.executable,
         "-c",
-        f"from memray.commands.run import _child_process;"
-        f"_child_process({arguments})",
+        f"from memray.commands.run import _child_process;_child_process({arguments})",
     ]
     with contextlib.suppress(KeyboardInterrupt):
         with subprocess.Popen(
