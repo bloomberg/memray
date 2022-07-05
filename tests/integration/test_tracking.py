@@ -258,6 +258,31 @@ def test_tracking_with_SIGKILL(tmpdir):
     assert allocation.size == 1024
 
 
+def test_no_allocations(tmpdir):
+    """Verify that we can successfully read a file that has no allocations."""
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    subprocess_code = textwrap.dedent(
+        f"""
+        import os
+        from memray import Tracker
+        output = "{output}"
+        tracker = Tracker(output)
+        with tracker:
+            os._exit(0)
+    """
+    )
+
+    # WHEN
+    process = subprocess.run([sys.executable, "-c", subprocess_code], timeout=5)
+
+    # THEN
+    assert process.returncode == 0
+
+    records = list(FileReader(output).get_allocation_records())
+    assert not records
+
+
 class TestHighWatermark:
     def test_no_allocations_while_tracking(self, tmp_path):
         # GIVEN / WHEN
