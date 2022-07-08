@@ -38,6 +38,23 @@ starts_with(const std::string& haystack, const std::string_view& needle)
     return haystack.compare(0, needle.size(), needle) == 0;
 }
 
+PyFrameObject*
+threadStateGetFrame(PyThreadState* tstate)
+{
+#if PY_VERSION_HEX < 0x030B0000
+    // Prior to Python 3.11 this was exposed.
+    return tstate->frame;
+#else
+    // Return a borrowed reference.
+    PyFrameObject* ret = PyThreadState_GetFrame(tstate);
+    if (ret) {
+        assert(Py_REFCNT(ret) >= 2);
+        Py_DECREF(ret);
+    }
+    return ret;
+#endif
+}
+
 PyCodeObject*
 frameGetCode(PyFrameObject* frame)
 {
@@ -53,8 +70,55 @@ frameGetCode(PyFrameObject* frame)
 #endif
 }
 
-// Track how many times a new Tracker has been created
-std::atomic<unsigned int> g_tracker_generation;
+PyFrameObject*
+frameGetBack(PyFrameObject* frame)
+{
+#if PY_VERSION_HEX < 0x030B0000
+    // Prior to Python 3.11 this was exposed.
+    return frame->f_back;
+#else
+    // Return a borrowed reference.
+    PyFrameObject* ret = PyFrame_GetBack(frame);
+    if (ret) {
+        assert(Py_REFCNT(ret) >= 2);
+        Py_DECREF(ret);
+    }
+    return ret;
+#endif
+}
+
+void
+setprofileAllThreads(Py_tracefunc func, PyObject* arg)
+{
+    assert(PyGILState_Check());
+
+    PyThreadState* this_tstate = PyThreadState_Get();
+    PyInterpreterState* interp = this_tstate->interp;
+    for (PyThreadState* tstate = PyInterpreterState_ThreadHead(interp); tstate != nullptr;
+         tstate = PyThreadState_Next(tstate))
+    {
+#if PY_VERSION_HEX >= 0x03090000
+        if (_PyEval_SetProfile(tstate, func, arg) < 0) {
+            _PyErr_WriteUnraisableMsg("in PyEval_SetProfileAllThreads", NULL);
+        }
+#else  // For 3.7 and 3.8, backport _PyEval_SetProfile from 3.9
+        PyObject* profileobj = tstate->c_profileobj;
+
+        tstate->c_profilefunc = NULL;
+        tstate->c_profileobj = NULL;
+        /* Must make sure that tracing is not ignored if 'profileobj' is freed */
+        tstate->use_tracing = tstate->c_tracefunc != NULL;
+        Py_XDECREF(profileobj);
+
+        Py_XINCREF(arg);
+        tstate->c_profileobj = arg;
+        tstate->c_profilefunc = func;
+
+        /* Flag that tracing or profiling is turned on */
+        tstate->use_tracing = (func != NULL) || (tstate->c_tracefunc != NULL);
+#endif
+    }
+}
 
 }  // namespace
 
@@ -90,10 +154,10 @@ thread_id()
 // once for the vector that had been created before the thread died and the
 // pthread struct was reused).
 //
-// To prevent that, we only create the vector in one method (pushPythonFrame).
+// To prevent that, we create the vector in one method, pushLazilyEmittedFrame.
 // All other methods access a pointer called `d_stack` that is set to the TLS
-// stack when it is created by pushPythonFrame, and set to a null pointer when
-// the TLS stack is destroyed.
+// stack when it is created by pushLazilyEmittedFrame, and set to a null
+// pointer when the TLS stack is destroyed.
 //
 // This can result in this class being constructed during thread teardown, but
 // that doesn't cause the same problem because it has a trivial destructor.
@@ -108,7 +172,9 @@ class PythonStackTracker
     };
 
   public:
-    void reset(PyFrameObject* current_frame);
+    static void startTracking();
+    static void stopTracking();
+
     void emitPendingPops();
     void emitPendingPushes();
     int getCurrentPythonLineNumber();
@@ -117,6 +183,16 @@ class PythonStackTracker
     void popPythonFrame();
 
   private:
+    static std::vector<LazilyEmittedFrame> pythonFrameToStack(PyFrameObject* current_frame);
+    static void recordAllStacks();
+    void reloadStackIfTrackerChanged();
+
+    void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
+
+    static std::mutex s_mutex;
+    static std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> s_initial_stack_by_thread;
+    static std::atomic<unsigned int> s_tracker_generation;
+
     uint32_t d_num_pending_pops{};
     uint32_t d_tracker_generation{};
     std::vector<LazilyEmittedFrame>* d_stack{};
@@ -126,38 +202,17 @@ class PythonStackTracker
 static_assert(std::is_trivially_destructible<PythonStackTracker>::value);
 MEMRAY_FAST_TLS thread_local PythonStackTracker t_python_stack_tracker;
 
-void
-PythonStackTracker::reset(PyFrameObject* current_frame)
-{
-    d_num_pending_pops = 0;
-    if (d_stack) {
-        d_stack->clear();
-    }
-
-    if (current_frame && 0 != pushPythonFrame(current_frame)) {
-        PyErr_Clear();  // Nothing to be done about it here.
-    }
-}
+std::mutex PythonStackTracker::s_mutex;
+std::unordered_map<PyThreadState*, std::vector<PythonStackTracker::LazilyEmittedFrame>>
+        PythonStackTracker::s_initial_stack_by_thread;
+std::atomic<unsigned int> PythonStackTracker::s_tracker_generation;
 
 inline void
 PythonStackTracker::emitPendingPops()
 {
-    if (d_tracker_generation != g_tracker_generation) {
-        // The Tracker has changed underneath us (either by an after-fork
-        // handler, or by another thread destroying the Tracker we were using
-        // and installing a new one). Either way, update our state to reflect
-        // that nothing has been emitted to the (new) output file.
-        d_tracker_generation = g_tracker_generation;
-        d_num_pending_pops = 0;
-        if (d_stack) {
-            for (auto it = d_stack->begin(); it != d_stack->end(); it++) {
-                it->emitted = false;
-            }
-        }
-    } else {
-        Tracker::getTracker()->popFrames(d_num_pending_pops);
-        d_num_pending_pops = 0;
-    }
+    reloadStackIfTrackerChanged();
+    Tracker::getTracker()->popFrames(d_num_pending_pops);
+    d_num_pending_pops = 0;
 }
 
 void
@@ -203,9 +258,47 @@ PythonStackTracker::setMostRecentFrameLineNumber(int lineno)
     }
 }
 
+void
+PythonStackTracker::reloadStackIfTrackerChanged()
+{
+    if (d_tracker_generation == s_tracker_generation) {
+        return;
+    }
+
+    // If we reach this point, a new Tracker was installed by another thread,
+    // which also captured our Python stack. Trust it, ignoring any stack we
+    // already hold (since the stack we hold could be incorrect if tracking
+    // stopped and later restarted underneath our still-running thread).
+
+    if (d_stack) {
+        d_stack->clear();
+    }
+    d_num_pending_pops = 0;
+
+    std::vector<LazilyEmittedFrame> correct_stack;
+
+    {
+        std::unique_lock<std::mutex> lock(s_mutex);
+        d_tracker_generation = s_tracker_generation;
+
+        auto it = s_initial_stack_by_thread.find(PyGILState_GetThisThreadState());
+        if (it != s_initial_stack_by_thread.end()) {
+            it->second.swap(correct_stack);
+            s_initial_stack_by_thread.erase(it);
+        }
+    }
+
+    // Iterate in reverse so that we push the most recent call last
+    for (auto frame_it = correct_stack.rbegin(); frame_it != correct_stack.rend(); ++frame_it) {
+        pushLazilyEmittedFrame(*frame_it);
+    }
+}
+
 int
 PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
+    reloadStackIfTrackerChanged();
+
     PyCodeObject* code = frameGetCode(frame);
     const char* function = PyUnicode_AsUTF8(code->co_name);
     if (function == nullptr) {
@@ -218,6 +311,19 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
     }
 
     int parent_lineno = getCurrentPythonLineNumber();
+    setMostRecentFrameLineNumber(parent_lineno);
+    pushLazilyEmittedFrame({frame, {function, filename, 0}, false});
+    return 0;
+}
+
+void
+PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
+{
+    // Note: this function does not require the GIL.
+    if (d_stack) {
+        d_stack->push_back(frame);
+        return;
+    }
 
     struct StackCreator
     {
@@ -235,16 +341,16 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
         }
     };
 
-    setMostRecentFrameLineNumber(parent_lineno);
     MEMRAY_FAST_TLS static thread_local StackCreator t_stack_creator;
-    t_stack_creator.stack.push_back({frame, {function, filename, 0}, false});
+    t_stack_creator.stack.push_back(frame);
     assert(d_stack);  // The above call sets d_stack if it wasn't already set.
-    return 0;
 }
 
 void
 PythonStackTracker::popPythonFrame()
 {
+    reloadStackIfTrackerChanged();
+
     if (d_stack && !d_stack->empty()) {
         if (d_stack->back().emitted) {
             d_num_pending_pops += 1;
@@ -265,6 +371,108 @@ std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{128};
 
+std::vector<PythonStackTracker::LazilyEmittedFrame>
+PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
+{
+    std::vector<LazilyEmittedFrame> stack;
+
+    while (current_frame) {
+        PyCodeObject* code = frameGetCode(current_frame);
+
+        const char* function = PyUnicode_AsUTF8(code->co_name);
+        if (function == nullptr) {
+            Py_DECREF(code);
+            return {};
+        }
+
+        const char* filename = PyUnicode_AsUTF8(code->co_filename);
+        if (filename == nullptr) {
+            Py_DECREF(code);
+            return {};
+        }
+
+        int lineno = PyFrame_GetLineNumber(current_frame);
+        stack.push_back({current_frame, {function, filename, lineno}, false});
+
+        // Stop if we hit threading.Thread.run(), because the frames above it
+        // are called before new threads install their profile hooks, and we
+        // want consistency between our two stack capture methods.
+        if (0 == strcmp(function, "run") && strstr(filename, "/threading.py")) {
+            break;
+        }
+
+        current_frame = frameGetBack(current_frame);
+    }
+
+    return stack;
+}
+
+void
+PythonStackTracker::recordAllStacks()
+{
+    assert(PyGILState_Check());
+
+    // Record the current Python stack of every thread
+    std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> stack_by_thread;
+    for (PyThreadState* tstate = PyInterpreterState_ThreadHead(PyThreadState_Get()->interp);
+         tstate != nullptr;
+         tstate = PyThreadState_Next(tstate))
+    {
+        PyFrameObject* frame = threadStateGetFrame(tstate);
+        if (frame) {
+            stack_by_thread[tstate] = pythonFrameToStack(frame);
+            if (PyErr_Occurred()) {
+                throw std::runtime_error("Failed to capture a thread's Python stack");
+            }
+        }
+    }
+
+    // Throw away all but the most recent frame for this thread.
+    // We ignore every stack frame above `Tracker.__enter__`.
+    PyThreadState* tstate = PyThreadState_Get();
+    assert(stack_by_thread[tstate].size() >= 1);
+    stack_by_thread[tstate].resize(1);
+
+    std::unique_lock<std::mutex> lock(s_mutex);
+    s_initial_stack_by_thread.swap(stack_by_thread);
+
+    // Register that tracking has begun (again?), telling threads to sync their
+    // TLS from these captured stacks. Update this atomically with the map, or
+    // a thread that's 2 generations behind could grab the new stacks with the
+    // previous generation number and immediately think they're out of date.
+    s_tracker_generation++;
+}
+
+void
+PythonStackTracker::startTracking()
+{
+    assert(PyGILState_Check());
+
+    // Uninstall any existing profile function in all threads. Do this before
+    // installing ours, since we could lose the GIL if the existing profile arg
+    // has a __del__ that gets called. We must hold the GIL for the entire time
+    // we capture threads' stacks and install our trace function into them, so
+    // their stacks can't change after we've captured them and before we've
+    // installed our profile function that utilizes the captured stacks, and
+    // they can't start profiling before we capture their stack and miss it.
+    setprofileAllThreads(nullptr, nullptr);
+
+    // Find and record the Python stack for all existing threads.
+    recordAllStacks();
+
+    // Install our profile function in all existing threads.
+    setprofileAllThreads(PyTraceFunction, nullptr);
+}
+
+void
+PythonStackTracker::stopTracking()
+{
+    assert(PyGILState_Check());
+    setprofileAllThreads(nullptr, nullptr);
+    std::unique_lock<std::mutex> lock(s_mutex);
+    s_initial_stack_by_thread.clear();
+}
+
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
@@ -277,8 +485,6 @@ Tracker::Tracker(
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
 {
-    g_tracker_generation++;
-
     // Note: this must be set before the hooks are installed.
     d_instance = this;
 
@@ -298,7 +504,7 @@ Tracker::Tracker(
     updateModuleCache();
 
     RecursionGuard guard;
-    tracking_api::install_trace_function();  //  TODO pass our instance here to avoid static object
+    PythonStackTracker::startTracking();
     if (d_trace_python_allocators) {
         registerPymallocHooks();
     }
@@ -315,11 +521,11 @@ Tracker::~Tracker()
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
     d_background_thread->stop();
-    t_python_stack_tracker.reset(nullptr);
     d_patcher.restore_symbols();
     if (d_trace_python_allocators) {
         unregisterPymallocHooks();
     }
+    PythonStackTracker::stopTracking();
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
     d_writer.reset();
@@ -764,13 +970,17 @@ install_trace_function()
     assert(PyGILState_Check());
     RecursionGuard guard;
     // Don't clear the python stack if we have already registered the tracking
-    // function with the current thread.
+    // function with the current thread. This happens when PyGilState_Ensure is
+    // called and a thread state with our hooks installed already exists.
     PyThreadState* ts = PyThreadState_Get();
     if (ts->c_profilefunc == PyTraceFunction) {
         return;
     }
-    PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
-    t_python_stack_tracker.reset(PyEval_GetFrame());
+    PyEval_SetProfile(PyTraceFunction, nullptr);
+    PyFrameObject* frame = PyEval_GetFrame();
+    if (frame) {
+        t_python_stack_tracker.pushPythonFrame(frame);
+    }
 }
 
 }  // namespace memray::tracking_api
