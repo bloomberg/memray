@@ -488,6 +488,59 @@ def test_identical_stack_traces_started_in_different_lines_in_a_function_do_not_
     assert second_alloc1.stack_id != second_alloc2.stack_id
 
 
+def test_allocation_in_thread_started_before_tracking_starts(tmp_path):
+    """Test capturing the stack of a thread started before tracking started.
+
+    The intended execution flow is:
+    Main Thread          Background Thread
+    -----------          -----------------
+    Start thread
+                         Call thread_body
+    Install tracker
+                         Call func1
+                         Perform an allocation
+                         Exit
+    Join thread
+    Uninstall tracker
+    """
+    # GIVEN
+    thread_body_entered = threading.Event()
+    tracker_installed = threading.Event()
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    def thread_body():
+        thread_body_entered.set()
+        tracker_installed.wait()
+        func1()
+
+    def func1():
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    bg_thread = threading.Thread(target=thread_body)
+    bg_thread.start()
+
+    thread_body_entered.wait()
+    with Tracker(output):
+        tracker_installed.set()
+        bg_thread.join()
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+
+    vallocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(vallocs) == 1
+
+    funcs = [frame[0] for frame in vallocs[0].stack_trace()]
+    assert funcs == ["valloc", "func1", "thread_body", "run"]
+
+
 def test_thread_surviving_multiple_trackers(tmp_path):
     # GIVEN
     orig_tracker_used = threading.Event()
@@ -533,6 +586,89 @@ def test_thread_surviving_multiple_trackers(tmp_path):
     ]
     assert len(tracker1_vallocs) == len(tracker2_vallocs) == 1
     assert tracker1_vallocs[0].stack_trace() != tracker2_vallocs[0].stack_trace()
+
+
+def test_thread_surviving_multiple_trackers_with_changing_callstack(tmp_path):
+    """Test the call stack of a thread changing between two tracking sessions.
+
+    The intended execution flow is:
+    Main Thread          Background Thread
+    -----------          -----------------
+    Install tracker
+    Start thread
+                         Call thread_body
+                         Call func1
+                         Perform an allocation
+    Uninstall tracker
+                         Return from func1
+    Install new tracker
+                         Call func2
+                         Perform an allocation
+                         Return from func2
+                         Return from thread_body
+    Uninstall tracker
+
+    We use a bunch of events to force this order.
+    """
+    # GIVEN
+    allocation_performed_in_func1 = threading.Event()
+    tracker_uninstalled = threading.Event()
+    returned_from_func1 = threading.Event()
+    new_tracker_installed = threading.Event()
+
+    allocator = MemoryAllocator()
+    output1 = tmp_path / "test.bin.1"
+    output2 = tmp_path / "test.bin.2"
+
+    def thread_body():
+        func1()
+        returned_from_func1.set()
+        new_tracker_installed.wait()
+        func2()
+
+    def func1():
+        allocator.valloc(1234)
+        allocator.free()
+        allocation_performed_in_func1.set()
+        tracker_uninstalled.wait()
+
+    def func2():
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    with Tracker(output1):
+        bg_thread = threading.Thread(target=thread_body)
+        bg_thread.start()
+        allocation_performed_in_func1.wait()
+
+    tracker_uninstalled.set()
+    returned_from_func1.wait()
+
+    with Tracker(output2):
+        new_tracker_installed.set()
+        bg_thread.join()
+
+    # THEN
+    tracker1_allocations = list(FileReader(output1).get_allocation_records())
+    tracker2_allocations = list(FileReader(output2).get_allocation_records())
+
+    tracker1_vallocs = [
+        event
+        for event in tracker1_allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    tracker2_vallocs = [
+        event
+        for event in tracker2_allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(tracker1_vallocs) == len(tracker2_vallocs) == 1
+
+    tracker1_funcs = [frame[0] for frame in tracker1_vallocs[0].stack_trace()]
+    tracker2_funcs = [frame[0] for frame in tracker2_vallocs[0].stack_trace()]
+    assert tracker1_funcs == ["valloc", "func1", "thread_body", "run"]
+    assert tracker2_funcs == ["valloc", "func2", "thread_body", "run"]
 
 
 class TestMmap:
