@@ -538,7 +538,14 @@ def test_allocation_in_thread_started_before_tracking_starts(tmp_path):
     assert len(vallocs) == 1
 
     funcs = [frame[0] for frame in vallocs[0].stack_trace()]
-    assert funcs == ["valloc", "func1", "thread_body", "run"]
+    assert funcs == [
+        "valloc",
+        "func1",
+        "thread_body",
+        "run",
+        "_bootstrap_inner",
+        "_bootstrap",
+    ]
 
 
 def test_thread_surviving_multiple_trackers(tmp_path):
@@ -667,8 +674,10 @@ def test_thread_surviving_multiple_trackers_with_changing_callstack(tmp_path):
 
     tracker1_funcs = [frame[0] for frame in tracker1_vallocs[0].stack_trace()]
     tracker2_funcs = [frame[0] for frame in tracker2_vallocs[0].stack_trace()]
-    assert tracker1_funcs == ["valloc", "func1", "thread_body", "run"]
-    assert tracker2_funcs == ["valloc", "func2", "thread_body", "run"]
+
+    common_frames = ["thread_body", "run", "_bootstrap_inner", "_bootstrap"]
+    assert tracker1_funcs == ["valloc", "func1"] + common_frames
+    assert tracker2_funcs == ["valloc", "func2"] + common_frames
 
 
 class TestMmap:

@@ -1,0 +1,1 @@
+Prevent a crash that could occur if the Memray API was used to stop and later restart tracking while another thread was running Python code.
