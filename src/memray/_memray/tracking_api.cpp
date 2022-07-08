@@ -38,6 +38,21 @@ starts_with(const std::string& haystack, const std::string_view& needle)
     return haystack.compare(0, needle.size(), needle) == 0;
 }
 
+static inline PyCodeObject*
+frameGetCode(PyFrameObject* frame)
+{
+#if PY_VERSION_HEX < 0x030B0000
+    // Prior to Python 3.11 this was exposed.
+    return frame->f_code;
+#else
+    // Return a borrowed reference.
+    PyCodeObject* ret = PyFrame_GetCode(frame);
+    assert(Py_REFCNT(ret) >= 2);
+    Py_DECREF(ret);
+    return ret;
+#endif
+}
+
 // Track how many times a new Tracker has been created
 std::atomic<unsigned int> g_tracker_generation;
 
@@ -191,12 +206,13 @@ PythonStackTracker::setMostRecentFrameLineNumber(int lineno)
 int
 PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
-    const char* function = PyUnicode_AsUTF8(frame->f_code->co_name);
+    PyCodeObject* code = frameGetCode(frame);
+    const char* function = PyUnicode_AsUTF8(code->co_name);
     if (function == nullptr) {
         return -1;
     }
 
-    const char* filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
+    const char* filename = PyUnicode_AsUTF8(code->co_filename);
     if (filename == nullptr) {
         return -1;
     }
