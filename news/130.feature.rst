@@ -1,0 +1,1 @@
+We now capture Python stacks for allocations made by threads that existed before the Memray tracker was started.
