@@ -1,1 +1,0 @@
-Recognize when a capture file has been truncated (most likely because the tracked process was killed unexpectedly) and ignore any incomplete record at the end of the file.

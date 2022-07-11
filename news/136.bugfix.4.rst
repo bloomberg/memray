@@ -1,1 +1,0 @@
-Fix the two "largest allocating locations" sections in the ``memray stats`` report to actually aggregate by location. Previously they were aggregating by distinct stacks, so if two different paths hit the same line of code, it would be counted separately instead of together.

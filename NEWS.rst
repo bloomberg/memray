@@ -8,6 +8,41 @@ Changelog
 
 .. towncrier release notes start
 
+Memray 1.2.0 (2022-07-11)
+-------------------------
+
+Features
+~~~~~~~~
+
+- Add a progress bar indicator to the record processing phases in the different reporters so users can have an approximate idea of how much time processing the result files will take. (#111)
+- The ``memray stats`` reporter is now up to 50% faster, and its output is easier to interpret because it now processes all allocations by default. (#136)
+- Add a line showing the heap size over time to the memory plot in the html-based reporters (which already showed the resident size over time). (#142)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove the ``--include-all-allocations`` / ``-a`` argument to the ``memray stats`` reporter. Previously this was too slow to be used by default, but now that it has been sped up, it doesn't make sense to use anything else. The old default behavior of only processing allocations that made up the high water mark of the application's memory usage was confusing and misleading. (#136)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a crash with SIGBUS when the file system fills up while ``memray run`` is writing a capture file. (#117)
+- Recognize when a capture file has been truncated (most likely because the tracked process was killed unexpectedly) and ignore any incomplete record at the end of the file. (#129)
+- Fix the histogram used by the ``memray stats`` reporter to choose sane bin sizes when all captured allocations are the same size. (#133)
+- Fix the aggregation by location at the bottom of the ``memray stats`` report when the ``--include-all-allocations`` option is used. (#134)
+- Fix a bug causing deallocations with ``free`` and ``munmap`` to be included in the reported "Total allocations" count of ``memray stats --include-all-allocations``. (#136)
+- Fix the two "largest allocating locations" sections in the ``memray stats`` report to actually aggregate by location. Previously they were aggregating by distinct stacks, so if two different paths hit the same line of code, it would be counted separately instead of together. (#136)
+- Fix a bug causing memory freed by ``munmap`` to be incorrectly added into the reported "Total memory allocated" of ``memray stats --include-all-allocations``. (#136)
+- Exclude ``PYMALLOC_FREE`` from the allocator type distribution (other deallocators were already being ignored, but this recently added one was missed). (#136)
+- Fix the ``memray stats`` histogram to be based on the actual sizes of all allocations. Previously it only saw the sizes after a rollup by stack had already been performed, so it was binning allocation sizes that had already been summed. (#136)
+- Fixed a bug where aggregating native call stacks could give misleading results on aarch64 under some circumstances. (#141)
+- Fix a bug that made ``memray run --live -c`` fail if the command to run contained double quotes. (#147)
+- Ensure our TUI isn't displaying stale data by periodically flushing the latest available data from the tracker (rather than only flushing when a buffer fills up). (#147)
+- Fix the handling of the thread switch commands in the live mode TUI before the first allocation has been seen. (#147)
+
+
 memray 1.1.0 (2022-05-16)
 -------------------------
 
