@@ -1,1 +1,0 @@
-The ``memray stats`` reporter is now up to 50% faster, and its output is easier to interpret because it now processes all allocations by default.

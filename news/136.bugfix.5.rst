@@ -1,1 +1,0 @@
-Exclude ``PYMALLOC_FREE`` from the allocator type distribution (other deallocators were already being ignored, but this recently added one was missed).

@@ -1,1 +1,0 @@
-Fix a bug causing deallocations with ``free`` and ``munmap`` to be included in the reported "Total allocations" count of ``memray stats --include-all-allocations``.

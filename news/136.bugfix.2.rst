@@ -1,1 +1,0 @@
-Fix a bug causing memory freed by ``munmap`` to be incorrectly added into the reported "Total memory allocated" of ``memray stats --include-all-allocations``.

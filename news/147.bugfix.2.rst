@@ -1,1 +1,0 @@
-Fix a bug that made ``memray run --live -c`` fail if the command to run contained double quotes.
