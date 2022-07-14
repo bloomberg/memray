@@ -191,7 +191,7 @@ def test_foobar():
     # do some stuff that allocates memory
 ```
 
-To learn more on how the plugin can be used and configured check out [the plugin documentation](https://bloomberg.github.io/pytest-memray/#).
+To learn more on how the plugin can be used and configured check out [the plugin documentation](https://pytest-memray.readthedocs.io).
 
 # Native mode
 
