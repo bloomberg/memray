@@ -83,7 +83,7 @@ class BuildMemray(build_ext_orig):
 install_requires = [
     "jinja2",
     "typing_extensions; python_version < '3.8.0'",
-    "rich",
+    "rich >= 11.2.0",
 ]
 docs_requires = [
     "bump2version",
