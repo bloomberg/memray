@@ -110,9 +110,15 @@ get_jump_table_type(const Dyn* dynamic_section)
 }
 
 static void
-patch_symbols(const Dyn* dyn_info_struct, const Addr base, bool restore_original) noexcept
+patch_symbols(
+        const Dyn* dyn_info_struct,
+        const Addr base,
+        bool needs_relocation,
+        bool restore_original) noexcept
 {
-    SymbolTable symbols(base, dyn_info_struct);
+    const Addr load_bias = needs_relocation ? base : 0;
+
+    SymbolTable symbols(load_bias, dyn_info_struct);
 
     /* There are three collections of symbols we want to override:
      *
@@ -128,21 +134,21 @@ patch_symbols(const Dyn* dyn_info_struct, const Addr base, bool restore_original
      */
 
     LOG(DEBUG) << "Patching symbols with RELS relocation type";
-    RelTable rels_relocations_table(base, dyn_info_struct);
+    RelTable rels_relocations_table(load_bias, dyn_info_struct);
     overwrite_elf_table(rels_relocations_table, symbols, base, restore_original);
 
     LOG(DEBUG) << "Patching symbols with RELAS relocation type";
-    RelaTable relas_relocations_table(base, dyn_info_struct);
+    RelaTable relas_relocations_table(load_bias, dyn_info_struct);
     overwrite_elf_table(relas_relocations_table, symbols, base, restore_original);
 
     LOG(DEBUG) << "Patching symbols with JMPRELS relocation type";
     switch (get_jump_table_type(dyn_info_struct)) {
         case DT_REL: {
-            JmpRelTable jmp_relocations_table(base, dyn_info_struct);
+            JmpRelTable jmp_relocations_table(load_bias, dyn_info_struct);
             overwrite_elf_table(jmp_relocations_table, symbols, base, restore_original);
         } break;
         case DT_RELA: {
-            JmpRelaTable jmp_relocations_table(base, dyn_info_struct);
+            JmpRelaTable jmp_relocations_table(load_bias, dyn_info_struct);
             overwrite_elf_table(jmp_relocations_table, symbols, base, restore_original);
         } break;
         default: {
@@ -180,8 +186,11 @@ phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noe
         if (phdr->p_type != PT_DYNAMIC) {
             continue;
         }
+
         const auto* dyn_info_struct = reinterpret_cast<const Dyn*>(phdr->p_vaddr + info->dlpi_addr);
-        patch_symbols(dyn_info_struct, info->dlpi_addr, context.restore_original);
+        bool needs_relocation =
+                dynamicTableNeedsRelocation(info->dlpi_name, info->dlpi_addr, dyn_info_struct);
+        patch_symbols(dyn_info_struct, info->dlpi_addr, needs_relocation, context.restore_original);
     }
     return 0;
 }

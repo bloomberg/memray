@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdio>
 
+#include "elf_utils.h"
 #include "hooks.h"
 #include "tracking_api.h"
 
@@ -26,15 +27,17 @@ phdr_symfind_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* da
             continue;
         }
 
-        const auto* dyn = reinterpret_cast<const Dyn*>(phdr->p_vaddr + info->dlpi_addr);
-        SymbolTable symbols(info->dlpi_addr, dyn);
+        const auto* dyn = reinterpret_cast<const elf::Dyn*>(phdr->p_vaddr + info->dlpi_addr);
+        bool needs_relocation = elf::dynamicTableNeedsRelocation(info->dlpi_name, info->dlpi_addr, dyn);
+        const elf::Addr load_bias = needs_relocation ? info->dlpi_addr : 0;
+        elf::SymbolTable symbols(load_bias, dyn);
 
         const auto offset = symbols.getSymbolAddress(result->symbol_name);
         if (offset == 0) {
             continue;
         }
 
-        result->address = reinterpret_cast<void*>(offset);
+        result->address = reinterpret_cast<void*>(info->dlpi_addr + offset);
         return 1;
     }
 
