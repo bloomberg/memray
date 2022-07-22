@@ -17,12 +17,6 @@ from memray.reporters.templates import render_report
 
 MAX_STACKS = int(sys.getrecursionlimit() // 2.5)
 
-MAX_STACKS_NODE = {
-    "name": "<STACK TOO DEEP>",
-    "location": ["...", "...", 0],
-    "children": {},
-}
-
 
 def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
     stack = [node]
@@ -96,8 +90,10 @@ class FlameGraphReporter:
                 if native_traces
                 else record.stack_trace()
             )
+            num_skipped_frames = 0
             for index, stack_frame in enumerate(reversed(stack)):
                 if is_cpython_internal(stack_frame):
+                    num_skipped_frames += 1
                     continue
                 if (stack_frame, thread_id) not in current_frame["children"]:
                     node = create_framegraph_node_from_stack_frame(stack_frame)
@@ -109,8 +105,9 @@ class FlameGraphReporter:
                 current_frame["thread_id"] = thread_id
                 unique_threads.add(thread_id)
 
-                if index > MAX_STACKS:
-                    current_frame.update(MAX_STACKS_NODE)
+                if index - num_skipped_frames > MAX_STACKS:
+                    current_frame["name"] = "<STACK TOO DEEP>"
+                    current_frame["location"] = ["...", "...", 0]
                     break
 
         transformed_data = with_converted_children_dict(data)
