@@ -17,14 +17,13 @@ concurrency:
 
 jobs:
   build_wheels:
-    name: Wheel for ${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}-${{matrix.cibw_manylinux}}
+    name: Wheel for ${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
         cibw_python: [ "cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*"]
-        cibw_manylinux: [ manylinux2010 ]
         cibw_arch: [ "x86_64", "i686" ]
 
     steps:
@@ -35,8 +34,6 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.cibw_python }}
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_arch }}
-          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.cibw_manylinux }}
-          CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.cibw_manylinux }}
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: pytest {package}/tests
