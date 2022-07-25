@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -31,3 +32,32 @@ def test_the_same_tracker_cannot_be_activated_twice(tmpdir):
         with pytest.raises(RuntimeError):
             with tracker:
                 pass
+
+
+@pytest.mark.parametrize("context_manager", [True, False])
+def test_tracker_context_manager(tmpdir, monkeypatch, context_manager):
+    class TestTracker(Tracker):
+        start_called = False
+        stop_called = False
+       
+        def start(self):
+            self.start_called = True
+
+        def stop(self):
+            self.stop_called = True
+
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+
+    # WHEN
+    tracker = TestTracker(output)
+    if context_manager:
+        with tracker:
+            pass
+    else:
+        tracker.start()
+        tracker.stop()
+
+    # THEN
+    assert tracker.start_called
+    assert tracker.stop_called
