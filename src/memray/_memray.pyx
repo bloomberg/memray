@@ -238,6 +238,16 @@ cdef class Tracker:
     re-enable tracking after the ``with`` block ends, you will need to create
     a fresh `Tracker` instance.
 
+    You can also explictly call the ``start`` and ``stop`` methods instead of
+    using the context manager::
+
+        tracker = memray.Tracker(...)
+        tracker.start()
+        try:
+            ...
+        finally:
+            tracker.stop()
+
     Args:
         file_name (str or pathlib.Path): The name of the file to write the
             captured allocations into. This is the only argument that can be
@@ -312,9 +322,16 @@ cdef class Tracker:
                 move(self._make_writer(destination)), command_line, native_traces
             )
 
-    @cython.profile(False)
     def __enter__(self):
+        self.start()
+        return self
 
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.stop()
+
+    @cython.profile(False)
+    def start(self):
+    
         if NativeTracker.getTracker() != NULL:
             raise RuntimeError("No more than one Tracker instance can be active at the same time")
 
@@ -334,10 +351,9 @@ cdef class Tracker:
             self._follow_fork,
             self._trace_python_allocators,
         )
-        return self
 
     @cython.profile(False)
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def stop(self):
         NativeTracker.destroyTracker()
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
