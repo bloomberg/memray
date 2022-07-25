@@ -7,6 +7,7 @@ from memray import FileReader
 from memray import SocketDestination
 from memray import Tracker
 from memray._test import MemoryAllocator
+from tests.utils import filter_relevant_allocations
 
 
 def test_file_reader_as_context_manager(tmp_path):
@@ -37,7 +38,9 @@ def test_file_destination(tmp_path):
 
     # THEN
     with FileReader(result_file) as reader:
-        assert len(list(reader.get_allocation_records())) == 2
+        all_allocations = reader.get_allocation_records()
+        vallocs_and_their_frees = list(filter_relevant_allocations(all_allocations))
+        assert len(vallocs_and_their_frees) == 2
 
 
 def test_file_destination_str_path(tmp_path):
@@ -51,7 +54,9 @@ def test_file_destination_str_path(tmp_path):
 
     # THEN
     with FileReader(result_file) as reader:
-        assert len(list(reader.get_allocation_records())) == 2
+        all_allocations = reader.get_allocation_records()
+        vallocs_and_their_frees = list(filter_relevant_allocations(all_allocations))
+        assert len(vallocs_and_their_frees) == 2
 
 
 def test_combine_destination_args():

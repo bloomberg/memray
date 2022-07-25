@@ -15,7 +15,7 @@ from memray._test import MemoryAllocator
 
 def alloc_func3(allocator):
     x = 1
-    allocator.valloc(1234)
+    allocator.valloc(123456)
     x = 2
     allocator.free()
     x = 3
@@ -173,7 +173,13 @@ def test_large_number_of_frame_pops_between_subsequent_allocations(tmpdir):
         return allocate_deep(depth - 1)
 
     # WHEN
-    with Tracker(output):
+    # Note: we don't actually care about the native stacks, but we use
+    # native_traces=True to ensure that the allocation we care about inside
+    # of `mmap.mmap` has a different stack than any allocation that the
+    # interpreter itself performs. Otherwise, our high water mark aggregator
+    # could combine the mmap we care about with other allocations performed
+    # inside the interpreter that happen to share the same Python stack.
+    with Tracker(output, native_traces=True):
         with allocate_deep(20):
             with mmap.mmap(-1, 12345):
                 pass
