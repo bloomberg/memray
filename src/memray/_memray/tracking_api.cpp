@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <link.h>
 #include <mutex>
+#include <stdint.h>
 #include <type_traits>
 #include <unistd.h>
 #include <utility>
@@ -289,7 +290,8 @@ Tracker::Tracker(
         bool native_traces,
         unsigned int memory_interval,
         bool follow_fork,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        size_t sampling_interval)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
 , d_memory_interval(memory_interval)
@@ -298,7 +300,8 @@ Tracker::Tracker(
 {
     g_tracker_generation++;
 
-    // Note: this must be set before the hooks are installed.
+    // Note: these must be set before the hooks are installed.
+    hooks::setSamplingInterval(sampling_interval);
     d_instance = this;
 
     static std::once_flag once;
@@ -479,13 +482,16 @@ Tracker::childFork()
         return;
     }
 
+    assert(old_tracker != nullptr);
+
     // Re-enable tracking with a brand new tracker.
     d_instance_owner.reset(new Tracker(
             std::move(new_writer),
             old_tracker->d_unwind_native_frames,
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
-            old_tracker->d_trace_python_allocators));
+            old_tracker->d_trace_python_allocators,
+            hooks::getSamplingInterval()));
     RecursionGuard::isActive = false;
 }
 
@@ -519,7 +525,6 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
         }
-
     } else {
         AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
@@ -682,7 +687,8 @@ Tracker::createTracker(
         bool native_traces,
         unsigned int memory_interval,
         bool follow_fork,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        size_t sampling_interval)
 {
     // Note: the GIL is used for synchronization of the singleton
     d_instance_owner.reset(new Tracker(
@@ -690,7 +696,8 @@ Tracker::createTracker(
             native_traces,
             memory_interval,
             follow_fork,
-            trace_python_allocators));
+            trace_python_allocators,
+            sampling_interval));
     Py_RETURN_NONE;
 }
 

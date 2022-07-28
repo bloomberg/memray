@@ -45,6 +45,13 @@
 
 namespace memray::hooks {
 
+// Note: Not thread safe; must be called before hooks are installed.
+void
+setSamplingInterval(size_t sampling_interval);
+
+size_t
+getSamplingInterval();
+
 struct symbol_query
 {
     size_t maps_visited;
@@ -122,6 +129,21 @@ enum class AllocatorKind {
     RANGED_ALLOCATOR = 3,
     RANGED_DEALLOCATOR = 4,
 };
+
+static inline bool
+isPymalloc(const Allocator& func) noexcept
+{
+    switch (func) {
+        case Allocator::PYMALLOC_MALLOC:
+        case Allocator::PYMALLOC_REALLOC:
+        case Allocator::PYMALLOC_CALLOC:
+        case Allocator::PYMALLOC_FREE:
+            return true;
+        default:
+            return false;
+    }
+    __builtin_unreachable();
+}
 
 AllocatorKind
 allocatorKind(const Allocator& allocator);

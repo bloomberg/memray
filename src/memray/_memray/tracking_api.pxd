@@ -15,6 +15,7 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_pymalloc,
+            size_t sampling_interval,
         ) except+
 
         @staticmethod

@@ -36,9 +36,10 @@ Memray can help with the following problems:
 
    getting_started
    run
+   sampling
    python_allocators
-   examples/README
    api
+   examples/README
 
 .. toctree::
    :hidden:

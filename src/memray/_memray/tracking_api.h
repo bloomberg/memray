@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <random>
 #include <string>
 #include <thread>
 #include <unordered_set>
@@ -173,7 +174,8 @@ class Tracker
             bool native_traces,
             unsigned int memory_interval,
             bool follow_fork,
-            bool trace_python_allocators);
+            bool trace_python_allocators,
+            size_t sampling_interval);
     static PyObject* destroyTracker();
     static Tracker* getTracker();
 
@@ -267,6 +269,7 @@ class Tracker
     unsigned int d_memory_interval;
     bool d_follow_fork;
     bool d_trace_python_allocators;
+    size_t d_sampling_interval;
     elf::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
 
@@ -286,7 +289,8 @@ class Tracker
             bool native_traces,
             unsigned int memory_interval,
             bool follow_fork,
-            bool trace_python_allocators);
+            bool trace_python_allocators,
+            size_t sampling_interval);
 
     static void prepareFork();
     static void parentFork();
