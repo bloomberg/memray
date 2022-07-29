@@ -298,8 +298,9 @@ class RunCommand:
             parser.error("The --live-port argument requires --live-remote")
         if args.follow_fork is True and (args.live_mode or args.live_remote_mode):
             parser.error("--follow-fork cannot be used with the live TUI")
-        if args.run_as_cmd and pathlib.Path(args.script).exists():
-            parser.error("remove the option -c to run a file")
+        with contextlib.suppress(OSError):
+            if args.run_as_cmd and pathlib.Path(args.script).exists():
+                parser.error("remove the option -c to run a file")
 
         self.validate_target_file(args)
 
