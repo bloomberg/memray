@@ -636,8 +636,8 @@ class TestFlamegraphSubCommand:
         assert str(source_file) in output_file.read_text()
 
     def test_output_file_already_exists(self, tmp_path, simple_test_file, monkeypatch):
-        """Check that when the output file is derived form the input name, we fail when there is
-        already a file with the same name as the output."""
+        """Check that when the output file is derived form the input name, we
+        fail when there is already a file with the same name as the output."""
 
         # GIVEN
         monkeypatch.chdir(tmp_path)
