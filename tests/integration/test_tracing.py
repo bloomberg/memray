@@ -10,6 +10,7 @@ from memray import AllocatorType
 from memray import FileReader
 from memray import Tracker
 from memray._memray import _cython_nested_allocation
+from memray._memray import function_caller
 from memray._test import MemoryAllocator
 
 
@@ -54,10 +55,10 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 18),
-        ("alloc_func2", __file__, 27),
-        ("alloc_func1", __file__, 34),
-        ("test_traceback", __file__, 47),
+        ("alloc_func3", __file__, 19),
+        ("alloc_func2", __file__, 28),
+        ("alloc_func1", __file__, 35),
+        ("test_traceback", __file__, 48),
     ]
     frees = [
         record
@@ -88,10 +89,10 @@ def test_traceback_for_high_watermark(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 18),
-        ("alloc_func2", __file__, 27),
-        ("alloc_func1", __file__, 34),
-        ("test_traceback_for_high_watermark", __file__, 81),
+        ("alloc_func3", __file__, 19),
+        ("alloc_func2", __file__, 28),
+        ("alloc_func1", __file__, 35),
+        ("test_traceback_for_high_watermark", __file__, 82),
     ]
 
 
@@ -143,13 +144,13 @@ def test_cython_traceback(tmpdir):
     assert traceback[-3:] == [
         ("valloc", ANY, 97),
         ("_cython_nested_allocation", ANY, 184),
-        ("test_cython_traceback", __file__, 132),
+        ("test_cython_traceback", __file__, 133),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
         ("_cython_nested_allocation", ANY, 184),
-        ("test_cython_traceback", __file__, 132),
+        ("test_cython_traceback", __file__, 133),
     ]
 
     frees = [
@@ -678,6 +679,143 @@ def test_thread_surviving_multiple_trackers_with_changing_callstack(tmp_path):
     common_frames = ["thread_body", "run", "_bootstrap_inner", "_bootstrap"]
     assert tracker1_funcs == ["valloc", "func1"] + common_frames
     assert tracker2_funcs == ["valloc", "func2"] + common_frames
+
+
+def test_cython_frame_in_pre_existing_thread_stack(tmp_path):
+    """Test starting tracking when another thread's stack has Cython frames.
+
+    The intended execution flow is:
+    Main Thread          Background Thread
+    -----------          -----------------
+    Start thread
+                         Call thread_body
+                         Call function_caller (Cython frame)
+                         Call func1
+    Install new tracker
+                         Perform an allocation
+                         Return from func1
+                         Return from function_caller
+                         Perform an allocation
+                         Return from thread_body
+    Join thread
+    Uninstall tracker
+    """
+    # GIVEN
+    ready_to_install_tracker = threading.Event()
+    tracker_installed = threading.Event()
+
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    def thread_body():
+        function_caller(func1)
+        allocator.valloc(1234)
+        allocator.free()
+
+    def func1():
+        ready_to_install_tracker.set()
+        tracker_installed.wait()
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    thread = threading.Thread(target=thread_body)
+    thread.start()
+    ready_to_install_tracker.wait()
+
+    with Tracker(output):
+        tracker_installed.set()
+        thread.join()
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+
+    vallocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(vallocs) == 2
+
+    first, second = vallocs
+    alloc1_funcs = [frame[0] for frame in first.stack_trace()]
+    alloc2_funcs = [frame[0] for frame in second.stack_trace()]
+
+    # Cython frames called before tracking started aren't in the Python stack.
+    assert alloc1_funcs[:3] == ["valloc", "func1", "thread_body"]
+    assert alloc2_funcs[:2] == ["valloc", "thread_body"]
+
+
+def test_cython_frame_in_pre_existing_thread_stack_when_restarting_tracking(tmp_path):
+    """Test restarting tracking when another thread's stack has Cython frames.
+
+    The intended execution flow is:
+    Main Thread          Background Thread
+    -----------          -----------------
+    Install tracker
+    Start thread
+                         Call thread_body
+                         Call function_caller (Cython frame)
+                         Call func1
+    Uninstall tracker
+    Install new tracker
+                         Perform an allocation
+                         Return from func1
+                         Return from function_caller
+                         Perform an allocation
+                         Return from thread_body
+    Join thread
+    Uninstall tracker
+    """
+    # GIVEN
+    ready_to_replace_tracker = threading.Event()
+    tracker_replaced = threading.Event()
+
+    allocator = MemoryAllocator()
+    output1 = tmp_path / "test.bin.1"
+    output2 = tmp_path / "test.bin.2"
+
+    def thread_body():
+        function_caller(func1)
+        allocator.valloc(1234)
+        allocator.free()
+
+    def func1():
+        ready_to_replace_tracker.set()
+        tracker_replaced.wait()
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    with Tracker(output1):
+        thread = threading.Thread(target=thread_body)
+        thread.start()
+        ready_to_replace_tracker.wait()
+
+    with Tracker(output2):
+        tracker_replaced.set()
+        thread.join()
+
+    # THEN
+    allocations = list(FileReader(output2).get_allocation_records())
+
+    vallocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(vallocs) == 2
+
+    first, second = vallocs
+    alloc1_funcs = [frame[0] for frame in first.stack_trace()]
+    alloc2_funcs = [frame[0] for frame in second.stack_trace()]
+
+    # Cython frames called before tracking started aren't in the Python stack.
+    assert alloc1_funcs[:3] == ["valloc", "func1", "thread_body"]
+
+    # But we do get pop events for them if tracking was enabled when they were
+    # pushed. Ensure we handle these unexpected pops.
+    assert alloc2_funcs[:2] == ["valloc", "thread_body"]
 
 
 class TestMmap:

@@ -211,7 +211,7 @@ class PythonStackTracker
     int getCurrentPythonLineNumber();
     void setMostRecentFrameLineNumber(int lineno);
     int pushPythonFrame(PyFrameObject* frame);
-    void popPythonFrame();
+    void popPythonFrame(PyFrameObject* frame);
 
   private:
     // Fetch the thread-local stack tracker without checking if its stack needs to be reloaded.
@@ -397,22 +397,26 @@ PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
 }
 
 void
-PythonStackTracker::popPythonFrame()
+PythonStackTracker::popPythonFrame(PyFrameObject* frame)
 {
-    reloadStackIfTrackerChanged();
+    // Note: We check if frame == d_stack->back().frame because Cython could
+    // have called our tracing function with profiled Cython calls that we
+    // later discarded in favor of the interpreter's stack when a new tracker
+    // was installed. If so, we need to ignore the Cython frame pops.
+    if (!d_stack || d_stack->empty() || frame != d_stack->back().frame) {
+        return;
+    }
 
-    if (d_stack && !d_stack->empty()) {
-        if (d_stack->back().emitted) {
-            d_num_pending_pops += 1;
-            assert(d_num_pending_pops != 0);  // Ensure we didn't overflow.
-        }
-        d_stack->pop_back();
+    if (d_stack->back().emitted) {
+        d_num_pending_pops += 1;
+        assert(d_num_pending_pops != 0);  // Ensure we didn't overflow.
+    }
+    d_stack->pop_back();
 
-        if (d_stack->empty()) {
-            // Every frame we've pushed has been popped. Emit pending pops now
-            // in case the thread is exiting and we don't get another chance.
-            emitPendingPops();
-        }
+    if (d_stack->empty()) {
+        // Every frame we've pushed has been popped. Emit pending pops now
+        // in case the thread is exiting and we don't get another chance.
+        emitPendingPops();
     }
 }
 
@@ -1002,7 +1006,7 @@ PyTraceFunction(
             return PythonStackTracker::get().pushPythonFrame(frame);
         }
         case PyTrace_RETURN: {
-            PythonStackTracker::get().popPythonFrame();
+            PythonStackTracker::get().popPythonFrame(frame);
             break;
         }
         default:
