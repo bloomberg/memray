@@ -226,4 +226,7 @@ cdef void* allocation_place_a(size_t size):
 @cython.profile(False)
 cdef void* allocation_place_b(size_t size):
     return valloc(size)
- 
+
+@cython.profile(True)
+def function_caller(func):
+    func()
