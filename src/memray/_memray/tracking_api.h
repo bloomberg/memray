@@ -1,5 +1,8 @@
 #pragma once
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>

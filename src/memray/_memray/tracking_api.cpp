@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <utility>
 
+#include "compat.h"
 #include "exceptions.h"
 #include "hooks.h"
 #include "record_writer.h"
@@ -33,115 +34,10 @@ get_executable()
     return std::string(buff, len);
 }
 
-static inline bool
-isEntryFrame(PyFrameObject* frame)
-{
-#if PY_VERSION_HEX >= 0x030B0000
-    return _PyFrame_IsEntryFrame(frame);
-#else
-    (void)frame;
-    return true;
-#endif
-}
-
 static bool
 starts_with(const std::string& haystack, const std::string_view& needle)
 {
     return haystack.compare(0, needle.size(), needle) == 0;
-}
-
-static inline PyFrameObject*
-threadStateGetFrame(PyThreadState* tstate)
-{
-#if PY_VERSION_HEX < 0x030B0000
-    // Prior to Python 3.11 this was exposed.
-    return tstate->frame;
-#else
-    // Return a borrowed reference.
-    PyFrameObject* ret = PyThreadState_GetFrame(tstate);
-    if (ret) {
-        assert(Py_REFCNT(ret) >= 2);
-        Py_DECREF(ret);
-    }
-    return ret;
-#endif
-}
-
-static inline PyCodeObject*
-frameGetCode(PyFrameObject* frame)
-{
-#if PY_VERSION_HEX < 0x030B0000
-    // Prior to Python 3.11 this was exposed.
-    return frame->f_code;
-#else
-    // Return a borrowed reference.
-    PyCodeObject* ret = PyFrame_GetCode(frame);
-    assert(Py_REFCNT(ret) >= 2);
-    Py_DECREF(ret);
-    return ret;
-#endif
-}
-
-static inline PyFrameObject*
-frameGetBack(PyFrameObject* frame)
-{
-#if PY_VERSION_HEX < 0x030B0000
-    // Prior to Python 3.11 this was exposed.
-    return frame->f_back;
-#else
-    // Return a borrowed reference.
-    PyFrameObject* ret = PyFrame_GetBack(frame);
-    if (ret) {
-        assert(Py_REFCNT(ret) >= 2);
-        Py_DECREF(ret);
-    }
-    return ret;
-#endif
-}
-
-static inline PyInterpreterState*
-threadStateGetInterpreter(PyThreadState* tstate)
-{
-#if PY_VERSION_HEX < 0x03090000
-    return tstate->interp;
-#else
-    return PyThreadState_GetInterpreter(tstate);
-#endif
-}
-
-static void
-setprofileAllThreads(Py_tracefunc func, PyObject* arg)
-{
-    assert(PyGILState_Check());
-
-    PyThreadState* this_tstate = PyThreadState_Get();
-    PyInterpreterState* interp = threadStateGetInterpreter(this_tstate);
-    for (PyThreadState* tstate = PyInterpreterState_ThreadHead(interp); tstate != nullptr;
-         tstate = PyThreadState_Next(tstate))
-    {
-#if PY_VERSION_HEX >= 0x03090000
-        if (_PyEval_SetProfile(tstate, func, arg) < 0) {
-            _PyErr_WriteUnraisableMsg("in PyEval_SetProfileAllThreads", NULL);
-        }
-#else
-        // For 3.7 and 3.8, backport _PyEval_SetProfile from 3.9
-        // https://github.com/python/cpython/blob/v3.9.13/Python/ceval.c#L4738-L4767
-        PyObject* profileobj = tstate->c_profileobj;
-
-        tstate->c_profilefunc = NULL;
-        tstate->c_profileobj = NULL;
-        /* Must make sure that tracing is not ignored if 'profileobj' is freed */
-        tstate->use_tracing = tstate->c_tracefunc != NULL;
-        Py_XDECREF(profileobj);
-
-        Py_XINCREF(arg);
-        tstate->c_profileobj = arg;
-        tstate->c_profilefunc = func;
-
-        /* Flag that tracing or profiling is turned on */
-        tstate->use_tracing = (func != NULL) || (tstate->c_tracefunc != NULL);
-#endif
-    }
 }
 
 }  // namespace
@@ -346,7 +242,7 @@ PythonStackTracker::reloadStackIfTrackerChanged()
 int
 PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
-    PyCodeObject* code = frameGetCode(frame);
+    PyCodeObject* code = compat::frameGetCode(frame);
     const char* function = PyUnicode_AsUTF8(code->co_name);
     if (function == nullptr) {
         return -1;
@@ -360,7 +256,7 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
     int parent_lineno = getCurrentPythonLineNumber();
     // If native tracking is not enabled, treat every frame as an entry frame.
     // It doesn't matter to the reader, and is more efficient.
-    bool is_entry_frame = !s_native_tracking_enabled || isEntryFrame(frame);
+    bool is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
     setMostRecentFrameLineNumber(parent_lineno);
     pushLazilyEmittedFrame({frame, {function, filename, 0, is_entry_frame}, false});
     return 0;
@@ -431,7 +327,7 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
     std::vector<LazilyEmittedFrame> stack;
 
     while (current_frame) {
-        PyCodeObject* code = frameGetCode(current_frame);
+        PyCodeObject* code = compat::frameGetCode(current_frame);
 
         const char* function = PyUnicode_AsUTF8(code->co_name);
         if (function == nullptr) {
@@ -447,7 +343,7 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
 
         int lineno = PyFrame_GetLineNumber(current_frame);
         stack.push_back({current_frame, {function, filename, lineno}, false});
-        current_frame = frameGetBack(current_frame);
+        current_frame = compat::frameGetBack(current_frame);
     }
 
     return stack;
@@ -461,11 +357,11 @@ PythonStackTracker::recordAllStacks()
     // Record the current Python stack of every thread
     std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> stack_by_thread;
     for (PyThreadState* tstate =
-                 PyInterpreterState_ThreadHead(threadStateGetInterpreter(PyThreadState_Get()));
+                 PyInterpreterState_ThreadHead(compat::threadStateGetInterpreter(PyThreadState_Get()));
          tstate != nullptr;
          tstate = PyThreadState_Next(tstate))
     {
-        PyFrameObject* frame = threadStateGetFrame(tstate);
+        PyFrameObject* frame = compat::threadStateGetFrame(tstate);
         if (!frame) {
             continue;
         }
@@ -504,20 +400,20 @@ PythonStackTracker::installProfileHooks()
     // their stacks can't change after we've captured them and before we've
     // installed our profile function that utilizes the captured stacks, and so
     // they can't start profiling before we capture their stack and miss it.
-    setprofileAllThreads(nullptr, nullptr);
+    compat::setprofileAllThreads(nullptr, nullptr);
 
     // Find and record the Python stack for all existing threads.
     recordAllStacks();
 
     // Install our profile function in all existing threads.
-    setprofileAllThreads(PyTraceFunction, nullptr);
+    compat::setprofileAllThreads(PyTraceFunction, nullptr);
 }
 
 void
 PythonStackTracker::removeProfileHooks()
 {
     assert(PyGILState_Check());
-    setprofileAllThreads(nullptr, nullptr);
+    compat::setprofileAllThreads(nullptr, nullptr);
     std::unique_lock<std::mutex> lock(s_mutex);
     s_initial_stack_by_thread.clear();
 }
@@ -1035,7 +931,7 @@ install_trace_function()
     std::vector<PyFrameObject*> stack;
     while (frame) {
         stack.push_back(frame);
-        frame = frameGetBack(frame);
+        frame = compat::frameGetBack(frame);
     }
 
     auto& python_stack_tracker = PythonStackTracker::get();
