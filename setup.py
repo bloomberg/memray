@@ -106,6 +106,7 @@ lint_requires = [
 
 test_requires = [
     "Cython",
+    "greenlet",
     "pytest",
     "pytest-cov",
 ]

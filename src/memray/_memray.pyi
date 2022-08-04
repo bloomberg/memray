@@ -166,6 +166,8 @@ class Tracker:
         exctb: Optional[TracebackType],
     ) -> bool: ...
 
+def greenlet_trace(event: str, args: Any) -> None: ...
+
 class PymallocDomain(enum.IntEnum):
     PYMALLOC_RAW: int
     PYMALLOC_MEM: int
