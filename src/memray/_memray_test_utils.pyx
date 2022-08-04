@@ -9,6 +9,8 @@ from posix.mman cimport MAP_SHARED
 from posix.mman cimport PROT_WRITE
 from posix.mman cimport mmap
 from posix.mman cimport munmap
+from posix.unistd cimport read
+from posix.unistd cimport write
 
 from _memray.alloc cimport PyMem_Calloc
 from _memray.alloc cimport PyMem_Free
@@ -230,3 +232,16 @@ cdef void* allocation_place_b(size_t size):
 @cython.profile(True)
 def function_caller(func):
     func()
+
+@cython.profile(False)
+def allocate_without_gil_held(int wake_up_main_fd, int wake_up_thread_fd):
+    cdef char buf = 0
+    cdef int write_rc = 0
+    cdef int read_rc = 0
+    with nogil:
+        while write_rc != 1:
+            write_rc = write(wake_up_main_fd, &buf, 1)
+        while read_rc != 1:
+            read_rc = read(wake_up_thread_fd, &buf, 1)
+        valloc(1234)
+    valloc(4321)

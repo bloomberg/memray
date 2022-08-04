@@ -1,4 +1,5 @@
 import mmap
+import os
 import sys
 import threading
 from pathlib import Path
@@ -10,6 +11,7 @@ from memray import AllocatorType
 from memray import FileReader
 from memray import Tracker
 from memray._memray import _cython_nested_allocation
+from memray._memray import allocate_without_gil_held
 from memray._memray import function_caller
 from memray._test import MemoryAllocator
 
@@ -55,10 +57,10 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 19),
-        ("alloc_func2", __file__, 28),
-        ("alloc_func1", __file__, 35),
-        ("test_traceback", __file__, 48),
+        ("alloc_func3", __file__, 21),
+        ("alloc_func2", __file__, 30),
+        ("alloc_func1", __file__, 37),
+        ("test_traceback", __file__, 50),
     ]
     frees = [
         record
@@ -89,10 +91,10 @@ def test_traceback_for_high_watermark(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 19),
-        ("alloc_func2", __file__, 28),
-        ("alloc_func1", __file__, 35),
-        ("test_traceback_for_high_watermark", __file__, 82),
+        ("alloc_func3", __file__, 21),
+        ("alloc_func2", __file__, 30),
+        ("alloc_func1", __file__, 37),
+        ("test_traceback_for_high_watermark", __file__, 84),
     ]
 
 
@@ -142,15 +144,15 @@ def test_cython_traceback(tmpdir):
 
     traceback = list(alloc1.stack_trace())
     assert traceback[-3:] == [
-        ("valloc", ANY, 97),
-        ("_cython_nested_allocation", ANY, 184),
-        ("test_cython_traceback", __file__, 133),
+        ("valloc", ANY, 99),
+        ("_cython_nested_allocation", ANY, 186),
+        ("test_cython_traceback", __file__, 135),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 184),
-        ("test_cython_traceback", __file__, 133),
+        ("_cython_nested_allocation", ANY, 186),
+        ("test_cython_traceback", __file__, 135),
     ]
 
     frees = [
@@ -547,6 +549,53 @@ def test_allocation_in_thread_started_before_tracking_starts(tmp_path):
         "_bootstrap_inner",
         "_bootstrap",
     ]
+
+
+def test_allocation_in_thread_before_reacquiring_gil_after_tracking_starts(tmp_path):
+    """
+    The intended execution flow is:
+    Main Thread          Background Thread
+    -----------          -----------------
+    Start thread
+                         Call allocate_without_gil_held
+                         release GIL
+    Install tracker
+                         Perform an allocation for 1234 bytes
+                         acquire GIL
+                         Perform an allocation for 4321 bytes
+                         Exit
+    Join thread
+    Uninstall tracker
+    """
+    # GIVEN
+    wake_up_main_r, wake_up_main_w = os.pipe()
+    wake_up_thread_r, wake_up_thread_w = os.pipe()
+    output = tmp_path / "test.bin"
+
+    def thread_body():
+        allocate_without_gil_held(wake_up_main_w, wake_up_thread_r)
+
+    # WHEN
+    bg_thread = threading.Thread(target=thread_body)
+    bg_thread.start()
+
+    os.read(wake_up_main_r, 1)
+    with Tracker(output):
+        os.write(wake_up_thread_w, b"x")
+        bg_thread.join()
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+
+    vallocs = [
+        event for event in allocations if event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(vallocs) == 2
+
+    funcs1 = [frame[0] for frame in vallocs[0].stack_trace()]
+    funcs2 = [frame[0] for frame in vallocs[1].stack_trace()]
+    expected = ["thread_body", "run", "_bootstrap_inner", "_bootstrap"]
+    assert funcs1 == funcs2 == expected
 
 
 def test_thread_surviving_multiple_trackers(tmp_path):
