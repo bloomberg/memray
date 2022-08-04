@@ -102,6 +102,18 @@ install_trace_function();
 void
 forget_python_stack();
 
+/**
+ * Sets a flag to enable integration with the `greenlet` module.
+ */
+void
+begin_tracking_greenlets();
+
+/**
+ * Handle a notification of control switching from one greenlet to another.
+ */
+void
+handle_greenlet_switch(PyObject* from, PyObject* to);
+
 class NativeTrace
 {
   public:

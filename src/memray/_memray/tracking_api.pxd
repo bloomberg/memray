@@ -7,6 +7,8 @@ from libcpp.string cimport string
 cdef extern from "tracking_api.h" namespace "memray::tracking_api":
     void forget_python_stack() except*
     void install_trace_function() except*
+    void begin_tracking_greenlets() except+
+    void handle_greenlet_switch(object, object) except+
 
     cdef cppclass Tracker:
         @staticmethod

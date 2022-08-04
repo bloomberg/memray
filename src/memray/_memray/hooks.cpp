@@ -277,7 +277,12 @@ dlopen(const char* filename, int flag) noexcept
     assert(hooks::dlopen);
 
     void* ret = hooks::dlopen(filename, flag);
-    if (ret) tracking_api::Tracker::invalidate_module_cache();
+    if (ret) {
+        tracking_api::Tracker::invalidate_module_cache();
+        if (filename && 0 != strstr(filename, "/_greenlet.")) {
+            tracking_api::begin_tracking_greenlets();
+        }
+    }
     return ret;
 }
 

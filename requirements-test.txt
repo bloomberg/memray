@@ -1,2 +1,3 @@
+greenlet
 pytest
 pytest-cov

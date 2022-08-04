@@ -12,6 +12,7 @@
 #    include <mach/task.h>
 #endif
 
+#include <algorithm>
 #include <mutex>
 #include <type_traits>
 #include <unistd.h>
@@ -94,6 +95,7 @@ class PythonStackTracker
     };
 
   public:
+    static bool s_greenlet_tracking_enabled;
     static bool s_native_tracking_enabled;
 
     static void installProfileHooks();
@@ -106,6 +108,9 @@ class PythonStackTracker
     void invalidateMostRecentFrameLineNumber();
     int pushPythonFrame(PyFrameObject* frame);
     void popPythonFrame(PyFrameObject* frame);
+
+    void installGreenletTraceFunctionIfNeeded();
+    void handleGreenletSwitch(PyObject* from, PyObject* to);
 
   private:
     // Fetch the thread-local stack tracker without checking if its stack needs to be reloaded.
@@ -124,8 +129,10 @@ class PythonStackTracker
     uint32_t d_num_pending_pops{};
     uint32_t d_tracker_generation{};
     std::vector<LazilyEmittedFrame>* d_stack{};
+    bool d_greenlet_hooks_installed{};
 };
 
+bool PythonStackTracker::s_greenlet_tracking_enabled{false};
 bool PythonStackTracker::s_native_tracking_enabled{false};
 
 std::mutex PythonStackTracker::s_mutex;
@@ -252,6 +259,8 @@ PythonStackTracker::reloadStackIfTrackerChanged()
 int
 PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
+    installGreenletTraceFunctionIfNeeded();
+
     PyCodeObject* code = compat::frameGetCode(frame);
     const char* function = PyUnicode_AsUTF8(code->co_name);
     if (function == nullptr) {
@@ -284,6 +293,8 @@ PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
 void
 PythonStackTracker::popPythonFrame(PyFrameObject* frame)
 {
+    installGreenletTraceFunctionIfNeeded();
+
     // Note: We check if frame == d_stack->back().frame because Cython could
     // have called our tracing function with profiled Cython calls that we
     // later discarded in favor of the interpreter's stack when a new tracker
@@ -298,6 +309,82 @@ PythonStackTracker::popPythonFrame(PyFrameObject* frame)
     }
     d_stack->pop_back();
     invalidateMostRecentFrameLineNumber();
+}
+
+void
+PythonStackTracker::installGreenletTraceFunctionIfNeeded()
+{
+    if (!s_greenlet_tracking_enabled || d_greenlet_hooks_installed) {
+        return;  // Nothing to do.
+    }
+
+    assert(PyGILState_Check());
+
+    RecursionGuard guard;
+
+    // Borrowed reference
+    PyObject* modules = PySys_GetObject("modules");
+    if (!modules) {
+        return;
+    }
+
+    // Borrowed reference
+    // Look directly at `sys.modules` since we only want to do something if
+    // `greenlet._greenlet` has already been imported.
+    PyObject* _greenlet = PyDict_GetItemString(modules, "greenlet._greenlet");
+    if (!_greenlet) {
+        return;
+    }
+
+    // Borrowed reference
+    PyObject* _memray = PyDict_GetItemString(modules, "memray._memray");
+    if (!_memray) {
+        return;
+    }
+
+    PyObject* ret = PyObject_CallMethod(
+            _greenlet,
+            "settrace",
+            "N",
+            PyObject_GetAttrString(_memray, "greenlet_trace_function"));
+    Py_XDECREF(ret);
+
+    if (!ret) {
+        // This might be hit from PyGILState_Ensure when a new thread state is
+        // created on a C thread, so we can't reasonably raise the exception.
+        PyErr_Print();
+        _exit(1);
+    }
+
+    // Note: guarded by the GIL
+    d_greenlet_hooks_installed = true;
+}
+
+void
+PythonStackTracker::handleGreenletSwitch(PyObject*, PyObject*)
+{
+    RecursionGuard guard;
+
+    // Clear any old TLS stack, emitting pops for frames that had been pushed.
+    if (d_stack) {
+        d_num_pending_pops += std::count_if(d_stack->begin(), d_stack->end(), [](const auto& f) {
+            return f.state != FrameState::NOT_EMITTED;
+        });
+        d_stack->clear();
+        emitPendingPushesAndPops();
+    }
+
+    // Re-create our TLS stack from our Python frames, most recent last.
+    // Note: `frame` may be null; the new greenlet may not have a Python stack.
+    PyFrameObject* frame = PyEval_GetFrame();
+
+    std::vector<PyFrameObject*> stack;
+    while (frame) {
+        stack.push_back(frame);
+        frame = compat::frameGetBack(frame);
+    }
+
+    std::for_each(stack.rbegin(), stack.rend(), [this](auto& frame) { pushPythonFrame(frame); });
 }
 
 std::atomic<bool> Tracker::d_active = false;
@@ -993,6 +1080,19 @@ forget_python_stack()
 }
 
 void
+begin_tracking_greenlets()
+{
+    assert(PyGILState_Check());
+    PythonStackTracker::s_greenlet_tracking_enabled = true;
+}
+
+void
+handle_greenlet_switch(PyObject* from, PyObject* to)
+{
+    PythonStackTracker::get().handleGreenletSwitch(from, to);
+}
+
+void
 install_trace_function()
 {
     assert(PyGILState_Check());
@@ -1026,6 +1126,8 @@ install_trace_function()
     for (auto frame_it = stack.rbegin(); frame_it != stack.rend(); ++frame_it) {
         python_stack_tracker.pushPythonFrame(*frame_it);
     }
+
+    python_stack_tracker.installGreenletTraceFunctionIfNeeded();
 }
 
 }  // namespace memray::tracking_api

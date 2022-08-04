@@ -40,7 +40,9 @@ from _memray.socket_reader_thread cimport BackgroundSocketReader
 from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
 from _memray.tracking_api cimport Tracker as NativeTracker
+from _memray.tracking_api cimport begin_tracking_greenlets
 from _memray.tracking_api cimport forget_python_stack
+from _memray.tracking_api cimport handle_greenlet_switch
 from _memray.tracking_api cimport install_trace_function
 from cpython cimport PyErr_CheckSignals
 from libc.stdint cimport uint64_t
@@ -361,6 +363,9 @@ cdef class Tracker:
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
+        if "greenlet._greenlet" in sys.modules:
+            begin_tracking_greenlets()
+
         NativeTracker.createTracker(
             move(writer),
             self._native_traces,
@@ -381,6 +386,11 @@ def start_thread_trace(frame, event, arg):
     if event in {"call", "c_call"}:
         install_trace_function()
     return start_thread_trace
+
+
+def greenlet_trace_function(event, args):
+    if event in {"switch", "throw"}:
+        handle_greenlet_switch(args[0], args[1])
 
 
 cdef millis_to_dt(millis):
