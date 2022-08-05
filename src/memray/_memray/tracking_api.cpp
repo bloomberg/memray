@@ -331,13 +331,11 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
 
         const char* function = PyUnicode_AsUTF8(code->co_name);
         if (function == nullptr) {
-            Py_DECREF(code);
             return {};
         }
 
         const char* filename = PyUnicode_AsUTF8(code->co_filename);
         if (filename == nullptr) {
-            Py_DECREF(code);
             return {};
         }
 
