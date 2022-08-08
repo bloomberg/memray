@@ -35,7 +35,8 @@ Memray can help with the following problems:
 - Find memory leaks.
 - Find hotspots in code that cause a lot of allocations.
 
-Note that Memray only works on Linux and cannot be installed on other platforms.
+> **Note**
+> Memray only works on Linux and cannot be installed on other platforms.
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/quotes.png" width="100%">
