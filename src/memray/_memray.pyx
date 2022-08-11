@@ -53,12 +53,11 @@ from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
+from ._destination import Destination
 from ._destination import FileDestination
 from ._destination import SocketDestination
 from ._metadata import Metadata
 from ._stats import Stats
-
-include "_memray_test_utils.pyx"
 
 
 def set_log_level(int level):
@@ -493,7 +492,10 @@ cdef class FileReader:
         except OSError as exc:
             raise OSError(f"Could not open file {file_name}: {exc.strerror}") from None
 
-        self._path = "/proc/self/fd/" + str(self._file.fileno())
+        IF UNAME_SYSNAME == "Linux":
+            self._path = "/proc/self/fd/" + str(self._file.fileno())
+        ELSE:
+            self._path = str(file_name)
         self._report_progress = report_progress
 
         # Initial pass to populate _header, _high_watermark, and _memory_snapshots.

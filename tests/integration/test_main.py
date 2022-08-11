@@ -23,7 +23,7 @@ def simple_test_file(tmp_path):
     code_file = tmp_path / "code.py"
     program = textwrap.dedent(
         """\
-        from memray._memray import MemoryAllocator
+        from memray._test import MemoryAllocator
         print("Allocating some memory!")
         allocator = MemoryAllocator()
         allocator.valloc(1024)
@@ -58,7 +58,7 @@ def track_and_wait(output_dir, sleep_after=100):
     program = textwrap.dedent(
         f"""\
         import time
-        from memray._memray import MemoryAllocator
+        from memray._test import MemoryAllocator
         allocator = MemoryAllocator()
         allocator.valloc(1024)
         allocator.free()
@@ -469,7 +469,7 @@ class TestParseSubcommand:
         program = textwrap.dedent(
             """\
             import time
-            from memray._memray import MemoryAllocator
+            from memray._test import MemoryAllocator
             print("Allocating some memory!")
             allocator = MemoryAllocator()
             allocator.valloc(1024)
