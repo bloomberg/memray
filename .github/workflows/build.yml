@@ -76,8 +76,6 @@ jobs:
     - name: Run tox
       run: tox . -vvv
 
-
-
   lint_and_docs:
     name: 'Lint and Docs'
     runs-on: ubuntu-latest

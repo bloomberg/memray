@@ -48,7 +48,7 @@ ignore = [
 exclude="tests/integration/(native_extension|multithreaded_extension)/"
 
 [tool.cibuildwheel]
-build = ["cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
 skip = "*musllinux*"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
@@ -60,3 +60,6 @@ manylinux-i686-image = "manylinux2010"
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y libunwind-devel lz4-devel"
+
+[tool.cibuildwheel.macos]
+before-all = "brew install lz4"
