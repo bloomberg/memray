@@ -6,6 +6,7 @@
 
 namespace memray::hooks {
 
+#if defined(__linux__)
 int
 phdr_symfind_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noexcept
 {
@@ -40,6 +41,7 @@ phdr_symfind_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* da
 
     return 0;
 }
+#endif
 
 AllocatorKind
 allocatorKind(const Allocator& allocator)
@@ -163,34 +165,6 @@ pymalloc_free(void* ctx, void* ptr) noexcept
 }
 
 void*
-mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexcept
-{
-    assert(hooks::mmap);
-    void* ptr = hooks::mmap(addr, length, prot, flags, fd, offset);
-    tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
-    return ptr;
-}
-
-#if defined(__GLIBC__)
-void*
-mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept
-{
-    assert(hooks::mmap64);
-    void* ptr = hooks::mmap64(addr, length, prot, flags, fd, offset);
-    tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
-    return ptr;
-}
-#endif
-
-int
-munmap(void* addr, size_t length) noexcept
-{
-    assert(hooks::munmap);
-    tracking_api::Tracker::trackDeallocation(addr, length, hooks::Allocator::MUNMAP);
-    return hooks::munmap(addr, length);
-}
-
-void*
 malloc(size_t size) noexcept
 {
     assert(hooks::malloc);
@@ -241,44 +215,32 @@ calloc(size_t num, size_t size) noexcept
     return ret;
 }
 
+void*
+mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexcept
+{
+    assert(hooks::mmap);
+    void* ptr = hooks::mmap(addr, length, prot, flags, fd, offset);
+    tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
+    return ptr;
+}
+
+#if defined(__GLIBC__)
+void*
+mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept
+{
+    assert(hooks::mmap64);
+    void* ptr = hooks::mmap64(addr, length, prot, flags, fd, offset);
+    tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
+    return ptr;
+}
+#endif
+
 int
-posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
+munmap(void* addr, size_t length) noexcept
 {
-    assert(hooks::posix_memalign);
-
-    int ret = hooks::posix_memalign(memptr, alignment, size);
-    if (!ret) {
-        tracking_api::Tracker::trackAllocation(*memptr, size, hooks::Allocator::POSIX_MEMALIGN);
-    }
-    return ret;
-}
-
-void*
-aligned_alloc(size_t alignment, size_t size) noexcept
-{
-    assert(hooks::aligned_alloc);
-
-    void* ret = hooks::aligned_alloc(alignment, size);
-    if (ret) {
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
-    }
-    return ret;
-}
-
-void*
-memalign(size_t alignment, size_t size) noexcept
-{
-    assert(hooks::memalign);
-
-    void* ret;
-    {
-        tracking_api::RecursionGuard guard;
-        ret = hooks::memalign(alignment, size);
-    }
-    if (ret) {
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::MEMALIGN);
-    }
-    return ret;
+    assert(hooks::munmap);
+    tracking_api::Tracker::trackDeallocation(addr, length, hooks::Allocator::MUNMAP);
+    return hooks::munmap(addr, length);
 }
 
 void*
@@ -297,19 +259,17 @@ valloc(size_t size) noexcept
     return ret;
 }
 
-#if defined(__GLIBC__)
-void*
-pvalloc(size_t size) noexcept
+int
+posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
 {
-    assert(hooks::pvalloc);
+    assert(hooks::posix_memalign);
 
-    void* ret = hooks::pvalloc(size);
-    if (ret) {
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::PVALLOC);
+    int ret = hooks::posix_memalign(memptr, alignment, size);
+    if (!ret) {
+        tracking_api::Tracker::trackAllocation(*memptr, size, hooks::Allocator::POSIX_MEMALIGN);
     }
     return ret;
 }
-#endif
 
 void*
 dlopen(const char* filename, int flag) noexcept
@@ -332,6 +292,50 @@ dlclose(void* handle) noexcept
     return ret;
 }
 
+void*
+aligned_alloc(size_t alignment, size_t size) noexcept
+{
+    assert(hooks::aligned_alloc);
+
+    void* ret = hooks::aligned_alloc(alignment, size);
+    if (ret) {
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
+    }
+    return ret;
+}
+
+#if defined(__linux__)
+
+void*
+memalign(size_t alignment, size_t size) noexcept
+{
+    assert(hooks::memalign);
+
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::memalign(alignment, size);
+    }
+    if (ret) {
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::MEMALIGN);
+    }
+    return ret;
+}
+
+#    if defined(__GLIBC__)
+void*
+pvalloc(size_t size) noexcept
+{
+    assert(hooks::pvalloc);
+
+    void* ret = hooks::pvalloc(size);
+    if (ret) {
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::PVALLOC);
+    }
+    return ret;
+}
+#    endif
+
 int
 prctl(int option, ...) noexcept
 {
@@ -352,6 +356,7 @@ prctl(int option, ...) noexcept
 
     return ret;
 }
+#endif
 
 PyGILState_STATE
 PyGILState_Ensure() noexcept
