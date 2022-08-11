@@ -1,4 +1,4 @@
-name: Linux Wheels
+name: Wheels
 
 on:
   push:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   build_wheels:
-    name: Wheel for ${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
+    name: Wheel for Linux-${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -37,6 +37,31 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: pytest {package}/tests
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./wheelhouse/*.whl
+
+  build_wheels_macos:
+    name: Wheel for MacOS-${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-11]
+        cibw_python: ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+        cibw_arch: [ "x86_64", "arm64" ]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.8.1
+        env:
+          CIBW_BUILD: ${{ matrix.cibw_python }}
+          CIBW_ARCHS_MACOS: ${{ matrix.cibw_arch }}
+          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_TEST_EXTRAS: test
+          CIBW_TEST_COMMAND: pytest {package}/tests
+          MACOSX_DEPLOYMENT_TARGET: "10.14"
 
       - uses: actions/upload-artifact@v3
         with:
