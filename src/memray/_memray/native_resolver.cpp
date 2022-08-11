@@ -373,6 +373,7 @@ SymbolResolver::clearSegments()
 backtrace_state*
 SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start)
 {
+#ifdef __linux__
     // We hash into "d_backtrace_states" using a char* as it's safe on the condition that every
     // const char* used as a key in the map is one that was returned by "d_string_storage",
     // and it's safe because no pointer that's returned by "d_string_storage" is ever invalidated.
@@ -425,6 +426,9 @@ SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start
     }
     d_backtrace_states.insert(it, {filename, state});
     return state;
+#else
+    return NULL;
+#endif
 }
 
 std::vector<MemorySegment>&

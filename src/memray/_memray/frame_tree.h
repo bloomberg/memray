@@ -58,7 +58,7 @@ class FrameTree
         frame_id_t frame_id;
         index_t child_index;
 
-        bool operator<(frame_id_t frame_id)
+        bool operator<(frame_id_t frame_id) const
         {
             return this->frame_id < frame_id;
         }

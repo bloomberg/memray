@@ -3,7 +3,14 @@
 
 #include <cassert>
 #include <limits.h>
-#include <link.h>
+
+#ifdef __linux__
+#    include <link.h>
+#elif defined(__APPLE__)
+#    include <mach/mach.h>
+#    include <mach/task.h>
+#endif
+
 #include <mutex>
 #include <type_traits>
 #include <unistd.h>
@@ -21,6 +28,7 @@ using namespace std::chrono_literals;
 
 namespace {
 
+#ifdef __linux__
 std::string
 get_executable()
 {
@@ -39,6 +47,7 @@ starts_with(const std::string& haystack, const std::string_view& needle)
 {
     return haystack.compare(0, needle.size(), needle) == 0;
 }
+#endif
 
 }  // namespace
 
@@ -319,6 +328,7 @@ PythonStackTracker::popPythonFrame(PyFrameObject* frame)
 std::atomic<bool> Tracker::d_active = false;
 std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
+
 MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{128};
 
 std::vector<PythonStackTracker::LazilyEmittedFrame>
@@ -452,10 +462,10 @@ Tracker::Tracker(
     if (d_trace_python_allocators) {
         registerPymallocHooks();
     }
-    d_patcher.overwrite_symbols();
-
     d_background_thread = std::make_unique<BackgroundThread>(d_writer, memory_interval);
     d_background_thread->start();
+
+    d_patcher.overwrite_symbols();
 
     tracking_api::Tracker::activate();
 }
@@ -485,10 +495,12 @@ Tracker::BackgroundThread::BackgroundThread(
 : d_writer(std::move(record_writer))
 , d_memory_interval(memory_interval)
 {
+#ifdef __linux__
     d_procs_statm.open("/proc/self/statm");
     if (!d_procs_statm) {
         throw IoError{"Failed to open /proc/self/statm"};
     }
+#endif
 }
 
 unsigned long int
@@ -502,6 +514,7 @@ Tracker::BackgroundThread::timeElapsed()
 size_t
 Tracker::BackgroundThread::getRSS() const
 {
+#ifdef __linux__
     static long pagesize = sysconf(_SC_PAGE_SIZE);
     constexpr int max_unsigned_long_chars = std::numeric_limits<unsigned long>::digits10 + 1;
     constexpr int bufsize = (max_unsigned_long_chars + sizeof(' ')) * 2;
@@ -649,7 +662,6 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
         }
-
     } else {
         AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
@@ -678,10 +690,15 @@ void
 Tracker::invalidate_module_cache_impl()
 {
     RecursionGuard guard;
+    // For macOS we have used an API that automatically will call us on new dlopen libraries
+    // so we don't need to manually patch everything.
+#ifndef __APPLE__
     d_patcher.overwrite_symbols();
+#endif
     updateModuleCache();
 }
 
+#ifdef __linux__
 static int
 dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size, void* data)
 {
@@ -722,6 +739,7 @@ dl_iterate_phdr_callback(struct dl_phdr_info* info, [[maybe_unused]] size_t size
 
     return 0;
 }
+#endif
 
 void
 Tracker::updateModuleCacheImpl()
@@ -735,7 +753,9 @@ Tracker::updateModuleCacheImpl()
         deactivate();
     }
 
+#ifdef __linux__
     dl_iterate_phdr(&dl_iterate_phdr_callback, d_writer.get());
+#endif
 }
 
 void
