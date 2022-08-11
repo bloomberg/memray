@@ -9,6 +9,7 @@ cimport cython
 import threading
 from datetime import datetime
 
+from rich import print as pprint
 from rich.progress import Progress
 from rich.progress import SpinnerColumn
 
@@ -302,6 +303,15 @@ cdef class Tracker:
         else:
             raise TypeError("destination must be a SocketDestination or FileDestination")
 
+    def __init__(self, object file_name=None, *, object destination=None,
+                  bool native_traces=False, unsigned int memory_interval_ms = 10,
+                  bool follow_fork=False, bool trace_python_allocators=False):
+        if sys.platform == "darwin":
+            pprint(":warning: [bold red] Memray support in MacOS is still experimental [/]:warning:", file=sys.stderr)
+            pprint("[yellow]Please report any issues at https://github.com/bloomberg/memray/issues[/]", file=sys.stderr)
+            pprint("", file=sys.stderr)
+            if native_traces:
+                raise RuntimeError("Native tracking is not supported on macOS")
 
     def __cinit__(self, object file_name=None, *, object destination=None,
                   bool native_traces=False, unsigned int memory_interval_ms = 10,
