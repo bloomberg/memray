@@ -21,6 +21,7 @@ from memray._test import PymallocMemoryAllocator
 from memray._test import _cython_allocate_in_two_places
 from memray._test import allocate_cpp_vector
 from tests.utils import filter_relevant_allocations
+from tests.utils import skip_if_macos
 
 ALLOCATORS = [
     ("malloc", AllocatorType.MALLOC),
@@ -47,14 +48,19 @@ PYMALLOC_DOMAINS = [
 
 
 PAGE_SIZE = mmap.PAGESIZE
+ALLOC_SIZE = 123 * 8
 
 
+@pytest.mark.skipif(
+    sys.platform == "darwin", reason="Test triggers some extra allocations in macOS"
+)
 def test_no_allocations_while_tracking(tmp_path):
     output = tmp_path / "test.bin"
     with Tracker(output):
         pass
 
-    assert list(FileReader(output).get_allocation_records()) == []
+    records = list(FileReader(output).get_allocation_records())
+    assert not records
 
 
 @pytest.mark.parametrize(["allocator_func", "allocator_type"], ALLOCATORS)
@@ -65,20 +71,42 @@ def test_simple_allocation_tracking(allocator_func, allocator_type, tmp_path):
 
     # WHEN
     with Tracker(output):
-        res = getattr(allocator, allocator_func)(1234)
+        res = getattr(allocator, allocator_func)(ALLOC_SIZE)
         if res:
             allocator.free()
 
     if not res:
-        pytest.skip("Allocator {allocator_func} not supported in this platform")
+        pytest.skip(f"Allocator {allocator_func} not supported in this platform")
 
     # THEN
     allocations = list(FileReader(output).get_allocation_records())
     allocs = [
         event
         for event in allocations
-        if event.size == 1234 and event.allocator == allocator_type
+        if event.size == ALLOC_SIZE and event.allocator == allocator_type
     ]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == alloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) >= 1
+
+
+def test_simple_cpp_allocation_tracking(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        allocate_cpp_vector(ALLOC_SIZE)
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+    allocs = [event for event in allocations if event.size == ALLOC_SIZE]
     assert len(allocs) == 1
     (alloc,) = allocs
 
@@ -102,19 +130,19 @@ def test_simple_pymalloc_allocation_tracking(
     # WHEN
     the_allocator = getattr(allocator, allocator_func)
     with Tracker(output, trace_python_allocators=True):
-        res = the_allocator(1234)
+        res = the_allocator(ALLOC_SIZE)
         if res:
             allocator.free()
 
     if not res:
-        pytest.skip("Allocator {allocator_func} not supported in this platform")
+        pytest.skip(f"Allocator {allocator_func} not supported in this platform")
 
     # THEN
     allocations = list(FileReader(output).get_allocation_records())
     allocs = [
         event
         for event in allocations
-        if event.size == 1234 and event.allocator == allocator_type
+        if event.size == ALLOC_SIZE and event.allocator == allocator_type
     ]
     assert len(allocs) == 1
     (alloc,) = allocs
@@ -140,12 +168,12 @@ def test_pymalloc_allocation_tracking_deactivated(
     # WHEN
     the_allocator = getattr(allocator, allocator_func)
     with Tracker(output, trace_python_allocators=False):
-        res = the_allocator(1234)
+        res = the_allocator(ALLOC_SIZE)
         if res:
             allocator.free()
 
     if not res:
-        pytest.skip("Allocator {allocator_func} not supported in this platform")
+        pytest.skip(f"Allocator {allocator_func} not supported in this platform")
 
     # THEN
     allocations = list(FileReader(output).get_allocation_records())
@@ -185,7 +213,7 @@ def test_pthread_tracking(tmp_path):
     allocator = MemoryAllocator()
 
     def tracking_function():
-        allocator.valloc(1234)
+        allocator.valloc(ALLOC_SIZE)
         allocator.free()
 
     # WHEN
@@ -198,7 +226,7 @@ def test_pthread_tracking(tmp_path):
     allocs = [
         event
         for event in allocations
-        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+        if event.size == ALLOC_SIZE and event.allocator == AllocatorType.VALLOC
     ]
     assert len(allocs) == 1
     (alloc,) = allocs
@@ -302,19 +330,21 @@ class TestHighWatermark:
 
         # WHEN
         with Tracker(output):
-            res = getattr(allocator, allocator_func)(1234)
+            res = getattr(allocator, allocator_func)(ALLOC_SIZE)
             if res:
                 allocator.free()
 
         if not res:
-            pytest.skip("Allocator {allocator_func} not supported in this platform")
+            pytest.skip(f"Allocator {allocator_func} not supported in this platform")
 
         # THEN
         peak_allocations_unfiltered = FileReader(
             output
         ).get_high_watermark_allocation_records()
         peak_allocations = [
-            record for record in peak_allocations_unfiltered if record.size == 1234
+            record
+            for record in peak_allocations_unfiltered
+            if record.size == ALLOC_SIZE
         ]
         assert len(peak_allocations) == 1, peak_allocations
 
@@ -443,6 +473,7 @@ class TestHighWatermark:
         assert record.size == 2048
         assert record.n_allocations == 2
 
+    @skip_if_macos
     def test_aggregation_same_python_stack_and_same_native_stack(self, tmp_path):
         # GIVEN
         allocators = []
@@ -503,13 +534,14 @@ class TestHighWatermark:
         assert sum(record.size for record in peak_allocations) == 1024 + 2048
         assert all(record.n_allocations == 1 for record in peak_allocations)
 
+    @skip_if_macos
     def test_aggregation_same_python_stack_but_different_native_stack(self, tmp_path):
         # GIVEN
         output = tmp_path / "test.bin"
 
         # WHEN
         with Tracker(output, native_traces=True):
-            _cython_allocate_in_two_places(1234)
+            _cython_allocate_in_two_places(ALLOC_SIZE)
 
         # THEN
         reader = FileReader(output)
@@ -522,7 +554,9 @@ class TestHighWatermark:
             filter_relevant_allocations(reader.get_high_watermark_allocation_records())
         )
         assert len(peak_allocations) == 2
-        assert sum(record.size for record in peak_allocations) == 1234 + 1234
+        assert (
+            sum(record.size for record in peak_allocations) == ALLOC_SIZE + ALLOC_SIZE
+        )
         assert all(record.n_allocations == 1 for record in peak_allocations)
 
     def test_non_freed_allocations_are_accounted_for(self, tmp_path):
@@ -962,7 +996,7 @@ class TestLeaks:
         output = tmp_path / "test.bin"
 
         # WHEN
-        allocator.valloc(1234)
+        allocator.valloc(ALLOC_SIZE)
         with Tracker(output):
             allocator.free()
 
@@ -1134,7 +1168,7 @@ class TestMemorySnapshots:
 
         # WHEN
         with Tracker(output):
-            allocator.valloc(1234)
+            allocator.valloc(ALLOC_SIZE)
             time.sleep(0.11)
             allocator.free()
 
@@ -1142,7 +1176,7 @@ class TestMemorySnapshots:
 
         assert memory_snapshots
         assert all(record.rss > 0 for record in memory_snapshots)
-        assert any(record.heap >= 1234 for record in memory_snapshots)
+        assert any(record.heap >= ALLOC_SIZE for record in memory_snapshots)
         assert sorted(memory_snapshots, key=lambda r: r.time) == memory_snapshots
         assert all(
             _next.time - prev.time >= 10
@@ -1156,14 +1190,14 @@ class TestMemorySnapshots:
 
         # WHEN
         with Tracker(output, memory_interval_ms=20):
-            allocator.valloc(1234)
-            time.sleep(0.11)
+            allocator.valloc(ALLOC_SIZE)
+            time.sleep(1)
 
         memory_snapshots = list(FileReader(output).get_memory_snapshots())
 
         assert len(memory_snapshots)
         assert all(record.rss > 0 for record in memory_snapshots)
-        assert any(record.heap >= 1234 for record in memory_snapshots)
+        assert any(record.heap >= ALLOC_SIZE for record in memory_snapshots)
         assert sorted(memory_snapshots, key=lambda r: r.time) == memory_snapshots
         assert all(
             _next.time - prev.time >= 20

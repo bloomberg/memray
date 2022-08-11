@@ -1,9 +1,12 @@
 """Utilities / Helpers for writing tests."""
 
+import sys
 from dataclasses import dataclass
 from typing import List
 from typing import Optional
 from typing import Tuple
+
+import pytest
 
 from memray import AllocatorType
 
@@ -41,6 +44,11 @@ def filter_relevant_pymalloc_allocations(records, size):
             if record.address in addresses:
                 yield record
             addresses.discard(record.address)
+
+
+skip_if_macos = pytest.mark.skipif(
+    sys.platform == "darwin", reason="does not run on macOS"
+)
 
 
 @dataclass

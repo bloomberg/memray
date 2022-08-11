@@ -7,6 +7,7 @@ from memray import Tracker
 from memray._test import MemoryAllocator
 from memray._test import set_thread_name
 from tests.utils import filter_relevant_allocations
+from tests.utils import skip_if_macos
 
 HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
@@ -61,6 +62,7 @@ def test_thread_allocations_after_tracker_is_deactivated(tmpdir):
     assert len(frees) == 1
 
 
+@skip_if_macos
 def test_thread_name(tmpdir):
     # GIVEN
     output = Path(tmpdir) / "test.bin"

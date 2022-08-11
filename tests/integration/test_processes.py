@@ -1,3 +1,4 @@
+import multiprocessing
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -11,6 +12,14 @@ from memray._test import PymallocDomain
 from memray._test import PymallocMemoryAllocator
 from tests.utils import filter_relevant_allocations
 from tests.utils import filter_relevant_pymalloc_allocations
+
+
+@pytest.fixture(scope="module", autouse=True)
+def set_multiprocessing_to_fork():
+    current_method = multiprocessing.get_start_method()
+    multiprocessing.set_start_method("fork", force=True)
+    yield
+    multiprocessing.set_start_method(current_method, force=True)
 
 
 def multiproc_func(repetitions):
