@@ -16,6 +16,9 @@ HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_NATIVE_EXTENSION = HERE / "native_extension"
 
+if "linux" not in sys.platform:
+    pytest.skip("tests only working on Linux", allow_module_level=True)
+
 
 def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
     """Test tracking allocations in a native extension which spawns multiple threads,
@@ -47,7 +50,7 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
     outstanding_memaligns = set()
 
     for record in records:
-        if record.allocator == AllocatorType.MEMALIGN:
+        if record.allocator == AllocatorType.POSIX_MEMALIGN:
             memaligns.append(record)
             outstanding_memaligns.add(record.address)
         elif record.allocator == AllocatorType.FREE:

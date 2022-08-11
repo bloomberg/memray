@@ -167,6 +167,7 @@ def test_cython_traceback(tmpdir):
         free.stack_trace()
 
 
+@skip_if_macos
 def test_large_number_of_frame_pops_between_subsequent_allocations(tmpdir):
     # GIVEN
     output = Path(tmpdir) / "test.bin"

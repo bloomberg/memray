@@ -460,14 +460,14 @@ class TestParseSubcommand:
             "FRAME_PUSH",
             "FRAME_POP",
             "FRAME_ID",
-            "NATIVE_FRAME_ID",
             "MEMORY_MAP_START",
-            "SEGMENT_HEADER",
-            "SEGMENT",
             "MEMORY_RECORD",
             "CONTEXT_SWITCH",
             "TRAILER",
         ]
+        if "linux" in sys.platform:
+            record_types.extend(["SEGMENT_HEADER", "SEGMENT", "NATIVE_FRAME_ID"])
+
         code_file = tmp_path / "code.py"
         program = textwrap.dedent(
             """\
