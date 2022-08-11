@@ -31,7 +31,7 @@ patch_symbol(
     if (err == KERN_SUCCESS) {
         auto typedAddr = reinterpret_cast<typename Hook::signature_t*>(addr);
         *typedAddr = restore_original ? hook.d_original : intercept;
-        LOG_IF_DEBUG(symname << " intercepted!");
+        LOG(DEBUG) << symname << " intercepted!";
     } else {
         LOG(ERROR) << "Failed to patch " << symname;
     }
@@ -85,10 +85,10 @@ patch_symbols_in_shared_object(
     if (strstr(image_name, "memray.cpython") || strstr(image_name, "/dyld")
         || strstr(image_name, "dyld.dylib"))
     {
-        LOG_IF_DEBUG("Skipping patching symbols for " << image_name);
+        LOG(DEBUG) << "Skipping patching symbols for " << image_name;
         return;
     }
-    LOG_IF_DEBUG("Patching symbols for " << image_name);
+    LOG(DEBUG) << "Patching symbols for " << image_name;
 
     auto segment_filter = [](const char* seg_name) {
         return strcmp(seg_name, SEG_DATA) == 0 || strcmp(seg_name, SEG_DATA_CONST) == 0
@@ -97,24 +97,24 @@ patch_symbols_in_shared_object(
 
     DynamicInfoTable dyninfo_table(header, slide, segment_filter);
     if (!dyninfo_table) {
-        LOG_IF_DEBUG("Could not construct dynamic information table" << image_name);
+        LOG(DEBUG) << "Could not construct dynamic information table" << image_name;
         return;
     }
 
-    LOG_IF_DEBUG("Found " << dyninfo_table.segments.size() << " data segments");
+    LOG(DEBUG) << "Found " << dyninfo_table.segments.size() << " data segments";
 
     for (const auto& segment_cmd : dyninfo_table.segments) {
         const auto current_seg = reinterpret_cast<uintptr_t>(segment_cmd);
         auto section_head = reinterpret_cast<const section_t*>(current_seg + sizeof(segment_command_t));
-        LOG_IF_DEBUG("Considering segment " << segment_cmd->segname);
+        LOG(DEBUG) << "Considering segment " << segment_cmd->segname;
         for (size_t i = 0; i < segment_cmd->nsects; i++) {
             const section_t* section = section_head + i;
             unsigned int section_type = section->flags & SECTION_TYPE;
             if (section_type != S_LAZY_SYMBOL_POINTERS && section_type != S_NON_LAZY_SYMBOL_POINTERS) {
-                LOG_IF_DEBUG("Skipping section" << i << " (" << section->segname << ")");
+                LOG(DEBUG) << "Skipping section" << i << " (" << section->segname << ")";
                 continue;
             }
-            LOG_IF_DEBUG("Patching section number " << i << " (" << section->segname << ")");
+            LOG(DEBUG) << "Patching section number " << i << " (" << section->segname << ")";
             patch_symbols_in_section(section, slide, dyninfo_table, restore_original);
         }
     }

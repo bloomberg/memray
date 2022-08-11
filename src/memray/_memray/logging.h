@@ -21,6 +21,9 @@ logToStderr(const std::string& message, int level);
 void
 setLogThreshold(int threshold);
 
+logLevel
+getLogThreshold();
+
 class LOG
 {
   public:
@@ -43,6 +46,9 @@ class LOG
     template<typename T>
     LOG& operator<<(const T& msg)
     {
+        if (msgLevel < getLogThreshold()) {
+            return *this;
+        }
         buffer << msg;
         return *this;
     };

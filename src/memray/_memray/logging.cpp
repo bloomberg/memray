@@ -25,6 +25,12 @@ setLogThreshold(int threshold)
     LOG_THRESHOLD = threshold;
 }
 
+logLevel
+getLogThreshold()
+{
+    return static_cast<logLevel>(LOG_THRESHOLD);
+}
+
 void
 logToStderr(const std::string& message, int level)
 {
