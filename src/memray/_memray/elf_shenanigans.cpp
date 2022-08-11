@@ -4,12 +4,12 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "elf_shenanigans.h"
 #include "elf_utils.h"
-#include "hooks.h"
-#include "logging.h"
-
 #include <link.h>
+
+#include "hooks.h"
+#include "linker_shenanigans.h"
+#include "logging.h"
 
 namespace {
 
@@ -22,7 +22,7 @@ struct elf_patcher_context_t
 
 }  // namespace
 
-namespace memray::elf {
+namespace memray::linker {
 
 /* Patching functions */
 
@@ -202,4 +202,4 @@ SymbolPatcher::restore_symbols() noexcept
     dl_iterate_phdr(&phdrs_callback, (void*)&context);
 }
 
-}  // namespace memray::elf
+}  // namespace memray::linker

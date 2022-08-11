@@ -3,7 +3,7 @@
 #include <set>
 #include <string>
 
-namespace memray::elf {
+namespace memray::linker {
 
 class SymbolPatcher
 {
@@ -14,4 +14,4 @@ class SymbolPatcher
     void overwrite_symbols() noexcept;
     void restore_symbols() noexcept;
 };
-}  // namespace memray::elf
+}  // namespace memray::linker
