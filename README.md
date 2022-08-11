@@ -5,6 +5,7 @@
 ---
 
 ![OS Linux](https://img.shields.io/badge/OS-Linux-blue)
+![OS MacOS](https://img.shields.io/badge/OS-MacOs-blue)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/memray)
 ![PyPI - Implementation](https://img.shields.io/pypi/implementation/memray)
 ![PyPI](https://img.shields.io/pypi/v/memray)
@@ -36,7 +37,7 @@ Memray can help with the following problems:
 - Find hotspots in code that cause a lot of allocations.
 
 > **Note**
-> Memray only works on Linux and cannot be installed on other platforms.
+> Memray only works on Linux and MacOS, and cannot be installed on other platforms.
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/quotes.png" width="100%">
@@ -54,17 +55,18 @@ packaging tools. We recommend installing the latest stable release from
 
 Notice that Memray contains a C extension so releases are distributed as binary
 wheels as well as the source code. If a binary wheel is not available for your system
-(Linux x86/x64), you'll need to ensure that all the dependencies are satisfied on the
+(Linux x86/x64 or macOS), you'll need to ensure that all the dependencies are satisfied on the
 system where you are doing the installation.
 
 ## Building from source
 
 If you wish to build Memray from source you need the following binary dependencies in your system:
 
-- libunwind
+- libunwind (for Linux)
 - liblz4
 
-Check your package manager on how to install these dependencies (for example `apt-get install libunwind-dev liblz4-dev` in Debian-based systems).
+Check your package manager on how to install these dependencies (for example `apt-get install libunwind-dev liblz4-dev` in Debian-based systems
+or `brew install lz4` in MacOS).
 
 Once you have the binary dependencies installed, you can clone the repository and follow with the normal building process:
 
