@@ -151,9 +151,10 @@ FileSink::seek(off_t offset, int whence)
 bool
 FileSink::grow(size_t needed)
 {
-    // Grow to next multiple of 4KiB that is strictly > 110% of current size + needed
+    static size_t pagesize = sysconf(_SC_PAGESIZE);
+    // Grow to next multiple of the page size that is strictly > 110% of current size + needed
     size_t new_size = (d_fileSize + needed) * 1.1;
-    new_size = (new_size / 4096 + 1) * 4096;
+    new_size = (new_size / pagesize + 1) * pagesize;
     assert(new_size > d_fileSize);  // check for overflow
 
     off_t delta = new_size - d_fileSize;
