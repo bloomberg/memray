@@ -77,6 +77,9 @@ def track_and_wait(output_dir, sleep_after=100):
 
 
 def _wait_until_process_blocks(pid: int) -> None:
+    if "linux" not in sys.platform:
+        time.sleep(1.0)
+        return
     # Signal numbers from https://filippo.io/linux-syscall-table/
     arch = platform.machine()
     if arch == "x86_64":
