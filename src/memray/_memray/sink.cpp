@@ -24,6 +24,25 @@ using namespace memray::exception;
 
 namespace {  // unnamed
 
+#ifdef __APPLE__
+static int
+posix_fallocate(int fd, off_t offset, off_t len)
+{
+    fstore_t store = {F_ALLOCATEALL, F_PEOFPOSMODE, 0, len, 0};
+    int res = ::fcntl(fd, F_PREALLOCATE, &store);
+    if (res != 0) {
+        return errno;
+    }
+    do {
+        res = ::ftruncate(fd, offset + len);
+    } while (res != 0 && errno == EINTR);
+    if (res != 0) {
+        return errno;
+    }
+    return 0;
+}
+#endif
+
 std::string
 removeSuffix(const std::string& s, const std::string& suffix)
 {
