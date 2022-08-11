@@ -5,7 +5,7 @@ import pytest
 from memray import FileDestination
 from memray import FileReader
 from memray import Tracker
-from memray._memray import MemoryAllocator
+from memray._test import MemoryAllocator
 
 
 def test_rejects_different_header_magic(tmp_path):

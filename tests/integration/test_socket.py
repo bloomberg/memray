@@ -26,7 +26,7 @@ MULTI_ALLOCATION_COUNT = 10
 #
 _SCRIPT_TEMPLATE = """
 import sys
-from memray._memray import MemoryAllocator
+from memray._test import MemoryAllocator
 from memray._memray import SocketDestination
 from memray._memray import Tracker
 
@@ -373,7 +373,7 @@ class TestSocketReaderAccess:
         # GIVEN
         script = textwrap.dedent(
             f"""\
-            from memray._memray import MemoryAllocator
+            from memray._test import MemoryAllocator
             from memray._memray import SocketDestination
             from memray._memray import Tracker
             from itertools import count

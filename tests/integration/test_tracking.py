@@ -14,11 +14,12 @@ import pytest
 from memray import AllocatorType
 from memray import FileReader
 from memray import Tracker
-from memray._memray import MmapAllocator
 from memray._test import MemoryAllocator
+from memray._test import MmapAllocator
 from memray._test import PymallocDomain
 from memray._test import PymallocMemoryAllocator
 from memray._test import _cython_allocate_in_two_places
+from memray._test import allocate_cpp_vector
 from tests.utils import filter_relevant_allocations
 
 ALLOCATORS = [

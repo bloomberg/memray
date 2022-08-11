@@ -12,6 +12,7 @@ from posix.mman cimport munmap
 from posix.unistd cimport read
 from posix.unistd cimport write
 
+cimport cython
 from _memray.alloc cimport PyMem_Calloc
 from _memray.alloc cimport PyMem_Free
 from _memray.alloc cimport PyMem_Malloc
@@ -38,17 +39,21 @@ from _memray.pthread cimport pthread_join
 from _memray.pthread cimport pthread_t
 from libc.errno cimport errno
 from libc.stdint cimport uintptr_t
+from libcpp.vector cimport vector
 
 from ._destination import Destination
 
-
-cdef extern from "sys/prctl.h":
-    int prctl(int, char*, char*, char*, char*)
+IF UNAME_SYSNAME == "Linux":
+    cdef extern from "sys/prctl.h":
+        int prctl(int, char*, char*, char*, char*)
 
 
 def set_thread_name(new_name):
     cdef int PR_SET_NAME = 15
-    return prctl(PR_SET_NAME, new_name, NULL, NULL, NULL)
+    IF UNAME_SYSNAME == "Linux":
+        return prctl(PR_SET_NAME, new_name, NULL, NULL, NULL)
+    ELSE:
+        return None
 
 
 cdef class MemoryAllocator:
@@ -182,10 +187,14 @@ cdef class PymallocMemoryAllocator:
  
         return self.ptr != NULL
 
+cdef do_not_optimize_ptr(void* ptr):
+    return ptr == <void*>(1)
+
 @cython.profile(True)
 def _cython_nested_allocation(allocator_fn, size):
     allocator_fn(size)
     cdef void* p = valloc(size);
+    do_not_optimize_ptr(p)
     free(p)
 
 cdef class MmapAllocator:
@@ -238,10 +247,23 @@ def allocate_without_gil_held(int wake_up_main_fd, int wake_up_thread_fd):
     cdef char buf = 0
     cdef int write_rc = 0
     cdef int read_rc = 0
+    cdef void* p = NULL
     with nogil:
         while write_rc != 1:
             write_rc = write(wake_up_main_fd, &buf, 1)
         while read_rc != 1:
             read_rc = read(wake_up_thread_fd, &buf, 1)
-        valloc(1234)
-    valloc(4321)
+        p = valloc(1234)
+    do_not_optimize_ptr(p)
+    free(p)
+    p = valloc(4321)
+    do_not_optimize_ptr(p)
+    free(p)
+
+@cython.profile(True)
+def allocate_cpp_vector(size_t size):
+    cdef vector[int] v;
+    cdef size_t nelems = <size_t>(size / sizeof(int))
+    v.reserve(nelems)
+    return v.size()
+
