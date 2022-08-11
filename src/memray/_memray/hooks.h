@@ -1,29 +1,36 @@
-#ifndef _MEMRAY_HOOKS_H
-#define _MEMRAY_HOOKS_H
+#pragma once
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <dlfcn.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 
 #include <cstdlib>
 #include <iostream>
-#include <malloc.h>
 
-#include "elf_utils.h"
-#include <dlfcn.h>
-#include <sys/mman.h>
-#include <sys/prctl.h>
+#ifdef __linux__
+#    include "elf_utils.h"
+#    include <malloc.h>
+#    include <sys/prctl.h>
+#endif
 
 #include "alloc.h"
 #include "logging.h"
 
-#if defined(__GLIBC__)
+#if defined(__APPLE__)
+#    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS
+#elif defined(__GLIBC__)
 #    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS                                                            \
+        FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
+        FOR_EACH_HOOKED_FUNCTION(prctl)                                                                 \
         FOR_EACH_HOOKED_FUNCTION(pvalloc)                                                               \
         FOR_EACH_HOOKED_FUNCTION(mmap64)
 #else
-#    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS
+#    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS                                                            \
+        FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
+        FOR_EACH_HOOKED_FUNCTION(prctl)
 #endif
 
 #define MEMRAY_HOOKED_FUNCTIONS                                                                         \
@@ -31,15 +38,13 @@
     FOR_EACH_HOOKED_FUNCTION(free)                                                                      \
     FOR_EACH_HOOKED_FUNCTION(calloc)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(realloc)                                                                   \
+    FOR_EACH_HOOKED_FUNCTION(valloc)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(posix_memalign)                                                            \
     FOR_EACH_HOOKED_FUNCTION(aligned_alloc)                                                             \
-    FOR_EACH_HOOKED_FUNCTION(memalign)                                                                  \
-    FOR_EACH_HOOKED_FUNCTION(valloc)                                                                    \
-    FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
-    FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
     FOR_EACH_HOOKED_FUNCTION(mmap)                                                                      \
     FOR_EACH_HOOKED_FUNCTION(munmap)                                                                    \
-    FOR_EACH_HOOKED_FUNCTION(prctl)                                                                     \
+    FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
     FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)                                                         \
     MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 
@@ -52,8 +57,10 @@ struct symbol_query
     void* address;
 };
 
+#ifdef __linux__
 int
 phdr_symfind_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noexcept;
+#endif
 
 _Pragma("GCC diagnostic ignored \"-Wignored-attributes\"") template<typename Signature>
 struct SymbolHook
@@ -70,6 +77,7 @@ struct SymbolHook
 
     void ensureValidOriginalSymbol()
     {
+#if defined(__linux__)
         symbol_query query{0, d_symbol, nullptr};
         dl_iterate_phdr(&phdr_symfind_callback, (void*)&query);
         auto symbol_addr = reinterpret_cast<signature_t>(query.address);
@@ -81,6 +89,9 @@ struct SymbolHook
             }
             this->d_original = symbol_addr;
         }
+#else
+        return;
+#endif
     }
 
     template<typename... Args>
@@ -196,5 +207,3 @@ void
 pymalloc_free(void* ctx, void* ptr) noexcept;
 
 }  // namespace memray::intercept
-
-#endif  //_MEMRAY_HOOKS_H
