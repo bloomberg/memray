@@ -39,6 +39,7 @@ from _memray.socket_reader_thread cimport BackgroundSocketReader
 from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
 from _memray.tracking_api cimport Tracker as NativeTracker
+from _memray.tracking_api cimport forget_python_stack
 from _memray.tracking_api cimport install_trace_function
 from cpython cimport PyErr_CheckSignals
 from libc.stdint cimport uint64_t
@@ -233,6 +234,18 @@ cdef class AllocationRecord:
 
 
 MemorySnapshot = collections.namedtuple("MemorySnapshot", "time rss heap")
+
+cdef class ProfileFunctionGuard:
+    def __dealloc__(self):
+        """When our profile function gets deregistered, drop our cached stack.
+
+        This drops our references to frames that may now be destroyed without
+        us finding out. Note that the profile function is automatically
+        deregistered when the PyThreadState is destroyed, so we can also use
+        this to perform some cleanup when a thread dies.
+        """
+        forget_python_stack()
+
 
 cdef class Tracker:
     """Context manager for tracking memory allocations in a Python script.

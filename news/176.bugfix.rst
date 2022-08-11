@@ -1,0 +1,1 @@
+Prevent a use-after-free bug that could result in a crash if ``sys.setprofile()`` was called while Memray was tracking. Now if ``sys.setprofile()`` is called, all future allocations on that thread will report unknown Python stacks, instead of potentially incorrect stacks.
