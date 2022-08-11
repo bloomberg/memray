@@ -37,18 +37,15 @@ jobs:
           exit 1
         fi
 
-  test:
-    name: 'Test suite'
+  test_with_coverage:
+    name: 'Test with coverage'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.11-dev', '3.10', '3.9', '3.8']
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.10"
     - name: Set up dependencies
       run: |
         sudo apt-get update
@@ -58,7 +55,7 @@ jobs:
         python3 -m pip install --upgrade pip
         python3 -m pip install tox tox-gh-actions
     - name: Run tox
-      run: tox . -vvv
+      run: tox . -e py310-cov -vvv
 
   test_in_alpine:
     name: 'Test in Alpine Linux'
