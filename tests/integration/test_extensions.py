@@ -44,7 +44,7 @@ def test_multithreaded_extension(tmpdir, monkeypatch):
     assert records
 
     memaligns = [
-        record for record in records if record.allocator == AllocatorType.MEMALIGN
+        record for record in records if record.allocator == AllocatorType.POSIX_MEMALIGN
     ]
     assert len(memaligns) == 100 * 100  # 100 threads allocate 100 times in testext
 

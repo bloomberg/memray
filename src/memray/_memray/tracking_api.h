@@ -17,8 +17,10 @@
 
 #include "frameobject.h"
 
-#define UNW_LOCAL_ONLY
-#include <libunwind.h>
+#ifdef __linux__
+#    define UNW_LOCAL_ONLY
+#    include <libunwind.h>
+#endif
 
 #include "frame_tree.h"
 #include "hooks.h"
@@ -109,6 +111,7 @@ class NativeTrace
     }
     __attribute__((always_inline)) inline bool fill(size_t skip)
     {
+#ifdef __linux__
         size_t size;
         while (true) {
             size = unw_backtrace((void**)d_data.data(), MAX_SIZE);
@@ -121,24 +124,35 @@ class NativeTrace
         d_size = size > skip ? size - skip : 0;
         d_skip = skip;
         return d_size > 0;
+#else
+        return 0;
+#endif
     }
 
     static void setup()
     {
+#ifdef __linux__
         // configure libunwind for better speed
         if (unw_set_caching_policy(unw_local_addr_space, UNW_CACHE_PER_THREAD)) {
             fprintf(stderr, "WARNING: Failed to enable per-thread libunwind caching.\n");
         }
-#if (UNW_VERSION_MAJOR > 1 && UNW_VERSION_MINOR >= 3)
+#    if (UNW_VERSION_MAJOR > 1 && UNW_VERSION_MINOR >= 3)
         if (unw_set_cache_size(unw_local_addr_space, 1024, 0)) {
             fprintf(stderr, "WARNING: Failed to set libunwind cache size.\n");
         }
+#    endif
+#else
+        return;
 #endif
     }
 
     static inline void flushCache()
     {
+#ifdef __linux__
         unw_flush_cache(unw_local_addr_space, 0, 0);
+#else
+        return;
+#endif
     }
 
   private:

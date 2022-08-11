@@ -4,7 +4,10 @@
 #include <dlfcn.h>
 #include <assert.h>
 #include <pthread.h>
+
+#ifdef __linux__
 #include <malloc.h>
+#endif
 
 pthread_t thread;
 

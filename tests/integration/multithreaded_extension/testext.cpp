@@ -3,9 +3,15 @@
 
 #include <assert.h>
 #include <pthread.h>
+
+#ifdef __linux__
 #include <malloc.h>
+#endif
 
 namespace {  // unnamed
+
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
 
 const int NUM_THREADS = 100;
 const int NUM_BUFFERS = 100;
@@ -16,7 +22,11 @@ allocate_memory()
 {
     unsigned long* buffers[NUM_BUFFERS];
     for (int i=0; i < NUM_BUFFERS; ++i) {
-        buffers[i] = (unsigned long*) memalign(sizeof(void*), i);
+        int ret = posix_memalign((void**)buffers+i, sizeof(void*), sizeof(void*)*i);
+        if (ret) {
+            buffers[i] = NULL;
+            break;
+        }
     }
     for (int i=0; i < NUM_BUFFERS; ++i) {
         free(buffers[i]);
@@ -47,7 +57,7 @@ void join_threads()
     }
 }
 
-static void cleanup_handler(void* arg) {
+__attribute__((optnone)) static void cleanup_handler(void* arg) {
   void* data = valloc(sizeof(int));
   free(data);
 }
@@ -81,6 +91,8 @@ run_valloc_at_exit(PyObject*, PyObject*)
     valloc_on_thread_exit();
     Py_RETURN_NONE;
 }
+
+#pragma GCC pop_options
 
 }  // unnamed namespace
 
