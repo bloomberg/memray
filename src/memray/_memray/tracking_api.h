@@ -20,9 +20,9 @@
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 
-#include "elf_shenanigans.h"
 #include "frame_tree.h"
 #include "hooks.h"
+#include "linker_shenanigans.h"
 #include "record_writer.h"
 #include "records.h"
 
@@ -270,7 +270,7 @@ class Tracker
     unsigned int d_memory_interval;
     bool d_follow_fork;
     bool d_trace_python_allocators;
-    elf::SymbolPatcher d_patcher;
+    linker::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
 
     // Methods
