@@ -5,6 +5,7 @@ from libcpp.string cimport string
 
 
 cdef extern from "tracking_api.h" namespace "memray::tracking_api":
+    void forget_python_stack() except*
     void install_trace_function() except*
 
     cdef cppclass Tracker:
