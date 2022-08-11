@@ -14,6 +14,9 @@ from setuptools import find_packages
 from setuptools import setup
 from setuptools.command.build_ext import build_ext as build_ext_orig
 
+IS_MAC = sys.platform == "darwin"
+IS_LINUX = "linux" in sys.platform
+
 LIBBACKTRACE_LOCATION = (
     pathlib.Path(__file__).parent / "src" / "vendor" / "libbacktrace"
 ).resolve()
@@ -165,8 +168,10 @@ if TEST_BUILD:
         "c_string_type": "unicode",
         "c_string_encoding": "utf8",
     }
-    EXTRA_COMPILE_ARGS = ["-D_GLIBCXX_DEBUG", "-D_LIBCPP_DEBUG"]
+    EXTRA_COMPILE_ARGS = []
     UNDEF_MACROS = ["NDEBUG"]
+    if IS_LINUX:
+        EXTRA_COMPILE_ARGS.extend(["-D_GLIBCXX_DEBUG", "-D_LIBCPP_DEBUG"])
 
 DEFINE_MACROS = []
 
@@ -194,6 +199,9 @@ if os.getenv("NO_MEMRAY_FAST_TLS", None) is not None:
 if MEMRAY_FAST_TLS:
     DEFINE_MACROS.append(("USE_MEMRAY_TLS_MODEL", "1"))
 
+BINARY_FORMATS = {"darwin": "macho", "linux": "elf"}
+BINARY_FORMAT = BINARY_FORMATS.get(sys.platform, "elf")
+
 MEMRAY_EXTENSION = Extension(
     name="memray._memray",
     sources=[
@@ -201,7 +209,7 @@ MEMRAY_EXTENSION = Extension(
         "src/memray/_memray/compat.cpp",
         "src/memray/_memray/hooks.cpp",
         "src/memray/_memray/tracking_api.cpp",
-        "src/memray/_memray/elf_shenanigans.cpp",
+        f"src/memray/_memray/{BINARY_FORMAT}_shenanigans.cpp",
         "src/memray/_memray/logging.cpp",
         "src/memray/_memray/python_helpers.cpp",
         "src/memray/_memray/source.cpp",
@@ -213,20 +221,38 @@ MEMRAY_EXTENSION = Extension(
         "src/memray/_memray/socket_reader_thread.cpp",
         "src/memray/_memray/native_resolver.cpp",
     ],
-    libraries=["unwind", "lz4"],
+    libraries=[
+        "lz4",
+    ],
     library_dirs=[str(LIBBACKTRACE_LIBDIR)],
     include_dirs=["src", str(LIBBACKTRACE_INCLUDEDIRS)],
     language="c++",
     extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
-    extra_link_args=["-std=c++17", "-l:libbacktrace.a", *EXTRA_LINK_ARGS],
+    extra_link_args=["-std=c++17", "-lbacktrace", *EXTRA_LINK_ARGS],
     define_macros=DEFINE_MACROS,
     undef_macros=UNDEF_MACROS,
 )
 
+if IS_LINUX:
+    MEMRAY_EXTENSION.libraries.append("unwind")
 MEMRAY_EXTENSION.libraries.append("dl")
 
-if "linux" not in platform:
-    raise RuntimeError("memray only supports Linux platforms")
+
+MEMRAY_TEST_EXTENSION = Extension(
+    name="memray._test_utils",
+    sources=[
+        "src/memray/_memray_test_utils.pyx",
+    ],
+    language="c++",
+    extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
+    extra_link_args=["-std=c++17", *EXTRA_LINK_ARGS],
+    define_macros=DEFINE_MACROS,
+    undef_macros=UNDEF_MACROS,
+)
+
+
+if not (IS_LINUX or IS_MAC):
+    raise RuntimeError(f"memray does not support this platform ({platform})")
 
 about = {}
 with open("src/memray/_version.py") as fp:
@@ -260,7 +286,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     ext_modules=cythonize(
-        [MEMRAY_EXTENSION],
+        [MEMRAY_EXTENSION, MEMRAY_TEST_EXTENSION],
         include_path=["src/memray"],
         compiler_directives=COMPILER_DIRECTIVES,
     ),
