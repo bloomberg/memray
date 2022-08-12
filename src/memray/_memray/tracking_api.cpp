@@ -64,33 +64,15 @@ thread_id()
 
 // Tracker interface
 
-// If a TLS variable has not been constructed, accessing it will cause it to be
-// constructed. That's normally great, but we need to prevent that from
-// happening unexpectedly for the TLS vector owned by this class.
-//
-// Methods of this class can be called during thread teardown. It's possible
-// that, after the TLS vector for a dying thread has already been destroyed,
-// libpthread makes a call to free() that calls into our Tracker, and if it
-// does, we must prevent it touching the vector again and re-constructing it.
-// Otherwise, it would be re-constructed immediately but its destructor would
-// be added to this thread's list of finalizers after all the finalizers for
-// the thread already ran.  If that happens, the vector will be free()d before
-// its destructor runs. Worse, its destructor will remain on the list of
-// finalizers for the current thread's pthread struct, and its destructor will
-// later be run on that already free()d memory if this thread's pthread struct
-// is ever reused. When that happens it tends to cause heap corruption, because
-// another vector is placed at the same location as the original one, and the
-// vector destructor runs twice on it (once for the newly created vector, and
-// once for the vector that had been created before the thread died and the
-// pthread struct was reused).
-//
-// To prevent that, we create the vector in one method, pushLazilyEmittedFrame.
-// All other methods access a pointer called `d_stack` that is set to the TLS
-// stack when it is created by pushLazilyEmittedFrame, and set to a null
-// pointer when the TLS stack is destroyed.
-//
-// This can result in this class being constructed during thread teardown, but
-// that doesn't cause the same problem because it has a trivial destructor.
+// This class must have a trivial destructor (and therefore all its instance
+// attributes must be POD). This is required because the libc implementation
+// can perform allocations even after the thread local variables for a thread
+// have been destroyed. If a TLS variable that is not trivially destructable is
+// accessed after that point by our allocation hooks, it will be resurrected,
+// and then it will be freed when the thread dies, but its destructor either
+// won't be called at all, or will be called on freed memory when some
+// arbitrary future thread is destroyed (if the pthread struct is reused for
+// another thread).
 class PythonStackTracker
 {
   private:
@@ -278,30 +260,11 @@ void
 PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
 {
     // Note: this function does not require the GIL.
-    if (d_stack) {
-        d_stack->push_back(frame);
-        return;
+    if (!d_stack) {
+        d_stack = new std::vector<LazilyEmittedFrame>;
+        d_stack->reserve(1024);
     }
-
-    struct StackCreator
-    {
-        std::vector<LazilyEmittedFrame> stack;
-
-        StackCreator()
-        {
-            const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
-            stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
-            PythonStackTracker::getUnsafe().d_stack = &stack;
-        }
-        ~StackCreator()
-        {
-            PythonStackTracker::getUnsafe().d_stack = nullptr;
-        }
-    };
-
-    MEMRAY_FAST_TLS static thread_local StackCreator t_stack_creator;
-    t_stack_creator.stack.push_back(frame);
-    assert(d_stack);  // The above call sets d_stack if it wasn't already set.
+    d_stack->push_back(frame);
 }
 
 void
@@ -434,6 +397,8 @@ PythonStackTracker::clear()
         d_num_pending_pops += d_stack->back().emitted;
         d_stack->pop_back();
     }
+    delete d_stack;
+    d_stack = nullptr;
     emitPendingPops();
 }
 
