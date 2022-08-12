@@ -867,6 +867,88 @@ def test_cython_frame_in_pre_existing_thread_stack_when_restarting_tracking(tmp_
     assert alloc2_funcs[:2] == ["valloc", "thread_body"]
 
 
+def test_allocation_after_unsetting_profile_function(tmp_path):
+    """After tracking starts, unset the profile function then allocate.
+
+    Make sure that the stack for the allocation is unknown.
+    """
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    def func():
+        allocator.valloc(1234)
+        allocator.free()
+        sys.setprofile(None)
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    with Tracker(output):
+        func()
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+
+    vallocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(vallocs) == 2
+
+    first, second = vallocs
+    alloc1_funcs = [frame[0] for frame in first.stack_trace()]
+    alloc2_funcs = [frame[0] for frame in second.stack_trace()]
+
+    assert alloc1_funcs == [
+        "valloc",
+        "func",
+        "test_allocation_after_unsetting_profile_function",
+    ]
+    assert alloc2_funcs == []
+
+
+def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
+    """In a thread, unset the profile function then allocate.
+
+    Make sure that the stack for the allocation is unknown.
+    """
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    def func():
+        allocator.valloc(1234)
+        allocator.free()
+        sys.setprofile(None)
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    with Tracker(output):
+        thread = threading.Thread(target=func)
+        thread.start()
+        thread.join()
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+
+    vallocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(vallocs) == 2
+
+    first, second = vallocs
+    alloc1_funcs = [frame[0] for frame in first.stack_trace()]
+    alloc2_funcs = [frame[0] for frame in second.stack_trace()]
+
+    assert alloc1_funcs[:2] == ["valloc", "func"]
+    assert alloc2_funcs == []
+
+
 class TestMmap:
     @classmethod
     def allocating_function(cls):
