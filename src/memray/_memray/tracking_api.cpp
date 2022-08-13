@@ -700,11 +700,7 @@ void
 Tracker::invalidate_module_cache_impl()
 {
     RecursionGuard guard;
-    // For macOS we have used an API that automatically will call us on new dlopen libraries
-    // so we don't need to manually patch everything.
-#ifndef __APPLE__
     d_patcher.overwrite_symbols();
-#endif
     updateModuleCache();
 }
 
