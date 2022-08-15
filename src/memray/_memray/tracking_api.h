@@ -17,9 +17,11 @@
 
 #include "frameobject.h"
 
-#ifdef __linux__
+#if defined(__linux__)
 #    define UNW_LOCAL_ONLY
 #    include <libunwind.h>
+#elif defined(__APPLE__)
+#    include <execinfo.h>
 #endif
 
 #include "frame_tree.h"
@@ -111,22 +113,25 @@ class NativeTrace
     }
     __attribute__((always_inline)) inline bool fill(size_t skip)
     {
-#ifdef __linux__
         size_t size;
         while (true) {
+#ifdef __linux__
             size = unw_backtrace((void**)d_data.data(), MAX_SIZE);
+#elif defined(__APPLE__)
+            size = ::backtrace((void**)d_data.data(), MAX_SIZE);
+#else
+            return 0;
+#endif
             if (size < MAX_SIZE) {
                 break;
             }
+
             MAX_SIZE = MAX_SIZE * 2;
             d_data.resize(MAX_SIZE);
         }
         d_size = size > skip ? size - skip : 0;
         d_skip = skip;
         return d_size > 0;
-#else
-        return 0;
-#endif
     }
 
     static void setup()
