@@ -21,7 +21,6 @@ from memray._test import PymallocMemoryAllocator
 from memray._test import _cython_allocate_in_two_places
 from memray._test import allocate_cpp_vector
 from tests.utils import filter_relevant_allocations
-from tests.utils import skip_if_macos
 
 ALLOCATORS = [
     ("malloc", AllocatorType.MALLOC),
@@ -473,7 +472,6 @@ class TestHighWatermark:
         assert record.size == 2048
         assert record.n_allocations == 2
 
-    @skip_if_macos
     def test_aggregation_same_python_stack_and_same_native_stack(self, tmp_path):
         # GIVEN
         allocators = []
@@ -534,7 +532,6 @@ class TestHighWatermark:
         assert sum(record.size for record in peak_allocations) == 1024 + 2048
         assert all(record.n_allocations == 1 for record in peak_allocations)
 
-    @skip_if_macos
     def test_aggregation_same_python_stack_but_different_native_stack(self, tmp_path):
         # GIVEN
         output = tmp_path / "test.bin"

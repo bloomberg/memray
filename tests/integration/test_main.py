@@ -456,6 +456,11 @@ class TestParseSubcommand:
         # GIVEN
         record_types = [
             "ALLOCATION",
+            "ALLOCATION_WITH_NATIVE",
+            "MEMORY_MAP_START",
+            "SEGMENT_HEADER",
+            "SEGMENT",
+            "NATIVE_FRAME_ID",
             "FRAME_PUSH",
             "FRAME_POP",
             "FRAME_ID",
@@ -463,16 +468,6 @@ class TestParseSubcommand:
             "CONTEXT_SWITCH",
             "TRAILER",
         ]
-        if "linux" in sys.platform:
-            record_types.extend(
-                [
-                    "MEMORY_MAP_START",
-                    "SEGMENT_HEADER",
-                    "SEGMENT",
-                    "NATIVE_FRAME_ID",
-                    "ALLOCATION_WITH_NATIVE",
-                ]
-            )
 
         code_file = tmp_path / "code.py"
         program = textwrap.dedent(
@@ -489,9 +484,7 @@ class TestParseSubcommand:
         )
         code_file.write_text(program)
         record_count_by_type = dict.fromkeys(record_types, 0)
-        results_file, _ = generate_sample_results(
-            tmp_path, code_file, native=(sys.platform != "darwin")
-        )
+        results_file, _ = generate_sample_results(tmp_path, code_file, native=True)
 
         # WHEN
         proc = subprocess.run(
@@ -520,7 +513,7 @@ class TestParseSubcommand:
     def test_error_when_stdout_is_a_tty(self, tmp_path, simple_test_file):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=(sys.platform != "darwin")
+            tmp_path, simple_test_file, native=True
         )
         _, controlled = pty.openpty()
 
@@ -570,7 +563,7 @@ class TestFlamegraphSubCommand:
     def test_reads_from_correct_file(self, tmp_path, simple_test_file):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=(sys.platform != "darwin")
+            tmp_path, simple_test_file, native=True
         )
 
         # WHEN
@@ -596,7 +589,7 @@ class TestFlamegraphSubCommand:
     def test_can_generate_reports_with_native_traces(self, tmp_path, simple_test_file):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=(sys.platform != "darwin")
+            tmp_path, simple_test_file, native=True
         )
 
         # WHEN
@@ -622,7 +615,7 @@ class TestFlamegraphSubCommand:
     def test_writes_to_correct_file(self, tmp_path, simple_test_file):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=(sys.platform != "darwin")
+            tmp_path, simple_test_file, native=True
         )
         output_file = tmp_path / "output.html"
 
@@ -654,7 +647,7 @@ class TestFlamegraphSubCommand:
         monkeypatch.chdir(tmp_path)
         # This will generate "result.bin"
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=(sys.platform != "darwin")
+            tmp_path, simple_test_file, native=True
         )
         output_file = tmp_path / "memray-flamegraph-result.html"
         output_file.touch()
@@ -668,7 +661,7 @@ class TestFlamegraphSubCommand:
     def test_split_threads_subcommand(self, tmp_path, simple_test_file):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=(sys.platform != "darwin")
+            tmp_path, simple_test_file, native=True
         )
         output_file = tmp_path / "output.html"
 
@@ -698,7 +691,7 @@ class TestTableSubCommand:
     def test_reads_from_correct_file(self, tmp_path, simple_test_file):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=(sys.platform != "darwin")
+            tmp_path, simple_test_file, native=True
         )
 
         # WHEN
@@ -788,7 +781,7 @@ class TestReporterSubCommands:
     @pytest.mark.parametrize("report", ["flamegraph", "table"])
     def test_report_leaks_argument(self, tmp_path, simple_test_file, report):
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=(sys.platform != "darwin")
+            tmp_path, simple_test_file, native=True
         )
         output_file = tmp_path / "output.html"
 
