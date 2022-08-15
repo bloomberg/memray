@@ -310,8 +310,6 @@ cdef class Tracker:
             pprint(":warning: [bold red] Memray support in MacOS is still experimental [/]:warning:", file=sys.stderr)
             pprint("[yellow]Please report any issues at https://github.com/bloomberg/memray/issues[/]", file=sys.stderr)
             pprint("", file=sys.stderr)
-            if native_traces:
-                raise RuntimeError("Native tracking is not supported on macOS")
 
     def __cinit__(self, object file_name=None, *, object destination=None,
                   bool native_traces=False, unsigned int memory_interval_ms = 10,
