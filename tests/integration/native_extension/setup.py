@@ -15,8 +15,9 @@ setup(
     ext_modules=[
         Extension(
             "native_ext",
-            language="c++",
-            sources=[os.path.join(ROOT, "native_ext.cpp")],
+            language="c",
+            sources=[os.path.join(ROOT, "native_ext.c")],
+            extra_compile_args=["-O0", "-g3"],
         ),
     ],
     zip_safe=False,

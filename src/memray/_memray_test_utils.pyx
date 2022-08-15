@@ -226,7 +226,9 @@ cdef void* _pthread_worker(void* arg) with gil:
 @cython.profile(False)
 def _cython_allocate_in_two_places(size_t size):
     cdef void* a = allocation_place_a(size)
+    do_not_optimize_ptr(a)
     cdef void* b = allocation_place_b(size)
+    do_not_optimize_ptr(b)
     free(a)
     free(b)
 

@@ -14,7 +14,6 @@ from memray._test import MemoryAllocator
 from memray._test import _cython_nested_allocation
 from memray._test import allocate_without_gil_held
 from memray._test import function_caller
-from tests.utils import skip_if_macos
 
 
 def alloc_func3(allocator):
@@ -58,10 +57,10 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 22),
-        ("alloc_func2", __file__, 31),
-        ("alloc_func1", __file__, 38),
-        ("test_traceback", __file__, 51),
+        ("alloc_func3", __file__, 21),
+        ("alloc_func2", __file__, 30),
+        ("alloc_func1", __file__, 37),
+        ("test_traceback", __file__, 50),
     ]
     frees = [
         record
@@ -92,10 +91,10 @@ def test_traceback_for_high_watermark(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 22),
-        ("alloc_func2", __file__, 31),
-        ("alloc_func1", __file__, 38),
-        ("test_traceback_for_high_watermark", __file__, 85),
+        ("alloc_func3", __file__, 21),
+        ("alloc_func2", __file__, 30),
+        ("alloc_func1", __file__, 37),
+        ("test_traceback_for_high_watermark", __file__, 84),
     ]
 
 
@@ -147,13 +146,13 @@ def test_cython_traceback(tmpdir):
     assert traceback[-3:] == [
         ("valloc", ANY, 104),
         ("_cython_nested_allocation", ANY, 194),
-        ("test_cython_traceback", __file__, 136),
+        ("test_cython_traceback", __file__, 135),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback[-3:] == [
         ("_cython_nested_allocation", ANY, 194),
-        ("test_cython_traceback", __file__, 136),
+        ("test_cython_traceback", __file__, 135),
     ]
 
     frees = [
@@ -167,7 +166,6 @@ def test_cython_traceback(tmpdir):
         free.stack_trace()
 
 
-@skip_if_macos
 def test_large_number_of_frame_pops_between_subsequent_allocations(tmpdir):
     # GIVEN
     output = Path(tmpdir) / "test.bin"

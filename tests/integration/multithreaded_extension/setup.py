@@ -17,6 +17,7 @@ setup(
             "testext",
             language="c++",
             sources=[os.path.join(ROOT, "testext.cpp")],
+            extra_compile_args=["-O0", "-g3"],
         ),
     ],
     zip_safe=False,

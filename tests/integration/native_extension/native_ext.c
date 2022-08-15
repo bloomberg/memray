@@ -3,13 +3,15 @@
 
 #include <assert.h>
 #include <pthread.h>
+#ifdef __linux__
 #include <malloc.h>
+#endif
 
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
 
 // Regular call chain
-
+//
 __attribute__((noinline)) static void baz() {
     void* p = valloc(1234);
     free(p);
@@ -24,7 +26,7 @@ __attribute__((noinline)) static void foo() {
 }
 
 PyObject*
-run_simple(PyObject*, PyObject*)
+run_simple(PyObject* mod , PyObject* arg)
 {
     foo();
     Py_RETURN_NONE;
@@ -46,20 +48,20 @@ __attribute__((always_inline)) static inline void foo_inline() {
 }
 
 PyObject*
-run_inline(PyObject*, PyObject*)
+run_inline(PyObject* mod, PyObject* arg)
 {
     foo_inline();
     Py_RETURN_NONE;
 }
 
-void* thread_worker(void*)
+void* thread_worker(void* arg)
 {
     foo();
-    return nullptr;
+    return NULL;
 }
 
 PyObject*
-run_in_thread(PyObject*, PyObject*)
+run_in_thread(PyObject* mod, PyObject* arg)
 {
     pthread_t thread;
     pthread_create(&thread, NULL, &thread_worker, NULL);
@@ -75,7 +77,7 @@ void deep_call(long n) {
 }
 
 PyObject*
-run_deep(PyObject*, PyObject* n_stack)
+run_deep(PyObject* mod, PyObject* n_stack)
 {
     long n = PyLong_AsLong(n_stack);
     if (n == -1 && PyErr_Occurred()) {
@@ -87,7 +89,7 @@ run_deep(PyObject*, PyObject* n_stack)
 
 
 PyObject*
-run_recursive(PyObject*, PyObject* args)
+run_recursive(PyObject* mod, PyObject* args)
 {
     long n;
     PyObject* callback;
