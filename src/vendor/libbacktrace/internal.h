@@ -395,7 +395,19 @@ extern void elf_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
 			uintptr_t addr ATTRIBUTE_UNUSED,
 			backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
 			backtrace_error_callback error_callback, void *data);
-
+extern int macho_add (struct backtrace_state *state, const char *filename, int descriptor,
+	   off_t offset, const unsigned char *match_uuid,
+	   uintptr_t base_address, int skip_symtab,
+	   backtrace_error_callback error_callback, void *data,
+	   fileline *fileline_fn, int *found_sym);
+extern void macho_syminfo (struct backtrace_state *state, uintptr_t addr,
+	       backtrace_syminfo_callback callback,
+	       backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
+	       void *data);
+extern void macho_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
+	      uintptr_t addr ATTRIBUTE_UNUSED,
+	      backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
+	      backtrace_error_callback error_callback, void *data);
 #ifdef __cplusplus
 }
 #endif
