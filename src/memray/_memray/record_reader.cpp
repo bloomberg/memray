@@ -342,7 +342,8 @@ RecordReader::parseSegmentHeader(std::string* filename, size_t* num_segments, ui
 bool
 RecordReader::processSegmentHeader(const std::string& filename, size_t num_segments, uintptr_t addr)
 {
-    std::vector<Segment> segments(num_segments);
+    std::vector<Segment> segments;
+    segments.reserve(num_segments);
     for (size_t i = 0; i < num_segments; i++) {
         RecordType record_type;
         if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(record_type))
