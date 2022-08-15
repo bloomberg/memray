@@ -7,6 +7,7 @@
 #ifdef __linux__
 #    include <link.h>
 #elif defined(__APPLE__)
+#    include "macho_utils.h"
 #    include <mach/mach.h>
 #    include <mach/task.h>
 #endif
@@ -761,6 +762,37 @@ Tracker::updateModuleCacheImpl()
 
 #ifdef __linux__
     dl_iterate_phdr(&dl_iterate_phdr_callback, d_writer.get());
+#elif defined(__APPLE__)
+    uint32_t c = _dyld_image_count();
+    for (uint32_t i = 0; i < c; i++) {
+        const struct mach_header* header = _dyld_get_image_header(i);
+        uintptr_t slide = static_cast<uintptr_t>(_dyld_get_image_vmaddr_slide(i));
+        const char* image_name = _dyld_get_image_name(i);
+        std::vector<Segment> segments;
+
+        const segment_command_t* current_segment_cmd = nullptr;
+        uintptr_t current_cmd = reinterpret_cast<uintptr_t>(header) + sizeof(mach_header_t);
+        for (uint i = 0; i < header->ncmds; i++, current_cmd += current_segment_cmd->cmdsize) {
+            current_segment_cmd = reinterpret_cast<const segment_command_t*>(current_cmd);
+            if (current_segment_cmd->cmd == ARCH_LC_SEGMENT) {
+                segments.emplace_back(Segment{current_segment_cmd->vmaddr, current_segment_cmd->vmsize});
+            }
+        }
+
+        if (!d_writer->writeRecordUnsafe(SegmentHeader{image_name, segments.size(), slide})) {
+            std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
+            Tracker::deactivate();
+            return;
+        }
+
+        for (const auto& segment : segments) {
+            if (!d_writer->writeRecordUnsafe(segment)) {
+                std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
+                Tracker::deactivate();
+                return;
+            }
+        }
+    }
 #endif
 }
 
