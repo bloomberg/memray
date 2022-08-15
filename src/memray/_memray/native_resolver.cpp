@@ -8,6 +8,12 @@
 
 namespace memray::native_resolver {
 
+#ifdef __APPLE__
+static const logLevel RESOLVE_LIB_LOG_LEVEL = DEBUG;
+#else
+static const logLevel RESOLVE_LIB_LOG_LEVEL = WARNING;
+#endif
+
 StringStorage::StringStorage()
 {
     d_interned_data.reserve(4096);
@@ -343,9 +349,10 @@ SymbolResolver::addSegments(
     // because the libbacktrace callback in findBacktraceState operates on char*
     const char* interned_filename = nullptr;
     auto filename_index = d_string_storage->internString(filename, &interned_filename);
+
     auto state = findBacktraceState(interned_filename, addr);
     if (state == nullptr) {
-        LOG(ERROR) << "Failed to prepare a backtrace state for " << filename;
+        LOG(RESOLVE_LIB_LOG_LEVEL) << "Failed to prepare a backtrace state for " << filename;
         return;
     }
 
@@ -373,7 +380,6 @@ SymbolResolver::clearSegments()
 backtrace_state*
 SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start)
 {
-#ifdef __linux__
     // We hash into "d_backtrace_states" using a char* as it's safe on the condition that every
     // const char* used as a key in the map is one that was returned by "d_string_storage",
     // and it's safe because no pointer that's returned by "d_string_storage" is ever invalidated.
@@ -390,8 +396,8 @@ SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start
 
     auto errorHandler = [](void* rawData, const char* msg, int errnum) {
         auto data = reinterpret_cast<const CallbackData*>(rawData);
-        LOG(WARNING) << "Error creating backtrace state for segment " << data->fileName << "(errno "
-                     << errnum << "): " << msg;
+        LOG(RESOLVE_LIB_LOG_LEVEL) << "Error creating backtrace state for segment " << data->fileName
+                                   << "(errno " << errnum << "): " << msg;
     };
 
     auto state = backtrace_create_state(data.fileName, false, errorHandler, &data);
@@ -403,8 +409,8 @@ SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start
     const int descriptor = backtrace_open(data.fileName, errorHandler, &data, nullptr);
     if (descriptor >= 1) {
         int foundSym = 0;
+#ifdef __linux__
         int foundDwarf = 0;
-
         auto ret =
                 elf_add(state,
                         data.fileName,
@@ -423,12 +429,26 @@ SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start
                         nullptr,
                         0);
         state->syminfo_fn = (ret && foundSym) ? &elf_syminfo : &elf_nosyms;
+#elif defined(__APPLE__)
+        auto ret = macho_add(
+                state,
+                data.fileName,
+                descriptor,
+                0,
+                nullptr,
+                address_start,
+                0,
+                errorHandler,
+                &data,
+                &state->fileline_fn,
+                &foundSym);
+        state->syminfo_fn = (ret && foundSym) ? &macho_syminfo : &macho_nosyms;
+#else
+        return nullptr;
+#endif
     }
     d_backtrace_states.insert(it, {filename, state});
     return state;
-#else
-    return NULL;
-#endif
 }
 
 std::vector<MemorySegment>&
