@@ -1,6 +1,3 @@
-This patch exposes a bunch of internal functions as well as removing debuginfo
-support to make it easier to build.
-
 diff --git a/Makefile.am b/Makefile.am
 index 166a058..998cc67 100644
 --- a/Makefile.am
@@ -86,7 +83,7 @@ index 79d5614..fb54165 100644
        const b_elf_shdr *symtab_shdr;
        unsigned int strtab_shndx;
 diff --git a/internal.h b/internal.h
-index bb481f3..2b056be 100644
+index bb481f3..afe8631 100644
 --- a/internal.h
 +++ b/internal.h
 @@ -33,6 +33,10 @@ POSSIBILITY OF SUCH DAMAGE.  */
@@ -100,7 +97,7 @@ index bb481f3..2b056be 100644
  /* We assume that <sys/types.h> and "backtrace.h" have already been
     included.  */
  
-@@ -377,4 +381,23 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
+@@ -377,4 +381,35 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
  				      unsigned char **uncompressed,
  				      size_t *uncompressed_size);
  
@@ -118,9 +115,120 @@ index bb481f3..2b056be 100644
 +			uintptr_t addr ATTRIBUTE_UNUSED,
 +			backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
 +			backtrace_error_callback error_callback, void *data);
-+
++extern int macho_add (struct backtrace_state *state, const char *filename, int descriptor,
++	   off_t offset, const unsigned char *match_uuid,
++	   uintptr_t base_address, int skip_symtab,
++	   backtrace_error_callback error_callback, void *data,
++	   fileline *fileline_fn, int *found_sym);
++extern void macho_syminfo (struct backtrace_state *state, uintptr_t addr,
++	       backtrace_syminfo_callback callback,
++	       backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
++	       void *data);
++extern void macho_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
++	      uintptr_t addr ATTRIBUTE_UNUSED,
++	      backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
++	      backtrace_error_callback error_callback, void *data);
 +#ifdef __cplusplus
 +}
 +#endif
 +
  #endif
+diff --git a/macho.c b/macho.c
+index 66e101e..9422a90 100644
+--- a/macho.c
++++ b/macho.c
+@@ -92,6 +92,7 @@ struct macho_header_fat
+ 
+ #define MACH_O_MH_EXECUTE	0x02
+ #define MACH_O_MH_DYLIB		0x06
++#define MACH_O_MH_BUNDLE	0x08
+ #define MACH_O_MH_DSYM		0x0a
+ 
+ /* A component of a fat file.  A fat file starts with a
+@@ -278,6 +279,10 @@ struct macho_nlist_64
+ #define MACH_O_N_TYPE	0x0e	/* Mask for type bits */
+ #define MACH_O_N_STAB	0xe0	/* Stabs debugging symbol */
+ 
++#define MACH_O_GLOBAL   0x0f    /* global symbol */
++#define MACH_O_N_FNAME  0x26    /* static symbol: name,,n_sect,type,address */
++#define MACH_O_N_FUN    0x24    /* procedure: name,,n_sect,linenumber,address */
++
+ /* Information we keep for a Mach-O symbol.  */
+ 
+ struct macho_symbol
+@@ -310,12 +315,6 @@ static const char * const dwarf_section_names[DEBUG_MAX] =
+   "__debug_rnglists"
+ };
+ 
+-/* Forward declaration.  */
+-
+-static int macho_add (struct backtrace_state *, const char *, int, off_t,
+-		      const unsigned char *, uintptr_t, int,
+-		      backtrace_error_callback, void *, fileline *, int *);
+-
+ /* A dummy callback function used when we can't find any debug info.  */
+ 
+ static int
+@@ -331,7 +330,7 @@ macho_nodebug (struct backtrace_state *state ATTRIBUTE_UNUSED,
+ /* A dummy callback function used when we can't find a symbol
+    table.  */
+ 
+-static void
++void
+ macho_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
+ 	      uintptr_t addr ATTRIBUTE_UNUSED,
+ 	      backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
+@@ -491,13 +490,24 @@ static int
+ macho_defined_symbol (uint8_t type)
+ {
+   if ((type & MACH_O_N_STAB) != 0)
+-    return 0;
++  {
++    switch (type) 
++     {
++     case MACH_O_N_FNAME:
++      return 1;
++     case MACH_O_N_FUN:
++      return 1;
++     default:
++      return 0;
++     }
++  }
+   if ((type & MACH_O_N_EXT) != 0)
+-    return 0;
++    {
++     return type == MACH_O_GLOBAL;
++    }
+   switch (type & MACH_O_N_TYPE)
+     {
+     case MACH_O_N_ABS:
+-      return 1;
+     case MACH_O_N_SECT:
+       return 1;
+     default:
+@@ -701,7 +711,7 @@ macho_add_symtab (struct backtrace_state *state, int descriptor,
+ 
+ /* Return the symbol name and value for an ADDR.  */
+ 
+-static void
++void
+ macho_syminfo (struct backtrace_state *state, uintptr_t addr,
+ 	       backtrace_syminfo_callback callback,
+ 	       backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
+@@ -974,7 +984,7 @@ macho_add_dsym (struct backtrace_state *state, const char *filename,
+    FOUND_SYM: set to non-zero if we found the symbol table.
+ */
+ 
+-static int
++int
+ macho_add (struct backtrace_state *state, const char *filename, int descriptor,
+ 	   off_t offset, const unsigned char *match_uuid,
+ 	   uintptr_t base_address, int skip_symtab,
+@@ -1059,6 +1069,7 @@ macho_add (struct backtrace_state *state, const char *filename, int descriptor,
+     case MACH_O_MH_EXECUTE:
+     case MACH_O_MH_DYLIB:
+     case MACH_O_MH_DSYM:
++    case MACH_O_MH_BUNDLE:
+       break;
+     default:
+       error_callback (data, "executable file is not an executable", 0);
