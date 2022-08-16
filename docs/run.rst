@@ -63,6 +63,10 @@ already allocated memory).
     to be resolved whenever an allocation happens. This effect is more noticeable the more allocations the traced
     application performs.
 
+Check the :doc:`section on native symbolification <native_mode>` for more
+information on how to obtain the best reports with native information, and on
+how to debug problems in reports with native information.
+
 Usage
 ~~~~~
 
