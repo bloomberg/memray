@@ -393,6 +393,15 @@ def greenlet_trace_function(event, args):
         handle_greenlet_switch(args[0], args[1])
 
 
+def print_greenlet_warning():
+    pprint(
+        ":warning: [bold red]Memray support for Greenlet is experimental[/] :warning:\n"
+        "[yellow]Please report any issues at https://github.com/bloomberg/memray/issues[/]\n"
+        "\n",
+        file=sys.stderr,
+    )
+
+
 cdef millis_to_dt(millis):
     return datetime.fromtimestamp(millis // 1000).replace(
         microsecond=millis % 1000 * 1000)

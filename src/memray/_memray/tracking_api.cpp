@@ -358,6 +358,18 @@ PythonStackTracker::installGreenletTraceFunctionIfNeeded()
 
     // Note: guarded by the GIL
     d_greenlet_hooks_installed = true;
+
+    static bool warned = false;
+    if (!warned) {
+        warned = true;
+
+        PyObject* ret = PyObject_CallMethod(_memray, "print_greenlet_warning", nullptr);
+        Py_XDECREF(ret);
+        if (!ret) {
+            PyErr_Print();
+            _exit(1);
+        }
+    }
 }
 
 void
