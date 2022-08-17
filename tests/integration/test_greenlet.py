@@ -3,9 +3,15 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from memray import AllocatorType
 from memray import FileReader
 from tests.utils import filter_relevant_allocations
+
+pytestmark = pytest.mark.skipif(
+    sys.version_info >= (3, 11), reason="Greenlet does not yet support Python 3.11"
+)
 
 
 def test_integration_with_greenlet(tmpdir):
