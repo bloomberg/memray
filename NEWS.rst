@@ -8,6 +8,25 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.3.0 (2022-08-18)
+-------------------------
+
+Features
+~~~~~~~~
+
+- We now capture Python stacks for allocations made by threads that existed before the Memray tracker was started. (#130)
+- Add support for Python 3.11 (#138)
+- Add support for MacOS. (#174)
+- Add experimental support for Greenlet. (#185)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Prevent a crash that could occur if the Memray API was used to stop and later restart tracking while another thread was running Python code. (#152)
+- Prevent a use-after-free bug that could result in a crash if ``sys.setprofile()`` was called while Memray was tracking. Now if ``sys.setprofile()`` is called, all future allocations on that thread will report unknown Python stacks, instead of potentially incorrect stacks. (#176)
+
+
 Memray 1.2.0 (2022-07-11)
 -------------------------
 
