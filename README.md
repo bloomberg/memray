@@ -66,7 +66,15 @@ If you wish to build Memray from source you need the following binary dependenci
 - liblz4
 
 Check your package manager on how to install these dependencies (for example `apt-get install libunwind-dev liblz4-dev` in Debian-based systems
-or `brew install lz4` in MacOS).
+or `brew install lz4` in MacOS). Note that you may need to teach the compiler where to find the header and library files of the dependencies. For
+example, in MacOS with `brew` you may need to run:
+
+```shell
+export CFLAGS="-I$(brew --prefix lz4)/include" LDFLAGS="-L$(brew --prefix lz4)/lib -Wl,-rpath,$(brew --prefix lz4)/lib"
+```
+
+before installing `memray`. Check the documentation of your package manager to know the location of the header and library
+files for more detailed information.
 
 Once you have the binary dependencies installed, you can clone the repository and follow with the normal building process:
 
