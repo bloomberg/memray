@@ -56,5 +56,6 @@ Memray can help with the following problems:
    :hidden:
    :caption: Project Information
 
+   supported_environments
    changelog
    licenses

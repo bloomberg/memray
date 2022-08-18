@@ -97,6 +97,8 @@ available:
         [31] .debug_macro      PROGBITS         0000000000000000  00003eb1
 
 
+.. _mac symbolification:
+
 Symbolification in macOS
 ------------------------
 
