@@ -2,12 +2,27 @@ import mmap
 import os
 import tempfile
 
+import numpy as np
+from skimage import data
+from skimage.registration import phase_cross_correlation
+from scipy.ndimage import fourier_shift
+from skimage.transform import rescale
+
+from . import pystone
+
 from memray import AllocatorType
 from memray import FileReader
-from memray import MemoryAllocator
+from memray._test import MemoryAllocator
 from memray import Tracker
 
 MAX_ITERS = 100000
+
+
+def check(n):
+    l = [0] * n
+    s = repr(l)
+    other = "[" + ", ".join(["0"] * n) + "]"
+    return s == other
 
 
 class TracebackBenchmarks:
@@ -145,3 +160,120 @@ class HighWatermarkBenchmarks:
                 merge_threads=False
             )
         )
+
+
+class HighLevelBenchmarks:
+    def setup(self):
+        self.tempfile = tempfile.NamedTemporaryFile()
+        self.allocator = MemoryAllocator()
+
+    def time_lot_of_allocs(self):
+        L = []
+
+        def f():
+            g()
+            g()
+            g()
+            g()
+            g()
+            g()
+            g()
+            g()
+            g()
+            g()
+            if len(L) < 100_000:
+                f()
+
+        def g():
+            h()
+            h()
+            h()
+            h()
+            h()
+            h()
+            h()
+            h()
+            h()
+            h()
+            h()
+            h()
+
+        def h():
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+            L.append(list())
+            x = list()
+            del x
+
+        f()
+
+    def time_scikit_image(self):
+        os.unlink(self.tempfile.name)
+        with Tracker(self.tempfile.name):
+            image = data.camera()
+            scale = 4
+            image = rescale(image, scale, anti_aliasing=True)
+            shift = (-22.4, 13.32)
+            offset_image = fourier_shift(np.fft.fftn(image), shift)
+            offset_image = np.fft.ifftn(offset_image)
+            shift, error, diffphase = phase_cross_correlation(image, offset_image)
+            image_product = np.fft.fft2(image) * np.fft.fft2(offset_image).conj()
+            cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
+
+    def time_scikit_image_with_native_traces(self):
+        os.unlink(self.tempfile.name)
+        with Tracker(self.tempfile.name, native_traces=True):
+            image = data.camera()
+            scale = 4
+            image = rescale(image, scale, anti_aliasing=True)
+            shift = (-22.4, 13.32)
+            offset_image = fourier_shift(np.fft.fftn(image), shift)
+            offset_image = np.fft.ifftn(offset_image)
+            shift, error, diffphase = phase_cross_correlation(image, offset_image)
+            image_product = np.fft.fft2(image) * np.fft.fft2(offset_image).conj()
+            cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
+
+    def time_pystone(self):
+        os.unlink(self.tempfile.name)
+        with Tracker(self.tempfile.name):
+            pystone.main(loops=1000)
+
+    def time_python_objects(self):
+        os.unlink(self.tempfile.name)
+        with Tracker(self.tempfile.name):
+            check(1000000)
+
+    def time_python_objects_native(self):
+        os.unlink(self.tempfile.name)
+        with Tracker(self.tempfile.name, native_traces=True):
+            check(1000000)
+
+    def time_python_objects_python_allocators(self):
+        os.unlink(self.tempfile.name)
+        with Tracker(self.tempfile.name, trace_python_allocators=True):
+            check(1000000)
