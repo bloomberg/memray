@@ -716,6 +716,7 @@ Tracker::childFork()
         // Note that the old tracker's hooks may still be installed. This is
         // OK, as long as they always check the (static) isActive() flag before
         // calling any methods on the now null tracker singleton.
+        Tracker::deactivate();
         d_instance = nullptr;
         RecursionGuard::isActive = false;
         return;

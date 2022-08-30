@@ -1,4 +1,5 @@
 import multiprocessing
+import sys
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -158,3 +159,27 @@ def test_pymalloc_allocations_after_fork(tmpdir):
 
     num_expected = 10
     assert len(child_callocs) == num_expected
+
+
+@pytest.mark.no_cover
+def test_stack_cleanup_after_fork(tmpdir):
+    """Test that we don't crash miserably when we try to write pending Python
+    frames when the profile function is deactivated if the tracker has been
+    destroyed after a fork without `follow_fork=True`"""
+
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+
+    def foo():
+        with Pool() as pool:
+            result = pool.map_async(sys.setprofile, [None])
+            return result.get(timeout=1)
+
+    # WHEN
+
+    with Tracker(output, follow_fork=False):
+        result = foo()
+
+    # THEN
+
+    assert result == [None]
