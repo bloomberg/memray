@@ -8,6 +8,15 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.3.1 (2022-08-30)
+-------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Prevent a crash that could occur when forked processes that have been under tracking without ``follow_fork=True`` remove the profiling function with pending frames needed to be flushed to the results file. (#196)
+
+
 memray 1.3.0 (2022-08-18)
 -------------------------
 
