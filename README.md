@@ -10,6 +10,7 @@
 ![PyPI - Implementation](https://img.shields.io/pypi/implementation/memray)
 ![PyPI](https://img.shields.io/pypi/v/memray)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/memray)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/memray.svg)](https://anaconda.org/conda-forge/memray)
 [![Tests](https://github.com/bloomberg/memray/actions/workflows/build.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build.yml)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)
 
