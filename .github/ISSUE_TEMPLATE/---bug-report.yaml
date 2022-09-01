@@ -1,0 +1,76 @@
+name: 🐞 Bug Report
+description: If something isn't working as expected
+labels: [bug]
+body:
+- type: checkboxes
+  attributes:
+    label: Is there an existing issue for this?
+    description: Please search to see if an issue already exists for the bug you encountered.
+    options:
+    - label: I have searched the existing issues
+      required: true
+- type: textarea
+  attributes:
+    label: Current Behavior
+    description: A concise description of what you're experiencing.
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Expected Behavior
+    description: A concise description of what you expected to happen.
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Steps To Reproduce
+    description: Steps to reproduce the behavior.
+    placeholder: |
+      1. In this environment...
+      2. With this config...
+      3. Run '...'
+      4. See error...
+  validations:
+    required: True
+- type: input
+  id: memray_version
+  attributes:
+    label: Memray Version
+    description: What version of Memray are you seeing the problem on?
+    placeholder: 1.3.0
+  validations:
+    required: true
+- type: dropdown
+  id: python_version
+  attributes:
+    label: Python Version
+    description: What version of Python are you running?
+    multiple: true
+    options:
+      - "3.7"
+      - "3.8"
+      - "3.9"
+      - "3.10"
+      - "3.11"
+  validations:
+    required: true
+- type: dropdown
+  id: os
+  attributes:
+    label: Operative System
+    description: What OS are you seeing the problem on?
+    multiple: true
+    options:
+      - macOS
+      - Linux
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Anything else?
+    description: |
+      Links? References? Anything that will give us more context about the issue you are encountering!
+
+      Tip: You can attach images or log files by clicking this area to highlight it and then dragging files in.
+  validations:
+    required: false
