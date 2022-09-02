@@ -51,6 +51,7 @@ Memray can help with the following problems:
    table
    tree
    stats
+   transform
 
 .. toctree::
    :hidden:

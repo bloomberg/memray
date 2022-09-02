@@ -21,6 +21,7 @@ from . import run
 from . import stats
 from . import summary
 from . import table
+from . import transform
 from . import tree
 
 _EPILOG = textwrap.dedent(
@@ -62,6 +63,7 @@ _COMMANDS: List[Command] = [
     parse.ParseCommand(),
     summary.SummaryCommand(),
     stats.StatsCommand(),
+    transform.TransformCommand(),
 ]
 
 

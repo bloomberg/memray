@@ -1111,3 +1111,76 @@ class TestLiveSubcommand:
         assert not stderr
         assert b"Exception ignored" not in stderr
         assert b"KeyboardInterrupt" not in stderr
+
+
+class TestTransformSubCommands:
+    def test_report_detects_missing_input(self):
+        # GIVEN / WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                "gprof2dot",
+                "nosuchfile",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 1
+        assert "No such file: nosuchfile" in proc.stderr
+
+    def test_report_detects_corrupt_input(self, tmp_path):
+        # GIVEN
+        bad_file = Path(tmp_path) / "badfile.bin"
+        bad_file.write_text("This is some garbage")
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                "gprof2dot",
+                str(bad_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 1
+        assert re.match(
+            r"Failed to parse allocation records in .*badfile\.bin", proc.stderr
+        )
+
+    def test_report_leaks_argument(self, tmp_path, simple_test_file):
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+        output_file = tmp_path / "output.html"
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                "gprof2dot",
+                "--leaks",
+                str(results_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        output_file = tmp_path / "memray-gprof2dot-result.json"
+        assert output_file.exists()
+        assert str(source_file) in output_file.read_text()

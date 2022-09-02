@@ -12,6 +12,7 @@ from memray.commands.flamegraph import FlamegraphCommand
 from memray.commands.run import RunCommand
 from memray.commands.summary import SummaryCommand
 from memray.commands.table import TableCommand
+from memray.commands.transform import TransformCommand
 from memray.commands.tree import TreeCommand
 
 
@@ -668,3 +669,135 @@ class TestSummarySubCommand:
         assert namespace.results == "results.txt"
         assert namespace.sort_column == 1
         assert namespace.max_rows == 2
+
+
+class TestTransformSubCommand:
+    @staticmethod
+    def get_prepared_parser():
+        parser = argparse.ArgumentParser()
+        command = TransformCommand()
+        command.prepare_parser(parser)
+
+        return command, parser
+
+    def test_parser_rejects_no_arguments(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args([])
+
+    def test_parser_rejects_when_no_results_provided(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args(["gprof2dot", "--leaks"])
+
+    def test_parser_invalid_format(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args(["blech"])
+
+    def test_parser_accepts_single_argument_with_format(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["gprof2dot", "results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.format == "gprof2dot"
+        assert namespace.show_memory_leaks is False
+
+    def test_parser_accepts_short_form_output_1(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["gprof2dot", "results.txt", "-o", "output.html"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+        assert namespace.format == "gprof2dot"
+
+    def test_parser_accepts_short_form_output_2(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["gprof2dot", "-o", "output.html", "results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+        assert namespace.format == "gprof2dot"
+
+    def test_parser_accepts_long_form_output_1(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(
+            ["gprof2dot", "results.txt", "--output", "output.html"]
+        )
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+        assert namespace.format == "gprof2dot"
+
+    def test_parser_accepts_long_form_output_2(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(
+            ["gprof2dot", "--output", "output.html", "results.txt"]
+        )
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is False
+        assert namespace.format == "gprof2dot"
+
+    def test_parser_takes_memory_leaks_as_a_flag(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(
+            ["gprof2dot", "results.txt", "--leaks", "--output", "output.html"]
+        )
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.show_memory_leaks is True
+        assert namespace.format == "gprof2dot"
+
+    def test_parser_takes_force_flag(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(
+            ["gprof2dot", "results.txt", "--force", "--output", "output.html"]
+        )
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.output == "output.html"
+        assert namespace.force is True
+        assert namespace.format == "gprof2dot"
