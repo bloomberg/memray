@@ -2,6 +2,7 @@ import argparse
 import os
 import pathlib
 from pathlib import Path
+from typing import Any
 from typing import Iterable
 from typing import Optional
 from typing import Tuple
@@ -34,12 +35,15 @@ class HighWatermarkCommand:
         self,
         reporter_factory: ReporterFactory,
         reporter_name: str,
+        suffix: str = ".html",
     ) -> None:
         self.reporter_factory = reporter_factory
         self.reporter_name = reporter_name
+        self.suffix = suffix
+        self.output_file: Optional[Path] = None
 
     def determine_output_filename(self, results_file: pathlib.Path) -> pathlib.Path:
-        output_name = results_file.with_suffix(".html").name
+        output_name = results_file.with_suffix(self.suffix).name
         if output_name.startswith("memray-"):
             output_name = output_name[len("memray-") :]
 
@@ -71,6 +75,7 @@ class HighWatermarkCommand:
         output_file: Path,
         show_memory_leaks: bool,
         merge_threads: Optional[bool] = None,
+        **kwargs: Any,
     ) -> None:
         try:
             reader = FileReader(os.fspath(result_path), report_progress=True)
@@ -87,6 +92,7 @@ class HighWatermarkCommand:
                 snapshot,
                 memory_records=memory_records,
                 native_traces=reader.metadata.has_native_traces,
+                **kwargs,
             )
         except OSError as e:
             raise MemrayCommandError(
@@ -105,13 +111,15 @@ class HighWatermarkCommand:
                 **kwargs,
             )
 
-    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    def run(
+        self, args: argparse.Namespace, parser: argparse.ArgumentParser, **kwargs: Any
+    ) -> None:
         result_path, output_file = self.validate_filenames(
             output=args.output,
             results=args.results,
             overwrite=args.force,
         )
-        kwargs = {}
+        self.output_file = output_file
         if hasattr(args, "split_threads"):
             kwargs["merge_threads"] = not args.split_threads
         self.write_report(result_path, output_file, args.show_memory_leaks, **kwargs)
