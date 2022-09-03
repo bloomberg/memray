@@ -30,12 +30,14 @@ from _memray.sink cimport FileSink
 from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
 from _memray.sink cimport SocketSink
+from _memray.snapshot cimport AbstractAggregator
 from _memray.snapshot cimport AllocationStatsAggregator
 from _memray.snapshot cimport HighWatermark
 from _memray.snapshot cimport HighWatermarkFinder
 from _memray.snapshot cimport Py_GetSnapshotAllocationRecords
 from _memray.snapshot cimport Py_ListFromSnapshotAllocationRecords
 from _memray.snapshot cimport SnapshotAllocationAggregator
+from _memray.snapshot cimport TemporaryAllocationsAggregator
 from _memray.socket_reader_thread cimport BackgroundSocketReader
 from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
@@ -606,8 +608,17 @@ cdef class FileReader:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.close()
 
-    def _aggregate_allocations(self, size_t records_to_process, bool merge_threads):
-        cdef SnapshotAllocationAggregator aggregator
+    def _aggregate_allocations(self, size_t records_to_process, bool merge_threads,
+                               size_t temporary_buffer_size=0):
+        cdef unique_ptr[AbstractAggregator] the_aggregator
+        if temporary_buffer_size:
+            the_aggregator.reset(
+                new TemporaryAllocationsAggregator(temporary_buffer_size)
+            )
+        else:
+            the_aggregator.reset(new SnapshotAllocationAggregator())
+        cdef AbstractAggregator* aggregator = the_aggregator.get()
+
         cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
             unique_ptr[FileSource](new FileSource(self._path))
         )
@@ -651,6 +662,15 @@ cdef class FileReader:
         self._ensure_not_closed()
         cdef size_t max_records = self._header["stats"]["n_allocations"]
         yield from self._aggregate_allocations(max_records, merge_threads)
+
+    def get_temporary_allocation_records(self, merge_threads=True, threshold=1):
+        self._ensure_not_closed()
+        cdef size_t max_records = self._header["stats"]["n_allocations"]
+        yield from self._aggregate_allocations(
+            max_records,
+            merge_threads,
+            temporary_buffer_size=threshold + 1,
+        )
 
     def get_allocation_records(self):
         self._ensure_not_closed()

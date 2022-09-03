@@ -3,6 +3,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <deque>
 #include <functional>
 #include <optional>
 #include <unordered_map>
@@ -162,7 +163,15 @@ class IntervalTree
     }
 };
 
-class SnapshotAllocationAggregator
+class AbstractAggregator
+{
+  public:
+    virtual void addAllocation(const Allocation& allocation) = 0;
+    virtual reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads) = 0;
+    virtual ~AbstractAggregator() = default;
+};
+
+class SnapshotAllocationAggregator : public AbstractAggregator
 {
   private:
     size_t d_index{0};
@@ -170,8 +179,21 @@ class SnapshotAllocationAggregator
     std::unordered_map<uintptr_t, Allocation> d_ptr_to_allocation{};
 
   public:
-    void addAllocation(const Allocation& allocation);
-    reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads);
+    void addAllocation(const Allocation& allocation) override;
+    reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads) override;
+};
+
+class TemporaryAllocationsAggregator : public AbstractAggregator
+{
+  private:
+    size_t d_max_items;
+    std::unordered_map<thread_id_t, std::deque<Allocation>> d_current_allocations{};
+    std::vector<Allocation> d_temporary_allocations{};
+
+  public:
+    TemporaryAllocationsAggregator(size_t max_items);
+    void addAllocation(const Allocation& allocation) override;
+    reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads) override;
 };
 
 PyObject*

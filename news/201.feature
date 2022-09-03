@@ -1,0 +1,1 @@
+Added a new ``--temporary-allocations`` option to the ``flamegraph``, ``table``, ``tree``, and ``summary`` reporters for showing the :doc:`temporary allocations </temporary_allocations>` instead of the high water mark ones.

@@ -37,6 +37,7 @@ Memray can help with the following problems:
    getting_started
    run
    python_allocators
+   temporary_allocations
    native_mode
    examples/README
    api

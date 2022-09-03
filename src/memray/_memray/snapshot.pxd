@@ -20,9 +20,15 @@ cdef extern from "snapshot.h" namespace "memray::api":
     cdef cppclass reduced_snapshot_map_t:
         pass
 
-    cdef cppclass SnapshotAllocationAggregator:
+    cdef cppclass AbstractAggregator:
         void addAllocation(const Allocation&) except+
         reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads) except+
+
+    cdef cppclass TemporaryAllocationsAggregator(AbstractAggregator):
+        TemporaryAllocationsAggregator(size_t max_items)
+
+    cdef cppclass SnapshotAllocationAggregator(AbstractAggregator):
+        pass
 
     cdef cppclass LocationKey:
         size_t python_frame_id

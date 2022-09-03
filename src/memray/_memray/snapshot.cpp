@@ -122,6 +122,74 @@ SnapshotAllocationAggregator::getSnapshotAllocations(bool merge_threads)
     return stack_to_allocation;
 }
 
+TemporaryAllocationsAggregator::TemporaryAllocationsAggregator(size_t max_items)
+: d_max_items(max_items)
+{
+}
+
+void
+TemporaryAllocationsAggregator::addAllocation(const Allocation& allocation)
+{
+    hooks::AllocatorKind kind = hooks::allocatorKind(allocation.allocator);
+    auto it = d_current_allocations.find(allocation.tid);
+    switch (kind) {
+        case hooks::AllocatorKind::SIMPLE_ALLOCATOR:
+        case hooks::AllocatorKind::RANGED_ALLOCATOR: {
+            if (it == d_current_allocations.end()) {
+                it = d_current_allocations.insert(
+                        it,
+                        std::pair(allocation.tid, std::deque<Allocation>()));
+            }
+
+            it->second.emplace_front(allocation);
+            if (it->second.size() > d_max_items) {
+                it->second.pop_back();
+            }
+            break;
+        }
+        case hooks::AllocatorKind::SIMPLE_DEALLOCATOR:
+        case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+            if (it == d_current_allocations.end()) {
+                break;
+            }
+
+            auto alloc_it =
+                    std::find_if(it->second.begin(), it->second.end(), [&](auto& current_allocation) {
+                        bool match = (current_allocation.address == allocation.address);
+                        if (kind == hooks::AllocatorKind::RANGED_DEALLOCATOR) {
+                            match = match && (current_allocation.size == allocation.size);
+                        }
+                        return match;
+                    });
+
+            if (alloc_it != it->second.end()) {
+                d_temporary_allocations.push_back(*alloc_it);
+            }
+            break;
+        }
+    }
+}
+
+reduced_snapshot_map_t
+TemporaryAllocationsAggregator::getSnapshotAllocations(bool merge_threads)
+{
+    reduced_snapshot_map_t stack_to_allocation{};
+
+    for (const auto& record : d_temporary_allocations) {
+        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.tid;
+        auto loc_key = LocationKey{record.frame_index, record.native_frame_id, thread_id};
+        auto alloc_it = stack_to_allocation.find(loc_key);
+        if (alloc_it == stack_to_allocation.end()) {
+            stack_to_allocation.insert(alloc_it, std::pair(loc_key, record));
+        } else {
+            alloc_it->second.size += record.size;
+            alloc_it->second.n_allocations += 1;
+        }
+    }
+
+    return stack_to_allocation;
+}
+
 /**
  * Produce an aggregated snapshot from a vector of allocations and a index in that vector
  *

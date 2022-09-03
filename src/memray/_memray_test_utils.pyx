@@ -269,3 +269,12 @@ def allocate_cpp_vector(size_t size):
     v.reserve(nelems)
     return v.size()
 
+
+@cython.profile(True)
+def fill_cpp_vector(size_t size):
+    cdef vector[int] v
+    cdef size_t nelems = <size_t>(size / sizeof(int))
+    for i in range(nelems):
+        v.push_back(i)
+    return v.size()
+

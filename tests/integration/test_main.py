@@ -805,6 +805,92 @@ class TestReporterSubCommands:
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
+    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    def test_report_temporary_allocations_argument(
+        self, tmp_path, simple_test_file, report
+    ):
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+        output_file = tmp_path / "output.html"
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                report,
+                str(results_file),
+                "--temporary-allocations",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        output_file = tmp_path / f"memray-{report}-result.html"
+        assert output_file.exists()
+        assert str(source_file) in output_file.read_text()
+
+    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    def test_report_incompatible_arguments(self, tmp_path, simple_test_file, report):
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                report,
+                "--temporary-allocations",
+                "--leaks",
+                str(results_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode != 0
+        assert (
+            "--leaks: not allowed with argument --temporary-allocations" in proc.stderr
+        )
+
+    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    def test_report_both_temporary_allocation_arguments(
+        self, tmp_path, simple_test_file, report
+    ):
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                report,
+                "--temporary-allocations",
+                "--temporary-allocation-threshold=1",
+                str(results_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode != 0
+        assert (
+            "--temporary-allocation-threshold: not allowed with"
+            " argument --temporary-allocations" in proc.stderr
+        )
+
 
 class TestLiveRemoteSubcommand:
     def test_live_tracking(self, tmp_path, simple_test_file, free_port):
