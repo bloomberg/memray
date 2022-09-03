@@ -20,6 +20,7 @@ from memray._test import PymallocDomain
 from memray._test import PymallocMemoryAllocator
 from memray._test import _cython_allocate_in_two_places
 from memray._test import allocate_cpp_vector
+from memray._test import fill_cpp_vector
 from tests.utils import filter_relevant_allocations
 
 ALLOCATORS = [
@@ -929,7 +930,7 @@ class TestLeaks:
         assert record.allocator == AllocatorType.VALLOC
         assert record.size == 2048
 
-    def test_leaks_that_happens_in_different_lines(self, tmp_path):
+    def test_leaks_that_happen_in_different_lines(self, tmp_path):
         # GIVEN
         allocator1 = MemoryAllocator()
         allocator2 = MemoryAllocator()
@@ -1060,6 +1061,306 @@ class TestLeaks:
         # Each thread should have 4096 bytes total allocations
         for tid, allocations in records.items():
             assert sum(allocation.size for allocation in allocations) == 4096
+
+
+class TestTemporaryAllocations:
+    def test_temporary_allocations_are_detected(self, tmp_path):
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            allocator.valloc(1024)
+            allocator.free()
+
+        # THEN
+        reader = FileReader(output)
+        all_allocations = list(
+            filter_relevant_allocations(reader.get_allocation_records())
+        )
+        assert len(all_allocations) == 2
+
+        temporary_allocations = list(
+            filter_relevant_allocations(reader.get_temporary_allocation_records())
+        )
+        assert len(temporary_allocations) == 1
+
+        record = temporary_allocations[0]
+        assert record.n_allocations == 1
+        assert record.allocator == AllocatorType.VALLOC
+        assert record.size == 1024
+
+    def test_temporary_allocations_with_two_allocators_are_detected(self, tmp_path):
+        # GIVEN
+        allocator1 = MemoryAllocator()
+        allocator2 = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            allocator1.valloc(1024)
+            allocator1.free()
+            allocator2.valloc(1024)
+            allocator2.free()
+        # THEN
+        reader = FileReader(output)
+        all_allocations = list(
+            filter_relevant_allocations(reader.get_allocation_records())
+        )
+        assert len(all_allocations) == 4
+
+        temporary_allocations = list(
+            filter_relevant_allocations(reader.get_temporary_allocation_records())
+        )
+        assert len(temporary_allocations) == 2
+
+        for record in temporary_allocations:
+            assert record.n_allocations == 1
+            assert record.allocator == AllocatorType.VALLOC
+            assert record.size == 1024
+
+    @pytest.mark.parametrize(
+        "buffer_size",
+        [
+            1,
+            2,
+            5,
+            10,
+        ],
+    )
+    def test_temporary_allocations_outside_buffer_are_not_detected(
+        self, tmp_path, buffer_size
+    ):
+        # GIVEN
+        allocators = [MemoryAllocator() for _ in range(buffer_size + 1)]
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            for allocator in allocators:
+                allocator.valloc(1024)
+            for allocator in reversed(allocators):
+                allocator.free()
+
+        # THEN
+        reader = FileReader(output)
+        all_allocations = list(
+            filter_relevant_allocations(reader.get_allocation_records())
+        )
+        assert len(all_allocations) == 2 * (buffer_size + 1)
+
+        temporary_allocations = list(
+            filter_relevant_allocations(
+                reader.get_temporary_allocation_records(threshold=buffer_size - 1)
+            )
+        )
+        assert len(temporary_allocations) == 1
+        (allocation,) = temporary_allocations
+        assert allocation.n_allocations == buffer_size
+
+    def test_temporary_allocations_that_happen_in_different_lines(self, tmp_path):
+        # GIVEN
+        allocator1 = MemoryAllocator()
+        allocator2 = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            allocator1.valloc(1024)
+            allocator1.free()
+            allocator2.valloc(2048)
+            allocator2.free()
+
+        # THEN
+        temporary_allocations = list(
+            filter_relevant_allocations(
+                FileReader(output).get_temporary_allocation_records()
+            )
+        )
+        assert len(temporary_allocations) == 2
+        assert sum(record.size for record in temporary_allocations) == 1024 + 2048
+        assert all(record.n_allocations == 1 for record in temporary_allocations)
+
+    def test_temporary_allocations_that_happen_in_the_same_function_are_aggregated(
+        self, tmp_path
+    ):
+
+        # GIVEN
+        output = tmp_path / "test.bin"
+
+        def foo():
+            allocator = MemoryAllocator()
+            allocator.valloc(1024)
+            allocator.free()
+
+        # WHEN
+        with Tracker(output):
+            for _ in range(10):
+                foo()
+
+        # THEN
+        reader = FileReader(output)
+        all_allocations = list(
+            filter_relevant_allocations(reader.get_allocation_records())
+        )
+        assert len(all_allocations) == 10 + 10  # 10 x valloc + 10 x free
+
+        temporary_allocations = list(
+            filter_relevant_allocations(reader.get_temporary_allocation_records())
+        )
+        assert len(temporary_allocations) == 1
+        (allocation,) = temporary_allocations
+        assert allocation.size == 1024 * 10
+        assert allocation.n_allocations == 10
+
+    def test_unmatched_allocations_are_not_reported(self, tmp_path):
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            allocator.valloc(ALLOC_SIZE)
+        allocator.free()
+
+        # THEN
+        reader = FileReader(output)
+        all_allocations = list(reader.get_allocation_records())
+        assert len(all_allocations) >= 1
+        assert not list(
+            filter_relevant_allocations(reader.get_temporary_allocation_records())
+        )
+
+    def test_thread_allocations_multiple_threads(self, tmpdir):
+
+        # GIVEN
+        def allocating_function(allocator, amount, stop_flag):
+            allocator.posix_memalign(amount)
+            allocator.free()
+            allocator.posix_memalign(amount)
+            allocator.free()
+            # We need a barrier as pthread might reuse the same thread ID if the first thread
+            # finishes before the other one starts
+            stop_flag.wait()
+
+        # WHEN
+        alloc1 = MemoryAllocator()
+        stop_flag1 = threading.Event()
+        alloc2 = MemoryAllocator()
+        stop_flag2 = threading.Event()
+        output = Path(tmpdir) / "test.bin"
+        with Tracker(output):
+            t1 = threading.Thread(
+                target=allocating_function, args=(alloc1, 2048, stop_flag1)
+            )
+            t1.start()
+            t2 = threading.Thread(
+                target=allocating_function, args=(alloc2, 2048, stop_flag2)
+            )
+            t2.start()
+
+            stop_flag1.set()
+            t1.join()
+            stop_flag2.set()
+            t2.join()
+
+        # THEN
+        reader = FileReader(output)
+        all_allocations = [
+            record
+            for record in reader.get_allocation_records()
+            if record.allocator == AllocatorType.POSIX_MEMALIGN
+        ]
+        assert len(all_allocations) == 4
+
+        temporary_allocation_records = (
+            record
+            for record in reader.get_temporary_allocation_records(merge_threads=False)
+            if record.allocator == AllocatorType.POSIX_MEMALIGN
+        )
+        # Group the allocations per thread
+        records = collections.defaultdict(list)
+        for record in temporary_allocation_records:
+            records[record.tid].append(record)
+        assert len(records.keys()) == 2
+        # Each thread should have 4096 bytes total allocations
+        for tid, allocations in records.items():
+            assert sum(allocation.size for allocation in allocations) == 4096
+
+    def test_intertwined_temporary_allocations_in_threads(self, tmpdir):
+        """This test checks that temporary allocations are correctly detected
+        when they happen in different threads with interleaved calls to malloc
+        and free.
+
+        Note that there is not an easy way to synchronize this test because
+        using condition variables may allocate, disrupting the test as there
+        will be other spurious allocations between our call to posix_memalign
+        and the call to free.
+
+        The best effort is that both threads are synchronized by spinlocking
+        around a python boolean that uses the GIL as means to ensure the correct
+        ordering of allocations.
+        """
+
+        # GIVEN
+        thread1_allocated = False
+        thread1_should_free = False
+
+        def thread1_body(allocator):
+            nonlocal thread1_allocated
+            allocator.posix_memalign(1234)
+            thread1_allocated = True
+            while not thread1_should_free:
+                pass
+            allocator.free()
+
+        def thread2_body(allocator):
+            nonlocal thread1_should_free
+            while not thread1_allocated:
+                pass
+            allocator.posix_memalign(1234)
+            allocator.free()
+            thread1_should_free = True
+
+        # WHEN
+        alloc1 = MemoryAllocator()
+        alloc2 = MemoryAllocator()
+        output = Path(tmpdir) / "test.bin"
+        with Tracker(output):
+            t1 = threading.Thread(target=thread1_body, args=[alloc1])
+            t1.start()
+            t2 = threading.Thread(
+                target=thread2_body,
+                args=[alloc2],
+            )
+            t2.start()
+
+            t1.join()
+            t2.join()
+
+        # THEN
+        reader = FileReader(output)
+        all_allocations = [
+            record
+            for record in reader.get_allocation_records()
+            if record.allocator == AllocatorType.POSIX_MEMALIGN
+        ]
+        assert len(all_allocations) == 2
+
+        temporary_allocation_records = (
+            record
+            for record in reader.get_temporary_allocation_records(merge_threads=False)
+            if record.allocator == AllocatorType.POSIX_MEMALIGN
+        )
+        # Group the allocations per thread
+        records = collections.defaultdict(list)
+        for record in temporary_allocation_records:
+            records[record.tid].append(record)
+        assert len(records.keys()) == 2
+        # Each thread should have 1234 bytes total allocations
+        for _, allocations in records.items():
+            assert sum(allocation.size for allocation in allocations) == 1234
 
 
 class TestHeader:
@@ -1200,3 +1501,48 @@ class TestMemorySnapshots:
             _next.time - prev.time >= 20
             for prev, _next in zip(memory_snapshots, memory_snapshots[1:])
         )
+
+    def test_temporary_allocations_when_filling_vector_without_preallocating(
+        self, tmp_path
+    ):
+        # GIVEN
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            elements = fill_cpp_vector(2 << 10)
+
+        # THEN
+        reader = FileReader(output)
+        temporary_allocations = list(
+            reader.get_temporary_allocation_records(threshold=1)
+        )
+        assert elements == 512
+        assert len(temporary_allocations) == 1
+        (record,) = temporary_allocations
+        assert record.n_allocations == 10
+        assert record.allocator == AllocatorType.MALLOC
+        assert record.size >= (2 << 10)
+
+    def test_temporary_allocations_when_filling_vector_without_preallocating_small_buffer(
+        self, tmp_path
+    ):
+        # GIVEN
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            elements = fill_cpp_vector(2 << 10)
+
+        # THEN
+        reader = FileReader(output)
+        temporary_allocations = list(
+            reader.get_temporary_allocation_records(threshold=0)
+        )
+        assert elements == 512
+        assert len(temporary_allocations) == 1
+        (record,) = temporary_allocations
+        # With a buffer of 1 we only see the last allocation
+        assert record.n_allocations == 1
+        assert record.allocator == AllocatorType.MALLOC
+        assert record.size == 2 << 10

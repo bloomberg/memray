@@ -157,6 +157,7 @@ class TestReportGeneration:
                 result_path=result_path,
                 output_file=output_file,
                 show_memory_leaks=False,
+                temporary_allocation_threshold=-1,
                 merge_threads=merge_threads,
             )
 
@@ -185,6 +186,7 @@ class TestReportGeneration:
                 result_path=result_path,
                 output_file=output_file,
                 show_memory_leaks=True,
+                temporary_allocation_threshold=-1,
                 merge_threads=merge_threads,
             )
 
@@ -192,6 +194,39 @@ class TestReportGeneration:
         calls = [
             call(os.fspath(result_path), report_progress=True),
             call().get_leaked_allocation_records(merge_threads=merge_threads),
+            call().get_memory_snapshots(),
+        ]
+        reader_mock.assert_has_calls(calls)
+
+        reporter_factory_mock.assert_called_once()
+        reporter_factory_mock().render.assert_called_once()
+
+    @pytest.mark.parametrize("merge_threads", [True, False])
+    def test_tracker_and_reporter_interactions_for_temporary_allocations(
+        self, tmp_path, merge_threads
+    ):
+        # GIVEN
+        reporter_factory_mock = Mock()
+        command = HighWatermarkCommand(reporter_factory_mock, reporter_name="reporter")
+        result_path = tmp_path / "results.bin"
+        output_file = tmp_path / "output.txt"
+
+        # WHEN
+        with patch("memray.commands.common.FileReader") as reader_mock:
+            command.write_report(
+                result_path=result_path,
+                output_file=output_file,
+                show_memory_leaks=False,
+                temporary_allocation_threshold=3,
+                merge_threads=merge_threads,
+            )
+
+        # THEN
+        calls = [
+            call(os.fspath(result_path), report_progress=True),
+            call().get_temporary_allocation_records(
+                threshold=3, merge_threads=merge_threads
+            ),
             call().get_memory_snapshots(),
         ]
         reader_mock.assert_has_calls(calls)

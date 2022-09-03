@@ -74,6 +74,7 @@ class HighWatermarkCommand:
         result_path: Path,
         output_file: Path,
         show_memory_leaks: bool,
+        temporary_allocation_threshold: int,
         merge_threads: Optional[bool] = None,
         **kwargs: Any,
     ) -> None:
@@ -82,6 +83,11 @@ class HighWatermarkCommand:
             if show_memory_leaks:
                 snapshot = reader.get_leaked_allocation_records(
                     merge_threads=merge_threads if merge_threads is not None else True
+                )
+            elif temporary_allocation_threshold >= 0:
+                snapshot = reader.get_temporary_allocation_records(
+                    threshold=temporary_allocation_threshold,
+                    merge_threads=merge_threads if merge_threads is not None else True,
                 )
             else:
                 snapshot = reader.get_high_watermark_allocation_records(
@@ -122,6 +128,12 @@ class HighWatermarkCommand:
         self.output_file = output_file
         if hasattr(args, "split_threads"):
             kwargs["merge_threads"] = not args.split_threads
-        self.write_report(result_path, output_file, args.show_memory_leaks, **kwargs)
+        self.write_report(
+            result_path,
+            output_file,
+            args.show_memory_leaks,
+            args.temporary_allocation_threshold,
+            **kwargs,
+        )
 
         print(f"Wrote {output_file}")
