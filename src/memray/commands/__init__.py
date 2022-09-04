@@ -14,6 +14,7 @@ from memray._errors import MemrayCommandError
 from memray._errors import MemrayError
 from memray._memray import set_log_level
 
+from . import attach
 from . import flamegraph
 from . import live
 from . import parse
@@ -64,6 +65,7 @@ _COMMANDS: List[Command] = [
     summary.SummaryCommand(),
     stats.StatsCommand(),
     transform.TransformCommand(),
+    attach.AttachCommand(),
 ]
 
 

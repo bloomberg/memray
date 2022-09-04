@@ -184,3 +184,6 @@ class SymbolicSupport(enum.IntEnum):
     TOTAL: int
 
 def get_symbolic_support() -> SymbolicSupport: ...
+
+RTLD_NOW: int
+RTLD_DEFAULT: int

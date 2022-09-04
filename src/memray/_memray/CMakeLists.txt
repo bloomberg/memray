@@ -17,6 +17,7 @@ endif()
 add_library(
   _memray STATIC
   ${MEMRAY_LINKER_FILE}
+  inject.cpp
   compat.cpp
   hooks.cpp
   logging.cpp

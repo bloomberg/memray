@@ -920,3 +920,12 @@ def get_symbolic_support():
             return SymbolicSupport.FUNCTION_NAME_ONLY
         return SymbolicSupport.TOTAL
     return SymbolicSupport.NONE
+
+
+cdef extern from "<dlfcn.h>":
+    int _RTLD_NOW "RTLD_NOW"
+    void* _RTLD_DEFAULT "RTLD_DEFAULT"
+
+
+RTLD_NOW = _RTLD_NOW
+RTLD_DEFAULT = <long long>_RTLD_DEFAULT

@@ -1,0 +1,21 @@
+p ((void*(*)(size_t))PyMem_Malloc)
+p ((void*(*)(size_t, size_t))PyMem_Calloc)
+p ((void*(*)(void *, size_t))PyMem_Realloc)
+p ((void(*)(void*))PyMem_Free)
+
+# When adding new breakpoints, also update _attach.gdb
+breakpoint set -b malloc -b calloc -b realloc -b free -b PyMem_Malloc -b PyMem_Calloc -b PyMem_Realloc -b PyMem_Free
+
+# Set commands to execute when breakpoint is reached
+breakpoint command add -e true
+breakpoint disable
+expr auto $dlsym = (void* (*)(void*, const char*))&dlsym
+expr auto $dlopen = $dlsym($rtld_default, "dlopen")
+expr auto $dlerror = $dlsym($rtld_default, "dlerror")
+expr auto $dll = ((void*(*)(const char*, int))$dlopen)($libpath, $rtld_now)
+p ((char*(*)(void))$dlerror)()
+expr auto $spawn = $dlsym($dll, "memray_spawn_client")
+p ((const char*(*)(int))$spawn)($port)
+DONE
+
+continue
