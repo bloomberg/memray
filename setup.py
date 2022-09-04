@@ -258,6 +258,19 @@ MEMRAY_TEST_EXTENSION = Extension(
     undef_macros=UNDEF_MACROS,
 )
 
+MEMRAY_INJECT_EXTENSION = Extension(
+    name="memray._inject",
+    sources=[
+        "src/memray/_memray/inject.cpp",
+    ],
+    language="c++",
+    extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
+    extra_link_args=["-std=c++17", *EXTRA_LINK_ARGS],
+    define_macros=DEFINE_MACROS,
+    undef_macros=UNDEF_MACROS,
+    py_limited_api=True,
+)
+
 
 if not (IS_LINUX or IS_MAC):
     raise RuntimeError(f"memray does not support this platform ({platform})")
@@ -295,7 +308,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     ext_modules=cythonize(
-        [MEMRAY_EXTENSION, MEMRAY_TEST_EXTENSION],
+        [MEMRAY_EXTENSION, MEMRAY_TEST_EXTENSION, MEMRAY_INJECT_EXTENSION],
         include_path=["src/memray"],
         compiler_directives=COMPILER_DIRECTIVES,
     ),
