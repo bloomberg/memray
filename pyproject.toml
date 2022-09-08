@@ -62,4 +62,9 @@ manylinux-i686-image = "manylinux2010"
 before-all = "yum install -y libunwind-devel lz4-devel"
 
 [tool.cibuildwheel.macos]
-before-all = "brew install lz4"
+before-all = [
+  "git clone --depth 1 --branch v1.9.4 https://github.com/lz4/lz4 lz4",
+  "cd lz4",
+  "make",
+  "make install"
+]
