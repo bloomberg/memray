@@ -53,6 +53,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Sets env vars for compilation
+        if: matrix.cibw_arch == 'arm64'
+        run: |
+          echo "CFLAGS=-target arm64-apple-macos11" >> $GITHUB_ENV
+          echo "MEMRAY_LIBBACKTRACE_TARGET=arm64-apple-macos11" >> $GITHUB_ENV
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.9.0
         env:
@@ -61,6 +66,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: pytest {package}/tests
+          CIBW_BUILD_VERBOSITY: 1
           MACOSX_DEPLOYMENT_TARGET: "10.14"
 
       - uses: actions/upload-artifact@v3

@@ -60,16 +60,21 @@ class BuildMemray(build_ext_orig):
                 cwd=LIBBACKTRACE_LOCATION.parent,
             )
 
+        configure_cmd = [
+            f"{LIBBACKTRACE_LOCATION}/configure",
+            "--with-pic",
+            "--prefix",
+            f"{LIBBACKTRACE_LOCATION}/install",
+            "--includedir",
+            f"{LIBBACKTRACE_LOCATION}/install/include/libbacktrace",
+        ]
+        libbacktrace_target = os.getenv("MEMRAY_LIBBACKTRACE_TARGET")
+        if libbacktrace_target is not None:
+            configure_cmd.extend(["--host", libbacktrace_target])
+
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.announce_and_run(
-                [
-                    f"{LIBBACKTRACE_LOCATION}/configure",
-                    "--with-pic",
-                    "--prefix",
-                    f"{LIBBACKTRACE_LOCATION}/install",
-                    "--includedir",
-                    f"{LIBBACKTRACE_LOCATION}/install/include/libbacktrace",
-                ],
+                configure_cmd,
                 cwd=tmpdirname,
             )
             self.announce_and_run(["make", "-j"], cwd=tmpdirname)
