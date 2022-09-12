@@ -305,11 +305,10 @@ def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir):
         assert pos["foo"] > pos["bar"] + 1
         assert pos["bar"] > pos["baz"] + 1
 
-    # Cython frames don't show up with their Python name in the hybrid stack
-    assert "valloc" not in hybrid_stack
-
-    # Though they show up as Python functions in the non-hybrid stack
-    assert valloc.stack_trace()[0][0] == "valloc"
+    # Cython frames don't show up with their Python name, neither in the hybrid
+    # stack or the Python stack.
+    assert hybrid_stack.count("valloc") == 1
+    assert [frame[0] for frame in valloc.stack_trace()].count("valloc") == 1
 
 
 def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):

@@ -1,4 +1,4 @@
-from ._test_utils import MemoryAllocator
+from ._test_utils import MemoryAllocator as _MemoryAllocator
 from ._test_utils import MmapAllocator
 from ._test_utils import PymallocDomain
 from ._test_utils import PymallocMemoryAllocator
@@ -8,6 +8,42 @@ from ._test_utils import allocate_cpp_vector
 from ._test_utils import allocate_without_gil_held
 from ._test_utils import function_caller
 from ._test_utils import set_thread_name
+
+
+class MemoryAllocator:
+    def __init__(self):
+        self.allocator = _MemoryAllocator()
+
+    def free(self):
+        return self.allocator.free()
+
+    def malloc(self, size):
+        return self.allocator.malloc(size)
+
+    def calloc(self, size):
+        return self.allocator.calloc(size)
+
+    def realloc(self, size):
+        return self.allocator.realloc(size)
+
+    def posix_memalign(self, size):
+        return self.allocator.posix_memalign(size)
+
+    def aligned_alloc(self, size):
+        return self.allocator.aligned_alloc(size)
+
+    def memalign(self, size):
+        return self.allocator.memalign(size)
+
+    def valloc(self, size):
+        return self.allocator.valloc(size)
+
+    def pvalloc(self, size):
+        return self.allocator.pvalloc(size)
+
+    def run_in_pthread(self, callback):
+        return self.allocator.run_in_pthread(callback)
+
 
 __all__ = [
     "allocate_cpp_vector",

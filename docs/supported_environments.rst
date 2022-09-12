@@ -64,15 +64,9 @@ Known issues and limitations
   report the allocations performed in the new process. Notably, the default
   `multiprocessing start method`_ on macOS is "spawn", which leverages
   ``exec``.
-* When tracing through Cython_ code built with profiling_ support, it's
-  possible for allocations under the same code path to be reported with either
-  of two different stacks if tracking is start using :doc:`the Memray API
-  <api>` while another thread is already executing a profiled Cython function.
-  This happens because we're able to report profiled Cython functions as though
-  they're Python calls if they're entered after tracking starts, but we can
-  only see them as C calls if they're entered before we've started tracking. If
-  the same function is entered twice, once before we've started tracking and
-  once after, we'll have seen it both ways at different times.
+* Cython_ functions will not be included in the Python stacks we report, even
+  if the Cython module is built with profiling_ support. You'll need to use
+  :ref:`native tracking` to see what's happening inside Cython modules.
 * We have experimental support for the ``greenlet`` library, which may lead to
   incorrect stacks being reported if :doc:`the Memray API <api>` is used to
   start tracking in one thread while another thread is already making use of

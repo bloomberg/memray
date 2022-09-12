@@ -143,15 +143,13 @@ def test_cython_traceback(tmpdir):
     alloc1, alloc2 = allocs
 
     traceback = list(alloc1.stack_trace())
-    assert traceback[-3:] == [
-        ("valloc", ANY, 104),
-        ("_cython_nested_allocation", ANY, 194),
+    assert traceback == [
+        ("valloc", sys.modules["memray._test"].__file__, 39),
         ("test_cython_traceback", __file__, 135),
     ]
 
     traceback = list(alloc2.stack_trace())
-    assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 194),
+    assert traceback == [
         ("test_cython_traceback", __file__, 135),
     ]
 
