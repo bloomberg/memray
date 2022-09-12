@@ -163,7 +163,6 @@ PythonStackTracker::emitPendingPushesAndPops()
     if (!d_stack) {
         return;
     }
-
     // At any time, the stack contains (in this order):
     // Any number of EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED frames
     // 0 or 1 EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED frame
@@ -465,6 +464,44 @@ PythonStackTracker::recordAllStacks()
     s_tracker_generation++;
 }
 
+
+// Don't mangle this function name. We special case the reader to ignore it.
+extern "C" {
+static PyObject*
+PyEvalFrame_Memray(PyThreadState* ts, PyFrameObject* f, int val)
+{
+    if (!Tracker::isActive()) {
+        return _PyEval_EvalFrameDefault(ts, f, val);
+    }
+
+    {
+        RecursionGuard guard;
+        PythonStackTracker::get().pushPythonFrame(f);
+    }
+
+    Py_tracefunc saved_profilefunc = ts->c_profilefunc;
+    PyObject* saved_profileobj = ts->c_profileobj;
+
+    ts->c_profilefunc = NULL;
+    ts->c_profileobj = NULL;
+
+    PyObject* res = _PyEval_EvalFrameDefault(ts, f, val);
+
+    if (saved_profilefunc) {
+        Py_XDECREF(ts->c_profileobj);  // The called function may set this!
+        ts->c_profilefunc = saved_profilefunc;
+        ts->c_profileobj = saved_profileobj;
+    }
+
+    {
+        RecursionGuard guard;
+        PythonStackTracker::get().popPythonFrame();
+    }
+
+    return res;
+}
+}
+
 void
 PythonStackTracker::installProfileHooks()
 {
@@ -479,6 +516,9 @@ PythonStackTracker::installProfileHooks()
     // they can't start profiling before we capture their stack and miss it.
     compat::setprofileAllThreads(nullptr, nullptr);
 
+    PyThreadState* tstate = PyThreadState_GET();
+    _PyInterpreterState_SetEvalFrameFunc(tstate->interp, PyEvalFrame_Memray);
+
     // Find and record the Python stack for all existing threads.
     recordAllStacks();
 
@@ -491,6 +531,8 @@ PythonStackTracker::removeProfileHooks()
 {
     assert(PyGILState_Check());
     compat::setprofileAllThreads(nullptr, nullptr);
+    PyThreadState* tstate = PyThreadState_GET();
+    _PyInterpreterState_SetEvalFrameFunc(tstate->interp, _PyEval_EvalFrameDefault);
     std::unique_lock<std::mutex> lock(s_mutex);
     s_initial_stack_by_thread.clear();
 }
@@ -543,7 +585,9 @@ Tracker::Tracker(
 
     RecursionGuard guard;
     PythonStackTracker::s_native_tracking_enabled = native_traces;
+
     PythonStackTracker::installProfileHooks();
+
     if (d_trace_python_allocators) {
         registerPymallocHooks();
     }
@@ -1110,11 +1154,12 @@ install_trace_function()
 {
     assert(PyGILState_Check());
     RecursionGuard guard;
+
     // Don't clear the python stack if we have already registered the tracking
     // function with the current thread. This happens when PyGILState_Ensure is
     // called and a thread state with our hooks installed already exists.
     PyThreadState* ts = PyThreadState_Get();
-    if (ts->c_profilefunc == PyTraceFunction) {
+    if (_PyInterpreterState_GetEvalFrameFunc(ts->interp) == PyEvalFrame_Memray) {
         return;
     }
 
@@ -1122,8 +1167,12 @@ install_trace_function()
     if (!profileobj) {
         return;
     }
+
     PyEval_SetProfile(PyTraceFunction, profileobj);
+
     Py_DECREF(profileobj);
+
+    _PyInterpreterState_SetEvalFrameFunc(ts->interp, PyEvalFrame_Memray);
 
     PyFrameObject* frame = PyEval_GetFrame();
 

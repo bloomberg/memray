@@ -619,6 +619,10 @@ RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation
             continue;
         }
         for (auto& native_frame : resolved_frames->frames()) {
+            if (native_frame.Symbol() == "PyEvalFrame_Memray") {
+                // Our frame eval function is an implementation detail. Hide it.
+                continue;
+            }
             PyObject* pyframe = native_frame.toPythonObject(d_pystring_cache);
             if (pyframe == nullptr) {
                 return nullptr;
