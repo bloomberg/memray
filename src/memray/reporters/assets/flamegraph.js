@@ -174,7 +174,7 @@ function fileExtension(filename) {
 }
 
 function colorByExtension(extension) {
-  if (extension == "py" || extension == "pyx") {
+  if (extension == "py") {
     return d3.schemePastel1[2];
   } else if (extension == "c" || extension == "cpp" || extension == "h") {
     return d3.schemePastel1[5];

@@ -3,7 +3,6 @@ import os
 import sys
 import threading
 from pathlib import Path
-from unittest.mock import ANY
 
 import pytest
 
@@ -57,10 +56,10 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 21),
-        ("alloc_func2", __file__, 30),
-        ("alloc_func1", __file__, 37),
-        ("test_traceback", __file__, 50),
+        ("alloc_func3", __file__, 20),
+        ("alloc_func2", __file__, 29),
+        ("alloc_func1", __file__, 36),
+        ("test_traceback", __file__, 49),
     ]
     frees = [
         record
@@ -91,10 +90,10 @@ def test_traceback_for_high_watermark(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 21),
-        ("alloc_func2", __file__, 30),
-        ("alloc_func1", __file__, 37),
-        ("test_traceback_for_high_watermark", __file__, 84),
+        ("alloc_func3", __file__, 20),
+        ("alloc_func2", __file__, 29),
+        ("alloc_func1", __file__, 36),
+        ("test_traceback_for_high_watermark", __file__, 83),
     ]
 
 
@@ -143,16 +142,14 @@ def test_cython_traceback(tmpdir):
     alloc1, alloc2 = allocs
 
     traceback = list(alloc1.stack_trace())
-    assert traceback[-3:] == [
-        ("valloc", ANY, 104),
-        ("_cython_nested_allocation", ANY, 194),
-        ("test_cython_traceback", __file__, 135),
+    assert traceback == [
+        ("valloc", sys.modules["memray._test"].__file__, 41),
+        ("test_cython_traceback", __file__, 134),
     ]
 
     traceback = list(alloc2.stack_trace())
-    assert traceback[-3:] == [
-        ("_cython_nested_allocation", ANY, 194),
-        ("test_cython_traceback", __file__, 135),
+    assert traceback == [
+        ("test_cython_traceback", __file__, 134),
     ]
 
     frees = [

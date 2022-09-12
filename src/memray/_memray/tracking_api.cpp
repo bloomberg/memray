@@ -107,7 +107,7 @@ class PythonStackTracker
     void emitPendingPushesAndPops();
     void invalidateMostRecentFrameLineNumber();
     int pushPythonFrame(PyFrameObject* frame);
-    void popPythonFrame(PyFrameObject* frame);
+    void popPythonFrame();
 
     void installGreenletTraceFunctionIfNeeded();
     void handleGreenletSwitch(PyObject* from, PyObject* to);
@@ -291,15 +291,11 @@ PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
 }
 
 void
-PythonStackTracker::popPythonFrame(PyFrameObject* frame)
+PythonStackTracker::popPythonFrame()
 {
     installGreenletTraceFunctionIfNeeded();
 
-    // Note: We check if frame == d_stack->back().frame because Cython could
-    // have called our tracing function with profiled Cython calls that we
-    // later discarded in favor of the interpreter's stack when a new tracker
-    // was installed. If so, we need to ignore the Cython frame pops.
-    if (!d_stack || d_stack->empty() || frame != d_stack->back().frame) {
+    if (!d_stack || d_stack->empty()) {
         return;
     }
 
@@ -1067,12 +1063,16 @@ PyTraceFunction(
         return 0;
     }
 
+    if (frame != PyEval_GetFrame()) {
+        return 0;
+    }
+
     switch (what) {
         case PyTrace_CALL: {
             return PythonStackTracker::get().pushPythonFrame(frame);
         }
         case PyTrace_RETURN: {
-            PythonStackTracker::get().popPythonFrame(frame);
+            PythonStackTracker::get().popPythonFrame();
             break;
         }
         default:

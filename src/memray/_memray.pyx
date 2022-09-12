@@ -222,8 +222,6 @@ cdef class AllocationRecord:
                 while python_frame_index < num_python_frames:
                     python_frame = python_stack[python_frame_index]
                     python_frame_index += 1
-                    if python_frame[1].endswith(".pyx"):
-                        break  # Stop if we hit a Cython frame; don't emit it
                     yield python_frame
                     if is_entry_frame[python_frame_index - 1]:
                         break

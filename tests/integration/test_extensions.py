@@ -179,7 +179,7 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     (callee, caller) = stack_trace
     func, filename, line = callee
     assert func == "valloc"
-    assert filename.endswith(".pyx")
+    assert filename.endswith("/_test.py")
 
     func, filename, line = caller
     assert func == "test_extension_that_uses_pygilstate_ensure"
