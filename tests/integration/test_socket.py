@@ -100,6 +100,8 @@ def run_till_snapshot_point(
 
     script = _SCRIPT_TEMPLATE.format(body=program)
 
+    env = os.environ.copy()
+    env.pop("PYTHONMALLOC", None)
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -108,7 +110,8 @@ def run_till_snapshot_point(
             str(free_port),
             allocations_made,
             snapshot_taken,
-        ]
+        ],
+        env=env,
     )
 
     try:
