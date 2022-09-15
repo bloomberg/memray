@@ -184,4 +184,7 @@ class SymbolResolver
     mutable std::unordered_map<ips_cache_pair_t, resolved_frames_t, ips_cache_pair_hash>
             d_resolved_ips_cache;
 };
+
+std::vector<std::string>
+unwindHere();
 }  // namespace memray::native_resolver

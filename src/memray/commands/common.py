@@ -12,10 +12,14 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
+from rich import print as pprint
+
 from memray import AllocationRecord
 from memray import FileReader
 from memray import MemorySnapshot
 from memray._errors import MemrayCommandError
+from memray._memray import SymbolicSupport
+from memray._memray import get_symbolic_support
 from memray.reporters import BaseReporter
 
 
@@ -28,6 +32,32 @@ class ReporterFactory(Protocol):
         native_traces: bool,
     ) -> BaseReporter:
         ...
+
+
+def warn_if_not_enough_symbols() -> None:
+    support = get_symbolic_support()
+    if support == SymbolicSupport.NONE:
+        pprint(
+            ":warning: [bold yellow] No symbol information was found for the "
+            "Python interpreter [/] :warning:\n\n"
+            "Without symbolic information reports showing native traces [b]may not "
+            "accurately reflect stack traces[/]. Please use an interpreter built with "
+            "debug symbols for best results. Check "
+            "https://bloomberg.github.io/memray/native_mode.html for more information "
+            "regarding how memray resolves symbols.\n"
+        )
+    elif support == SymbolicSupport.FUNCTION_NAME_ONLY:
+        pprint(
+            ":warning: [bold yellow] No debug information was found for the "
+            "Python interpreter [/] :warning:\n\n"
+            "Without debug information reports showing native traces [b]may not "
+            "include file names and line numbers[/]. Please use an interpreter built with "
+            "debug symbols for best results. Check "
+            "https://bloomberg.github.io/memray/native_mode.html for more information "
+            "regarding how memray resolves symbols.\n"
+        )
+    else:
+        return
 
 
 class HighWatermarkCommand:
@@ -80,6 +110,9 @@ class HighWatermarkCommand:
     ) -> None:
         try:
             reader = FileReader(os.fspath(result_path), report_progress=True)
+            if reader.metadata.has_native_traces:
+                warn_if_not_enough_symbols()
+
             if show_memory_leaks:
                 snapshot = reader.get_leaked_allocation_records(
                     merge_threads=merge_threads if merge_threads is not None else True
@@ -128,6 +161,7 @@ class HighWatermarkCommand:
         self.output_file = output_file
         if hasattr(args, "split_threads"):
             kwargs["merge_threads"] = not args.split_threads
+
         self.write_report(
             result_path,
             output_file,

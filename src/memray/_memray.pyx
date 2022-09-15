@@ -20,6 +20,7 @@ from posix.time cimport timespec
 from _memray.hooks cimport Allocator
 from _memray.hooks cimport isDeallocator
 from _memray.logging cimport setLogThreshold
+from _memray.native_resolver cimport unwindHere
 from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
 from _memray.record_writer cimport RecordWriter
@@ -863,3 +864,19 @@ cdef class SocketReader:
             alloc = AllocationRecord(elem)
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
+
+cpdef enum SymbolicSupport:
+    NONE = 1
+    FUNCTION_NAME_ONLY = 2
+    TOTAL = 3
+
+def get_symbolic_support():
+    locations = unwindHere()
+    for location in locations:
+        function, file, line = location.split(":")
+        if function != "_PyEval_EvalFrameDefault":
+            continue
+        if not file:
+            return SymbolicSupport.FUNCTION_NAME_ONLY
+        return SymbolicSupport.TOTAL
+    return SymbolicSupport.NONE

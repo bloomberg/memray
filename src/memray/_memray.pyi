@@ -177,3 +177,10 @@ class PymallocDomain(enum.IntEnum):
     PYMALLOC_OBJECT: int
 
 def size_fmt(num: int, suffix: str = "B") -> str: ...
+
+class SymbolicSupport(enum.IntEnum):
+    NONE: int
+    FUNCTION_NAME_ONLY: int
+    TOTAL: int
+
+def get_symbolic_support() -> SymbolicSupport: ...
