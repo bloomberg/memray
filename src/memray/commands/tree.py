@@ -8,6 +8,7 @@ from rich import print as rprint
 from memray import FileReader
 from memray._errors import MemrayCommandError
 from memray._memray import size_fmt
+from memray.commands.common import warn_if_not_enough_symbols
 from memray.reporters.tree import TreeReporter
 
 
@@ -53,7 +54,11 @@ class TreeCommand:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
             raise MemrayCommandError(f"No such file: {args.results}", exit_code=1)
+
         reader = FileReader(os.fspath(args.results), report_progress=True)
+        if reader.metadata.has_native_traces:
+            warn_if_not_enough_symbols()
+
         try:
             if args.temporary_allocation_threshold >= 0:
                 snapshot = iter(

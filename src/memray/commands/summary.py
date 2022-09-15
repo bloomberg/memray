@@ -5,6 +5,7 @@ from textwrap import dedent
 
 from memray import FileReader
 from memray._errors import MemrayCommandError
+from memray.commands.common import warn_if_not_enough_symbols
 from memray.reporters.summary import SummaryReporter
 
 
@@ -61,7 +62,11 @@ class SummaryCommand:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
             raise MemrayCommandError(f"No such file: {args.results}", exit_code=1)
+
         reader = FileReader(os.fspath(args.results), report_progress=True)
+        if reader.metadata.has_native_traces:
+            warn_if_not_enough_symbols()
+
         try:
             if args.temporary_allocation_threshold >= 0:
                 snapshot = iter(
@@ -79,7 +84,6 @@ class SummaryCommand:
                 f"Failed to parse allocation records in {result_path}\nReason: {e}",
                 exit_code=1,
             )
-
         reporter = SummaryReporter.from_snapshot(
             snapshot,
             native=reader.metadata.has_native_traces,

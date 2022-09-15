@@ -463,4 +463,46 @@ SymbolResolver::currentSegmentGeneration() const
     return d_segments.size();
 }
 
+std::vector<std::string>
+unwindHere()
+{
+    struct CallbackData
+    {
+        std::vector<std::string> frames;
+        struct backtrace_state* state;
+    };
+
+    auto err_callback = [](void* data, const char* msg, int errnum) { return; };
+
+    auto callback = [](void* vdata, uintptr_t pc, const char* filename, int lineno, const char* function)
+            -> int {
+        auto result = reinterpret_cast<CallbackData*>(vdata);
+        std::string the_function = function ? function : "";
+        std::string the_filename = filename ? filename : "";
+        if (!function && !filename) {
+            // Fallback callbacks for when we can't get a filename or function name via debug
+            // information. These fallback callbacks query the symbol table instead.
+            auto fallback_callback =
+                    [](void* data, uintptr_t, const char* symbol, uintptr_t, uintptr_t) {
+                        auto result = reinterpret_cast<std::vector<std::string>*>(data);
+                        std::string the_function = symbol ? symbol : "";
+                        result->push_back(the_function + "::");
+                    };
+            auto fallback_err_callback = [](void* data, const char* msg, int errnum) { return; };
+            backtrace_syminfo(result->state, pc, fallback_callback, fallback_err_callback, vdata);
+        } else {
+            result->frames.push_back(the_function + ":" + the_filename + ":" + std::to_string(lineno));
+        }
+        return 0;
+    };
+
+    struct backtrace_state* state = backtrace_create_state("", 1, err_callback, NULL);
+    if (!state) {
+        return {};
+    }
+    CallbackData data = {std::vector<std::string>(), state};
+    ::backtrace_full(state, 0, callback, err_callback, &data);
+    return data.frames;
+}
+
 }  // namespace memray::native_resolver
