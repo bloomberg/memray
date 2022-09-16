@@ -29,6 +29,13 @@
 #include "records.h"
 #include "tracking_api.h"
 
+// The interface for frame eval functions is different for 3.7 and 3.8. Rather
+// than try to handle this difference, just don't use custom frame eval
+// functions on 3.8 or earlier.
+#if PY_VERSION_HEX >= 0x03090000
+#    define MEMRAY_USE_CUSTOM_EVAL_FUNCTION
+#endif
+
 using namespace memray::exception;
 using namespace std::chrono_literals;
 
@@ -518,17 +525,18 @@ PythonStackTracker::recordAllStacks()
     s_tracker_generation++;
 }
 
+#ifdef MEMRAY_USE_CUSTOM_EVAL_FUNCTION
 PyObject*
 create_profile_arg();
 
 // Don't mangle this function name. We special case the reader to ignore it.
 extern "C" {
 static PyObject*
-#if PY_VERSION_HEX >= 0x030b0000
+#    if PY_VERSION_HEX >= 0x030b0000
 PyEvalFrame_Memray(PyThreadState* ts, _PyInterpreterFrame* f, int val)
-#else
+#    else
 PyEvalFrame_Memray(PyThreadState* ts, PyFrameObject* f, int val)
-#endif
+#    endif
 {
     if (!Tracker::isActive()) {
         return _PyEval_EvalFrameDefault(ts, f, val);
@@ -588,6 +596,7 @@ PyEvalFrame_Memray(PyThreadState* ts, PyFrameObject* f, int val)
     return res;
 }
 }
+#endif  // MEMRAY_USE_CUSTOM_EVAL_FUNCTION
 
 void
 PythonStackTracker::installProfileHooks()
@@ -603,8 +612,10 @@ PythonStackTracker::installProfileHooks()
     // they can't start profiling before we capture their stack and miss it.
     compat::setprofileAllThreads(nullptr, nullptr);
 
+#ifdef MEMRAY_USE_CUSTOM_EVAL_FUNCTION
     PyThreadState* tstate = PyThreadState_GET();
     _PyInterpreterState_SetEvalFrameFunc(tstate->interp, PyEvalFrame_Memray);
+#endif
 
     // Find and record the Python stack for all existing threads.
     recordAllStacks();
@@ -618,8 +629,12 @@ PythonStackTracker::removeProfileHooks()
 {
     assert(PyGILState_Check());
     compat::setprofileAllThreads(nullptr, nullptr);
+
+#ifdef MEMRAY_USE_CUSTOM_EVAL_FUNCTION
     PyThreadState* tstate = PyThreadState_GET();
     _PyInterpreterState_SetEvalFrameFunc(tstate->interp, _PyEval_EvalFrameDefault);
+#endif
+
     std::unique_lock<std::mutex> lock(s_mutex);
     s_initial_stack_by_thread.clear();
 }
