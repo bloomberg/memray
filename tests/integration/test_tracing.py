@@ -899,11 +899,16 @@ def test_cython_frame_in_pre_existing_thread_stack_when_restarting_tracking(tmp_
 def test_allocation_after_unsetting_profile_function(tmp_path):
     """After tracking starts, unset the profile function then allocate.
 
-    Make sure that the stack for the allocation is unknown.
+    Make sure that the stack for the allocation is unknown if a custom frame
+    evaluation function is in use, or known otherwise.
     """
     # GIVEN
     allocator = MemoryAllocator()
     output = tmp_path / "test.bin"
+
+    def using_setprofile_for_tracking():
+        # Note: this must be checked in a Python function after tracking starts
+        return bool(sys.getprofile())
 
     def func():
         allocator.valloc(1234)
@@ -914,6 +919,7 @@ def test_allocation_after_unsetting_profile_function(tmp_path):
 
     # WHEN
     with Tracker(output):
+        should_be_empty = using_setprofile_for_tracking()
         func()
 
     # THEN
@@ -935,7 +941,10 @@ def test_allocation_after_unsetting_profile_function(tmp_path):
         "func",
         "test_allocation_after_unsetting_profile_function",
     ]
-    assert alloc2_funcs == []
+    if should_be_empty:
+        assert alloc2_funcs == []
+    else:
+        assert alloc2_funcs == alloc1_funcs
 
 
 def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
@@ -947,6 +956,10 @@ def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
     allocator = MemoryAllocator()
     output = tmp_path / "test.bin"
 
+    def using_setprofile_for_tracking():
+        # Note: this must be checked in a Python function after tracking starts
+        return bool(sys.getprofile())
+
     def func():
         allocator.valloc(1234)
         allocator.free()
@@ -956,6 +969,7 @@ def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
 
     # WHEN
     with Tracker(output):
+        should_be_empty = using_setprofile_for_tracking()
         thread = threading.Thread(target=func)
         thread.start()
         thread.join()
@@ -975,7 +989,10 @@ def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
     alloc2_funcs = [frame[0] for frame in second.stack_trace()]
 
     assert alloc1_funcs[:2] == ["valloc", "func"]
-    assert alloc2_funcs == []
+    if should_be_empty:
+        assert alloc2_funcs == []
+    else:
+        assert alloc2_funcs == alloc1_funcs
 
 
 class TestMmap:

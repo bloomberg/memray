@@ -237,6 +237,8 @@ cdef class AllocationRecord:
 MemorySnapshot = collections.namedtuple("MemorySnapshot", "time rss heap")
 
 cdef class ProfileFunctionGuard:
+    cdef bool _disarmed
+
     def __dealloc__(self):
         """When our profile function gets deregistered, drop our cached stack.
 
@@ -245,7 +247,11 @@ cdef class ProfileFunctionGuard:
         deregistered when the PyThreadState is destroyed, so we can also use
         this to perform some cleanup when a thread dies.
         """
-        forget_python_stack()
+        if not self._disarmed:
+            forget_python_stack()
+
+    def disarm(self):
+        self._disarmed = True
 
 
 cdef class Tracker:

@@ -465,6 +465,73 @@ PythonStackTracker::recordAllStacks()
     s_tracker_generation++;
 }
 
+PyObject*
+create_profile_arg();
+
+// Don't mangle this function name. We special case the reader to ignore it.
+extern "C" {
+static PyObject*
+PyEvalFrame_Memray(PyThreadState* ts, PyFrameObject* f, int val)
+{
+    if (!Tracker::isActive()) {
+        return _PyEval_EvalFrameDefault(ts, f, val);
+    }
+
+    {
+        RecursionGuard guard;
+        PythonStackTracker::get().pushPythonFrame(f);
+    }
+
+    PyObject* saved_profileobj = nullptr;
+
+    if (ts->c_profilefunc == PyTraceTrampoline) {
+        RecursionGuard guard;
+
+        saved_profileobj = create_profile_arg();
+        if (!saved_profileobj) {
+            return nullptr;
+        }
+        ts->c_profilefunc = nullptr;
+        ts->c_profileobj = nullptr;
+    } else if (ts->c_profilefunc == PyTraceFunction) {
+        assert(ts->c_profileobj);
+        saved_profileobj = ts->c_profileobj;
+        ts->c_profilefunc = nullptr;
+        ts->c_profileobj = nullptr;
+    }
+
+    PyObject* res = _PyEval_EvalFrameDefault(ts, f, val);
+
+    // This pop was already recorded if our profile function got reinstalled.
+    if (ts->c_profilefunc != PyTraceFunction) {
+        RecursionGuard guard;
+        PythonStackTracker::get().popPythonFrame();
+    }
+
+    if (saved_profileobj) {
+        RecursionGuard guard;
+
+        if (ts->c_profilefunc == PyTraceFunction) {
+            // We've wound up with two profile guards. Disarm the old one so
+            // that it won't clear our stack, then destroy it.
+            PyObject* tmp = PyObject_CallMethod(saved_profileobj, "disarm", nullptr);
+            if (!tmp) {
+                PyErr_Print();
+            }
+            Py_XDECREF(tmp);
+            Py_DECREF(saved_profileobj);
+        } else {
+            // Throw away any installed profile function, reinstall our old guard.
+            Py_XDECREF(ts->c_profileobj);
+            ts->c_profilefunc = PyTraceFunction;
+            ts->c_profileobj = saved_profileobj;
+        }
+    }
+
+    return res;
+}
+}
+
 void
 PythonStackTracker::installProfileHooks()
 {
@@ -479,6 +546,9 @@ PythonStackTracker::installProfileHooks()
     // they can't start profiling before we capture their stack and miss it.
     compat::setprofileAllThreads(nullptr, nullptr);
 
+    PyThreadState* tstate = PyThreadState_GET();
+    _PyInterpreterState_SetEvalFrameFunc(tstate->interp, PyEvalFrame_Memray);
+
     // Find and record the Python stack for all existing threads.
     recordAllStacks();
 
@@ -491,6 +561,8 @@ PythonStackTracker::removeProfileHooks()
 {
     assert(PyGILState_Check());
     compat::setprofileAllThreads(nullptr, nullptr);
+    PyThreadState* tstate = PyThreadState_GET();
+    _PyInterpreterState_SetEvalFrameFunc(tstate->interp, _PyEval_EvalFrameDefault);
     std::unique_lock<std::mutex> lock(s_mutex);
     s_initial_stack_by_thread.clear();
 }
