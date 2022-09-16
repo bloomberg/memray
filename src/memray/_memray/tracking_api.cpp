@@ -1130,6 +1130,7 @@ install_trace_function()
     }
 
     auto& python_stack_tracker = PythonStackTracker::get();
+    python_stack_tracker.clear();
     for (auto frame_it = stack.rbegin(); frame_it != stack.rend(); ++frame_it) {
         python_stack_tracker.pushPythonFrame(*frame_it);
     }
