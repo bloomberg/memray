@@ -1113,6 +1113,7 @@ install_trace_function()
 
     PyObject* profileobj = create_profile_arg();
     if (!profileobj) {
+        PyErr_Print();
         return;
     }
     PyEval_SetProfile(PyTraceFunction, profileobj);
