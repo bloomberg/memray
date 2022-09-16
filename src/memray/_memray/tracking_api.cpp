@@ -1110,13 +1110,6 @@ install_trace_function()
 {
     assert(PyGILState_Check());
     RecursionGuard guard;
-    // Don't clear the python stack if we have already registered the tracking
-    // function with the current thread. This happens when PyGILState_Ensure is
-    // called and a thread state with our hooks installed already exists.
-    PyThreadState* ts = PyThreadState_Get();
-    if (ts->c_profilefunc == PyTraceFunction) {
-        return;
-    }
 
     PyObject* profileobj = create_profile_arg();
     if (!profileobj) {

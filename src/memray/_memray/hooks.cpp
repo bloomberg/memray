@@ -366,8 +366,11 @@ prctl(int option, ...) noexcept
 PyGILState_STATE
 PyGILState_Ensure() noexcept
 {
+    bool threadstate_already_existed = (PyGILState_GetThisThreadState() != nullptr);
     PyGILState_STATE ret = hooks::PyGILState_Ensure();
-    tracking_api::install_trace_function();
+    if (!threadstate_already_existed) {
+        tracking_api::install_trace_function();
+    }
     return ret;
 }
 
