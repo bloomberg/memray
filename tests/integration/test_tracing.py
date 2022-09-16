@@ -947,6 +947,36 @@ def test_allocation_after_unsetting_profile_function(tmp_path):
         assert alloc2_funcs == alloc1_funcs
 
 
+@pytest.mark.xfail(sys.version_info >= (3, 9), reason="Fails with custom eval function")
+def test_allocation_in_root_after_unsetting_profile_function(tmp_path):
+    """After tracking starts, unset the profile function then allocate.
+
+    Perform the allocation in the root frame where tracking started. Since that
+    frame needs the profile function to work correctly, this should result in
+    an empty stack trace for the allocation.
+    """
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        sys.setprofile(None)
+        allocator.valloc(1234)
+        allocator.free()
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+
+    vallocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(vallocs) == 1
+    assert vallocs[0].stack_trace() == []
+
+
 def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
     """In a thread, unset the profile function then allocate.
 
