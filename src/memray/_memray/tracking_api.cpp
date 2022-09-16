@@ -1,6 +1,10 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#if PY_VERSION_HEX >= 0x030b0000
+#    include <internal/pycore_frame.h>
+#endif
+
 #include <cassert>
 #include <limits.h>
 
@@ -89,7 +93,8 @@ class PythonStackTracker
 
     struct LazilyEmittedFrame
     {
-        PyFrameObject* frame;
+        void* frame;
+        int (*get_line_number_from_frame)(void*);
         RawFrame raw_frame_record;
         FrameState state;
     };
@@ -106,6 +111,9 @@ class PythonStackTracker
     static PythonStackTracker& get();
     void emitPendingPushesAndPops();
     void invalidateMostRecentFrameLineNumber();
+#if PY_VERSION_HEX >= 0x030b0000
+    int pushPythonFrame(_PyInterpreterFrame* frame);
+#endif
     int pushPythonFrame(PyFrameObject* frame);
     void popPythonFrame();
 
@@ -172,9 +180,9 @@ PythonStackTracker::emitPendingPushesAndPops()
     auto it = d_stack->rbegin();
     for (; it != d_stack->rend(); ++it) {
         if (it->state == FrameState::NOT_EMITTED) {
-            it->raw_frame_record.lineno = PyFrame_GetLineNumber(it->frame);
+            it->raw_frame_record.lineno = it->get_line_number_from_frame(it->frame);
         } else if (it->state == FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED) {
-            int lineno = PyFrame_GetLineNumber(it->frame);
+            int lineno = it->get_line_number_from_frame(it->frame);
             if (lineno != it->raw_frame_record.lineno) {
                 // Line number was wrong; emit an artificial pop so we can push
                 // back in with the right line number.
@@ -256,6 +264,43 @@ PythonStackTracker::reloadStackIfTrackerChanged()
     }
 }
 
+#if PY_VERSION_HEX >= 0x030b0000
+static int
+_PyInterpreterFrame_GetLine(_PyInterpreterFrame* frame)
+{
+    int addr = _PyInterpreterFrame_LASTI(frame) * sizeof(_Py_CODEUNIT);
+    return PyCode_Addr2Line(frame->f_code, addr);
+}
+
+int
+PythonStackTracker::pushPythonFrame(_PyInterpreterFrame* frame)
+{
+    installGreenletTraceFunctionIfNeeded();
+
+    PyCodeObject* code = frame->f_code;
+    const char* function = PyUnicode_AsUTF8(code->co_name);
+    if (function == nullptr) {
+        return -1;
+    }
+
+    const char* filename = PyUnicode_AsUTF8(code->co_filename);
+    if (filename == nullptr) {
+        return -1;
+    }
+
+    // Treat every frame as an entry frame. This function is only called from
+    // our custom eval function, and it always makes one call to
+    // `_PyEval_EvalFrameDefault` per frame.
+    bool is_entry_frame = true;
+    pushLazilyEmittedFrame(
+            {frame,
+             (int (*)(void*))_PyInterpreterFrame_GetLine,
+             {function, filename, 0, is_entry_frame},
+             FrameState::NOT_EMITTED});
+    return 0;
+}
+#endif
+
 int
 PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
@@ -275,7 +320,11 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
     // If native tracking is not enabled, treat every frame as an entry frame.
     // It doesn't matter to the reader, and is more efficient.
     bool is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
-    pushLazilyEmittedFrame({frame, {function, filename, 0, is_entry_frame}, FrameState::NOT_EMITTED});
+    pushLazilyEmittedFrame(
+            {frame,
+             (int (*)(void*))PyFrame_GetLineNumber,
+             {function, filename, 0, is_entry_frame},
+             FrameState::NOT_EMITTED});
     return 0;
 }
 
@@ -419,7 +468,11 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
             return {};
         }
 
-        stack.push_back({current_frame, {function, filename, 0}, FrameState::NOT_EMITTED});
+        stack.push_back(
+                {current_frame,
+                 (int (*)(void*))PyFrame_GetLineNumber,
+                 {function, filename, 0},
+                 FrameState::NOT_EMITTED});
         current_frame = compat::frameGetBack(current_frame);
     }
 
@@ -471,7 +524,11 @@ create_profile_arg();
 // Don't mangle this function name. We special case the reader to ignore it.
 extern "C" {
 static PyObject*
+#if PY_VERSION_HEX >= 0x030b0000
+PyEvalFrame_Memray(PyThreadState* ts, _PyInterpreterFrame* f, int val)
+#else
 PyEvalFrame_Memray(PyThreadState* ts, PyFrameObject* f, int val)
+#endif
 {
     if (!Tracker::isActive()) {
         return _PyEval_EvalFrameDefault(ts, f, val);

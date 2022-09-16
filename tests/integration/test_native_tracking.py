@@ -273,9 +273,14 @@ def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir):
 
     funcs = ("ham", "spam", "foo", "bar", "baz")
 
+    def using_setprofile_for_tracking():
+        # Note: this must be checked in a Python function after tracking starts
+        return bool(sys.getprofile())
+
     # WHEN
 
     with Tracker(output, native_traces=True):
+        using_custom_frame_val_func = not using_setprofile_for_tracking()
         ham()
 
     # THEN
@@ -292,7 +297,11 @@ def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir):
     hybrid_stack = tuple(frame[0] for frame in valloc.hybrid_stack_trace())
     pos = {func: hybrid_stack.index(func) for func in funcs}
     assert pos["ham"] > pos["spam"] > pos["foo"] > pos["bar"] > pos["baz"]
-    if sys.version_info >= (3, 11) and sys.implementation.name == "cpython":
+    if (
+        sys.version_info >= (3, 11)
+        and sys.implementation.name == "cpython"
+        and not using_custom_frame_val_func
+    ):
         # Some frames should be non-entry frames, and therefore adjacent to their caller
         assert pos["ham"] == pos["spam"] + 1
         assert pos["spam"] > pos["foo"] + 1  # map() introduces extra frames
