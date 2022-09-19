@@ -1,6 +1,7 @@
 """Utilities / Helpers for writing tests."""
 
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List
 from typing import Optional
@@ -84,3 +85,17 @@ class MockAllocationRecord:
         if self._hybrid_stack is None:
             raise AssertionError("did not expect a call to `hybrid_stack_trace`")
         return self.__get_stack_trace(self._hybrid_stack, max_stacks)
+
+
+@contextmanager
+def run_without_tracer():
+    """Fixture to run a test without custom tracer or profiling."""
+    prev_trace = sys.gettrace()
+    prev_profile = sys.getprofile()
+    sys.settrace(None)
+    sys.setprofile(None)
+    try:
+        yield
+    finally:
+        sys.settrace(prev_trace)
+        sys.setprofile(prev_profile)

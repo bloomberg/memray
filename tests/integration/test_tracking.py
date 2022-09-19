@@ -22,6 +22,7 @@ from memray._test import _cython_allocate_in_two_places
 from memray._test import allocate_cpp_vector
 from memray._test import fill_cpp_vector
 from tests.utils import filter_relevant_allocations
+from tests.utils import run_without_tracer
 
 ALLOCATORS = [
     ("malloc", AllocatorType.MALLOC),
@@ -1372,11 +1373,12 @@ class TestHeader:
         # WHEN
 
         monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
-        start_time = datetime.datetime.now()
-        with Tracker(output):
-            for _ in range(100):
-                allocator.valloc(1024)
-        end_time = datetime.datetime.now()
+        with run_without_tracer():
+            start_time = datetime.datetime.now()
+            with Tracker(output):
+                for _ in range(100):
+                    allocator.valloc(1024)
+            end_time = datetime.datetime.now()
 
         reader = FileReader(output)
         n_records = len(list(reader.get_allocation_records()))
