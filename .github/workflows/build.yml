@@ -69,9 +69,9 @@ jobs:
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
-        python3 -m pip install tox tox-gh-actions
+        python3 -m pip install tox
     - name: Run tox
-      run: tox . -vvv
+      run: tox . -e py310 -vvv
 
   lint_and_docs:
     name: 'Lint and Docs'
