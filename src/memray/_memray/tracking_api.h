@@ -322,6 +322,7 @@ class Tracker
     std::unique_ptr<BackgroundThread> d_background_thread;
 
     // Methods
+    static size_t computeMainTidSkip();
     frame_id_t registerFrame(const RawFrame& frame);
 
     void trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func);

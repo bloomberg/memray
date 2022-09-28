@@ -35,6 +35,8 @@ cdef extern from "record_reader.h" namespace "memray::api":
         optional_frame_id_t getLatestPythonFrameId(const Allocation&) except+
         object Py_GetFrame(optional_frame_id_t frame) except+
         HeaderRecord getHeader()
+        size_t getMainThreadTid()
+        size_t getSkippedFramesOnMainThread()
         object dumpAllRecords() except+
         string getThreadName(long int tid) except+
         Allocation getLatestAllocation()

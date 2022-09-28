@@ -24,6 +24,8 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        TrackerStats stats
        string command_line
        int pid
+       size_t main_tid
+       size_t skipped_frames_on_main_tid
        int python_allocator
 
    cdef cppclass Allocation:

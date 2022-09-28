@@ -54,6 +54,8 @@ class RecordReader
 
     RecordResult nextRecord();
     HeaderRecord getHeader() const noexcept;
+    thread_id_t getMainThreadTid() const noexcept;
+    size_t getSkippedFramesOnMainThread() const noexcept;
     PyObject* dumpAllRecords();
     std::string getThreadName(thread_id_t tid);
     Allocation getLatestAllocation() const noexcept;

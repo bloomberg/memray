@@ -170,12 +170,18 @@ cdef class AllocationRecord:
 
     def stack_trace(self, max_stacks=None):
         assert self._reader.get() != NULL, "Cannot get stack trace without reader."
+        cdef ssize_t to_skip
+        cdef ssize_t to_keep
         if self._stack_trace is None:
             if self.allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
                 raise NotImplementedError("Stack traces for deallocations aren't captured.")
 
             if max_stacks is None:
                 self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4])
+                if self._tuple[0] == self._reader.get().getMainThreadTid():
+                    to_skip = self._reader.get().getSkippedFramesOnMainThread()
+                    to_keep = max(len(self._stack_trace) - to_skip, 0)
+                    del self._stack_trace[to_keep:]
             else:
                 self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4], max_stacks)
         return self._stack_trace
@@ -215,8 +221,12 @@ cdef class AllocationRecord:
             yield from native_stack
             return
 
-        cdef size_t python_frame_index = 0
-        cdef size_t num_python_frames = len(python_stack)
+        cdef ssize_t python_frame_index = 0
+        cdef ssize_t num_python_frames = len(python_stack)
+
+        if self._tuple[0] == self._reader.get().getMainThreadTid():
+            num_python_frames -= self._reader.get().getSkippedFramesOnMainThread()
+
         for native_frame in native_stack:
             if python_frame_index >= num_python_frames:
                 break
