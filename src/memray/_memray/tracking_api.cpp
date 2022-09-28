@@ -477,12 +477,6 @@ PythonStackTracker::recordAllStacks()
         }
     }
 
-    // Throw away all but the most recent frame for this thread.
-    // We ignore every stack frame above `Tracker.__enter__`.
-    PyThreadState* tstate = PyThreadState_Get();
-    assert(!stack_by_thread[tstate].empty());
-    stack_by_thread[tstate].resize(1);
-
     std::unique_lock<std::mutex> lock(s_mutex);
     s_initial_stack_by_thread.swap(stack_by_thread);
 
@@ -564,6 +558,7 @@ Tracker::Tracker(
         pthread_atfork(&prepareFork, &parentFork, &childFork);
     });
 
+    d_writer->setMainTidAndSkippedFrames(thread_id(), computeMainTidSkip());
     if (!d_writer->writeHeader(false)) {
         throw IoError{"Failed to write output header"};
     }
@@ -763,6 +758,26 @@ Tracker::childFork()
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators));
     RecursionGuard::isActive = false;
+}
+
+size_t
+Tracker::computeMainTidSkip()
+{
+    // Determine how many frames from the current stack to elide from our
+    // reported stack traces. This avoids showing the user frames above the one
+    // that called `Tracker.__enter__`.
+    assert(PyGILState_Check());
+
+    PyFrameObject* frame = PyEval_GetFrame();
+
+    size_t num_frames = 0;
+    while (frame) {
+        ++num_frames;
+        frame = compat::frameGetBack(frame);
+    }
+
+    assert(num_frames > 0);
+    return num_frames - 1;
 }
 
 void

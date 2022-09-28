@@ -45,8 +45,17 @@ RecordWriter::RecordWriter(
             d_stats,
             command_line,
             ::getpid(),
+            0,
+            0,
             getPythonAllocator()};
     strncpy(d_header.magic, MAGIC, sizeof(d_header.magic));
+}
+
+void
+RecordWriter::setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid)
+{
+    d_header.main_tid = main_tid;
+    d_header.skipped_frames_on_main_tid = skipped_frames_on_main_tid;
 }
 
 bool
@@ -66,6 +75,7 @@ RecordWriter::writeHeader(bool seek_to_start)
     if (!writeSimpleType(d_header.magic) or !writeSimpleType(d_header.version)
         or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.stats)
         or !writeString(d_header.command_line.c_str()) or !writeSimpleType(d_header.pid)
+        or !writeSimpleType(d_header.main_tid) or !writeSimpleType(d_header.skipped_frames_on_main_tid)
         or !writeSimpleType(d_header.python_allocator))
     {
         return false;

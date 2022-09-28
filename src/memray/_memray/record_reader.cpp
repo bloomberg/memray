@@ -78,18 +78,17 @@ RecordReader::readHeader(HeaderRecord& header)
     header.command_line.reserve(4096);
     if (!d_input->read(reinterpret_cast<char*>(&header.native_traces), sizeof(header.native_traces))
         || !d_input->read(reinterpret_cast<char*>(&header.stats), sizeof(header.stats))
-        || !d_input->getline(header.command_line, '\0'))
-    {
-        throw std::ios_base::failure("Failed to read input file.");
-    }
-
-    if (!d_input->read(reinterpret_cast<char*>(&header.pid), sizeof(header.pid))) {
-        throw std::ios_base::failure("Failed to read tPID from input file.");
-    }
-    if (!d_input->read(
+        || !d_input->getline(header.command_line, '\0')
+        || !d_input->read(reinterpret_cast<char*>(&header.pid), sizeof(header.pid))
+        || !d_input->read(reinterpret_cast<char*>(&header.main_tid), sizeof(header.main_tid))
+        || !d_input->read(
+                reinterpret_cast<char*>(&header.skipped_frames_on_main_tid),
+                sizeof(header.skipped_frames_on_main_tid))
+        || !d_input->read(
                 reinterpret_cast<char*>(&header.python_allocator),
-                sizeof(header.python_allocator))) {
-        throw std::ios_base::failure("Failed to read Python allocator type from input file.");
+                sizeof(header.python_allocator)))
+    {
+        throw std::ios_base::failure("Failed to read input file header.");
     }
 }
 
@@ -657,6 +656,18 @@ RecordReader::getHeader() const noexcept
     return d_header;
 }
 
+thread_id_t
+RecordReader::getMainThreadTid() const noexcept
+{
+    return d_header.main_tid;
+}
+
+size_t
+RecordReader::getSkippedFramesOnMainThread() const noexcept
+{
+    return d_header.skipped_frames_on_main_tid;
+}
+
 std::string
 RecordReader::getThreadName(thread_id_t tid)
 {
@@ -699,7 +710,8 @@ RecordReader::dumpAllRecords()
     }
     printf("HEADER magic=%.*s version=%d native_traces=%s"
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
-           " pid=%d command_line=%s python_allocator=%s\n",
+           " pid=%d main_tid=%lu skipped_frames_on_main_tid=%zd"
+           " command_line=%s python_allocator=%s\n",
            (int)sizeof(d_header.magic),
            d_header.magic,
            d_header.version,
@@ -709,6 +721,8 @@ RecordReader::dumpAllRecords()
            d_header.stats.start_time,
            d_header.stats.end_time,
            d_header.pid,
+           d_header.main_tid,
+           d_header.skipped_frames_on_main_tid,
            d_header.command_line.c_str(),
            python_allocator.c_str());
 

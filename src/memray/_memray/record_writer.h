@@ -20,6 +20,7 @@ class RecordWriter
             std::unique_ptr<memray::io::Sink> sink,
             const std::string& command_line,
             bool native_traces);
+    void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid);
 
     RecordWriter(RecordWriter& other) = delete;
     RecordWriter(RecordWriter&& other) = delete;
