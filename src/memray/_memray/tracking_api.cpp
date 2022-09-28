@@ -375,7 +375,7 @@ PythonStackTracker::installGreenletTraceFunctionIfNeeded()
 }
 
 void
-PythonStackTracker::handleGreenletSwitch(PyObject*, PyObject*)
+PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 {
     RecursionGuard guard;
 
@@ -387,6 +387,25 @@ PythonStackTracker::handleGreenletSwitch(PyObject*, PyObject*)
         d_stack->clear();
         emitPendingPushesAndPops();
     }
+
+    // Save current TID on old greenlet. Print errors but otherwise ignore them.
+    PyObject* tid = PyLong_FromUnsignedLong(t_tid);
+    if (!tid || 0 != PyObject_SetAttrString(from, "_memray_tid", tid)) {
+        PyErr_Print();
+    }
+    Py_XDECREF(tid);
+
+    // Restore TID from new greenlet, or generate a new one. Ignore errors:
+    // maybe we haven't seen this TID before, or maybe someone overwrote our
+    // attribute, but either way we can recover by generating a new one.
+    tid = PyObject_GetAttrString(to, "_memray_tid");
+    if (!tid || !PyLong_CheckExact(tid)) {
+        PyErr_Clear();
+        t_tid = generate_next_tid();
+    } else {
+        t_tid = PyLong_AsUnsignedLong(tid);
+    }
+    Py_XDECREF(tid);
 
     // Re-create our TLS stack from our Python frames, most recent last.
     // Note: `frame` may be null; the new greenlet may not have a Python stack.
