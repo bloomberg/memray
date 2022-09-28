@@ -17,6 +17,7 @@ from posix.time cimport CLOCK_MONOTONIC
 from posix.time cimport clock_gettime
 from posix.time cimport timespec
 
+from _memray.algorithm cimport count
 from _memray.hooks cimport Allocator
 from _memray.hooks cimport isDeallocator
 from _memray.logging cimport setLogThreshold
@@ -204,42 +205,72 @@ cdef class AllocationRecord:
         return "_PyEval_EvalFrameDefault" in symbol
 
     def hybrid_stack_trace(self, max_stacks=None):
+        # This function merges a Python stack and a native stack into
+        # a "hybrid" stack. It substitutes _PyFrame_EvalFrameDefault calls in
+        # the native stack with the corresponding frame in the Python stack.
+        # This sounds easy, but there are several tricky aspects:
+        # 1. For the thread that called Tracker.__enter__, we want to hide
+        #    frames (both Python and C) above the one that made that call.
+        #    For other threads we want to keep all frames.
+        # 2. If _PyFrame_EvalFrameDefault allocates memory before calling our
+        #    profile function, we'll have too few Python frames to pair up
+        #    every _PyFrame_EvalFrameDefault call. This happens in 3.11.
+        # 3. Since Python 3.11, one _PyFrame_EvalFrameDefault call can evaluate
+        #    many Python frames. If a frame's is_entry_frame flag is unset, it
+        #    uses the same _PyFrame_EvalFrameDefault call as its caller.
+        # 4. If the interpreter was stripped, we may not be able to recognize
+        #    every (or even any) _PyFrame_EvalFrameDefault call, so we may
+        #    have extra Python frames left after pairing.
         cdef vector[unsigned char] is_entry_frame
-        cdef list python_stack
-        if max_stacks is None:
-            python_stack = self._reader.get().Py_GetStackFrameAndEntryInfo(
-                self._tuple[4], &is_entry_frame
-            )
-        else:
-            python_stack = self._reader.get().Py_GetStackFrameAndEntryInfo(
-                self._tuple[4], &is_entry_frame, max_stacks
-            )
+        python_stack = self._reader.get().Py_GetStackFrameAndEntryInfo(
+            self._tuple[4], &is_entry_frame
+        )
+        native_stack = self.native_stack_trace()
 
-        native_stack = self.native_stack_trace(max_stacks)
+        cdef ssize_t num_non_entry_frames = count(
+            is_entry_frame.begin(), is_entry_frame.end(), 0
+        )
 
-        if not python_stack:
-            yield from native_stack
-            return
+        # Entry frames replace native frames; non-entry frames are inserted.
+        hybrid_stack = [None] * (len(native_stack) + num_non_entry_frames)
 
-        cdef ssize_t python_frame_index = 0
-        cdef ssize_t num_python_frames = len(python_stack)
+        # Both stacks are from most recent to least, but we must pair things up
+        # least recent to most to handle cases where _PyFrame_EvalFrameDefault
+        # allocated memory before calling the profile function.
+        native_stack.reverse()
+        cdef ssize_t pidx = len(python_stack) - 1
+        cdef ssize_t hidx = len(hybrid_stack) - 1
 
+        cdef ssize_t to_skip = 0
         if self._tuple[0] == self._reader.get().getMainThreadTid():
-            num_python_frames -= self._reader.get().getSkippedFramesOnMainThread()
+            to_skip = self._reader.get().getSkippedFramesOnMainThread()
+        cdef ssize_t first_kept_frame = pidx - to_skip
 
         for native_frame in native_stack:
-            if python_frame_index >= num_python_frames:
-                break
             symbol = native_frame[0]
-            if self._is_eval_frame(symbol):
-                while python_frame_index < num_python_frames:
-                    python_frame = python_stack[python_frame_index]
-                    python_frame_index += 1
-                    yield python_frame
-                    if is_entry_frame[python_frame_index - 1]:
+            if pidx >= 0 and self._is_eval_frame(symbol):
+                while True:
+                    # If we're not keeping all frames and we've reached the
+                    # first one we want to keep, remove frames above it.
+                    if to_skip != 0 and pidx == first_kept_frame:
+                        del hybrid_stack[hidx + 1:]
+
+                    assert hidx >= 0
+                    hybrid_stack[hidx] = python_stack[pidx]
+                    hidx -= 1
+                    pidx -= 1
+
+                    # Stop when we either run out of Python frames or reach the
+                    # entry frame being evaluated by the next eval loop.
+                    if pidx < 0 or is_entry_frame[pidx]:
                         break
             else:
-                yield native_frame
+                assert hidx >= 0
+                hybrid_stack[hidx] = native_frame
+                hidx -= 1
+
+        assert hidx == -1
+        return hybrid_stack[:max_stacks]
 
     def __repr__(self):
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
