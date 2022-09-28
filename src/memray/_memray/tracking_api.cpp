@@ -444,7 +444,10 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
             return {};
         }
 
-        stack.push_back({current_frame, {function, filename, 0}, FrameState::NOT_EMITTED});
+        // If native tracking is not enabled, treat every frame as an entry frame.
+        // It doesn't matter to the reader, and is more efficient.
+        bool entry = !s_native_tracking_enabled || compat::isEntryFrame(current_frame);
+        stack.push_back({current_frame, {function, filename, 0, entry}, FrameState::NOT_EMITTED});
         current_frame = compat::frameGetBack(current_frame);
     }
 
