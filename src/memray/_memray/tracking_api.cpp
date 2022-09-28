@@ -56,9 +56,18 @@ namespace memray::tracking_api {
 MEMRAY_FAST_TLS thread_local bool RecursionGuard::isActive = false;
 
 static inline thread_id_t
+generate_next_tid()
+{
+    static std::atomic<thread_id_t> s_tid_counter = 0;
+    return ++s_tid_counter;
+}
+
+MEMRAY_FAST_TLS thread_local thread_id_t t_tid = generate_next_tid();
+
+static inline thread_id_t
 thread_id()
 {
-    return reinterpret_cast<thread_id_t>(pthread_self());
+    return t_tid;
 }
 
 // Tracker interface
