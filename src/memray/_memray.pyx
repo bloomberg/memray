@@ -212,24 +212,34 @@ cdef class AllocationRecord:
         native_stack = self.native_stack_trace(max_stacks)
 
         if not python_stack:
-            yield from native_stack
-            return
+            return native_stack
 
+        cdef list hybrid_stack = []
         cdef size_t python_frame_index = 0
         cdef size_t num_python_frames = len(python_stack)
         for native_frame in native_stack:
-            if python_frame_index >= num_python_frames:
-                break
             symbol = native_frame[0]
             if self._is_eval_frame(symbol):
                 while python_frame_index < num_python_frames:
                     python_frame = python_stack[python_frame_index]
                     python_frame_index += 1
-                    yield python_frame
+                    hybrid_stack.append(python_frame)
                     if is_entry_frame[python_frame_index - 1]:
                         break
+                if python_frame_index >= num_python_frames:
+                    return hybrid_stack
             else:
-                yield native_frame
+                hybrid_stack.append(native_frame)
+
+        if max_stacks == 1:
+            return hybrid_stack
+
+        print(f"Generating hybrid stack with max_stacks={max_stacks}")
+        __import__("pprint").pprint(python_stack)
+        __import__("pprint").pprint(native_stack)
+        __import__("pprint").pprint(hybrid_stack)
+        __import__("sys").stdout.flush()
+        raise RuntimeError("Should be unreached")
 
     def __repr__(self):
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
