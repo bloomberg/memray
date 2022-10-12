@@ -44,6 +44,18 @@ Memray can help with the following problems:
 <img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/quotes.png" width="100%">
 </p>
 
+# Help us improve Memray!
+
+We are constantly looking for feedback from our awesome community ❤️. If you
+have used Memray to solve a problem, profile an application, find a memory leak
+or anything else, please let us know! We would love to hear about your
+experience and how Memray helped you.
+
+Please, consider writing your story in the [Success
+Stories discussion page](https://github.com/bloomberg/memray/discussions/226).
+
+It really makes a difference!
+
 # Installation
 
 Memray requires Python 3.7+ and can be easily installed using most common Python
