@@ -37,9 +37,11 @@ from _memray.alloc cimport valloc
 from _memray.pthread cimport pthread_create
 from _memray.pthread cimport pthread_join
 from _memray.pthread cimport pthread_t
+from cpython.pylifecycle cimport Py_FinalizeEx
 from libc.errno cimport errno
 from libc.stdint cimport uintptr_t
 from libcpp.vector cimport vector
+from stdlib cimport exit as _exit
 
 from ._destination import Destination
 
@@ -278,3 +280,10 @@ def fill_cpp_vector(size_t size):
         v.push_back(i)
     return v.size()
 
+def exit(bint py_finalize=False):
+    if py_finalize:
+        Py_FinalizeEx()
+        _exit(0)
+    else:
+        with nogil:
+            _exit(0)

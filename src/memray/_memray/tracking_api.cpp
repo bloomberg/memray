@@ -562,10 +562,17 @@ Tracker::~Tracker()
     PythonStackTracker::s_native_tracking_enabled = false;
     d_background_thread->stop();
     d_patcher.restore_symbols();
-    if (d_trace_python_allocators) {
-        unregisterPymallocHooks();
+    if (Py_IsInitialized() && !_Py_IsFinalizing()) {
+        PyGILState_STATE gstate;
+        gstate = PyGILState_Ensure();
+
+        if (d_trace_python_allocators) {
+            unregisterPymallocHooks();
+        }
+        PythonStackTracker::removeProfileHooks();
+
+        PyGILState_Release(gstate);
     }
-    PythonStackTracker::removeProfileHooks();
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
     d_writer.reset();

@@ -2,6 +2,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 
@@ -106,7 +107,7 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "allocating_function"
     assert filename.endswith(__file__)
-    assert line == 81
+    assert line == 82
 
     frees = [
         event
@@ -169,7 +170,7 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "test_extension_that_uses_pygilstate_ensure"
     assert filename.endswith(__file__)
-    assert line == 152
+    assert line == 153
 
     # We should have 2 frames here: this function calling `allocator.valloc`,
     # and `allocator.valloc` calling the C `valloc`.
@@ -184,7 +185,7 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     func, filename, line = caller
     assert func == "test_extension_that_uses_pygilstate_ensure"
     assert filename.endswith(__file__)
-    assert line == 153
+    assert line == 154
 
     frees = [
         event
@@ -240,7 +241,7 @@ def test_native_dlopen(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "test_native_dlopen"
     assert filename.endswith(__file__)
-    assert line == 224
+    assert line == 225
 
     frees = [
         event
@@ -279,3 +280,33 @@ def test_valloc_at_thread_exit(tmpdir, monkeypatch):
 
     vallocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
     assert len(vallocs) == 1
+
+
+@pytest.mark.parametrize("py_finalize", [True, False])
+def test_hard_exit(tmpdir, py_finalize):
+    """Test a program that exits directly under the context manager"""
+
+    # GIVEN
+
+    # Run a program that calls from memray._test.exit under a Tracker context
+    # manager and check that it finishes without error
+
+    output = Path(tmpdir) / "test.bin"
+    code = dedent(
+        f"""\
+    from memray._test import exit
+    from memray import Tracker
+    with Tracker("{output}"):
+        exit(py_finalize={py_finalize})
+    """
+    )
+
+    # WHEN
+    subprocess.run(
+        [sys.executable, "-c", code],
+        check=True,
+        capture_output=True,
+    )
+
+    # THEN
+    # No assertions, just check that the program exits without error
