@@ -8,6 +8,7 @@ from ._test_utils import _cython_allocate_in_two_places
 from ._test_utils import _cython_nested_allocation
 from ._test_utils import allocate_cpp_vector
 from ._test_utils import allocate_without_gil_held
+from ._test_utils import exit
 from ._test_utils import fill_cpp_vector
 from ._test_utils import function_caller
 from ._test_utils import set_thread_name
@@ -60,4 +61,5 @@ __all__ = [
     "function_caller",
     "set_thread_name",
     "fill_cpp_vector",
+    "exit",
 ]
