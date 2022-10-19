@@ -17,6 +17,7 @@ CTestTestfile.cmake
 _deps
 *.cbp
 cmake-build-*/
+.cmake
 
 # Cython specific files
 src/memray/*.cpp
