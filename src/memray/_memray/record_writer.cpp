@@ -18,7 +18,7 @@ getPythonAllocator()
 #else
     const char* name = "";
 #endif
-    std::string allocator_name = name != NULL ? name : "";
+    std::string allocator_name = name != nullptr ? name : "";
     if (allocator_name == "pymalloc") {
         return PythonAllocatorType::PYTHONALLOCATOR_PYMALLOC;
     }

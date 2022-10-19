@@ -199,7 +199,7 @@ MemorySegment::filename() const
 
 ResolvedFrame::ResolvedFrame(
         const MemorySegment::Frame& frame,
-        std::shared_ptr<StringStorage> d_string_storage)
+        const std::shared_ptr<StringStorage>& d_string_storage)
 : d_string_storage(d_string_storage)
 , d_symbol_index(d_string_storage->internString(frame.symbol))
 , d_file_index(d_string_storage->internString(frame.filename))
@@ -496,7 +496,7 @@ unwindHere()
         return 0;
     };
 
-    struct backtrace_state* state = backtrace_create_state("", 1, err_callback, NULL);
+    struct backtrace_state* state = backtrace_create_state("", 1, err_callback, nullptr);
     if (!state) {
         return {};
     }

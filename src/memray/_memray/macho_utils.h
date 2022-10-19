@@ -96,7 +96,7 @@ struct DynamicInfoTable
         return symbol_table && string_table && dynsym_table;
     }
 
-    const char* getSymbol(uintptr_t section_offset, unsigned long index) const
+    [[nodiscard]] const char* getSymbol(uintptr_t section_offset, unsigned long index) const
     {
         auto index_into_symtable = (dynsym_table + section_offset)[index];
         if (index_into_symtable & (INDIRECT_SYMBOL_ABS | INDIRECT_SYMBOL_LOCAL)) {

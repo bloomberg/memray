@@ -6,10 +6,8 @@
 #include <cinttypes>
 #include <cstdio>
 #include <stdexcept>
-#include <string_view>
 #include <unordered_map>
 
-#include "exceptions.h"
 #include "hooks.h"
 #include "logging.h"
 #include "record_reader.h"
@@ -20,7 +18,6 @@ namespace memray::api {
 
 using namespace tracking_api;
 using namespace io;
-using namespace exception;
 
 namespace {  // unnamed
 
@@ -717,7 +714,7 @@ RecordReader::dumpAllRecords()
 
     while (true) {
         if (0 != PyErr_CheckSignals()) {
-            return NULL;
+            return nullptr;
         }
 
         RecordTypeAndFlags record_type_and_flags;

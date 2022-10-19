@@ -1,5 +1,4 @@
 #include <cstring>
-#include <dlfcn.h>
 
 #include "hooks.h"
 #include "linker_shenanigans.h"

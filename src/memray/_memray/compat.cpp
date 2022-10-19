@@ -14,7 +14,7 @@ setprofileAllThreads(Py_tracefunc func, PyObject* arg)
     {
 #if PY_VERSION_HEX >= 0x03090000
         if (_PyEval_SetProfile(tstate, func, arg) < 0) {
-            _PyErr_WriteUnraisableMsg("in PyEval_SetProfileAllThreads", NULL);
+            _PyErr_WriteUnraisableMsg("in PyEval_SetProfileAllThreads", nullptr);
         }
 #else
         // For 3.7 and 3.8, backport _PyEval_SetProfile from 3.9

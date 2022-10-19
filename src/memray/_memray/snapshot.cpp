@@ -13,7 +13,9 @@ LocationKey::operator==(const LocationKey& rhs) const
 
 Interval::Interval(uintptr_t begin, uintptr_t end)
 : begin(begin)
-, end(end){};
+, end(end)
+{
+}
 
 std::optional<Interval>
 Interval::intersection(const Interval& other) const
