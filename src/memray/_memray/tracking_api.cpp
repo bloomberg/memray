@@ -2,7 +2,6 @@
 #include <Python.h>
 
 #include <cassert>
-#include <limits.h>
 
 #ifdef __linux__
 #    include <link.h>
@@ -16,7 +15,6 @@
 #include <mutex>
 #include <type_traits>
 #include <unistd.h>
-#include <utility>
 
 #include "compat.h"
 #include "exceptions.h"
@@ -61,7 +59,7 @@ static inline thread_id_t
 thread_id()
 {
     return reinterpret_cast<thread_id_t>(pthread_self());
-};
+}
 
 // Tracker interface
 
@@ -77,9 +75,7 @@ thread_id()
 class PythonStackTracker
 {
   private:
-    PythonStackTracker()
-    {
-    }
+    PythonStackTracker() = default;
 
     enum class FrameState {
         NOT_EMITTED = 0,
@@ -213,8 +209,9 @@ PythonStackTracker::invalidateMostRecentFrameLineNumber()
     // As bytecode instructions are executed, the line number in the most
     // recent Python frame can change without us finding out. Cache its line
     // number, but verify it the next time this frame might need to be emitted.
-    if (!d_stack->empty()
-        && d_stack->back().state == FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED) {
+    if (d_stack && !d_stack->empty()
+        && d_stack->back().state == FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED)
+    {
         d_stack->back().state = FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED;
     }
 }
@@ -359,9 +356,9 @@ PythonStackTracker::installGreenletTraceFunctionIfNeeded()
     if (!warned) {
         warned = true;
 
-        PyObject* ret = PyObject_CallMethod(_memray, "print_greenlet_warning", nullptr);
-        Py_XDECREF(ret);
-        if (!ret) {
+        PyObject* res = PyObject_CallMethod(_memray, "print_greenlet_warning", nullptr);
+        Py_XDECREF(res);
+        if (!res) {
             PyErr_Print();
             _exit(1);
         }
@@ -452,7 +449,7 @@ PythonStackTracker::recordAllStacks()
     // Throw away all but the most recent frame for this thread.
     // We ignore every stack frame above `Tracker.__enter__`.
     PyThreadState* tstate = PyThreadState_Get();
-    assert(stack_by_thread[tstate].size() >= 1);
+    assert(!stack_by_thread[tstate].empty());
     stack_by_thread[tstate].resize(1);
 
     std::unique_lock<std::mutex> lock(s_mutex);
@@ -702,7 +699,7 @@ Tracker::childFork()
 
     // If we inherited an active tracker, try to clone its record writer.
     std::unique_ptr<RecordWriter> new_writer;
-    if (old_tracker && old_tracker->isActive() && old_tracker->d_follow_fork) {
+    if (old_tracker && memray::tracking_api::Tracker::isActive() && old_tracker->d_follow_fork) {
         new_writer = old_tracker->d_writer->cloneInChildProcess();
     }
 
@@ -847,13 +844,13 @@ Tracker::updateModuleCacheImpl()
     uint32_t c = _dyld_image_count();
     for (uint32_t i = 0; i < c; i++) {
         const struct mach_header* header = _dyld_get_image_header(i);
-        uintptr_t slide = static_cast<uintptr_t>(_dyld_get_image_vmaddr_slide(i));
+        auto slide = static_cast<uintptr_t>(_dyld_get_image_vmaddr_slide(i));
         const char* image_name = _dyld_get_image_name(i);
         std::vector<Segment> segments;
 
-        const segment_command_t* current_segment_cmd = nullptr;
+        const segment_command_t* current_segment_cmd;
         uintptr_t current_cmd = reinterpret_cast<uintptr_t>(header) + sizeof(mach_header_t);
-        for (uint i = 0; i < header->ncmds; i++, current_cmd += current_segment_cmd->cmdsize) {
+        for (uint j = 0; j < header->ncmds; j++, current_cmd += current_segment_cmd->cmdsize) {
             current_segment_cmd = reinterpret_cast<const segment_command_t*>(current_cmd);
             if (current_segment_cmd->cmd == ARCH_LC_SEGMENT) {
                 segments.emplace_back(Segment{current_segment_cmd->vmaddr, current_segment_cmd->vmsize});

@@ -6,8 +6,6 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <netdb.h>
-#include <stdexcept>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -279,6 +277,12 @@ SocketSink::writeAll(const char* data, size_t length)
 bool
 SocketSink::flush()
 {
+    return _flush();
+}
+
+bool
+SocketSink::_flush()
+{
     const char* data = d_buffer.get();
     size_t length = d_bufferNeedle - data;
 
@@ -315,7 +319,7 @@ SocketSink::cloneInChildProcess()
 SocketSink::~SocketSink()
 {
     if (d_socket_open) {
-        flush();
+        _flush();
         ::close(d_socket_fd);
         d_socket_open = false;
     }

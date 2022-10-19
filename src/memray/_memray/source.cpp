@@ -1,13 +1,10 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <arpa/inet.h>
 #include <cerrno>
-#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <netdb.h>
-#include <sstream>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>

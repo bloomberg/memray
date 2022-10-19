@@ -93,7 +93,9 @@ class ResolvedFrame
 {
   public:
     // Constructors
-    ResolvedFrame(const MemorySegment::Frame& frame, std::shared_ptr<StringStorage> string_storage);
+    ResolvedFrame(
+            const MemorySegment::Frame& frame,
+            const std::shared_ptr<StringStorage>& string_storage);
 
     // Methods
     PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;

@@ -107,8 +107,8 @@ namespace memray::intercept {
 void*
 pymalloc_malloc(void* ctx, size_t size) noexcept
 {
-    PyMemAllocatorEx* alloc = (PyMemAllocatorEx*)ctx;
-    void* ptr = nullptr;
+    auto* alloc = (PyMemAllocatorEx*)ctx;
+    void* ptr;
     {
         tracking_api::RecursionGuard guard;
         ptr = alloc->malloc(alloc->ctx, size);
@@ -120,18 +120,15 @@ pymalloc_malloc(void* ctx, size_t size) noexcept
 void*
 pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
 {
-    PyMemAllocatorEx* alloc = (PyMemAllocatorEx*)ctx;
-    void* ret = nullptr;
+    auto* alloc = (PyMemAllocatorEx*)ctx;
+    void* ret;
     {
         tracking_api::RecursionGuard guard;
         ret = alloc->realloc(alloc->ctx, ptr, size);
     }
     if (ret) {
         if (ptr) {
-            tracking_api::Tracker::getTracker()->trackDeallocation(
-                    ptr,
-                    0,
-                    hooks::Allocator::PYMALLOC_FREE);
+            tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::PYMALLOC_FREE);
         }
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::PYMALLOC_REALLOC);
     }
@@ -141,8 +138,8 @@ pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
 void*
 pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept
 {
-    PyMemAllocatorEx* alloc = (PyMemAllocatorEx*)ctx;
-    void* ptr = nullptr;
+    auto* alloc = (PyMemAllocatorEx*)ctx;
+    void* ptr;
     {
         tracking_api::RecursionGuard guard;
         ptr = alloc->calloc(alloc->ctx, nelem, size);
@@ -154,7 +151,7 @@ pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept
 void
 pymalloc_free(void* ctx, void* ptr) noexcept
 {
-    PyMemAllocatorEx* alloc = (PyMemAllocatorEx*)ctx;
+    auto* alloc = (PyMemAllocatorEx*)ctx;
     {
         tracking_api::RecursionGuard guard;
         alloc->free(alloc->ctx, ptr);
@@ -279,7 +276,7 @@ dlopen(const char* filename, int flag) noexcept
     void* ret = hooks::dlopen(filename, flag);
     if (ret) {
         tracking_api::Tracker::invalidate_module_cache();
-        if (filename && 0 != strstr(filename, "/_greenlet.")) {
+        if (filename && nullptr != strstr(filename, "/_greenlet.")) {
             tracking_api::begin_tracking_greenlets();
         }
     }

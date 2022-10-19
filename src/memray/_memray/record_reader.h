@@ -89,13 +89,13 @@ class RecordReader
     DeltaEncodedFields d_last;
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;
-    MemoryRecord d_latest_memory_record;
+    MemoryRecord d_latest_memory_record{};
 
     // Methods
     [[nodiscard]] bool parseFramePush(FramePush* record);
     [[nodiscard]] bool processFramePush(const FramePush& record);
 
-    [[nodiscard]] bool parseFramePop(FramePop* record, unsigned int flags);
+    [[nodiscard]] static bool parseFramePop(FramePop* record, unsigned int flags);
     [[nodiscard]] bool processFramePop(const FramePop& record);
 
     [[nodiscard]] bool parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val, unsigned int flags);
@@ -110,7 +110,7 @@ class RecordReader
     [[nodiscard]] bool parseNativeAllocationRecord(NativeAllocationRecord* record, unsigned int flags);
     [[nodiscard]] bool processNativeAllocationRecord(const NativeAllocationRecord& record);
 
-    [[nodiscard]] bool parseMemoryMapStart();
+    [[nodiscard]] static bool parseMemoryMapStart();
     [[nodiscard]] bool processMemoryMapStart();
 
     [[nodiscard]] bool parseSegmentHeader(std::string* filename, size_t* num_segments, uintptr_t* addr);

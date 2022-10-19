@@ -73,6 +73,7 @@ class SocketSink : public Sink
   private:
     size_t freeSpaceInBuffer();
     void open();
+    bool _flush();
 
     const std::string d_host;
     uint16_t d_port;
