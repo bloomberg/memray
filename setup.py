@@ -114,6 +114,7 @@ test_requires = [
     "greenlet; python_version < '3.11'",
     "pytest",
     "pytest-cov",
+    "ipython",
 ]
 
 benchmark_requires = [

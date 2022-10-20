@@ -1,3 +1,4 @@
+from ._ipython import load_ipython_extension
 from ._memray import AllocationRecord
 from ._memray import AllocatorType
 from ._memray import Destination
@@ -28,4 +29,5 @@ __all__ = [
     "Metadata",
     "__version__",
     "set_log_level",
+    "load_ipython_extension",
 ]
