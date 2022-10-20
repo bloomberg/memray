@@ -1,4 +1,6 @@
 import math
+import json
+import datetime
 from collections import Counter
 from typing import Dict
 from typing import Iterator
@@ -89,7 +91,17 @@ class StatsReporter:
             raise ValueError(f"Invalid input num_largest={num_largest}, should be >=1")
         self.num_largest = num_largest
 
-    def render(self) -> None:
+    def render(self, to_json=False) -> None:
+        histogram_params = dict(
+            num_bins = 10,
+            histogram_scale_factor = 25,
+        )
+        if to_json:
+            self._export_json(histogram_params)
+        else:
+            self._render_to_terminal(histogram_params)
+
+    def _render_to_terminal(self, histogram_params):
         rich.print("📏 [bold]Total allocations:[/]")
         print(f"\t{self._stats.total_num_allocations}")
 
@@ -98,35 +110,58 @@ class StatsReporter:
         print(f"\t{size_fmt(self._stats.total_memory_allocated)}")
 
         print()
-        num_bins = 10
-        histogram_scale_factor = 25
         rich.print("📊 [bold]Histogram of allocation size:[/]")
         histogram = draw_histogram(
             self._stats.allocation_count_by_size,
-            num_bins,
-            hist_scale_factor=histogram_scale_factor,
+            histogram_params['num_bins'],
+            hist_scale_factor=histogram_params['histogram_scale_factor'],
         )
         print(f"\t{histogram}")
 
         print()
         rich.print("📂 [bold]Allocator type distribution:[/]")
-        for entry in self._get_allocator_type_distribution():
-            print(f"\t {entry}")
+        for allocator_name, count in self._get_allocator_type_distribution():
+            print(f"{allocator_name}: {count}")
 
         print()
         rich.print(
             f"🥇 [bold]Top {self.num_largest} largest allocating locations (by size):[/]"
         )
-        for entry in self._get_top_allocations_by_size():
-            print(f"\t- {entry}")
+        for location, size in self._get_top_allocations_by_size():
+            print(f"{self._format_location(location)} -> {size_fmt(size)}")
 
         print()
         rich.print(
             f"🥇 [bold]Top {self.num_largest} largest allocating "
             "locations (by number of allocations):[/]"
         )
-        for entry in self._get_top_allocations_by_count():
-            print(f"\t- {entry}")
+        for location, count in self._get_top_allocations_by_count():
+            print(f"{self._format_location(location)} -> {count}")
+
+    def _export_json(self, histogram_params):
+        alloc_size_hist = get_histogram_databins(self._stats.allocation_count_by_size, bins=histogram_params['num_bins'])
+        data = dict(
+            total_num_allocations = self._stats.total_num_allocations,
+            total_bytes_allocated = self._stats.total_memory_allocated,
+            allocation_size_histogram = alloc_size_hist,
+            allocator_type_distrbution = [
+                e for e in self._get_allocator_type_distribution()
+            ],
+            top_allocations_by_size = [
+                (self._format_location(l), s) for l, s in self._get_top_allocations_by_size()
+            ],
+            top_allocations_by_count = [
+                (self._format_location(l), c) for l, c in self._get_top_allocations_by_count()
+            ],
+            metadata = {name: val for name, val in vars(self._stats.metadata).items()}
+        )
+
+        for name, val in data['metadata'].items():
+            if isinstance(val, datetime.datetime):
+                data['metadata'][name] = str(val)
+
+        with open('test_json.json', 'w') as f:
+            f.write(json.dumps(data, indent=2))
 
     @staticmethod
     def _format_location(loc: Tuple[str, str, int]) -> str:
@@ -137,11 +172,11 @@ class StatsReporter:
 
     def _get_top_allocations_by_size(self) -> Iterator[str]:
         for location, size in self._stats.top_locations_by_size:
-            yield f"{self._format_location(location)} -> {size_fmt(size)}"
+            yield (location, size)
 
     def _get_top_allocations_by_count(self) -> Iterator[str]:
         for location, count in self._stats.top_locations_by_count:
-            yield f"{self._format_location(location)} -> {count}"
+            yield (location, count)
 
     def _get_allocator_type_distribution(self) -> Iterator[str]:
         for allocator_name, count in sorted(
@@ -149,4 +184,4 @@ class StatsReporter:
             key=lambda item: item[1],
             reverse=True,
         ):
-            yield f"{allocator_name}: {count}"
+            yield (allocator_name, count)
