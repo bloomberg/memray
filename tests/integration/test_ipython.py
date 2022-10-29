@@ -19,8 +19,11 @@ def run_in_ipython_shell(tmpdir, cells):
         os.chdir(prev_running_dir)
 
     InteractiveShell.clear_instance()
-    html = shell.display_pub.outputs[-1]["data"]["text/html"]
-    return html
+    try:
+        html = shell.display_pub.outputs[-1]["data"]["text/html"]
+        return html
+    except IndexError:
+        return None
 
 
 @pytest.mark.filterwarnings("ignore")
@@ -42,6 +45,7 @@ class TestIPython:
 
         # THEN
 
+        assert html is not None
         assert "<iframe" in html
         assert "flamegraph.html" in html
 
@@ -65,5 +69,71 @@ class TestIPython:
 
         # THEN
 
+        assert html is not None
         assert "<iframe" in html
         assert "flamegraph.html" in html
+
+    def test_passing_help_argument(self, tmpdir, capsys):
+        # GIVEN
+
+        code = [
+            "%load_ext memray",
+            """
+            %%memray_flamegraph -h
+            """,
+        ]
+
+        # WHEN
+
+        html = run_in_ipython_shell(tmpdir, code)
+
+        # THEN
+
+        assert html is None
+        stdout, stderr = capsys.readouterr()
+        assert "show this help message" in stdout
+        assert "" == stderr
+
+    def test_passing_invalid_argument(self, tmpdir, capsys):
+        # GIVEN
+
+        code = [
+            "%load_ext memray",
+            """
+            %%memray_flamegraph --oopsie
+            """,
+        ]
+
+        # WHEN
+
+        html = run_in_ipython_shell(tmpdir, code)
+
+        # THEN
+
+        assert html is None
+        stdout, stderr = capsys.readouterr()
+        assert "" == stdout
+        assert "usage:" in stderr
+
+    def test_passing_valid_argument(self, tmpdir, capsys):
+        # GIVEN
+
+        code = [
+            "%load_ext memray",
+            """
+            %%memray_flamegraph --leaks
+            x = "a" * 10000
+            """,
+        ]
+
+        # WHEN
+
+        html = run_in_ipython_shell(tmpdir, code)
+
+        # THEN
+
+        assert html is not None
+        stdout, _ = capsys.readouterr()
+        assert "<iframe" in html
+        assert "flamegraph.html" in html
+        assert "Results saved to" in stdout
