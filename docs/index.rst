@@ -41,6 +41,7 @@ Memray can help with the following problems:
    native_mode
    examples/README
    api
+   jupyter_magic
 
 .. toctree::
    :hidden:

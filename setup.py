@@ -94,6 +94,7 @@ install_requires = [
     "rich >= 11.2.0",
 ]
 docs_requires = [
+    "IPython",
     "bump2version",
     "sphinx",
     "furo",

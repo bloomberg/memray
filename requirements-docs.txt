@@ -1,3 +1,4 @@
+IPython
 sphinx
 sphinx-autobuild
 sphinx-argparse
