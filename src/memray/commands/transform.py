@@ -25,9 +25,10 @@ class TransformCommand(HighWatermarkCommand):
         )
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
+        formats = ", ".join(TransformReporter.SUFFIX_MAP)
         parser.add_argument(
             "format",
-            help="Format to use for the report",
+            help=f"Format to use for the report. Available formats: {formats}",
         )
         parser.add_argument(
             "-o",
