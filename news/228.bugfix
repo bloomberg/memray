@@ -1,1 +1,0 @@
-Fix a crash when an extension module terminates the program using non-Python APIs under tracking.

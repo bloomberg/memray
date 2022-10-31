@@ -1,1 +1,0 @@
-A new ``%%memray_flamegraph`` Jupyter cell magic is provided by ``%load_ext memray``, and can be used to memory profile code directly in a Jupyter notebook.
