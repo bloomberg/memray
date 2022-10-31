@@ -1,1 +1,0 @@
-Add ``csv`` as a possible target format for ``memray transform``, producing a report of all of the allocations that made up the process's high water mark of allocated memory. This CSV file can then be loaded and analyzed using libraries like ``pandas``.
