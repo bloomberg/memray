@@ -1,0 +1,1 @@
+Fix a bug that caused incorrect ``--native`` mode stacks on Python 3.11 for allocations performed directly by the interpreter's eval loop.

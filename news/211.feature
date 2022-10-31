@@ -1,0 +1,1 @@
+Print a warning when we detect that the Python interpreter was built without debug information or without symbols, letting the user know in advance that these conditions may result in incorrect stack traces or missing filenames and line numbers.

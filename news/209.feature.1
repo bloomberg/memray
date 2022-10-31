@@ -1,0 +1,1 @@
+Use a monotonic counter to generate thread IDs, rather than using the pthread ID. Those pthread IDs can be reused, making it difficult to tell what thread performed an allocation.
