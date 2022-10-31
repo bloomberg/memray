@@ -1,0 +1,1 @@
+When the ``greenlet`` module is in use, also assign a distinct thread ID to each greenlet. Greenlets aren't threads, but they are distinct threads of execution within a single process, with distinct stacks, so assigning different thread IDs to each makes it easier to interpret reports where ``greenlet`` was used.
