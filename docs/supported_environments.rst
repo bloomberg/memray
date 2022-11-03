@@ -70,12 +70,7 @@ Known issues and limitations
 * We have experimental support for the ``greenlet`` library, which may lead to
   incorrect stacks being reported if :doc:`the Memray API <api>` is used to
   start tracking in one thread while another thread is already making use of
-  the Greenlet library. Additionally, if Greenlet is used to switch away from
-  the thread that started tracking and later switch back to it, the allocations
-  before switching away will be reported as having a different stack than the
-  ones after switching back, because we hide stack frames above where tracking
-  started by default, but won't be able to hide those when we reload the stack
-  after a Greenlet switch.
+  the Greenlet library.
 
 .. _cibuildwheel: https://github.com/pypa/cibuildwheel
 .. _non-emulated aarch64 support: https://cibuildwheel.readthedocs.io/en/stable/faq/#emulation

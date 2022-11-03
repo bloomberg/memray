@@ -1,7 +1,10 @@
 import functools
+import os
 import shutil
 import subprocess
 import sys
+import textwrap
+import threading
 from pathlib import Path
 
 import pytest
@@ -311,6 +314,75 @@ def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir):
     assert [frame[0] for frame in valloc.stack_trace()].count("valloc") == 1
 
 
+def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+
+    extension_name = "native_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_NATIVE_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    # WHEN
+    program = textwrap.dedent(
+        """
+        import functools
+        import sys
+
+        import memray
+        import native_ext
+
+
+        def foo():
+            native_ext.run_recursive(1, bar)
+
+
+        def bar(_):
+            pass
+
+
+        with memray.Tracker(sys.argv[1], native_traces=True):
+            functools.partial(foo)()
+        """
+    )
+    env = os.environ.copy()
+    env["PYTHONMALLOC"] = "malloc"
+    env["PYTHONPATH"] = str(extension_path)
+
+    # WHEN
+    subprocess.run(
+        [sys.executable, "-c", program, str(output)],
+        check=True,
+        env=env,
+    )
+
+    # THEN
+    records = list(FileReader(output).get_allocation_records())
+    found_an_interesting_stack = False
+    for record in records:
+        try:
+            stack = [frame[0] for frame in record.hybrid_stack_trace()]
+        except NotImplementedError:
+            continue  # Must be a free; we don't have its stack.
+
+        print(stack)
+
+        # This function never allocates anything, so we should never see it.
+        assert "bar" not in stack
+
+        if "run_recursive" in stack:
+            found_an_interesting_stack = True
+            # foo calls run_recursive, not the other way around.
+            assert stack.index("foo") > stack.index("run_recursive")
+
+    assert found_an_interesting_stack
+
+
 def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
@@ -403,6 +475,34 @@ def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):
     assert len(valloc.stack_trace()) == 0
     expected_symbols = ["baz", "bar", "foo"]
     assert expected_symbols == [stack[0] for stack in valloc.hybrid_stack_trace()][:3]
+
+
+def test_hybrid_stack_of_python_thread_starts_with_native_frames(tmp_path):
+    """Ensure there are native frames above a thread's first Python frame."""
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    def func():
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    with Tracker(output, native_traces=True):
+        thread = threading.Thread(target=func)
+        thread.start()
+        thread.join()
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+
+    vallocs = [
+        event
+        for event in allocations
+        if event.size == 1234 and event.allocator == AllocatorType.VALLOC
+    ]
+    (valloc,) = vallocs
+    assert not valloc.hybrid_stack_trace()[-1][1].endswith(".py")
 
 
 @pytest.mark.parametrize("native_traces", [True, False])

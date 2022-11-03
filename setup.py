@@ -94,6 +94,7 @@ install_requires = [
     "rich >= 11.2.0",
 ]
 docs_requires = [
+    "IPython",
     "bump2version",
     "sphinx",
     "furo",
@@ -114,6 +115,7 @@ test_requires = [
     "greenlet; python_version < '3.11'",
     "pytest",
     "pytest-cov",
+    "ipython",
 ]
 
 benchmark_requires = [

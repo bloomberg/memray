@@ -196,3 +196,8 @@ def test_importing_greenlet_after_tracking_starts(tmpdir):
 
     assert stack(vallocs[6]) == ["valloc", "test", "<module>"]
     assert vallocs[6].size == 70 * 1024
+
+    # 0 and 2 are fruit, 1 and 3 and 4 and 5 are animal, 6 is main.
+    assert vallocs[0].tid != vallocs[1].tid != vallocs[6].tid
+    assert vallocs[0].tid == vallocs[2].tid
+    assert vallocs[1].tid == vallocs[3].tid == vallocs[4].tid == vallocs[5].tid

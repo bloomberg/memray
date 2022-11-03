@@ -56,9 +56,18 @@ namespace memray::tracking_api {
 MEMRAY_FAST_TLS thread_local bool RecursionGuard::isActive = false;
 
 static inline thread_id_t
+generate_next_tid()
+{
+    static std::atomic<thread_id_t> s_tid_counter = 0;
+    return ++s_tid_counter;
+}
+
+MEMRAY_FAST_TLS thread_local thread_id_t t_tid = generate_next_tid();
+
+static inline thread_id_t
 thread_id()
 {
-    return reinterpret_cast<thread_id_t>(pthread_self());
+    return t_tid;
 }
 
 // Tracker interface
@@ -366,7 +375,7 @@ PythonStackTracker::installGreenletTraceFunctionIfNeeded()
 }
 
 void
-PythonStackTracker::handleGreenletSwitch(PyObject*, PyObject*)
+PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 {
     RecursionGuard guard;
 
@@ -378,6 +387,25 @@ PythonStackTracker::handleGreenletSwitch(PyObject*, PyObject*)
         d_stack->clear();
         emitPendingPushesAndPops();
     }
+
+    // Save current TID on old greenlet. Print errors but otherwise ignore them.
+    PyObject* tid = PyLong_FromUnsignedLong(t_tid);
+    if (!tid || 0 != PyObject_SetAttrString(from, "_memray_tid", tid)) {
+        PyErr_Print();
+    }
+    Py_XDECREF(tid);
+
+    // Restore TID from new greenlet, or generate a new one. Ignore errors:
+    // maybe we haven't seen this TID before, or maybe someone overwrote our
+    // attribute, but either way we can recover by generating a new one.
+    tid = PyObject_GetAttrString(to, "_memray_tid");
+    if (!tid || !PyLong_CheckExact(tid)) {
+        PyErr_Clear();
+        t_tid = generate_next_tid();
+    } else {
+        t_tid = PyLong_AsUnsignedLong(tid);
+    }
+    Py_XDECREF(tid);
 
     // Re-create our TLS stack from our Python frames, most recent last.
     // Note: `frame` may be null; the new greenlet may not have a Python stack.
@@ -416,7 +444,10 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
             return {};
         }
 
-        stack.push_back({current_frame, {function, filename, 0}, FrameState::NOT_EMITTED});
+        // If native tracking is not enabled, treat every frame as an entry frame.
+        // It doesn't matter to the reader, and is more efficient.
+        bool entry = !s_native_tracking_enabled || compat::isEntryFrame(current_frame);
+        stack.push_back({current_frame, {function, filename, 0, entry}, FrameState::NOT_EMITTED});
         current_frame = compat::frameGetBack(current_frame);
     }
 
@@ -445,12 +476,6 @@ PythonStackTracker::recordAllStacks()
             throw std::runtime_error("Failed to capture a thread's Python stack");
         }
     }
-
-    // Throw away all but the most recent frame for this thread.
-    // We ignore every stack frame above `Tracker.__enter__`.
-    PyThreadState* tstate = PyThreadState_Get();
-    assert(!stack_by_thread[tstate].empty());
-    stack_by_thread[tstate].resize(1);
 
     std::unique_lock<std::mutex> lock(s_mutex);
     s_initial_stack_by_thread.swap(stack_by_thread);
@@ -533,6 +558,7 @@ Tracker::Tracker(
         pthread_atfork(&prepareFork, &parentFork, &childFork);
     });
 
+    d_writer->setMainTidAndSkippedFrames(thread_id(), computeMainTidSkip());
     if (!d_writer->writeHeader(false)) {
         throw IoError{"Failed to write output header"};
     }
@@ -732,6 +758,26 @@ Tracker::childFork()
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators));
     RecursionGuard::isActive = false;
+}
+
+size_t
+Tracker::computeMainTidSkip()
+{
+    // Determine how many frames from the current stack to elide from our
+    // reported stack traces. This avoids showing the user frames above the one
+    // that called `Tracker.__enter__`.
+    assert(PyGILState_Check());
+
+    PyFrameObject* frame = PyEval_GetFrame();
+
+    size_t num_frames = 0;
+    while (frame) {
+        ++num_frames;
+        frame = compat::frameGetBack(frame);
+    }
+
+    assert(num_frames > 0);
+    return num_frames - 1;
 }
 
 void

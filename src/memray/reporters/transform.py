@@ -1,3 +1,4 @@
+import csv
 import json
 from typing import Any
 from typing import Dict
@@ -8,6 +9,7 @@ from typing import TextIO
 from typing import Tuple
 
 from memray import AllocationRecord
+from memray import AllocatorType
 from memray import MemorySnapshot
 from memray import Metadata
 
@@ -17,6 +19,7 @@ Location = Tuple[str, str]
 class TransformReporter:
     SUFFIX_MAP = {
         "gprof2dot": ".json",
+        "csv": ".csv",
     }
 
     def __init__(
@@ -78,3 +81,37 @@ class TransformReporter:
     ) -> None:
         renderer = getattr(self, f"render_as_{self.format}")
         renderer(outfile, metadata=metadata, show_memory_leaks=show_memory_leaks)
+
+    def render_as_csv(
+        self,
+        outfile: TextIO,
+        **kwargs: Any,
+    ) -> None:
+
+        writer = csv.writer(outfile)
+        writer.writerow(
+            [
+                "allocator",
+                "num_allocations",
+                "size",
+                "tid",
+                "thread_name",
+                "stack_trace",
+            ]
+        )
+        for record in self.allocations:
+            stack_trace = (
+                tuple(record.hybrid_stack_trace())
+                if self.native_traces
+                else record.stack_trace()
+            )
+            writer.writerow(
+                [
+                    AllocatorType(record.allocator).name,
+                    record.n_allocations,
+                    record.size,
+                    record.tid,
+                    record.thread_name,
+                    "|".join(f"{func};{mod};{line}" for func, mod, line in stack_trace),
+                ]
+            )
