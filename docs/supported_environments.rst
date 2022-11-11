@@ -18,7 +18,7 @@ Supported operating systems
 
 You will have the best Memray experience on Linux.
 
-We have experimental support for macOS 11 or newer. We cannot support older
+We also support macOS 11 or newer. We cannot support older
 macOS versions, as they don't provide a C++17 compatible runtime. Although all
 features work on macOS, the way that macOS applications and Python libraries
 are typically distributed often results in subpar native stacks on Mac. See
