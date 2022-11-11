@@ -8,6 +8,15 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.4.1 (2022-11-11)
+-------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a crash that can happen when two different threads try to register frames at the same time without the GIL held. (#251)
+
+
 memray 1.4.0 (2022-10-31)
 -------------------------
 
