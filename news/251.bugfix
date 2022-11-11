@@ -1,0 +1,1 @@
+Fix a crash that can happen when two different threads try to register frames at the same time without the GIL held.
