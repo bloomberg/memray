@@ -228,6 +228,7 @@ MEMRAY_EXTENSION = Extension(
         "src/memray/_memray/snapshot.cpp",
         "src/memray/_memray/socket_reader_thread.cpp",
         "src/memray/_memray/native_resolver.cpp",
+        "src/memray/_memray/cpython_shenanigans.cpp",
     ],
     libraries=[
         "lz4",

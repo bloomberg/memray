@@ -29,6 +29,7 @@ add_library(
   snapshot.cpp
   socket_reader_thread.cpp
   source.cpp
+  cpython_shenanigans.cpp
   tracking_api.cpp)
 
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")

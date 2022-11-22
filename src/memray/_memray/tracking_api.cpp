@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include "compat.h"
+#include "cpython_shenanigans.h"
 #include "exceptions.h"
 #include "hooks.h"
 #include "record_writer.h"
@@ -116,6 +117,7 @@ class PythonStackTracker
 
     void installGreenletTraceFunctionIfNeeded();
     void handleGreenletSwitch(PyObject* from, PyObject* to);
+    bool isLineArrayInitialized();
 
   private:
     // Fetch the thread-local stack tracker without checking if its stack needs to be reloaded.
@@ -160,6 +162,19 @@ PythonStackTracker::getUnsafe()
     static_assert(std::is_trivially_destructible<PythonStackTracker>::value);
     MEMRAY_FAST_TLS thread_local PythonStackTracker t_python_stack_tracker;
     return t_python_stack_tracker;
+}
+
+bool
+PythonStackTracker::isLineArrayInitialized()
+{
+    if (!PyGILState_Check()) {
+        return true;
+    }
+    PyFrameObject* frame = PyEval_GetFrame();
+    if (!frame) {
+        return true;
+    }
+    return compat::isLineArrayInitialized(compat::frameGetCode(frame));
 }
 
 void
@@ -787,6 +802,10 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
         return;
     }
     RecursionGuard guard;
+
+    if (!PythonStackTracker::get().isLineArrayInitialized()) {
+        return;
+    }
 
     PythonStackTracker::get().emitPendingPushesAndPops();
 
