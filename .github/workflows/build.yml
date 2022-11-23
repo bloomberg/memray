@@ -49,23 +49,28 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm
+        sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm gdb lldb
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
         python3 -m pip install tox tox-gh-actions
+    - name: Disable ptrace security restrictions
+      run: |
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
     - name: Run tox
       run: tox . -e py310-cov -vvv
 
   test_in_alpine:
     name: 'Test in Alpine Linux'
     runs-on: ubuntu-latest
-    container: python:3.10-alpine
+    container:
+      image: python:3.10-alpine
+      options: --cap-add=SYS_PTRACE
     steps:
     - uses: actions/checkout@v3
     - name: Set up dependencies
       run: |
-        apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev
+        apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev gdb lldb
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
