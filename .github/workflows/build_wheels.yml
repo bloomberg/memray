@@ -28,7 +28,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
+      - name: Disable ptrace security restrictions
+        run: |
+          echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.11.2
         env:

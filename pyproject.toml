@@ -59,7 +59,10 @@ manylinux-x86_64-image = "manylinux2010"
 manylinux-i686-image = "manylinux2010"
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y libunwind-devel lz4-devel"
+before-all = [
+  "yum install -y libunwind-devel lz4-devel gdb",
+  "yum install -y lldb || echo 'lldb is not available'",
+]
 
 [tool.cibuildwheel.macos]
 before-all = [
@@ -67,4 +70,8 @@ before-all = [
   "cd lz4",
   "make",
   "make install"
+]
+before-test = [
+  "codesign --remove-signature /Library/Frameworks/Python.framework/Versions/*/bin/python3 || true",
+  "codesign --remove-signature /Library/Frameworks/Python.framework/Versions/*/Resources/Python.app/Contents/MacOS/Python || true",
 ]
