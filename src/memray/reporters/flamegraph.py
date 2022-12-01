@@ -1,21 +1,34 @@
 import html
 import linecache
 import sys
+from itertools import tee
+from itertools import zip_longest
 from typing import Any
 from typing import Dict
 from typing import Iterable
 from typing import Iterator
 from typing import TextIO
+from typing import Tuple
+from typing import TypeVar
 
 from memray import AllocationRecord
 from memray import MemorySnapshot
 from memray import Metadata
 from memray.reporters.frame_tools import StackFrame
 from memray.reporters.frame_tools import is_cpython_internal
+from memray.reporters.frame_tools import is_frame_from_import_system
 from memray.reporters.frame_tools import is_frame_interesting
 from memray.reporters.templates import render_report
 
 MAX_STACKS = int(sys.getrecursionlimit() // 2.5)
+
+T = TypeVar("T")
+
+
+def pairwise_longest(iterable: Iterator[T]) -> Iterable[Tuple[T, T]]:
+    a, b = tee(iterable)
+    next(b, None)
+    return zip_longest(a, b)
 
 
 def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
@@ -27,7 +40,9 @@ def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
     return node
 
 
-def create_framegraph_node_from_stack_frame(stack_frame: StackFrame) -> Dict[str, Any]:
+def create_framegraph_node_from_stack_frame(
+    stack_frame: StackFrame, **kwargs: Any
+) -> Dict[str, Any]:
     function, filename, lineno = stack_frame
 
     name = (
@@ -44,6 +59,7 @@ def create_framegraph_node_from_stack_frame(stack_frame: StackFrame) -> Dict[str
         "n_allocations": 0,
         "thread_id": 0,
         "interesting": is_frame_interesting(stack_frame),
+        **kwargs,
     }
 
 
@@ -74,6 +90,7 @@ class FlameGraphReporter:
             "n_allocations": 0,
             "thread_id": "0x0",
             "interesting": True,
+            "import_system": False,
         }
 
         unique_threads = set()
@@ -91,12 +108,25 @@ class FlameGraphReporter:
                 else record.stack_trace()
             )
             num_skipped_frames = 0
-            for index, stack_frame in enumerate(reversed(stack)):
+            is_import_system = False
+            for index, (stack_frame, next_frame) in enumerate(
+                pairwise_longest(reversed(stack))
+            ):
                 if is_cpython_internal(stack_frame):
                     num_skipped_frames += 1
                     continue
+                # Check if the next frame is from the import system. We check
+                # the next frame because the "import ..." code will be the parent
+                # of the first frame to enter the import system and we want to hide
+                # that one as well.
+                if is_frame_from_import_system(stack_frame) or (
+                    next_frame and is_frame_from_import_system(next_frame)
+                ):
+                    is_import_system = True
                 if (stack_frame, thread_id) not in current_frame["children"]:
-                    node = create_framegraph_node_from_stack_frame(stack_frame)
+                    node = create_framegraph_node_from_stack_frame(
+                        stack_frame, import_system=is_import_system
+                    )
                     current_frame["children"][(stack_frame, thread_id)] = node
 
                 current_frame = current_frame["children"][(stack_frame, thread_id)]

@@ -16,6 +16,11 @@
           title="Hide CPython eval frames and other, memray-related frames" checked>
     <label class="form-check-label text-white bg-dark">Hide Non-Relevant Frames</label>
 </div>
+<div class="form-check mr-3">
+  <input class="form-check-input" type="checkbox" data-toggle="tooltip" id="hideImportSystem"
+          title="Hide frames related to the Python import system" >
+    <label class="form-check-label text-white bg-dark">Hide Import System Frames</label>
+</div>
 <button id="resetZoomButton" class="btn btn-outline-light mr-3">Reset Zoom</button>
 <button id="invertButton" class="btn btn-outline-light mr-3">Invert</button>
 {% endblock %}
