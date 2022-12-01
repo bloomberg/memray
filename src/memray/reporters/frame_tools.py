@@ -61,3 +61,14 @@ def is_frame_interesting(frame: StackFrame) -> bool:
         return False
 
     return not is_cpython_internal(frame)
+
+
+def is_frame_from_import_system(frame: StackFrame) -> bool:
+    function, file, *_ = frame
+    if "frozen importlib" in file:
+        return True
+    if function in {"import_name", "import_from", "import_all_from"} and file.endswith(
+        "ceval.c"
+    ):
+        return True
+    return False

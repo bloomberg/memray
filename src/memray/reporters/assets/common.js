@@ -159,15 +159,16 @@ export function filterChildThreads(root, threadId) {
 }
 
 /**
- * Recursively filter out nodes where the `interesting` property is set to `false`.
+ * Recursively filter out nodes where the given filter function return `false`.
  *
  * @param root Root node.
+ * @param func The filter function.
  * @returns {NonNullable<any>} A copy of the input object with the filtering applied.
  */
-export function filterUninteresting(root) {
+function filterFramesByFunc(root, func) {
   function filterChildren(node) {
     let result = [];
-    if (!node.interesting) {
+    if (!func(node)) {
       for (const child of node.children) {
         result.push(...filterChildren(child));
       }
@@ -188,6 +189,18 @@ export function filterUninteresting(root) {
     children.push(...filterChildren(child));
   }
   return _.defaults({ children: children }, root);
+}
+
+export function filterUninteresting(root) {
+  return filterFramesByFunc(root, (node) => {
+    return node.interesting;
+  });
+}
+
+export function filterImportSystem(root) {
+  return filterFramesByFunc(root, (node) => {
+    return !node.import_system;
+  });
 }
 
 /**

@@ -3,6 +3,7 @@ import {
   initMemoryGraph,
   filterChildThreads,
   filterUninteresting,
+  filterImportSystem,
   humanFileSize,
   makeTooltipString,
   sumAllocations,
@@ -11,6 +12,7 @@ import {
 window.resizeMemoryGraph = resizeMemoryGraph;
 
 const FILTER_UNINTERESTING = "filter_uninteresting";
+const FILTER_IMPORT_SYSTEM = "filter_import_system";
 const FILTER_THREAD = "filter_thread";
 let filteredChart = new FilteredChart();
 
@@ -124,6 +126,23 @@ function onFilterUninteresting() {
     filteredChart.unRegisterFilter(FILTER_UNINTERESTING);
   }
   this.hideUninterestingFrames = !this.hideUninterestingFrames;
+  filteredChart.drawChart(data);
+}
+
+function onFilterImportSystem() {
+  if (this.hideImportSystemFrames === undefined) {
+    this.hideImportSystemFrames = true;
+  }
+  if (this.hideImportSystemFrames === true) {
+    this.hideImportSystemFrames = true;
+
+    filteredChart.registerFilter(FILTER_IMPORT_SYSTEM, (data) => {
+      return filterImportSystem(data);
+    });
+  } else {
+    filteredChart.unRegisterFilter(FILTER_IMPORT_SYSTEM);
+  }
+  this.hideImportSystemFrames = !this.hideImportSystemFrames;
   filteredChart.drawChart(data);
 }
 
@@ -258,6 +277,8 @@ function main() {
   document.getElementById("resetThreadFilterItem").onclick = onFilterThread;
   let hideUninterestingCheckBox = document.getElementById("hideUninteresting");
   hideUninterestingCheckBox.onclick = onFilterUninteresting.bind(this);
+  let hideImportSystemCheckBox = document.getElementById("hideImportSystem");
+  hideImportSystemCheckBox.onclick = onFilterImportSystem.bind(this);
   // Enable filtering by default
   onFilterUninteresting.bind(this)();
 

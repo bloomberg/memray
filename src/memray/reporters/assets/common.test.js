@@ -4,6 +4,7 @@ import {
   filterChildThreads,
   sumAllocations,
   filterUninteresting,
+  filterImportSystem,
 } from "./common";
 
 test("handlesSmallValues", () => {
@@ -330,6 +331,182 @@ describe("Filter uninteresting frames", () => {
     };
     let copied_data = JSON.parse(JSON.stringify(data));
     filterUninteresting(copied_data);
+    expect(copied_data).toStrictEqual(data);
+  });
+});
+
+describe("Filter import frames", () => {
+  const data = {
+    import_system: false,
+    n_allocations: 10,
+    value: 100,
+    children: [
+      {
+        import_system: false,
+        n_allocations: 5,
+        value: 50,
+        children: [
+          {
+            import_system: true,
+            n_allocations: 2,
+            value: 20,
+            children: [
+              {
+                import_system: true,
+                n_allocations: 1,
+                value: 10,
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        import_system: false,
+        n_allocations: 1,
+        value: 10,
+        children: [],
+      },
+    ],
+  };
+
+  test("Filter import system", () => {
+    const result = filterImportSystem(data);
+    expect(result).toStrictEqual({
+      import_system: false,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          import_system: false,
+          n_allocations: 5,
+          value: 50,
+          children: [],
+        },
+        {
+          import_system: false,
+          n_allocations: 1,
+          value: 10,
+          children: [],
+        },
+      ],
+    });
+  });
+  test("Filter import system when everything is import system except root", () => {
+    const data = {
+      import_system: false,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          import_system: true,
+          n_allocations: 5,
+          value: 50,
+          children: [
+            {
+              import_system: true,
+              n_allocations: 2,
+              value: 20,
+              children: [
+                {
+                  import_system: true,
+                  n_allocations: 1,
+                  value: 10,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          import_system: true,
+          n_allocations: 1,
+          value: 10,
+          children: [],
+        },
+      ],
+    };
+    const result = filterImportSystem(data);
+    expect(result).toStrictEqual({
+      children: [],
+      import_system: false,
+      n_allocations: 10,
+      value: 100,
+    });
+  });
+
+  test("Filter import system in a deep tree", () => {
+    const result = filterImportSystem({
+      import_system: false,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          import_system: true,
+          n_allocations: 5,
+          value: 50,
+          children: [
+            {
+              import_system: true,
+              n_allocations: 2,
+              value: 20,
+              children: [
+                {
+                  import_system: true,
+                  n_allocations: 1,
+                  value: 10,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          import_system: true,
+          n_allocations: 1,
+          value: 10,
+          children: [],
+        },
+      ],
+    });
+
+    expect(result).toStrictEqual({
+      import_system: false,
+      n_allocations: 10,
+      value: 100,
+      children: [],
+    });
+  });
+  test("Filter import system doesn't modify data", () => {
+    let data = {
+      import_system: false,
+      n_allocations: 10,
+      value: 100,
+      children: [
+        {
+          import_system: false,
+          n_allocations: 5,
+          value: 50,
+          children: [
+            {
+              import_system: true,
+              n_allocations: 2,
+              value: 20,
+              children: [
+                {
+                  import_system: true,
+                  n_allocations: 1,
+                  value: 10,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    let copied_data = JSON.parse(JSON.stringify(data));
+    filterImportSystem(copied_data);
     expect(copied_data).toStrictEqual(data);
   });
 });

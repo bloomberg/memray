@@ -51,6 +51,7 @@ class TestFlameGraphReporter:
             "n_allocations": 1,
             "unique_threads": ["0x1"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -59,6 +60,7 @@ class TestFlameGraphReporter:
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "parent at fun.py:8",
@@ -67,6 +69,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
@@ -75,6 +78,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "children": [],
                                     "interesting": True,
+                                    "import_system": False,
                                     "n_allocations": 1,
                                 }
                             ],
@@ -116,6 +120,7 @@ class TestFlameGraphReporter:
             "n_allocations": 1,
             "unique_threads": ["0x1"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "grandparent at fun.c:4",
@@ -124,6 +129,7 @@ class TestFlameGraphReporter:
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "parent at fun.pyx:8",
@@ -132,6 +138,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
@@ -140,6 +147,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "children": [],
                                     "interesting": True,
+                                    "import_system": False,
                                     "n_allocations": 1,
                                 }
                             ],
@@ -194,6 +202,7 @@ class TestFlameGraphReporter:
             "n_allocations": 2,
             "unique_threads": ["0x1"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -202,6 +211,7 @@ class TestFlameGraphReporter:
                     "value": 2048,
                     "n_allocations": 2,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "parent at fun.py:8",
@@ -210,6 +220,7 @@ class TestFlameGraphReporter:
                             "value": 2048,
                             "n_allocations": 2,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
@@ -218,6 +229,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 },
                                 {
@@ -227,6 +239,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 },
                             ],
@@ -308,6 +321,7 @@ class TestFlameGraphReporter:
             "n_allocations": 2,
             "unique_threads": ["0x1"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "grandparent at fun.py:4",
@@ -316,6 +330,7 @@ class TestFlameGraphReporter:
                     "value": 2048,
                     "n_allocations": 2,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "parent_one at fun.py:8",
@@ -324,6 +339,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "me at fun.py:12",
@@ -332,6 +348,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 }
                             ],
@@ -343,6 +360,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "sibling at fun.py:16",
@@ -351,6 +369,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 }
                             ],
@@ -396,6 +415,7 @@ class TestFlameGraphReporter:
             "n_allocations": 1,
             "unique_threads": ["0x1"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "main at recursive.py:5",
@@ -404,6 +424,7 @@ class TestFlameGraphReporter:
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "two at recursive.py:20",
@@ -412,6 +433,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "one at recursive.py:10",
@@ -420,6 +442,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [
                                         {
                                             "name": "two at recursive.py:20",
@@ -428,6 +451,7 @@ class TestFlameGraphReporter:
                                             "value": 1024,
                                             "n_allocations": 1,
                                             "interesting": True,
+                                            "import_system": False,
                                             "children": [
                                                 {
                                                     "name": "one at recursive.py:10",
@@ -440,6 +464,7 @@ class TestFlameGraphReporter:
                                                     "value": 1024,
                                                     "n_allocations": 1,
                                                     "interesting": True,
+                                                    "import_system": False,
                                                     "children": [
                                                         {
                                                             "name": "two at recursive.py:20",  # noqa
@@ -452,6 +477,7 @@ class TestFlameGraphReporter:
                                                             "value": 1024,
                                                             "n_allocations": 1,
                                                             "interesting": True,
+                                                            "import_system": False,
                                                             "children": [
                                                                 {
                                                                     "name": "one at recursive.py:9",  # noqa
@@ -464,6 +490,7 @@ class TestFlameGraphReporter:
                                                                     "value": 1024,
                                                                     "n_allocations": 1,
                                                                     "interesting": True,
+                                                                    "import_system": False,
                                                                     "children": [],
                                                                 }
                                                             ],
@@ -526,6 +553,7 @@ class TestFlameGraphReporter:
             "n_allocations": 2,
             "unique_threads": ["0x1"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
@@ -534,6 +562,7 @@ class TestFlameGraphReporter:
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
@@ -542,6 +571,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
@@ -550,6 +580,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 }
                             ],
@@ -563,6 +594,7 @@ class TestFlameGraphReporter:
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "bar1 at /src/lel.py:5",
@@ -571,6 +603,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "baz1 at /src/lel.py:8",
@@ -579,6 +612,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 }
                             ],
@@ -633,6 +667,7 @@ class TestFlameGraphReporter:
             "n_allocations": 2,
             "unique_threads": ["0x1", "0x2"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
@@ -641,6 +676,7 @@ class TestFlameGraphReporter:
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
@@ -649,6 +685,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
@@ -657,6 +694,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 }
                             ],
@@ -670,6 +708,7 @@ class TestFlameGraphReporter:
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
@@ -678,6 +717,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
@@ -686,6 +726,7 @@ class TestFlameGraphReporter:
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 }
                             ],
@@ -740,6 +781,7 @@ class TestFlameGraphReporter:
             "n_allocations": 2,
             "unique_threads": ["merged thread"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "foo2 at /src/lel.py:12",
@@ -748,6 +790,7 @@ class TestFlameGraphReporter:
                     "value": 2048,
                     "n_allocations": 2,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "bar2 at /src/lel.py:15",
@@ -756,6 +799,7 @@ class TestFlameGraphReporter:
                             "value": 2048,
                             "n_allocations": 2,
                             "interesting": True,
+                            "import_system": False,
                             "children": [
                                 {
                                     "name": "baz2 at /src/lel.py:18",
@@ -764,6 +808,7 @@ class TestFlameGraphReporter:
                                     "value": 2048,
                                     "n_allocations": 2,
                                     "interesting": True,
+                                    "import_system": False,
                                     "children": [],
                                 }
                             ],
@@ -810,6 +855,7 @@ class TestFlameGraphReporter:
             "n_allocations": 1,
             "unique_threads": ["0x1"],
             "interesting": True,
+            "import_system": False,
             "children": [
                 {
                     "name": "parent at fun.py:8",
@@ -818,6 +864,7 @@ class TestFlameGraphReporter:
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
+                    "import_system": False,
                     "children": [
                         {
                             "name": "me at fun.py:12",
@@ -826,6 +873,7 @@ class TestFlameGraphReporter:
                             "value": 1024,
                             "children": [],
                             "interesting": True,
+                            "import_system": False,
                             "n_allocations": 1,
                         }
                     ],
@@ -869,7 +917,422 @@ class TestFlameGraphReporter:
             "location": ["...", "...", 0],
             "n_allocations": 1,
             "interesting": True,
+            "import_system": False,
             "name": "<STACK TOO DEEP>",
             "thread_id": "0x1",
             "value": 1024,
         }
+
+    def test_single_importlib_frame_is_detected(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "<frozen importlib>", 4),
+                ],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+
+        # THEN
+        expected = {
+            "children": [
+                {
+                    "children": [],
+                    "import_system": True,
+                    "interesting": True,
+                    "location": ["me", "&lt;frozen importlib&gt;", "4"],
+                    "n_allocations": 1,
+                    "name": "me at <frozen importlib>:4",
+                    "thread_id": "0x1",
+                    "value": 1024,
+                }
+            ],
+            "import_system": False,
+            "interesting": True,
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
+            "n_allocations": 1,
+            "name": "<root>",
+            "thread_id": "0x0",
+            "unique_threads": ["0x1"],
+            "value": 1024,
+        }
+        assert expected == reporter.data
+
+    def test_importlib_full_stack_is_detected(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "<frozen importlib>", 4),
+                ],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+
+        # THEN
+        expected = {
+            "children": [
+                {
+                    "children": [
+                        {
+                            "children": [
+                                {
+                                    "children": [],
+                                    "import_system": True,
+                                    "interesting": True,
+                                    "location": ["me", "fun.py", "12"],
+                                    "n_allocations": 1,
+                                    "name": "me at fun.py:12",
+                                    "thread_id": "0x1",
+                                    "value": 1024,
+                                }
+                            ],
+                            "import_system": True,
+                            "interesting": True,
+                            "location": ["parent", "fun.py", "8"],
+                            "n_allocations": 1,
+                            "name": "parent at fun.py:8",
+                            "thread_id": "0x1",
+                            "value": 1024,
+                        }
+                    ],
+                    "import_system": True,
+                    "interesting": True,
+                    "location": ["grandparent", "&lt;frozen importlib&gt;", "4"],
+                    "n_allocations": 1,
+                    "name": "grandparent at <frozen importlib>:4",
+                    "thread_id": "0x1",
+                    "value": 1024,
+                }
+            ],
+            "import_system": False,
+            "interesting": True,
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
+            "n_allocations": 1,
+            "name": "<root>",
+            "thread_id": "0x0",
+            "unique_threads": ["0x1"],
+            "value": 1024,
+        }
+        assert expected == reporter.data
+
+    def test_importlib_partial_stack_is_detected(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "<frozen importlib>", 8),
+                    ("grandparent", "fun.py", 4),
+                    ("grandgrandparent", "fun.py", 4),
+                ],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+
+        # THEN
+        expected = {
+            "children": [
+                {
+                    "children": [
+                        {
+                            "children": [
+                                {
+                                    "children": [
+                                        {
+                                            "children": [],
+                                            "import_system": True,
+                                            "interesting": True,
+                                            "location": ["me", "fun.py", "12"],
+                                            "n_allocations": 1,
+                                            "name": "me at " "fun.py:12",
+                                            "thread_id": "0x1",
+                                            "value": 1024,
+                                        }
+                                    ],
+                                    "import_system": True,
+                                    "interesting": True,
+                                    "location": [
+                                        "parent",
+                                        "&lt;frozen " "importlib&gt;",
+                                        "8",
+                                    ],
+                                    "n_allocations": 1,
+                                    "name": "parent at <frozen " "importlib>:8",
+                                    "thread_id": "0x1",
+                                    "value": 1024,
+                                }
+                            ],
+                            "import_system": True,
+                            "interesting": True,
+                            "location": ["grandparent", "fun.py", "4"],
+                            "n_allocations": 1,
+                            "name": "grandparent at fun.py:4",
+                            "thread_id": "0x1",
+                            "value": 1024,
+                        }
+                    ],
+                    "import_system": False,
+                    "interesting": True,
+                    "location": ["grandgrandparent", "fun.py", "4"],
+                    "n_allocations": 1,
+                    "name": "grandgrandparent at fun.py:4",
+                    "thread_id": "0x1",
+                    "value": 1024,
+                }
+            ],
+            "import_system": False,
+            "interesting": True,
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
+            "n_allocations": 1,
+            "name": "<root>",
+            "thread_id": "0x0",
+            "unique_threads": ["0x1"],
+            "value": 1024,
+        }
+        assert expected == reporter.data
+
+    def test_two_branches_one_is_importlib(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent_one", "<frozen importlib>", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("sibling", "fun.py", 16),
+                    ("parent_two", "fun.py", 10),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+
+        # THEN
+
+        expected = {
+            "children": [
+                {
+                    "children": [
+                        {
+                            "children": [
+                                {
+                                    "children": [],
+                                    "import_system": True,
+                                    "interesting": True,
+                                    "location": ["me", "fun.py", "12"],
+                                    "n_allocations": 1,
+                                    "name": "me at fun.py:12",
+                                    "thread_id": "0x1",
+                                    "value": 1024,
+                                }
+                            ],
+                            "import_system": True,
+                            "interesting": True,
+                            "location": ["parent_one", "&lt;frozen importlib&gt;", "8"],
+                            "n_allocations": 1,
+                            "name": "parent_one at <frozen importlib>:8",
+                            "thread_id": "0x1",
+                            "value": 1024,
+                        },
+                        {
+                            "children": [
+                                {
+                                    "children": [],
+                                    "import_system": False,
+                                    "interesting": True,
+                                    "location": ["sibling", "fun.py", "16"],
+                                    "n_allocations": 1,
+                                    "name": "sibling at fun.py:16",
+                                    "thread_id": "0x1",
+                                    "value": 1024,
+                                }
+                            ],
+                            "import_system": False,
+                            "interesting": True,
+                            "location": ["parent_two", "fun.py", "10"],
+                            "n_allocations": 1,
+                            "name": "parent_two at fun.py:10",
+                            "thread_id": "0x1",
+                            "value": 1024,
+                        },
+                    ],
+                    "import_system": True,
+                    "interesting": True,
+                    "location": ["grandparent", "fun.py", "4"],
+                    "n_allocations": 2,
+                    "name": "grandparent at fun.py:4",
+                    "thread_id": "0x1",
+                    "value": 2048,
+                }
+            ],
+            "import_system": False,
+            "interesting": True,
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
+            "n_allocations": 2,
+            "name": "<root>",
+            "thread_id": "0x0",
+            "unique_threads": ["0x1"],
+            "value": 2048,
+        }
+
+        assert expected == reporter.data
+
+    def test_two_branches_both_are_importlib(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent_one", "fun.py", 8),
+                    ("grandparent", "<frozen importlib>", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("sibling", "fun.py", 16),
+                    ("parent_two", "fun.py", 10),
+                    ("grandparent", "<frozen importlib>", 4),
+                ],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+
+        # THEN
+
+        expected = {
+            "children": [
+                {
+                    "children": [
+                        {
+                            "children": [
+                                {
+                                    "children": [],
+                                    "import_system": True,
+                                    "interesting": True,
+                                    "location": ["me", "fun.py", "12"],
+                                    "n_allocations": 1,
+                                    "name": "me at fun.py:12",
+                                    "thread_id": "0x1",
+                                    "value": 1024,
+                                }
+                            ],
+                            "import_system": True,
+                            "interesting": True,
+                            "location": ["parent_one", "fun.py", "8"],
+                            "n_allocations": 1,
+                            "name": "parent_one at fun.py:8",
+                            "thread_id": "0x1",
+                            "value": 1024,
+                        },
+                        {
+                            "children": [
+                                {
+                                    "children": [],
+                                    "import_system": True,
+                                    "interesting": True,
+                                    "location": ["sibling", "fun.py", "16"],
+                                    "n_allocations": 1,
+                                    "name": "sibling at fun.py:16",
+                                    "thread_id": "0x1",
+                                    "value": 1024,
+                                }
+                            ],
+                            "import_system": True,
+                            "interesting": True,
+                            "location": ["parent_two", "fun.py", "10"],
+                            "n_allocations": 1,
+                            "name": "parent_two at fun.py:10",
+                            "thread_id": "0x1",
+                            "value": 1024,
+                        },
+                    ],
+                    "import_system": True,
+                    "interesting": True,
+                    "location": ["grandparent", "&lt;frozen importlib&gt;", "4"],
+                    "n_allocations": 2,
+                    "name": "grandparent at <frozen importlib>:4",
+                    "thread_id": "0x1",
+                    "value": 2048,
+                }
+            ],
+            "import_system": False,
+            "interesting": True,
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
+            "n_allocations": 2,
+            "name": "<root>",
+            "thread_id": "0x0",
+            "unique_threads": ["0x1"],
+            "value": 2048,
+        }
+
+        assert expected == reporter.data
