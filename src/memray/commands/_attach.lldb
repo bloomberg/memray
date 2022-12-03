@@ -1,7 +1,13 @@
+p "MEMRAY: Attached to process."
+
+p "MEMRAY: Checking if process is Python 3.7+."
+
 p ((void*(*)(size_t))PyMem_Malloc)
 p ((void*(*)(size_t, size_t))PyMem_Calloc)
 p ((void*(*)(void *, size_t))PyMem_Realloc)
 p ((void(*)(void*))PyMem_Free)
+
+p "MEMRAY: Process is Python 3.7+."
 
 # When adding new breakpoints, also update _attach.gdb
 breakpoint set -b malloc -b calloc -b realloc -b free -b PyMem_Malloc -b PyMem_Calloc -b PyMem_Realloc -b PyMem_Free

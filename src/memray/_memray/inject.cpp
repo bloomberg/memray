@@ -234,8 +234,9 @@ memray_spawn_client(int port)
     pthread_t thread;
     const int rc = pthread_create(&thread, nullptr, &memray::thread_body, (void*)(uintptr_t)port);
     if (0 != rc) {
-        return "Failed to create thread!";
+        return "MEMRAY: Failed to create thread!";
     }
 
-    return nullptr;
+    // Note: this string is used as a sentinel in attach.py!
+    return "MEMRAY: thread successfully created.";
 }
