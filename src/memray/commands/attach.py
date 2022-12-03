@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import contextlib
 import os
@@ -54,7 +56,7 @@ memray._last_tracker = tracker
 """
 
 
-def inject(debugger: str, pid: int, port: int, verbose: bool) -> bool:
+def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
     """Executes a file in a running Python process."""
     injecter = pathlib.Path(memray.__file__).parent / "_inject.abi3.so"
     assert injecter.exists()
@@ -109,14 +111,40 @@ def inject(debugger: str, pid: int, port: int, verbose: bool) -> bool:
         print(f"debugger return code: {returncode}")
         print(f"debugger output:\n{output}")
 
-    return (
-        returncode == 0
-        and "error:" not in output
-        and "unrecognized option" not in output
-        and "Operation not permitted" not in output
-        and "attach failed" not in output
-        and "Error in sourced command file" not in output
-    )
+    if returncode == 0 and "MEMRAY: thread successfully created." in output:
+        return None
+
+    # An error occurred. Give the best message we can. This is hacky; we don't
+    # have a good option besides parsing output from the debugger session.
+    if "--help" in output:
+        return (
+            "The debugger failed to parse our command line arguments.\n"
+            "Run with --verbose to see the error message."
+        )
+
+    if "error: attach failed: " in output or "ptrace: " in output:
+        # We failed to attach to the given pid. A few likely reasons...
+        errmsg = "Failed to attach a debugger to the process.\n"
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return errmsg + "The given process ID does not exist."
+        except PermissionError:
+            return errmsg + "The given process ID is owned by a different user."
+
+        return errmsg + "You most likely do not have permission to trace the process."
+
+    if "MEMRAY: Attached to process." not in output:
+        return (
+            f"Failed to execute our {debugger} script.\n"
+            "Run with --verbose to debug the failure."
+        )
+
+    if "MEMRAY: Checking if process is Python 3.7+." in output:
+        if "MEMRAY: Process is Python 3.7+." not in output:
+            return "The process does not seem to be running Python 3.7 or newer."
+
+    return "An unexpected error occurred. Run with --verbose to debug the failure."
 
 
 def _gdb_available(verbose: bool) -> bool:
@@ -297,11 +325,9 @@ class AttachCommand:
             server.listen(1)
             sidechannel_port = server.getsockname()[1]
 
-            if not inject(args.method, args.pid, sidechannel_port, verbose=verbose):
-                raise MemrayCommandError(
-                    "Failed to attach to remote process.",
-                    exit_code=1,
-                )
+            errmsg = inject(args.method, args.pid, sidechannel_port, verbose=verbose)
+            if errmsg:
+                raise MemrayCommandError(errmsg, exit_code=1)
 
             client = server.accept()[0]
 
