@@ -223,7 +223,7 @@ thread_body(void* arg)
 }  // unnamed namespace
 }  // namespace memray
 
-extern "C" __attribute__((visibility("default"))) const char*
+extern "C" __attribute__((visibility("default"))) int
 memray_spawn_client(int port)
 {
     // Running Python code directly in the point of attaching can lead to
@@ -232,11 +232,5 @@ memray_spawn_client(int port)
     // or doing some other operation that is not reentrant. Instead, we spawn
     // a new thread that will try to grab the GIL and run the code there.
     pthread_t thread;
-    const int rc = pthread_create(&thread, nullptr, &memray::thread_body, (void*)(uintptr_t)port);
-    if (0 != rc) {
-        return "MEMRAY: Failed to create thread!";
-    }
-
-    // Note: this string is used as a sentinel in attach.py!
-    return "MEMRAY: thread successfully created.";
+    return pthread_create(&thread, nullptr, &memray::thread_body, (void*)(uintptr_t)port);
 }
