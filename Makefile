@@ -100,6 +100,13 @@ helgrind:  ## Run helgrind, with the correct configuration
 		--error-exitcode=1 \
 		--gen-suppressions=all \
 		$(PYTHON) -m pytest tests -m valgrind -v
+	PYTHONMALLOC=malloc valgrind  \
+		--suppressions=./valgrind.supp \
+		--tool=helgrind \
+		--error-exitcode=1 \
+		--gen-suppressions=all \
+		$(PYTHON) -m memray run -f -o /tmp/helgrind.bin --native -m test test_list -v
+	rm /tmp/helgrind.bin
 
 .PHONY: ccoverage
 ccoverage:  ## Run the test suite, with C++ code coverage
