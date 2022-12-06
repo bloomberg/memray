@@ -111,7 +111,7 @@ def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
         print(f"debugger return code: {returncode}")
         print(f"debugger output:\n{output}")
 
-    if returncode == 0 and "MEMRAY: thread successfully created." in output:
+    if returncode == 0 and ' = "SUCCESS"' in output:
         return None
 
     # An error occurred. Give the best message we can. This is hacky; we don't

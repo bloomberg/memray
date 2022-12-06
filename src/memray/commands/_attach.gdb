@@ -32,6 +32,6 @@ commands 1 2 3 4 5 6 7 8
     call (void*)dlopen($libpath, $rtld_now)
     p (char*)dlerror()
     eval "sharedlibrary %s", $libpath
-    call (const char*)memray_spawn_client($port)
+    p (int)memray_spawn_client($port) ? "FAILURE" : "SUCCESS"
 end
 continue
