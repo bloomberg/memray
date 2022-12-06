@@ -258,6 +258,15 @@
    ...
 }
 
+{
+   <insert_a_suppression_name_here>
+   Helgrind:Race
+   fun:*Tracker*BackgroundThread*start*
+   ...
+   fun:start_thread
+   fun:clone
+}
+
 # Python GIL false positives
 
 {
