@@ -38,6 +38,7 @@ Memray can help with the following problems:
    run
    python_allocators
    temporary_allocations
+   attach
    native_mode
    examples/README
    api

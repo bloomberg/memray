@@ -217,7 +217,11 @@ class AttachCommand:
         parser.add_argument(
             "-o",
             "--output",
-            help="Create a capture file instead of starting a live tracking session",
+            metavar="FILE",
+            help=(
+                "Capture allocations into the given file"
+                " instead of starting a live tracking session"
+            ),
         )
         parser.add_argument(
             "-f",
