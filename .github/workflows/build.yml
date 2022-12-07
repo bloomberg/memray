@@ -58,7 +58,7 @@ jobs:
       run: |
         echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
     - name: Run tox
-      run: tox . -e py310-cov -vvv
+      run: python3 -m tox -e py310-cov -vvv
 
   test_in_alpine:
     name: 'Test in Alpine Linux'
@@ -76,7 +76,7 @@ jobs:
         python3 -m pip install --upgrade pip
         python3 -m pip install tox
     - name: Run tox
-      run: tox . -e py310 -vvv
+      run: python3 -m tox -e py310 -vvv
 
   lint_and_docs:
     name: 'Lint and Docs'
