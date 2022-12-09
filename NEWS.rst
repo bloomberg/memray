@@ -8,7 +8,7 @@ Changelog
 
 .. towncrier release notes start
 
-Memray 1.4.1 (2022-12-09)
+Memray 1.5.0 (2022-12-09)
 -------------------------
 
 Features
