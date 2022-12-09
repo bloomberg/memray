@@ -58,7 +58,10 @@ def create_framegraph_node_from_stack_frame(
         "children": {},
         "n_allocations": 0,
         "thread_id": 0,
-        "interesting": is_frame_interesting(stack_frame),
+        "interesting": (
+            is_frame_interesting(stack_frame)
+            and not is_frame_from_import_system(stack_frame)
+        ),
         **kwargs,
     }
 

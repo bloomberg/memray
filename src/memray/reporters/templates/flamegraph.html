@@ -14,7 +14,7 @@
 <div class="form-check mr-3">
   <input class="form-check-input" type="checkbox" data-toggle="tooltip" id="hideUninteresting"
           title="Hide CPython eval frames and other, memray-related frames" checked>
-    <label class="form-check-label text-white bg-dark">Hide Non-Relevant Frames</label>
+    <label class="form-check-label text-white bg-dark">Hide Irrelevant Frames</label>
 </div>
 <div class="form-check mr-3">
   <input class="form-check-input" type="checkbox" data-toggle="tooltip" id="hideImportSystem"
@@ -53,7 +53,7 @@
   Hovering over the frame you can also see the overall memory allocated in the given frame and its children and the number of times allocations have occurred.
 </p>
 <p>
-  The <b>Show/Hide Non-Relevant Frames</b> button can be used to reveal and hide frames which contain allocations in code which might not be
+  The <b>Show/Hide Irrelevant Frames</b> button can be used to reveal and hide frames which contain allocations in code which might not be
   relevant for the application. These include frames in the CPython eval loop as well as frames introduced by memray during the analysis.
 </p>
 <p>

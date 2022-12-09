@@ -950,7 +950,7 @@ class TestFlameGraphReporter:
                 {
                     "children": [],
                     "import_system": True,
-                    "interesting": True,
+                    "interesting": False,
                     "location": ["me", "&lt;frozen importlib&gt;", "4"],
                     "n_allocations": 1,
                     "name": "me at <frozen importlib>:4",
@@ -1020,7 +1020,7 @@ class TestFlameGraphReporter:
                         }
                     ],
                     "import_system": True,
-                    "interesting": True,
+                    "interesting": False,
                     "location": ["grandparent", "&lt;frozen importlib&gt;", "4"],
                     "n_allocations": 1,
                     "name": "grandparent at <frozen importlib>:4",
@@ -1084,7 +1084,7 @@ class TestFlameGraphReporter:
                                         }
                                     ],
                                     "import_system": True,
-                                    "interesting": True,
+                                    "interesting": False,
                                     "location": [
                                         "parent",
                                         "&lt;frozen " "importlib&gt;",
@@ -1181,7 +1181,7 @@ class TestFlameGraphReporter:
                                 }
                             ],
                             "import_system": True,
-                            "interesting": True,
+                            "interesting": False,
                             "location": ["parent_one", "&lt;frozen importlib&gt;", "8"],
                             "n_allocations": 1,
                             "name": "parent_one at <frozen importlib>:8",
@@ -1317,7 +1317,7 @@ class TestFlameGraphReporter:
                         },
                     ],
                     "import_system": True,
-                    "interesting": True,
+                    "interesting": False,
                     "location": ["grandparent", "&lt;frozen importlib&gt;", "4"],
                     "n_allocations": 2,
                     "name": "grandparent at <frozen importlib>:4",
