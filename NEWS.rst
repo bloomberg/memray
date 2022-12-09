@@ -8,6 +8,18 @@ Changelog
 
 .. towncrier release notes start
 
+Memray 1.4.1 (2022-12-09)
+-------------------------
+
+Features
+~~~~~~~~
+
+- Memray is now fully supported on macOS, and the warnings that macOS support is experimental have been dropped. (#194)
+- Add a checkbox to flamegraphs that allows hiding frames from the import system (#261)
+- ``memray attach`` can be used to :doc:`attach to a running process <attach>` (#266)
+- Consider frames from the import system as "irrelevant" in the generated flamegraphs. (#268)
+
+
 memray 1.4.1 (2022-11-11)
 -------------------------
 
