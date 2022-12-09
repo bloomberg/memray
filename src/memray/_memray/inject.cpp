@@ -26,7 +26,7 @@ connect_client(const uint16_t port)
         return -1;
     }
 
-    int sockfd;
+    int sockfd = -1;
     for (const struct addrinfo* curr_address = all_addresses; curr_address != nullptr;
          curr_address = curr_address->ai_next)
     {
