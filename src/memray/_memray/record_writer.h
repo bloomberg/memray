@@ -20,7 +20,6 @@ class RecordWriter
             std::unique_ptr<memray::io::Sink> sink,
             const std::string& command_line,
             bool native_traces);
-    void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid);
 
     RecordWriter(RecordWriter& other) = delete;
     RecordWriter(RecordWriter&& other) = delete;
@@ -36,21 +35,22 @@ class RecordWriter
     bool inline writeIntegralDelta(T* prev, T new_val);
     template<typename T>
     bool inline writeRecord(const T& item);
+    bool inline writeRecordUnsafe(const MemoryRecord& record);
+    bool inline writeRecordUnsafe(const pyrawframe_map_val_t& item);
+    bool inline writeRecordUnsafe(const UnresolvedNativeFrame& record);
     bool inline writeMappings(const std::vector<ImageSegments>& mappings);
     template<typename T>
     bool inline writeThreadSpecificRecord(thread_id_t tid, const T& item);
+    bool inline writeRecordUnsafe(const ContextSwitch& record);
     bool inline writeRecordUnsafe(const FramePop& record);
     bool inline writeRecordUnsafe(const FramePush& record);
-    bool inline writeRecordUnsafe(const MemoryRecord& record);
-    bool inline writeRecordUnsafe(const ContextSwitch& record);
     bool inline writeRecordUnsafe(const AllocationRecord& record);
     bool inline writeRecordUnsafe(const NativeAllocationRecord& record);
-    bool inline writeRecordUnsafe(const pyrawframe_map_val_t& item);
     bool inline writeRecordUnsafe(const ThreadRecord& record);
-    bool inline writeRecordUnsafe(const UnresolvedNativeFrame& record);
     bool writeHeader(bool seek_to_start);
     bool writeTrailer();
 
+    void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid);
     std::unique_ptr<RecordWriter> cloneInChildProcess();
 
   private:
@@ -117,6 +117,29 @@ bool inline RecordWriter::writeRecord(const T& item)
     return writeRecordUnsafe(item);
 }
 
+bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
+{
+    RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
+    return writeSimpleType(token) && writeVarint(record.rss)
+           && writeVarint(record.ms_since_epoch - d_stats.start_time) && d_sink->flush();
+}
+
+bool inline RecordWriter::writeRecordUnsafe(const pyrawframe_map_val_t& item)
+{
+    d_stats.n_frames += 1;
+    RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.second.is_entry_frame};
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.first)
+           && writeString(item.second.function_name) && writeString(item.second.filename)
+           && writeIntegralDelta(&d_last.python_line_number, item.second.lineno);
+}
+
+bool inline RecordWriter::writeRecordUnsafe(const UnresolvedNativeFrame& record)
+{
+    return writeSimpleType(RecordTypeAndFlags{RecordType::NATIVE_TRACE_INDEX, 0})
+           && writeIntegralDelta(&d_last.instruction_pointer, record.ip)
+           && writeIntegralDelta(&d_last.native_frame_id, record.index);
+}
+
 bool inline RecordWriter::writeMappings(const std::vector<ImageSegments>& mappings)
 {
     RecordTypeAndFlags start_token{RecordType::MEMORY_MAP_START, 0};
@@ -157,6 +180,12 @@ bool inline RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const T& it
     return writeRecordUnsafe(item);
 }
 
+bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)
+{
+    RecordTypeAndFlags token{RecordType::CONTEXT_SWITCH, 0};
+    return writeSimpleType(token) && writeSimpleType(record);
+}
+
 bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)
 {
     size_t count = record.count;
@@ -181,19 +210,6 @@ bool inline RecordWriter::writeRecordUnsafe(const FramePush& record)
     return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, record.frame_id);
 }
 
-bool inline RecordWriter::writeRecordUnsafe(const MemoryRecord& record)
-{
-    RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
-    return writeSimpleType(token) && writeVarint(record.rss)
-           && writeVarint(record.ms_since_epoch - d_stats.start_time) && d_sink->flush();
-}
-
-bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)
-{
-    RecordTypeAndFlags token{RecordType::CONTEXT_SWITCH, 0};
-    return writeSimpleType(token) && writeSimpleType(record);
-}
-
 bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
 {
     d_stats.n_allocations += 1;
@@ -214,26 +230,10 @@ bool inline RecordWriter::writeRecordUnsafe(const NativeAllocationRecord& record
            && writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id);
 }
 
-bool inline RecordWriter::writeRecordUnsafe(const pyrawframe_map_val_t& item)
-{
-    d_stats.n_frames += 1;
-    RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.second.is_entry_frame};
-    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.first)
-           && writeString(item.second.function_name) && writeString(item.second.filename)
-           && writeIntegralDelta(&d_last.python_line_number, item.second.lineno);
-}
-
 bool inline RecordWriter::writeRecordUnsafe(const ThreadRecord& record)
 {
     RecordTypeAndFlags token{RecordType::THREAD_RECORD, 0};
     return writeSimpleType(token) && writeString(record.name);
-}
-
-bool inline RecordWriter::writeRecordUnsafe(const UnresolvedNativeFrame& record)
-{
-    return writeSimpleType(RecordTypeAndFlags{RecordType::NATIVE_TRACE_INDEX, 0})
-           && writeIntegralDelta(&d_last.instruction_pointer, record.ip)
-           && writeIntegralDelta(&d_last.native_frame_id, record.index);
 }
 
 }  // namespace memray::tracking_api
