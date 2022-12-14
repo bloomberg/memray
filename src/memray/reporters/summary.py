@@ -5,17 +5,18 @@ from typing import Optional
 from rich import print as rprint
 
 from memray import AllocationRecord
-from memray.reporters.tui import TUI
+from memray.reporters.tui import TUI, Table as TUITable
 
 
 class SummaryReporter:
-    N_COLUMNS = len(TUI.KEY_TO_COLUMN_NAME)
+
+    N_COLUMNS = len(TUITable.KEY_TO_COLUMN_NAME)
 
     def __init__(self, data: Iterable[AllocationRecord], native: bool):
         super().__init__()
         self.data = data
         self._tui = TUI(pid=None, cmd_line=None, native=native)
-        self._tui.update_snapshot(tuple(data))
+        self._tui.update_snapshot(data)
 
     @classmethod
     def from_snapshot(

@@ -1,0 +1,78 @@
+TUI {
+    layout: grid;
+    grid-size: 1 6;
+    grid-rows: 2fr 7fr 3fr 70% 1fr 1fr;
+    padding: 0 1;
+}
+
+/* Head */
+#head {
+    layout: horizontal;
+}
+
+#head_title {
+    width: 30%;
+}
+
+#head_time_display {
+    width: 70%;
+    text-align: right;
+}
+
+/* Header */
+#header_container {
+    height: 100%;
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 2fr 5fr 3fr;
+    text-align: left;
+}
+
+#header_metadata {
+    height: auto;
+    layout: horizontal;
+    padding: 0 0 0 4;
+}
+
+#header_metadata_col_1 {
+    height: auto;
+    width: auto;
+}
+
+#header_metadata_col_2 {
+    height: auto;
+    width: auto;
+    margin-left: 5;
+}
+
+/* Heap size */
+#heap_size {
+    layout: horizontal;
+}
+
+#current_memory_size {
+    width: 30%;
+}
+
+#max_memory_seen {
+    width: 70%;
+    text-align: right;
+}
+
+#progress_bar {
+    height: 1fr;
+}
+
+/* Override default footer styling */
+Footer {
+    background: transparent;
+}
+
+Footer > .footer--key {
+    background: rgb(30, 144, 255);
+}
+
+/* Override default table styling */
+DataTable {
+    border: solid white;
+}
