@@ -12,6 +12,7 @@
 #include "sink.h"
 
 namespace memray::tracking_api {
+
 class RecordWriter
 {
   public:
@@ -35,20 +36,18 @@ class RecordWriter
     bool inline writeIntegralDelta(T* prev, T new_val);
     template<typename T>
     bool inline writeRecord(const T& item);
+    bool inline writeMappings(const std::vector<ImageSegments>& mappings);
     template<typename T>
     bool inline writeThreadSpecificRecord(thread_id_t tid, const T& item);
     bool inline writeRecordUnsafe(const FramePop& record);
     bool inline writeRecordUnsafe(const FramePush& record);
     bool inline writeRecordUnsafe(const MemoryRecord& record);
     bool inline writeRecordUnsafe(const ContextSwitch& record);
-    bool inline writeRecordUnsafe(const Segment& record);
     bool inline writeRecordUnsafe(const AllocationRecord& record);
     bool inline writeRecordUnsafe(const NativeAllocationRecord& record);
     bool inline writeRecordUnsafe(const pyrawframe_map_val_t& item);
-    bool inline writeRecordUnsafe(const SegmentHeader& item);
     bool inline writeRecordUnsafe(const ThreadRecord& record);
     bool inline writeRecordUnsafe(const UnresolvedNativeFrame& record);
-    bool inline writeRecordUnsafe(const MemoryMapStart&);
     bool writeHeader(bool seek_to_start);
     bool writeTrailer();
 
@@ -118,6 +117,34 @@ bool inline RecordWriter::writeRecord(const T& item)
     return writeRecordUnsafe(item);
 }
 
+bool inline RecordWriter::writeMappings(const std::vector<ImageSegments>& mappings)
+{
+    RecordTypeAndFlags start_token{RecordType::MEMORY_MAP_START, 0};
+    if (!writeSimpleType(start_token)) {
+        return false;
+    }
+
+    for (const auto& image : mappings) {
+        RecordTypeAndFlags segment_header_token{RecordType::SEGMENT_HEADER, 0};
+        if (!writeSimpleType(segment_header_token) || !writeString(image.filename.c_str())
+            || !writeVarint(image.segments.size()) || !writeSimpleType(image.addr))
+        {
+            return false;
+        }
+
+        RecordTypeAndFlags segment_token{RecordType::SEGMENT, 0};
+        for (const auto& segment : image.segments) {
+            if (!writeSimpleType(segment_token) || !writeSimpleType(segment.vaddr)
+                || !writeVarint(segment.memsz))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 template<typename T>
 bool inline RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const T& item)
 {
@@ -167,12 +194,6 @@ bool inline RecordWriter::writeRecordUnsafe(const ContextSwitch& record)
     return writeSimpleType(token) && writeSimpleType(record);
 }
 
-bool inline RecordWriter::writeRecordUnsafe(const Segment& record)
-{
-    RecordTypeAndFlags token{RecordType::SEGMENT, 0};
-    return writeSimpleType(token) && writeSimpleType(record.vaddr) && writeVarint(record.memsz);
-}
-
 bool inline RecordWriter::writeRecordUnsafe(const AllocationRecord& record)
 {
     d_stats.n_allocations += 1;
@@ -202,13 +223,6 @@ bool inline RecordWriter::writeRecordUnsafe(const pyrawframe_map_val_t& item)
            && writeIntegralDelta(&d_last.python_line_number, item.second.lineno);
 }
 
-bool inline RecordWriter::writeRecordUnsafe(const SegmentHeader& item)
-{
-    RecordTypeAndFlags token{RecordType::SEGMENT_HEADER, 0};
-    return writeSimpleType(token) && writeString(item.filename) && writeVarint(item.num_segments)
-           && writeSimpleType(item.addr);
-}
-
 bool inline RecordWriter::writeRecordUnsafe(const ThreadRecord& record)
 {
     RecordTypeAndFlags token{RecordType::THREAD_RECORD, 0};
@@ -220,12 +234,6 @@ bool inline RecordWriter::writeRecordUnsafe(const UnresolvedNativeFrame& record)
     return writeSimpleType(RecordTypeAndFlags{RecordType::NATIVE_TRACE_INDEX, 0})
            && writeIntegralDelta(&d_last.instruction_pointer, record.ip)
            && writeIntegralDelta(&d_last.native_frame_id, record.index);
-}
-
-bool inline RecordWriter::writeRecordUnsafe(const MemoryMapStart&)
-{
-    RecordTypeAndFlags token{RecordType::MEMORY_MAP_START, 0};
-    return writeSimpleType(token);
 }
 
 }  // namespace memray::tracking_api
