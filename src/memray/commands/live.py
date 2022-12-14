@@ -8,14 +8,13 @@ from rich.live import Live
 
 from memray import SocketReader
 from memray._errors import MemrayCommandError
-from memray.reporters.tui import TUI
+from memray.reporters.tui import TUIApp
 
 KEYS = {
     "ESC": "\x1b",
     "CTRL_C": "\x03",
     "LEFT": "\x1b\x5b\x44",
     "RIGHT": "\x1b\x5b\x43",
-    "SPACEBAR": "\x20",
     "O": "o",
     "T": "t",
     "A": "a",
@@ -91,32 +90,4 @@ class LiveCommand:
         if port >= 2**16 or port <= 0:
             raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
         with SocketReader(port=port) as reader:
-            tui = TUI(reader.pid, reader.command_line, reader.has_native_traces)
-
-            def _get_renderable() -> Layout:
-                if tui.active:
-                    snapshot = list(reader.get_current_snapshot(merge_threads=False))
-                    tui.update_snapshot(snapshot)
-
-                if not reader.is_active:
-                    tui.active = False
-                    tui.message = "[red]Remote has disconnected[/]"
-
-                return tui.generate_layout()
-
-            with Live(get_renderable=_get_renderable, screen=True):
-                while True:
-                    char = readkey()
-                    if char == KEYS["LEFT"]:
-                        tui.previous_thread()
-                    elif char == KEYS["RIGHT"]:
-                        tui.next_thread()
-                    elif char in {"q", KEYS["ESC"]}:
-                        break
-                    elif char == KEYS["SPACEBAR"]:
-                        tui.toggle_pause_state()
-                    elif char.lower() in TUI.KEY_TO_COLUMN_ID.keys():
-                        col_number = tui.KEY_TO_COLUMN_ID[char.lower()]
-                        tui.update_sort_key(col_number)
-                    elif char == KEYS["CTRL_C"]:
-                        raise KeyboardInterrupt()
+            TUIApp(reader).run()

@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from rich import print as rprint
+from textual.app import App
 
 from memray import AllocatorType
 from memray.reporters.tui import TUI
@@ -20,8 +21,27 @@ class FakeDate(MagicMock):
         return datetime.datetime(2021, 1, 1)
 
 
+class MockTUIApp(App):
+    def __init__(self, pid, cmd_line, native):
+        self.pid = pid
+        self.cmd_line = cmd_line
+        self.native = native
+        super().__init__()
+
+    def on_mount(self):
+        self.push_screen(
+            TUI(
+                pid=self.pid,
+                cmd_line=self.cmd_line,
+                native=self.native,
+            )
+        )
+
+
 def make_tui(pid=123, cmd="python3 some_program.py", native=False):
-    return TUI(pid=pid, cmd_line=cmd, native=native)
+    tui_app = MockTUIApp(pid=pid, cmd_line=cmd, native=native)
+    tui_app.run()
+    return tui_app
 
 
 @patch("memray.reporters.tui.datetime", FakeDate)
@@ -37,7 +57,8 @@ class TestTUIHeader:
         # GIVEN
         snapshot = []
         output = StringIO()
-        tui = make_tui(pid=pid, cmd="")
+        tui_app = make_tui(pid=pid, cmd="")
+        tui = tui_app.query_one(TUI)
 
         # WHEN
         tui.update_snapshot(snapshot)
