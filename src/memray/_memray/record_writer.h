@@ -14,60 +14,52 @@
 #include "records.h"
 #include "sink.h"
 
-#ifdef MEMRAY_USE_VALGRIND
-#    include <valgrind/drd.h>
-#else
-#    define ANNOTATE_RWLOCK_CREATE(x)
-#    define ANNOTATE_RWLOCK_DESTROY(x)
-#    define ANNOTATE_RWLOCK_ACQUIRED(x, y)
-#    define ANNOTATE_RWLOCK_RELEASED(x, y)
+#ifdef __APPLE__
+#    include <libkern/OSAtomic.h>
 #endif
 
 namespace memray::tracking_api {
 
-#if (defined(__clang__) || defined(__GNUC__)) && (defined(__i386__) || defined(__x86_64__))
-#    define BUILTIN_PAUSE __builtin_ia32_pause
-#elif (defined(__clang__) || defined(__GNUC__)) && (defined(__arm__) || defined(__aarch64__))
-#    define BUILTIN_PAUSE() __asm__ volatile("yield" ::: "memory");
-#else
-#    define BUILTIN_PAUSE() this ::thread::yield()
-#endif
-
 struct Spinlock
 {
-    std::atomic<bool> lock_ = {0};
+    Spinlock operator=(const Spinlock& other) = delete;
+    Spinlock(const Spinlock& other) = delete;
+#ifdef __APPLE__
+    OSSpinLock d_lock;
 
+  public:
+    Spinlock()
+    : d_lock(0)
+    {
+    }
+    void lock()
+    {
+        OSSpinLockLock(&d_lock);
+    }
+    void unlock()
+    {
+        OSSpinLockUnlock(&d_lock);
+    }
+#else
+    pthread_spinlock_t d_lock;
     Spinlock()
     {
-        ANNOTATE_RWLOCK_CREATE(this);
+        pthread_spin_init(&d_lock, 0);
     }
 
-    Spinlock(const Spinlock&) = delete;
-    Spinlock(Spinlock&&) = delete;
-
+    void lock()
+    {
+        pthread_spin_lock(&d_lock);
+    }
+    void unlock()
+    {
+        pthread_spin_unlock(&d_lock);
+    }
     ~Spinlock()
     {
-        ANNOTATE_RWLOCK_DESTROY(this);
+        pthread_spin_destroy(&d_lock);
     }
-
-    void inline lock() noexcept
-    {
-        for (;;) {
-            if (!lock_.exchange(true, std::memory_order_acquire)) {
-                ANNOTATE_RWLOCK_ACQUIRED(this, true);
-                return;
-            }
-            while (lock_.load(std::memory_order_relaxed)) {
-                BUILTIN_PAUSE();
-            }
-        }
-    }
-
-    void inline unlock() noexcept
-    {
-        lock_.store(false, std::memory_order_release);
-        ANNOTATE_RWLOCK_RELEASED(this, true);
-    }
+#endif
 };
 
 struct SpinlockGuard

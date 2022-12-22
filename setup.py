@@ -133,7 +133,6 @@ if os.getenv("CYTHON_TEST_MACROS", None) is not None:
     TEST_BUILD = True
 
 MINIMIZE_INLINING = os.getenv("MEMRAY_MINIMIZE_INLINING", "") != ""
-USE_VALGRIND = os.getenv("MEMRAY_USE_VALGRIND", "") != ""
 
 COMPILER_DIRECTIVES = {
     "language_level": 3,
@@ -186,9 +185,6 @@ DEFINE_MACROS = []
 
 # Ensure that we have a 64-bit off_t in all translation units.
 DEFINE_MACROS.append(("_FILE_OFFSET_BITS", "64"))
-
-if USE_VALGRIND:
-    DEFINE_MACROS.append(("MEMRAY_USE_VALGRIND", "1"))
 
 # memray uses thread local storage (TLS) variables. As memray is compiled
 # into a Python extension, is a shared object. TLS variables in shared objects
