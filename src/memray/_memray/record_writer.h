@@ -1,72 +1,71 @@
 #pragma once
 
-#include <cerrno>
-#include <climits>
-#include <cstring>
-#include <memory>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <unistd.h>
 
-#include "records.h"
 #include "sink.h"
 
 namespace memray::tracking_api {
 
-class StreamingRecordWriter
+class RecordWriter
 {
   public:
-    explicit StreamingRecordWriter(
-            std::unique_ptr<memray::io::Sink> sink,
-            const std::string& command_line,
-            bool native_traces);
+    virtual ~RecordWriter() = default;
 
-    StreamingRecordWriter(StreamingRecordWriter& other) = delete;
-    StreamingRecordWriter(StreamingRecordWriter&& other) = delete;
-    void operator=(const StreamingRecordWriter&) = delete;
-    void operator=(StreamingRecordWriter&&) = delete;
+    RecordWriter(RecordWriter& other) = delete;
+    RecordWriter(RecordWriter&& other) = delete;
+    void operator=(const RecordWriter&) = delete;
+    void operator=(RecordWriter&&) = delete;
 
-    bool writeRecord(const MemoryRecord& record);
-    bool writeRecord(const pyrawframe_map_val_t& item);
-    bool writeRecord(const UnresolvedNativeFrame& record);
+    virtual bool writeRecord(const MemoryRecord& record) = 0;
+    virtual bool writeRecord(const pyrawframe_map_val_t& item) = 0;
+    virtual bool writeRecord(const UnresolvedNativeFrame& record) = 0;
 
-    bool writeMappings(const std::vector<ImageSegments>& mappings);
+    virtual bool writeMappings(const std::vector<ImageSegments>& mappings) = 0;
 
-    bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record);
-    bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record);
-    bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record);
-    bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record);
-    bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record);
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record) = 0;
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) = 0;
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) = 0;
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) = 0;
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) = 0;
 
-    bool writeHeader(bool seek_to_start);
-    bool writeTrailer();
+    virtual bool writeHeader(bool seek_to_start) = 0;
+    virtual bool writeTrailer() = 0;
 
-    void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid);
-    std::unique_ptr<StreamingRecordWriter> cloneInChildProcess();
+    virtual void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid) = 0;
+    virtual std::unique_ptr<RecordWriter> cloneInChildProcess() = 0;
 
-  private:
-    bool maybeWriteContextSwitchRecordUnsafe(thread_id_t tid);
+  protected:
+    // Expose the sink for use by the following helper functions.
+    explicit RecordWriter(std::unique_ptr<memray::io::Sink> sink);
+    std::unique_ptr<memray::io::Sink> d_sink;
+
+    // Helper functions for common code needed by both subclasses.
+    bool writeHeaderCommon(const HeaderRecord&);
+    bool writeMappingsCommon(const std::vector<ImageSegments>&);
 
     template<typename T>
     bool inline writeSimpleType(const T& item);
+
     bool inline writeString(const char* the_string);
     bool inline writeVarint(size_t val);
     bool inline writeSignedVarint(ssize_t val);
+
     template<typename T>
     bool inline writeIntegralDelta(T* prev, T new_val);
-
-    // Data members
-    int d_version{CURRENT_HEADER_VERSION};
-    std::unique_ptr<memray::io::Sink> d_sink;
-    HeaderRecord d_header{};
-    TrackerStats d_stats{};
-    DeltaEncodedFields d_last;
 };
 
-using RecordWriter = StreamingRecordWriter;
+std::unique_ptr<RecordWriter>
+createRecordWriter(
+        std::unique_ptr<memray::io::Sink> sink,
+        const std::string& command_line,
+        bool native_traces,
+        FileFormat file_format);
 
 template<typename T>
-bool inline StreamingRecordWriter::writeSimpleType(const T& item)
+bool inline RecordWriter::writeSimpleType(const T& item)
 {
     static_assert(
             std::is_trivially_copyable<T>::value,
@@ -75,12 +74,12 @@ bool inline StreamingRecordWriter::writeSimpleType(const T& item)
     return d_sink->writeAll(reinterpret_cast<const char*>(&item), sizeof(item));
 };
 
-bool inline StreamingRecordWriter::writeString(const char* the_string)
+bool inline RecordWriter::writeString(const char* the_string)
 {
     return d_sink->writeAll(the_string, strlen(the_string) + 1);
 }
 
-bool inline StreamingRecordWriter::writeVarint(size_t rest)
+bool inline RecordWriter::writeVarint(size_t rest)
 {
     unsigned char next_7_bits = rest & 0x7f;
     rest >>= 7;
@@ -96,7 +95,7 @@ bool inline StreamingRecordWriter::writeVarint(size_t rest)
     return writeSimpleType(next_7_bits);
 }
 
-bool inline StreamingRecordWriter::writeSignedVarint(ssize_t val)
+bool inline RecordWriter::writeSignedVarint(ssize_t val)
 {
     // protobuf style "zig-zag" encoding
     // https://developers.google.com/protocol-buffers/docs/encoding#signed-ints
@@ -107,7 +106,7 @@ bool inline StreamingRecordWriter::writeSignedVarint(ssize_t val)
 }
 
 template<typename T>
-bool inline StreamingRecordWriter::writeIntegralDelta(T* prev, T new_val)
+bool inline RecordWriter::writeIntegralDelta(T* prev, T new_val)
 {
     ssize_t delta = new_val - *prev;
     *prev = new_val;

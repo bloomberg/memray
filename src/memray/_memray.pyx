@@ -25,7 +25,9 @@ from _memray.native_resolver cimport unwindHere
 from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
 from _memray.record_writer cimport RecordWriter
+from _memray.record_writer cimport createRecordWriter
 from _memray.records cimport Allocation as _Allocation
+from _memray.records cimport FileFormat as _FileFormat
 from _memray.records cimport MemoryRecord
 from _memray.records cimport MemorySnapshot as _MemorySnapshot
 from _memray.sink cimport FileSink
@@ -382,9 +384,14 @@ cdef class Tracker:
         if follow_fork and not isinstance(destination, FileDestination):
             raise RuntimeError("follow_fork requires an output file")
 
-        self._writer = make_unique[RecordWriter](
-                move(self._make_writer(destination)), command_line, native_traces
+        self._writer = move(
+            createRecordWriter(
+                move(self._make_writer(destination)),
+                command_line,
+                native_traces,
+                _FileFormat.ALL_ALLOCATIONS,
             )
+        )
 
     @cython.profile(False)
     def __enter__(self):

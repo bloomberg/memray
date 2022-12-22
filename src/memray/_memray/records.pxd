@@ -43,6 +43,9 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        size_t rss
        size_t heap
 
+   cdef enum FileFormat:
+       ALL_ALLOCATIONS 'memray::tracking_api::FileFormat::ALL_ALLOCATIONS'
+
 
 cdef extern from "<optional>":
    # Cython doesn't have libcpp.optional yet, so just declare this opaquely.
