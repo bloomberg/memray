@@ -58,6 +58,142 @@ RecordWriter::setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_fr
     d_header.skipped_frames_on_main_tid = skipped_frames_on_main_tid;
 }
 
+bool RecordWriter::writeRecord(const MemoryRecord& record)
+{
+    RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
+    return writeSimpleType(token) && writeVarint(record.rss)
+           && writeVarint(record.ms_since_epoch - d_stats.start_time) && d_sink->flush();
+}
+
+bool RecordWriter::writeRecord(const pyrawframe_map_val_t& item)
+{
+    d_stats.n_frames += 1;
+    RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.second.is_entry_frame};
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.first)
+           && writeString(item.second.function_name) && writeString(item.second.filename)
+           && writeIntegralDelta(&d_last.python_line_number, item.second.lineno);
+}
+
+bool RecordWriter::writeRecord(const UnresolvedNativeFrame& record)
+{
+    return writeSimpleType(RecordTypeAndFlags{RecordType::NATIVE_TRACE_INDEX, 0})
+           && writeIntegralDelta(&d_last.instruction_pointer, record.ip)
+           && writeIntegralDelta(&d_last.native_frame_id, record.index);
+}
+
+bool RecordWriter::writeMappings(const std::vector<ImageSegments>& mappings)
+{
+    RecordTypeAndFlags start_token{RecordType::MEMORY_MAP_START, 0};
+    if (!writeSimpleType(start_token)) {
+        return false;
+    }
+
+    for (const auto& image : mappings) {
+        RecordTypeAndFlags segment_header_token{RecordType::SEGMENT_HEADER, 0};
+        if (!writeSimpleType(segment_header_token) || !writeString(image.filename.c_str())
+            || !writeVarint(image.segments.size()) || !writeSimpleType(image.addr))
+        {
+            return false;
+        }
+
+        RecordTypeAndFlags segment_token{RecordType::SEGMENT, 0};
+
+        for (const auto& segment : image.segments) {
+            if (!writeSimpleType(segment_token) || !writeSimpleType(segment.vaddr)
+                || !writeVarint(segment.memsz))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool RecordWriter::maybeWriteContextSwitchRecordUnsafe(thread_id_t tid)
+{
+    if (d_last.thread_id == tid) {
+        return true;  // nothing to do.
+    }
+    d_last.thread_id = tid;
+
+    RecordTypeAndFlags token{RecordType::CONTEXT_SWITCH, 0};
+    ContextSwitch record{tid};
+    return writeSimpleType(token) && writeSimpleType(record);
+}
+
+bool RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePop& record)
+{
+    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
+        return false;
+    }
+
+    size_t count = record.count;
+    while (count) {
+        uint8_t to_pop = (count > 16 ? 16 : count);
+        count -= to_pop;
+
+        to_pop -= 1;  // i.e. 0 means pop 1 frame, 15 means pop 16 frames
+        RecordTypeAndFlags token{RecordType::FRAME_POP, to_pop};
+        assert(token.flags == to_pop);
+        if (!writeSimpleType(token)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePush& record)
+{
+    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
+        return false;
+    }
+
+    RecordTypeAndFlags token{RecordType::FRAME_PUSH, 0};
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, record.frame_id);
+}
+
+bool RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record)
+{
+    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
+        return false;
+    }
+
+    d_stats.n_allocations += 1;
+    RecordTypeAndFlags token{RecordType::ALLOCATION, static_cast<unsigned char>(record.allocator)};
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
+           && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
+               || writeVarint(record.size));
+}
+
+bool RecordWriter::writeThreadSpecificRecord(
+        thread_id_t tid,
+        const NativeAllocationRecord& record)
+{
+    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
+        return false;
+    }
+
+    d_stats.n_allocations += 1;
+    RecordTypeAndFlags token{
+            RecordType::ALLOCATION_WITH_NATIVE,
+            static_cast<unsigned char>(record.allocator)};
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
+           && writeVarint(record.size)
+           && writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id);
+}
+
+bool RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record)
+{
+    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
+        return false;
+    }
+
+    RecordTypeAndFlags token{RecordType::THREAD_RECORD, 0};
+    return writeSimpleType(token) && writeString(record.name);
+}
+
 bool
 RecordWriter::writeHeader(bool seek_to_start)
 {
