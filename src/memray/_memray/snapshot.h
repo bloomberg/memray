@@ -77,60 +77,58 @@ class IntervalTree
         }
         d_intervals.emplace_back(Interval(start, start + size), element);
     }
-    std::optional<std::vector<std::pair<Interval, T>>> removeInterval(uintptr_t start, size_t size)
+
+    struct RemovalStats
     {
+        size_t total_freed_bytes;
+        std::vector<std::pair<Interval, T>> freed_allocations;
+        std::vector<std::pair<Interval, T>> shrunk_allocations;
+        std::vector<std::pair<Interval, T>> split_allocations;
+    };
+
+    RemovalStats removeInterval(uintptr_t start, size_t size)
+    {
+        RemovalStats stats{};
+
         if (size <= 0) {
-            return std::nullopt;
+            return stats;
         }
 
         std::vector<std::pair<Interval, T>> new_intervals;
-        std::vector<std::pair<Interval, T>> removed_intervals;
+        new_intervals.reserve(d_intervals.size() + 1);  // We create at most 1 new interval.
         const auto removed_interval = Interval(start, start + size);
 
         for (auto& [interval, value] : d_intervals) {
-            std::optional<Interval> intersection = interval.intersection(removed_interval);
-            // This interval doesn't contain the element to removed_interval, so don't removed_interval
-            // anything
-            if (!intersection) {
+            std::optional<Interval> maybe_intersection = interval.intersection(removed_interval);
+            if (!maybe_intersection) {
+                // Keep this interval entirely (the removed interval doesn't overlap it).
                 new_intervals.emplace_back(interval, value);
                 continue;
             }
-            // The interval completely overlaps with the interval that we got, so we need to
-            // remove it entirely: add it to the list of removed intervals.
-            if ((intersection == interval)) {
-                removed_intervals.emplace_back(intersection.value(), value);
-            }
-            // Check if the interval intersects from the left and then remove a piece from the start.
-            else if (intersection->leftIntersects(interval))
-            {
-                auto new_interval = Interval{intersection->end, interval.end};
-                new_intervals.emplace_back(new_interval, value);
-                removed_intervals.emplace_back(intersection.value(), value);
-            }
-            // Check if the interval intersects from the right and then remove a piece from the start.
-            else if (intersection->rightIntersects(interval))
-            {
-                auto new_interval = Interval{interval.begin, intersection->begin};
-                new_intervals.emplace_back(new_interval, value);
-                removed_intervals.emplace_back(intersection.value(), value);
-            }
-            // The interval is contained in the chunk, so we need to remove the intersection from the
-            // middle, effectively splitting the interval in two.
-            else
-            {
-                new_intervals.emplace_back(Interval{interval.begin, intersection->begin}, value);
-                new_intervals.emplace_back(Interval{intersection->end, interval.end}, value);
-                removed_intervals.emplace_back(intersection.value(), value);
+
+            const auto& intersection = maybe_intersection.value();
+            stats.total_freed_bytes += intersection.size();
+            if (intersection == interval) {
+                // Keep none of this interval (the removed interval contains it).
+                stats.freed_allocations.emplace_back(intersection, value);
+            } else if (intersection.leftIntersects(interval)) {
+                // Keep the end of this interval (the removed interval overlaps the start).
+                stats.shrunk_allocations.emplace_back(intersection, value);
+                new_intervals.emplace_back(Interval{intersection.end, interval.end}, value);
+            } else if (intersection.rightIntersects(interval)) {
+                // Keep the start of this interval (the removed interval overlaps the end).
+                stats.shrunk_allocations.emplace_back(intersection, value);
+                new_intervals.emplace_back(Interval{interval.begin, intersection.begin}, value);
+            } else {
+                // Split this interval in two (the removed interval overlaps the middle).
+                stats.split_allocations.emplace_back(intersection, value);
+                new_intervals.emplace_back(Interval{interval.begin, intersection.begin}, value);
+                new_intervals.emplace_back(Interval{intersection.end, interval.end}, value);
             }
         }
 
-        // Re-assign intervals after the calculation.
         d_intervals = new_intervals;
-
-        if (removed_intervals.empty()) {
-            return std::nullopt;
-        }
-        return removed_intervals;
+        return stats;
     }
 
     size_t size()
