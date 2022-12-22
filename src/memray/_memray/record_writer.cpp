@@ -1,8 +1,13 @@
+#include "record_writer.h"
+
+#include <cerrno>
 #include <chrono>
+#include <cstring>
 #include <fcntl.h>
+#include <memory>
 #include <stdexcept>
 
-#include "record_writer.h"
+#include "records.h"
 
 namespace memray::tracking_api {
 
@@ -31,11 +36,71 @@ getPythonAllocator()
     return PythonAllocatorType::PYTHONALLOCATOR_OTHER;
 }
 
+RecordWriter::RecordWriter(std::unique_ptr<memray::io::Sink> sink)
+: d_sink(std::move(sink))
+{
+}
+
+class StreamingRecordWriter : public RecordWriter
+{
+  public:
+    explicit StreamingRecordWriter(
+            std::unique_ptr<memray::io::Sink> sink,
+            const std::string& command_line,
+            bool native_traces);
+
+    StreamingRecordWriter(StreamingRecordWriter& other) = delete;
+    StreamingRecordWriter(StreamingRecordWriter&& other) = delete;
+    void operator=(const StreamingRecordWriter&) = delete;
+    void operator=(StreamingRecordWriter&&) = delete;
+
+    bool writeRecord(const MemoryRecord& record) override;
+    bool writeRecord(const pyrawframe_map_val_t& item) override;
+    bool writeRecord(const UnresolvedNativeFrame& record) override;
+
+    bool writeMappings(const std::vector<ImageSegments>& mappings) override;
+
+    bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
+
+    bool writeHeader(bool seek_to_start) override;
+    bool writeTrailer() override;
+
+    void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid) override;
+    std::unique_ptr<RecordWriter> cloneInChildProcess() override;
+
+  private:
+    bool maybeWriteContextSwitchRecordUnsafe(thread_id_t tid);
+
+    // Data members
+    int d_version{CURRENT_HEADER_VERSION};
+    HeaderRecord d_header{};
+    TrackerStats d_stats{};
+    DeltaEncodedFields d_last;
+};
+
+std::unique_ptr<RecordWriter>
+createRecordWriter(
+        std::unique_ptr<memray::io::Sink> sink,
+        const std::string& command_line,
+        bool native_traces,
+        FileFormat file_format)
+{
+    if (file_format == FileFormat::ALL_ALLOCATIONS) {
+        return std::make_unique<StreamingRecordWriter>(std::move(sink), command_line, native_traces);
+    } else {
+        throw std::runtime_error("Invalid file format enumerator");
+    }
+}
+
 StreamingRecordWriter::StreamingRecordWriter(
         std::unique_ptr<memray::io::Sink> sink,
         const std::string& command_line,
         bool native_traces)
-: d_sink(std::move(sink))
+: RecordWriter(std::move(sink))
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
     d_header = HeaderRecord{
@@ -89,6 +154,12 @@ StreamingRecordWriter::writeRecord(const UnresolvedNativeFrame& record)
 
 bool
 StreamingRecordWriter::writeMappings(const std::vector<ImageSegments>& mappings)
+{
+    return writeMappingsCommon(mappings);
+}
+
+bool
+RecordWriter::writeMappingsCommon(const std::vector<ImageSegments>& mappings)
 {
     RecordTypeAndFlags start_token{RecordType::MEMORY_MAP_START, 0};
     if (!writeSimpleType(start_token)) {
@@ -218,12 +289,18 @@ StreamingRecordWriter::writeHeader(bool seek_to_start)
 
     d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     d_header.stats = d_stats;
-    if (!writeSimpleType(d_header.magic) or !writeSimpleType(d_header.version)
-        or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.file_format)
-        or !writeSimpleType(d_header.stats) or !writeString(d_header.command_line.c_str())
-        or !writeSimpleType(d_header.pid) or !writeSimpleType(d_header.main_tid)
-        or !writeSimpleType(d_header.skipped_frames_on_main_tid)
-        or !writeSimpleType(d_header.python_allocator))
+    return writeHeaderCommon(d_header);
+}
+
+bool
+RecordWriter::writeHeaderCommon(const HeaderRecord& header)
+{
+    if (!writeSimpleType(header.magic) or !writeSimpleType(header.version)
+        or !writeSimpleType(header.native_traces) or !writeSimpleType(header.file_format)
+        or !writeSimpleType(header.stats) or !writeString(header.command_line.c_str())
+        or !writeSimpleType(header.pid) or !writeSimpleType(header.main_tid)
+        or !writeSimpleType(header.skipped_frames_on_main_tid)
+        or !writeSimpleType(header.python_allocator))
     {
         return false;
     }
@@ -239,7 +316,7 @@ StreamingRecordWriter::writeTrailer()
     return writeSimpleType(token);
 }
 
-std::unique_ptr<StreamingRecordWriter>
+std::unique_ptr<RecordWriter>
 StreamingRecordWriter::cloneInChildProcess()
 {
     std::unique_ptr<io::Sink> new_sink = d_sink->cloneInChildProcess();
