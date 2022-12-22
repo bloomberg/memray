@@ -13,18 +13,18 @@
 
 namespace memray::tracking_api {
 
-class RecordWriter
+class StreamingRecordWriter
 {
   public:
-    explicit RecordWriter(
+    explicit StreamingRecordWriter(
             std::unique_ptr<memray::io::Sink> sink,
             const std::string& command_line,
             bool native_traces);
 
-    RecordWriter(RecordWriter& other) = delete;
-    RecordWriter(RecordWriter&& other) = delete;
-    void operator=(const RecordWriter&) = delete;
-    void operator=(RecordWriter&&) = delete;
+    StreamingRecordWriter(StreamingRecordWriter& other) = delete;
+    StreamingRecordWriter(StreamingRecordWriter&& other) = delete;
+    void operator=(const StreamingRecordWriter&) = delete;
+    void operator=(StreamingRecordWriter&&) = delete;
 
     bool writeRecord(const MemoryRecord& record);
     bool writeRecord(const pyrawframe_map_val_t& item);
@@ -42,7 +42,7 @@ class RecordWriter
     bool writeTrailer();
 
     void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid);
-    std::unique_ptr<RecordWriter> cloneInChildProcess();
+    std::unique_ptr<StreamingRecordWriter> cloneInChildProcess();
 
   private:
     bool maybeWriteContextSwitchRecordUnsafe(thread_id_t tid);
@@ -63,8 +63,10 @@ class RecordWriter
     DeltaEncodedFields d_last;
 };
 
+using RecordWriter = StreamingRecordWriter;
+
 template<typename T>
-bool inline RecordWriter::writeSimpleType(const T& item)
+bool inline StreamingRecordWriter::writeSimpleType(const T& item)
 {
     static_assert(
             std::is_trivially_copyable<T>::value,
@@ -73,12 +75,12 @@ bool inline RecordWriter::writeSimpleType(const T& item)
     return d_sink->writeAll(reinterpret_cast<const char*>(&item), sizeof(item));
 };
 
-bool inline RecordWriter::writeString(const char* the_string)
+bool inline StreamingRecordWriter::writeString(const char* the_string)
 {
     return d_sink->writeAll(the_string, strlen(the_string) + 1);
 }
 
-bool inline RecordWriter::writeVarint(size_t rest)
+bool inline StreamingRecordWriter::writeVarint(size_t rest)
 {
     unsigned char next_7_bits = rest & 0x7f;
     rest >>= 7;
@@ -94,7 +96,7 @@ bool inline RecordWriter::writeVarint(size_t rest)
     return writeSimpleType(next_7_bits);
 }
 
-bool inline RecordWriter::writeSignedVarint(ssize_t val)
+bool inline StreamingRecordWriter::writeSignedVarint(ssize_t val)
 {
     // protobuf style "zig-zag" encoding
     // https://developers.google.com/protocol-buffers/docs/encoding#signed-ints
@@ -105,7 +107,7 @@ bool inline RecordWriter::writeSignedVarint(ssize_t val)
 }
 
 template<typename T>
-bool inline RecordWriter::writeIntegralDelta(T* prev, T new_val)
+bool inline StreamingRecordWriter::writeIntegralDelta(T* prev, T new_val)
 {
     ssize_t delta = new_val - *prev;
     *prev = new_val;
