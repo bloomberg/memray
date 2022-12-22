@@ -253,19 +253,8 @@ HighWatermarkFinder::processAllocation(const Allocation& allocation)
         case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
             const auto address = allocation.address;
             const auto size = allocation.size;
-            const auto removed = d_mmap_intervals.removeInterval(address, size);
-
-            if (!removed.has_value()) {
-                break;
-            }
-            size_t removed_size = std::accumulate(
-                    removed.value().begin(),
-                    removed.value().cend(),
-                    0,
-                    [](size_t sum, const std::pair<Interval, Allocation>& range) {
-                        return sum + range.first.size();
-                    });
-            d_current_memory -= removed_size;
+            const auto removal_stats = d_mmap_intervals.removeInterval(address, size);
+            d_current_memory -= removal_stats.total_freed_bytes;
             updatePeak(index);
             break;
         }
