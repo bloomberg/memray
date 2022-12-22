@@ -17,8 +17,8 @@
 
 namespace memray::tracking_api {
 
-const char MAGIC[] = "memray";
-const int CURRENT_HEADER_VERSION = 9;
+extern const char MAGIC[7];  // Value assigned in records.cpp
+const int CURRENT_HEADER_VERSION = 10;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
@@ -82,17 +82,22 @@ enum PythonAllocatorType : unsigned char {
     PYTHONALLOCATOR_OTHER = 4,
 };
 
+enum FileFormat : unsigned char {
+    ALL_ALLOCATIONS,
+};
+
 struct HeaderRecord
 {
     char magic[sizeof(MAGIC)];
     int version{};
     bool native_traces{false};
+    FileFormat file_format{FileFormat::ALL_ALLOCATIONS};
     TrackerStats stats{};
     std::string command_line;
     int pid{-1};
     thread_id_t main_tid{};
     size_t skipped_frames_on_main_tid{};
-    PythonAllocatorType python_allocator;
+    PythonAllocatorType python_allocator{};
 };
 
 struct MemoryRecord

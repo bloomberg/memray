@@ -5,6 +5,9 @@
 #include "records.h"
 
 namespace memray::tracking_api {
+
+const char MAGIC[7] = "memray";
+
 PyObject*
 Allocation::toPythonObject() const
 {
