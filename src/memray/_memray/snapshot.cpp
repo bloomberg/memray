@@ -200,6 +200,39 @@ TemporaryAllocationsAggregator::getSnapshotAllocations(bool merge_threads)
     return stack_to_allocation;
 }
 
+void
+AggregatedCaptureReaggregator::addAllocation(const Allocation& allocation)
+{
+    // Store a list of pre-aggregated leaked or high water mark allocations.
+    assert(!hooks::isDeallocator(allocation.allocator));
+    assert(0 == allocation.address);
+
+    if (allocation.n_allocations != 0) {
+        d_allocations.push_back(allocation);
+    }
+}
+
+reduced_snapshot_map_t
+AggregatedCaptureReaggregator::getSnapshotAllocations(bool merge_threads)
+{
+    // Spit them back out, possibly with threads merged.
+    reduced_snapshot_map_t stack_to_allocation{};
+
+    for (const auto& record : d_allocations) {
+        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.tid;
+        auto loc_key = LocationKey{record.frame_index, record.native_frame_id, thread_id};
+        auto alloc_it = stack_to_allocation.find(loc_key);
+        if (alloc_it == stack_to_allocation.end()) {
+            stack_to_allocation.insert(alloc_it, std::pair(loc_key, record));
+        } else {
+            alloc_it->second.size += record.size;
+            alloc_it->second.n_allocations += 1;
+        }
+    }
+
+    return stack_to_allocation;
+}
+
 HighWaterMarkAggregator::UsageHistory&
 HighWaterMarkAggregator::getUsageHistory(const Allocation& allocation)
 {

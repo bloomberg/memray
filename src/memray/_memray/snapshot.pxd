@@ -30,6 +30,9 @@ cdef extern from "snapshot.h" namespace "memray::api":
     cdef cppclass SnapshotAllocationAggregator(AbstractAggregator):
         pass
 
+    cdef cppclass AggregatedCaptureReaggregator(AbstractAggregator):
+        pass
+
     cdef cppclass LocationKey:
         size_t python_frame_id
         size_t native_frame_id

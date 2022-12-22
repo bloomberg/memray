@@ -174,6 +174,9 @@ struct AggregatedAllocation
     size_t n_allocations_leaked;
     size_t bytes_in_high_water_mark;
     size_t bytes_leaked;
+
+    Allocation contributionToHighWaterMark() const;
+    Allocation contributionToLeaks() const;
 };
 
 struct MemoryMapStart

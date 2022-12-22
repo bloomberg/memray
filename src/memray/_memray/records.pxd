@@ -25,6 +25,7 @@ cdef extern from "records.h" namespace "memray::tracking_api":
    struct HeaderRecord:
        int version
        bool native_traces
+       FileFormat file_format
        TrackerStats stats
        string command_line
        int pid
@@ -37,6 +38,10 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        size_t frame_index
        size_t n_allocations
        object toPythonObject()
+
+   cdef cppclass AggregatedAllocation:
+       Allocation contributionToHighWaterMark()
+       Allocation contributionToLeaks()
 
    struct MemoryRecord:
        unsigned long int ms_since_epoch

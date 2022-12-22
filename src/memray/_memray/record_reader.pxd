@@ -1,6 +1,8 @@
+from _memray.records cimport AggregatedAllocation
 from _memray.records cimport Allocation
 from _memray.records cimport HeaderRecord
 from _memray.records cimport MemoryRecord
+from _memray.records cimport MemorySnapshot
 from _memray.records cimport optional_frame_id_t
 from _memray.source cimport Source
 from libcpp cimport bool
@@ -12,7 +14,9 @@ from libcpp.vector cimport vector
 cdef extern from "record_reader.h" namespace "memray::api":
     cdef enum RecordResult 'memray::api::RecordReader::RecordResult':
         RecordResultAllocationRecord 'memray::api::RecordReader::RecordResult::ALLOCATION_RECORD'
+        RecordResultAggregatedAllocationRecord 'memray::api::RecordReader::RecordResult::AGGREGATED_ALLOCATION_RECORD'
         RecordResultMemoryRecord 'memray::api::RecordReader::RecordResult::MEMORY_RECORD'
+        RecordResultMemorySnapshot 'memray::api::RecordReader::RecordResult::MEMORY_SNAPSHOT'
         RecordResultError 'memray::api::RecordReader::RecordResult::ERROR'
         RecordResultEndOfFile 'memray::api::RecordReader::RecordResult::END_OF_FILE'
 
@@ -41,3 +45,5 @@ cdef extern from "record_reader.h" namespace "memray::api":
         string getThreadName(long int tid) except+
         Allocation getLatestAllocation()
         MemoryRecord getLatestMemoryRecord()
+        AggregatedAllocation getLatestAggregatedAllocation()
+        MemorySnapshot getLatestMemorySnapshot()

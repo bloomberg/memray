@@ -1,5 +1,7 @@
 #include "socket_reader_thread.h"
 
+#include <iostream>
+
 namespace memray::socket_thread {
 
 void
@@ -20,17 +22,29 @@ BackgroundSocketReader::backgroundThreadWorker()
             case RecordResult::ALLOCATION_RECORD: {
                 std::lock_guard<std::mutex> lock(d_mutex);
                 d_aggregator.addAllocation(d_record_reader->getLatestAllocation());
-                break;
-            }
+            } break;
 
             case RecordResult::MEMORY_RECORD: {
-                break;
-            }
+            } break;
+
+            case RecordResult::AGGREGATED_ALLOCATION_RECORD: {
+                // This should never happen. We checked the source format in
+                // the constructor, and RecordReader should never return
+                // records that don't match the source format.
+                std::cerr << "BUG: AGGREGATED_ALLOCATION_RECORD from ALL_ALLOCATIONS input" << std::endl;
+                abort();
+            } break;
+
+            case RecordResult::MEMORY_SNAPSHOT: {
+                // As above.
+                std::cerr << "BUG: MEMORY_SNAPSHOT from ALL_ALLOCATIONS input" << std::endl;
+                abort();
+            } break;
+
             case RecordResult::END_OF_FILE:
             case RecordResult::ERROR: {
                 d_stop_thread = true;
-                return;
-            }
+            } break;
         }
     }
 }
@@ -38,6 +52,9 @@ BackgroundSocketReader::backgroundThreadWorker()
 BackgroundSocketReader::BackgroundSocketReader(std::shared_ptr<api::RecordReader> reader)
 : d_record_reader(reader)
 {
+    if (d_record_reader->getHeader().file_format != api::FileFormat::ALL_ALLOCATIONS) {
+        throw std::runtime_error("BackgroundSocketReader only supports ALL_ALLOCATIONS");
+    }
 }
 
 void
