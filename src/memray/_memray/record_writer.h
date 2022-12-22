@@ -1,18 +1,103 @@
 #pragma once
 
+#include <atomic>
 #include <cerrno>
 #include <climits>
 #include <cstring>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <type_traits>
 #include <unistd.h>
 
 #include "records.h"
 #include "sink.h"
 
+#ifdef MEMRAY_USE_VALGRIND
+#    include <valgrind/drd.h>
+#else
+#    define ANNOTATE_RWLOCK_CREATE(x)
+#    define ANNOTATE_RWLOCK_DESTROY(x)
+#    define ANNOTATE_RWLOCK_ACQUIRED(x, y)
+#    define ANNOTATE_RWLOCK_RELEASED(x, y)
+#endif
+
 namespace memray::tracking_api {
+
+#if (defined(__clang__) || defined(__GNUC__)) && (defined(__i386__) || defined(__x86_64__))
+#    define BUILTIN_PAUSE __builtin_ia32_pause
+#elif (defined(__clang__) || defined(__GNUC__)) && (defined(__arm__) || defined(__aarch64__))
+#    define BUILTIN_PAUSE() __asm__ volatile("yield" ::: "memory");
+#else
+#    define BUILTIN_PAUSE() this ::thread::yield()
+#endif
+
+struct Spinlock
+{
+    std::atomic<bool> lock_ = {0};
+
+    Spinlock()
+    {
+        ANNOTATE_RWLOCK_CREATE(this);
+    }
+
+    Spinlock(const Spinlock&) = delete;
+    Spinlock(Spinlock&&) = delete;
+
+    ~Spinlock()
+    {
+        ANNOTATE_RWLOCK_DESTROY(this);
+    }
+
+    void inline lock() noexcept
+    {
+        for (;;) {
+            if (!lock_.exchange(true, std::memory_order_acquire)) {
+                ANNOTATE_RWLOCK_ACQUIRED(this, true);
+                return;
+            }
+            while (lock_.load(std::memory_order_relaxed)) {
+                BUILTIN_PAUSE();
+            }
+        }
+    }
+
+    void inline unlock() noexcept
+    {
+        lock_.store(false, std::memory_order_release);
+        ANNOTATE_RWLOCK_RELEASED(this, true);
+    }
+};
+
+struct SpinlockGuard
+{
+    SpinlockGuard(Spinlock& lock)
+    : d_lock(&lock)
+    {
+        d_lock->lock();
+    }
+
+    SpinlockGuard(const SpinlockGuard&) = delete;
+
+    SpinlockGuard(SpinlockGuard&& other) noexcept
+    : d_lock(other.d_lock)
+    {
+        other.d_lock = nullptr;
+    }
+
+    ~SpinlockGuard()
+    {
+        if (!d_lock) {
+            return;
+        }
+        d_lock->unlock();
+    }
+
+  private:
+    Spinlock* d_lock;
+};
+
 class RecordWriter
 {
   public:
@@ -53,14 +138,14 @@ class RecordWriter
     bool writeHeader(bool seek_to_start);
     bool writeTrailer();
 
-    std::unique_lock<std::mutex> acquireLock();
+    SpinlockGuard acquireLock();
     std::unique_ptr<RecordWriter> cloneInChildProcess();
 
   private:
     // Data members
     int d_version{CURRENT_HEADER_VERSION};
     std::unique_ptr<memray::io::Sink> d_sink;
-    std::mutex d_mutex;
+    Spinlock d_spinlock;
     HeaderRecord d_header{};
     TrackerStats d_stats{};
     DeltaEncodedFields d_last;
@@ -118,21 +203,22 @@ bool inline RecordWriter::writeIntegralDelta(T* prev, T new_val)
 template<typename T>
 bool inline RecordWriter::writeRecord(const T& item)
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
+    SpinlockGuard guard{d_spinlock};
     return writeRecordUnsafe(item);
 }
 
 template<typename T>
 bool inline RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const T& item)
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
+    SpinlockGuard guard{d_spinlock};
     if (d_last.thread_id != tid) {
         d_last.thread_id = tid;
         if (!writeRecordUnsafe(ContextSwitch{tid})) {
             return false;
         }
     }
-    return writeRecordUnsafe(item);
+    auto result = writeRecordUnsafe(item);
+    return result;
 }
 
 bool inline RecordWriter::writeRecordUnsafe(const FramePop& record)

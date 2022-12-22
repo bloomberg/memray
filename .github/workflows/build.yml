@@ -125,6 +125,7 @@ jobs:
         python3 -m pip install -e .
       env:
         MEMRAY_MINIMIZE_INLINING: 1
+        MEMRAY_USE_VALGRIND: 1
     - name: Run Valgrind
       run: make valgrind
     - name: Run Helgrind
