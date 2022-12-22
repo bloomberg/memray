@@ -42,6 +42,7 @@ StreamingRecordWriter::StreamingRecordWriter(
             "",
             d_version,
             native_traces,
+            FileFormat::ALL_ALLOCATIONS,
             d_stats,
             command_line,
             ::getpid(),
@@ -218,9 +219,10 @@ StreamingRecordWriter::writeHeader(bool seek_to_start)
     d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     d_header.stats = d_stats;
     if (!writeSimpleType(d_header.magic) or !writeSimpleType(d_header.version)
-        or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.stats)
-        or !writeString(d_header.command_line.c_str()) or !writeSimpleType(d_header.pid)
-        or !writeSimpleType(d_header.main_tid) or !writeSimpleType(d_header.skipped_frames_on_main_tid)
+        or !writeSimpleType(d_header.native_traces) or !writeSimpleType(d_header.file_format)
+        or !writeSimpleType(d_header.stats) or !writeString(d_header.command_line.c_str())
+        or !writeSimpleType(d_header.pid) or !writeSimpleType(d_header.main_tid)
+        or !writeSimpleType(d_header.skipped_frames_on_main_tid)
         or !writeSimpleType(d_header.python_allocator))
     {
         return false;

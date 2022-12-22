@@ -77,6 +77,7 @@ RecordReader::readHeader(HeaderRecord& header)
     }
     header.command_line.reserve(4096);
     if (!d_input->read(reinterpret_cast<char*>(&header.native_traces), sizeof(header.native_traces))
+        || !d_input->read(reinterpret_cast<char*>(&header.file_format), sizeof(header.file_format))
         || !d_input->read(reinterpret_cast<char*>(&header.stats), sizeof(header.stats))
         || !d_input->getline(header.command_line, '\0')
         || !d_input->read(reinterpret_cast<char*>(&header.pid), sizeof(header.pid))
@@ -425,6 +426,11 @@ RecordReader::processContextSwitch(thread_id_t tid)
 RecordReader::RecordResult
 RecordReader::nextRecord()
 {
+    if (d_header.file_format != FileFormat::ALL_ALLOCATIONS) {
+        LOG(ERROR) << "Invalid file format enumerator";
+        return RecordResult::ERROR;
+    }
+
     while (true) {
         RecordTypeAndFlags record_type_and_flags;
         if (!d_input->read(
@@ -713,7 +719,16 @@ RecordReader::dumpAllRecords()
             python_allocator = "other";
             break;
     }
-    printf("HEADER magic=%.*s version=%d native_traces=%s"
+    std::string file_format;
+    switch (d_header.file_format) {
+        case FileFormat::ALL_ALLOCATIONS: {
+            file_format = "ALL_ALLOCATIONS";
+        } break;
+        default: {
+            file_format = "<unknown enum value " + std::to_string((int)d_header.file_format) + ">";
+        } break;
+    }
+    printf("HEADER magic=%.*s version=%d native_traces=%s file_format=%s"
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
            " pid=%d main_tid=%lu skipped_frames_on_main_tid=%zd"
            " command_line=%s python_allocator=%s\n",
@@ -721,6 +736,7 @@ RecordReader::dumpAllRecords()
            d_header.magic,
            d_header.version,
            d_header.native_traces ? "true" : "false",
+           file_format.c_str(),
            d_header.stats.n_allocations,
            d_header.stats.n_frames,
            d_header.stats.start_time,
