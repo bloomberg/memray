@@ -7,7 +7,9 @@
 #include <memory>
 #include <stdexcept>
 
+#include "frame_tree.h"
 #include "records.h"
+#include "snapshot.h"
 
 namespace memray::tracking_api {
 
@@ -82,6 +84,55 @@ class StreamingRecordWriter : public RecordWriter
     DeltaEncodedFields d_last;
 };
 
+class AggregatingRecordWriter : public RecordWriter
+{
+  public:
+    explicit AggregatingRecordWriter(
+            std::unique_ptr<memray::io::Sink> sink,
+            const std::string& command_line,
+            bool native_traces);
+
+    AggregatingRecordWriter(StreamingRecordWriter& other) = delete;
+    AggregatingRecordWriter(StreamingRecordWriter&& other) = delete;
+    void operator=(const AggregatingRecordWriter&) = delete;
+    void operator=(AggregatingRecordWriter&&) = delete;
+
+    bool writeRecord(const MemoryRecord& record) override;
+    bool writeRecord(const pyrawframe_map_val_t& item) override;
+    bool writeRecord(const UnresolvedNativeFrame& record) override;
+
+    bool writeMappings(const std::vector<ImageSegments>& mappings) override;
+
+    bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
+
+    bool writeHeader(bool seek_to_start) override;
+    bool writeTrailer() override;
+
+    void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid) override;
+    std::unique_ptr<RecordWriter> cloneInChildProcess() override;
+
+  private:
+    // Aliases
+    using python_stack_ids_t = std::vector<FrameTree::index_t>;
+    using python_stack_ids_by_tid = std::unordered_map<thread_id_t, python_stack_ids_t>;
+
+    // Data members
+    HeaderRecord d_header;
+    TrackerStats d_stats;
+    pyframe_map_t d_frames_by_id;
+    std::vector<UnresolvedNativeFrame> d_native_frames{};
+    std::vector<std::vector<ImageSegments>> d_mappings_by_generation{};
+    std::vector<MemorySnapshot> d_memory_snapshots;
+    std::unordered_map<thread_id_t, std::string> d_thread_name_by_tid;
+    FrameTree d_python_frame_tree;
+    python_stack_ids_by_tid d_python_stack_ids_by_thread;
+    api::HighWaterMarkAggregator d_high_water_mark_aggregator;
+};
+
 std::unique_ptr<RecordWriter>
 createRecordWriter(
         std::unique_ptr<memray::io::Sink> sink,
@@ -89,10 +140,16 @@ createRecordWriter(
         bool native_traces,
         FileFormat file_format)
 {
-    if (file_format == FileFormat::ALL_ALLOCATIONS) {
-        return std::make_unique<StreamingRecordWriter>(std::move(sink), command_line, native_traces);
-    } else {
-        throw std::runtime_error("Invalid file format enumerator");
+    switch (file_format) {
+        case FileFormat::ALL_ALLOCATIONS:
+            return std::make_unique<StreamingRecordWriter>(std::move(sink), command_line, native_traces);
+        case FileFormat::AGGREGATED_ALLOCATIONS:
+            return std::make_unique<AggregatingRecordWriter>(
+                    std::move(sink),
+                    command_line,
+                    native_traces);
+        default:
+            throw std::runtime_error("Invalid file format enumerator");
     }
 }
 
@@ -326,6 +383,244 @@ StreamingRecordWriter::cloneInChildProcess()
             std::move(new_sink),
             d_header.command_line,
             d_header.native_traces);
+}
+
+AggregatingRecordWriter::AggregatingRecordWriter(
+        std::unique_ptr<memray::io::Sink> sink,
+        const std::string& command_line,
+        bool native_traces)
+: RecordWriter(std::move(sink))
+{
+    memcpy(d_header.magic, MAGIC, sizeof(d_header.magic));
+    d_header.version = CURRENT_HEADER_VERSION;
+    d_header.native_traces = native_traces;
+    d_header.file_format = FileFormat::AGGREGATED_ALLOCATIONS;
+    d_header.command_line = command_line;
+    d_header.pid = ::getpid();
+    d_header.python_allocator = getPythonAllocator();
+
+    d_stats.start_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+}
+
+void
+AggregatingRecordWriter::setMainTidAndSkippedFrames(
+        thread_id_t main_tid,
+        size_t skipped_frames_on_main_tid)
+{
+    d_header.main_tid = main_tid;
+    d_header.skipped_frames_on_main_tid = skipped_frames_on_main_tid;
+}
+
+bool
+AggregatingRecordWriter::writeHeader(bool seek_to_start)
+{
+    // Nothing to do; everything is written by writeTrailer.
+    (void)seek_to_start;
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeTrailer()
+{
+    d_stats.end_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    d_header.stats = d_stats;
+    if (!writeHeaderCommon(d_header)) {
+        return false;
+    }
+
+    for (const auto& memory_snapshot : d_memory_snapshots) {
+        if (!writeSimpleType(AggregatedRecordType::MEMORY_SNAPSHOT) || !writeSimpleType(memory_snapshot))
+        {
+            return false;
+        }
+    }
+
+    for (const auto& [tid, thread_name] : d_thread_name_by_tid) {
+        if (!writeSimpleType(AggregatedRecordType::CONTEXT_SWITCH)
+            || !writeSimpleType(ContextSwitch{tid})
+            || !writeSimpleType(AggregatedRecordType::THREAD_RECORD)
+            || !writeString(thread_name.c_str()))
+        {
+            return false;
+        }
+    }
+
+    for (const auto& mappings : d_mappings_by_generation) {
+        if (!writeMappingsCommon(mappings)) {
+            return false;
+        }
+    }
+
+    UnresolvedNativeFrame last{};
+    for (const auto& record : d_native_frames) {
+        if (!writeSimpleType(AggregatedRecordType::NATIVE_TRACE_INDEX)
+            || !writeIntegralDelta(&last.ip, record.ip)
+            || !writeIntegralDelta(&last.index, record.index))
+        {
+            return false;
+        }
+    }
+
+    for (const auto& [frame_id, frame] : d_frames_by_id) {
+        if (!writeSimpleType(AggregatedRecordType::PYTHON_FRAME_INDEX) || !writeSimpleType(frame_id)
+            || !writeString(frame.function_name.c_str()) || !writeString(frame.filename.c_str())
+            || !writeSimpleType(frame.lineno) || !writeSimpleType(frame.is_entry_frame))
+        {
+            return false;
+        }
+    }
+
+    for (FrameTree::index_t index = d_python_frame_tree.minIndex();
+         index <= d_python_frame_tree.maxIndex();
+         ++index)
+    {
+        auto [frame_id, parent_index] = d_python_frame_tree.nextNode(index);
+
+        if (!writeSimpleType(AggregatedRecordType::PYTHON_TRACE_INDEX) || !writeSimpleType(frame_id)
+            || !writeSimpleType(parent_index))
+        {
+            return false;
+        }
+    }
+
+    d_high_water_mark_aggregator.visitAllocations([&](const AggregatedAllocation& allocation) {
+        if (allocation.n_allocations_in_high_water_mark == 0 && allocation.n_allocations_leaked == 0) {
+            return true;
+        }
+
+        return writeSimpleType(AggregatedRecordType::AGGREGATED_ALLOCATION)
+               && writeSimpleType(allocation);
+    });
+
+    // The FileSource will ignore trailing 0x00 bytes. This non-zero trailer
+    // marks the boundary between bytes we wrote and padding bytes.
+    if (!writeSimpleType(AggregatedRecordType::AGGREGATED_TRAILER)) {
+        return false;
+    }
+
+    return true;
+}
+
+std::unique_ptr<RecordWriter>
+AggregatingRecordWriter::cloneInChildProcess()
+{
+    std::unique_ptr<io::Sink> new_sink = d_sink->cloneInChildProcess();
+    if (!new_sink) {
+        return {};
+    }
+    return std::make_unique<AggregatingRecordWriter>(
+            std::move(new_sink),
+            d_header.command_line,
+            d_header.native_traces);
+}
+
+bool
+AggregatingRecordWriter::writeRecord(const MemoryRecord& record)
+{
+    MemorySnapshot snapshot{
+            record.ms_since_epoch,
+            record.rss,
+            d_high_water_mark_aggregator.getCurrentHeapSize()};
+    d_memory_snapshots.push_back(snapshot);
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
+{
+    d_stats.n_frames += 1;
+    const auto& [frame_id, raw] = item;
+    d_frames_by_id.emplace(
+            frame_id,
+            Frame{raw.function_name, raw.filename, raw.lineno, raw.is_entry_frame});
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeRecord(const UnresolvedNativeFrame& record)
+{
+    d_native_frames.emplace_back(record);
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeMappings(const std::vector<ImageSegments>& mappings)
+{
+    d_mappings_by_generation.push_back(mappings);
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePop& record)
+{
+    auto count = record.count;
+    auto& stack = d_python_stack_ids_by_thread[tid];
+    assert(stack.size() >= record.count);
+    while (count) {
+        count -= 1;
+        stack.pop_back();
+    }
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePush& record)
+{
+    auto [it, inserted] = d_python_stack_ids_by_thread.emplace(tid, python_stack_ids_t{});
+    auto& stack = it->second;
+    if (inserted) {
+        stack.reserve(1024);
+    }
+    FrameTree::index_t current_stack_id = stack.empty() ? 0 : stack.back();
+    FrameTree::index_t new_stack_id =
+            d_python_frame_tree.getTraceIndex(current_stack_id, record.frame_id);
+    stack.push_back(new_stack_id);
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record)
+{
+    Allocation allocation;
+    allocation.tid = tid;
+    allocation.address = record.address;
+    allocation.size = record.size;
+    allocation.allocator = record.allocator;
+    allocation.native_frame_id = 0;
+    if (!hooks::isDeallocator(record.allocator)) {
+        auto& stack = d_python_stack_ids_by_thread[tid];
+        allocation.frame_index = stack.empty() ? 0 : stack.back();
+    } else {
+        allocation.frame_index = 0;
+    }
+    allocation.native_segment_generation = 0;
+    allocation.n_allocations = 1;
+    d_high_water_mark_aggregator.addAllocation(allocation);
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record)
+{
+    Allocation allocation;
+    allocation.tid = tid;
+    allocation.address = record.address;
+    allocation.size = record.size;
+    allocation.allocator = record.allocator;
+    allocation.native_frame_id = record.native_frame_id;
+    auto& stack = d_python_stack_ids_by_thread[tid];
+    allocation.frame_index = stack.empty() ? 0 : stack.back();
+    allocation.native_segment_generation = d_mappings_by_generation.size();
+    allocation.n_allocations = 1;
+    d_high_water_mark_aggregator.addAllocation(allocation);
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record)
+{
+    d_thread_name_by_tid[tid] = record.name;
+    return true;
 }
 
 }  // namespace memray::tracking_api

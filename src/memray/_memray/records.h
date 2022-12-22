@@ -44,6 +44,25 @@ enum class OtherRecordType : unsigned char {
     TRAILER = 1,
 };
 
+// Enumerators that have the same name as in RecordType are encoded the same
+// way and have the same enumeration value. Enumerators with different names
+// have different encoded representations.
+enum class AggregatedRecordType : unsigned char {
+    MEMORY_SNAPSHOT = 1,
+    AGGREGATED_ALLOCATION = 2,
+    PYTHON_TRACE_INDEX = 3,
+    PYTHON_FRAME_INDEX = 4,
+
+    NATIVE_TRACE_INDEX = 5,
+    MEMORY_MAP_START = 6,
+    SEGMENT_HEADER = 7,
+    SEGMENT = 8,
+    THREAD_RECORD = 10,
+    CONTEXT_SWITCH = 12,
+
+    AGGREGATED_TRAILER = 15,
+};
+
 struct RecordTypeAndFlags
 {
     RecordTypeAndFlags()
@@ -84,6 +103,7 @@ enum PythonAllocatorType : unsigned char {
 
 enum FileFormat : unsigned char {
     ALL_ALLOCATIONS,
+    AGGREGATED_ALLOCATIONS,
 };
 
 struct HeaderRecord
@@ -140,6 +160,20 @@ struct Allocation
     size_t n_allocations{1};
 
     PyObject* toPythonObject() const;
+};
+
+struct AggregatedAllocation
+{
+    thread_id_t tid;
+    hooks::Allocator allocator;
+    frame_id_t native_frame_id;
+    size_t frame_index;
+    size_t native_segment_generation;
+
+    size_t n_allocations_in_high_water_mark;
+    size_t n_allocations_leaked;
+    size_t bytes_in_high_water_mark;
+    size_t bytes_leaked;
 };
 
 struct MemoryMapStart
