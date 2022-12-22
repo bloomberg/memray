@@ -18,6 +18,10 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        long long start_time
        long long end_time
 
+   cdef enum FileFormat:
+       ALL_ALLOCATIONS 'memray::tracking_api::FileFormat::ALL_ALLOCATIONS'
+       AGGREGATED_ALLOCATIONS 'memray::tracking_api::FileFormat::AGGREGATED_ALLOCATIONS'
+
    struct HeaderRecord:
        int version
        bool native_traces
@@ -42,9 +46,6 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        unsigned long int ms_since_epoch
        size_t rss
        size_t heap
-
-   cdef enum FileFormat:
-       ALL_ALLOCATIONS 'memray::tracking_api::FileFormat::ALL_ALLOCATIONS'
 
 
 cdef extern from "<optional>":
