@@ -423,14 +423,93 @@ RecordReader::processContextSwitch(thread_id_t tid)
     return true;
 }
 
+bool
+RecordReader::parseMemorySnapshotRecord(MemorySnapshot* record)
+{
+    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+}
+
+bool
+RecordReader::processMemorySnapshotRecord(const MemorySnapshot& record)
+{
+    d_latest_memory_snapshot = record;
+    return true;
+}
+
+bool
+RecordReader::parseAggregatedAllocationRecord(AggregatedAllocation* record)
+{
+    return d_input->read(reinterpret_cast<char*>(record), sizeof(*record));
+}
+
+bool
+RecordReader::processAggregatedAllocationRecord(const AggregatedAllocation& record)
+{
+    d_latest_aggregated_allocation = record;
+    return true;
+}
+
+bool
+RecordReader::parsePythonTraceIndexRecord(std::pair<frame_id_t, FrameTree::index_t>* record)
+{
+    return d_input->read(reinterpret_cast<char*>(&record->first), sizeof(record->first))
+           && d_input->read(reinterpret_cast<char*>(&record->second), sizeof(record->second));
+}
+
+bool
+RecordReader::processPythonTraceIndexRecord(const std::pair<frame_id_t, FrameTree::index_t>& record)
+{
+    std::lock_guard<std::mutex> lock(d_mutex);
+    d_tree.getTraceIndex(record.second, record.first);  // Called for its side effect.
+    return true;
+}
+
+bool
+RecordReader::parsePythonFrameIndexRecord(tracking_api::pyframe_map_val_t* pyframe_val)
+{
+    auto& [frame_id, frame] = *pyframe_val;
+    return d_input->read(reinterpret_cast<char*>(&frame_id), sizeof(frame_id))
+           && d_input->getline(frame.function_name, '\0') && d_input->getline(frame.filename, '\0')
+           && d_input->read(reinterpret_cast<char*>(&frame.lineno), sizeof(frame.lineno))
+           && d_input->read(
+                   reinterpret_cast<char*>(&frame.is_entry_frame),
+                   sizeof(frame.is_entry_frame));
+}
+
+bool
+RecordReader::processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_t& pyframe_val)
+{
+    std::lock_guard<std::mutex> lock(d_mutex);
+    auto iterator = d_frame_map.insert(pyframe_val);
+    if (!iterator.second) {
+        throw std::runtime_error("Two entries with the same ID found!");
+    }
+    return true;
+}
+
 RecordReader::RecordResult
 RecordReader::nextRecord()
 {
-    if (d_header.file_format != FileFormat::ALL_ALLOCATIONS) {
+    RecordReader::RecordResult ret;
+
+    if (d_header.file_format == FileFormat::ALL_ALLOCATIONS) {
+        ret = nextRecordFromAllAllocationsFile();
+        assert(ret != RecordResult::MEMORY_SNAPSHOT);
+        assert(ret != RecordResult::AGGREGATED_ALLOCATION_RECORD);
+    } else if (d_header.file_format == FileFormat::AGGREGATED_ALLOCATIONS) {
+        ret = nextRecordFromAggregatedAllocationsFile();
+        assert(ret != RecordResult::MEMORY_RECORD);
+        assert(ret != RecordResult::ALLOCATION_RECORD);
+    } else {
         LOG(ERROR) << "Invalid file format enumerator";
         return RecordResult::ERROR;
     }
+    return ret;
+}
 
+RecordReader::RecordResult
+RecordReader::nextRecordFromAllAllocationsFile()
+{
     while (true) {
         RecordTypeAndFlags record_type_and_flags;
         if (!d_input->read(
@@ -543,6 +622,114 @@ RecordReader::nextRecord()
             default:
                 if (d_input->is_open()) LOG(ERROR) << "Invalid record type";
                 return RecordResult::ERROR;
+        }
+    }
+}
+
+RecordReader::RecordResult
+RecordReader::nextRecordFromAggregatedAllocationsFile()
+{
+    while (true) {
+        AggregatedRecordType record_type;
+        if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(record_type))) {
+            return RecordResult::END_OF_FILE;
+        }
+
+        switch (record_type) {
+            case AggregatedRecordType::MEMORY_SNAPSHOT: {
+                MemorySnapshot record;
+                if (!parseMemorySnapshotRecord(&record) || !processMemorySnapshotRecord(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process memory record";
+                    return RecordResult::ERROR;
+                }
+
+                return RecordResult::MEMORY_SNAPSHOT;
+            } break;
+
+            case AggregatedRecordType::AGGREGATED_ALLOCATION: {
+                AggregatedAllocation record;
+                if (!parseAggregatedAllocationRecord(&record)
+                    || !processAggregatedAllocationRecord(record)) {
+                    if (d_input->is_open()) {
+                        LOG(ERROR) << "Failed to process aggregated allocation record";
+                    }
+                    return RecordResult::ERROR;
+                }
+
+                return RecordResult::AGGREGATED_ALLOCATION_RECORD;
+            } break;
+
+            case AggregatedRecordType::PYTHON_TRACE_INDEX: {
+                std::pair<frame_id_t, FrameTree::index_t> record;
+                if (!parsePythonTraceIndexRecord(&record) || !processPythonTraceIndexRecord(record)) {
+                    return RecordResult::ERROR;
+                }
+            } break;
+
+            case AggregatedRecordType::PYTHON_FRAME_INDEX: {
+                tracking_api::pyframe_map_val_t record;
+                if (!parsePythonFrameIndexRecord(&record) || !processPythonFrameIndexRecord(record)) {
+                    return RecordResult::ERROR;
+                }
+            } break;
+
+            case AggregatedRecordType::NATIVE_TRACE_INDEX: {
+                UnresolvedNativeFrame record;
+                if (!parseNativeFrameIndex(&record) || !processNativeFrameIndex(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process native frame index";
+                    return RecordResult::ERROR;
+                }
+            } break;
+
+            case AggregatedRecordType::MEMORY_MAP_START: {
+                if (!parseMemoryMapStart() || !processMemoryMapStart()) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process memory map start";
+                    return RecordResult::ERROR;
+                }
+            } break;
+
+            case AggregatedRecordType::SEGMENT_HEADER: {
+                std::string filename;
+                size_t num_segments;
+                uintptr_t addr;
+                if (!parseSegmentHeader(&filename, &num_segments, &addr)
+                    || !processSegmentHeader(filename, num_segments, addr))
+                {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process segment header";
+                    return RecordResult::ERROR;
+                }
+            } break;
+
+            case AggregatedRecordType::SEGMENT: {
+                // These should always be consumed by processSegmentHeader
+                if (d_input->is_open()) LOG(ERROR) << "Unexpected SEGMENT record";
+                return RecordResult::ERROR;
+            } break;
+
+            case AggregatedRecordType::THREAD_RECORD: {
+                std::string name;
+                if (!parseThreadRecord(&name) || !processThreadRecord(name)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process thread record";
+                    return RecordResult::ERROR;
+                }
+            } break;
+
+            case AggregatedRecordType::CONTEXT_SWITCH: {
+                thread_id_t tid;
+                if (!parseContextSwitch(&tid) || !processContextSwitch(tid)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process context switch record";
+                    return RecordResult::ERROR;
+                }
+            } break;
+
+            case AggregatedRecordType::AGGREGATED_TRAILER: {
+                return RecordResult::END_OF_FILE;
+            } break;
+
+            default: {
+                if (d_input->is_open()) LOG(ERROR) << "Invalid record type";
+                return RecordResult::ERROR;
+            } break;
         }
     }
 }
@@ -701,6 +888,18 @@ RecordReader::getLatestMemoryRecord() const noexcept
     return d_latest_memory_record;
 }
 
+AggregatedAllocation
+RecordReader::getLatestAggregatedAllocation() const noexcept
+{
+    return d_latest_aggregated_allocation;
+}
+
+MemorySnapshot
+RecordReader::getLatestMemorySnapshot() const noexcept
+{
+    return d_latest_memory_snapshot;
+}
+
 PyObject*
 RecordReader::dumpAllRecords()
 {
@@ -723,6 +922,9 @@ RecordReader::dumpAllRecords()
     switch (d_header.file_format) {
         case FileFormat::ALL_ALLOCATIONS: {
             file_format = "ALL_ALLOCATIONS";
+        } break;
+        case FileFormat::AGGREGATED_ALLOCATIONS: {
+            file_format = "AGGREGATED_ALLOCATIONS";
         } break;
         default: {
             file_format = "<unknown enum value " + std::to_string((int)d_header.file_format) + ">";
@@ -747,6 +949,20 @@ RecordReader::dumpAllRecords()
            d_header.command_line.c_str(),
            python_allocator.c_str());
 
+    switch (d_header.file_format) {
+        case FileFormat::ALL_ALLOCATIONS:
+            return dumpAllRecordsFromAllAllocationsFile();
+        case FileFormat::AGGREGATED_ALLOCATIONS:
+            return dumpAllRecordsFromAggregatedAllocationsFile();
+        default:
+            printf("UNRECOGNIZED FILE CONTENTS\n");
+            Py_RETURN_NONE;
+    }
+}
+
+PyObject*
+RecordReader::dumpAllRecordsFromAllAllocationsFile()
+{
     while (true) {
         if (0 != PyErr_CheckSignals()) {
             return nullptr;
@@ -924,6 +1140,169 @@ RecordReader::dumpAllRecords()
             } break;
             default: {
                 printf("UNKNOWN RECORD TYPE %d\n", (int)record_type_and_flags.record_type);
+                Py_RETURN_NONE;
+            } break;
+        }
+    }
+}
+
+PyObject*
+RecordReader::dumpAllRecordsFromAggregatedAllocationsFile()
+{
+    while (true) {
+        if (0 != PyErr_CheckSignals()) {
+            return nullptr;
+        }
+
+        AggregatedRecordType record_type;
+        if (!d_input->read(reinterpret_cast<char*>(&record_type), sizeof(record_type))) {
+            Py_RETURN_NONE;
+        }
+
+        switch (record_type) {
+            case AggregatedRecordType::MEMORY_SNAPSHOT: {
+                printf("MEMORY_SNAPSHOT ");
+
+                MemorySnapshot record;
+                if (!parseMemorySnapshotRecord(&record)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("time=%ld rss=%zd heap=%zd\n", record.ms_since_epoch, record.rss, record.heap);
+            } break;
+
+            case AggregatedRecordType::AGGREGATED_ALLOCATION: {
+                printf("AGGREGATED_ALLOCATION ");
+
+                AggregatedAllocation record;
+                if (!parseAggregatedAllocationRecord(&record)) {
+                    Py_RETURN_NONE;
+                }
+
+                const char* allocator = allocatorName(record.allocator);
+
+                std::string unknownAllocator;
+                if (!allocator) {
+                    unknownAllocator =
+                            "<unknown allocator " + std::to_string((int)record.allocator) + ">";
+                    allocator = unknownAllocator.c_str();
+                }
+
+                printf("tid=%lu allocator=%s native_frame_id=%zd python_frame_id=%zd"
+                       " native_segment_generation=%zd n_allocations_in_high_water_mark=%zd"
+                       " n_allocations_leaked=%zd bytes_in_high_water_mark=%zd bytes_leaked=%zd\n",
+                       record.tid,
+                       allocator,
+                       record.native_frame_id,
+                       record.frame_index,
+                       record.native_segment_generation,
+                       record.n_allocations_in_high_water_mark,
+                       record.n_allocations_leaked,
+                       record.bytes_in_high_water_mark,
+                       record.bytes_leaked);
+            } break;
+
+            case AggregatedRecordType::PYTHON_TRACE_INDEX: {
+                printf("PYTHON_TRACE_INDEX ");
+
+                std::pair<frame_id_t, FrameTree::index_t> record;
+                if (!parsePythonTraceIndexRecord(&record)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("frame_id=%zd parent_index=%u\n", record.first, record.second);
+            } break;
+
+            case AggregatedRecordType::PYTHON_FRAME_INDEX: {
+                printf("PYTHON_FRAME_INDEX ");
+
+                tracking_api::pyframe_map_val_t record;
+                if (!parsePythonFrameIndexRecord(&record)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("frame_id=%zd function_name=%s filename=%s lineno=%d is_entry_frame=%d\n",
+                       record.first,
+                       record.second.function_name.c_str(),
+                       record.second.filename.c_str(),
+                       record.second.lineno,
+                       record.second.is_entry_frame);
+            } break;
+
+            case AggregatedRecordType::NATIVE_TRACE_INDEX: {
+                printf("NATIVE_TRACE_INDEX ");
+
+                UnresolvedNativeFrame record;
+                if (!parseNativeFrameIndex(&record)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("ip=%p index=%zu\n", (void*)record.ip, record.index);
+            } break;
+
+            case AggregatedRecordType::MEMORY_MAP_START: {
+                printf("MEMORY_MAP_START\n");
+                if (!parseMemoryMapStart()) {
+                    Py_RETURN_NONE;
+                }
+            } break;
+
+            case AggregatedRecordType::SEGMENT_HEADER: {
+                printf("SEGMENT_HEADER ");
+
+                std::string filename;
+                size_t num_segments;
+                uintptr_t addr;
+                if (!parseSegmentHeader(&filename, &num_segments, &addr)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("filename=%s num_segments=%zd addr=%p\n",
+                       filename.c_str(),
+                       num_segments,
+                       (void*)addr);
+            } break;
+
+            case AggregatedRecordType::SEGMENT: {
+                printf("SEGMENT ");
+
+                Segment record;
+                if (!parseSegment(&record)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("%p %" PRIxPTR "\n", (void*)record.vaddr, record.memsz);
+            } break;
+
+            case AggregatedRecordType::THREAD_RECORD: {
+                printf("THREAD_RECORD ");
+
+                std::string name;
+                if (!parseThreadRecord(&name)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("%s\n", name.c_str());
+            } break;
+
+            case AggregatedRecordType::CONTEXT_SWITCH: {
+                printf("CONTEXT_SWITCH ");
+
+                thread_id_t tid;
+                if (!parseContextSwitch(&tid)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("tid=%lu\n", tid);
+            } break;
+
+            case AggregatedRecordType::AGGREGATED_TRAILER: {
+                printf("AGGREGATED_TRAILER\n");
+                Py_RETURN_NONE;  // Treat as EOF
+            } break;
+
+            default: {
+                printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);
                 Py_RETURN_NONE;
             } break;
         }

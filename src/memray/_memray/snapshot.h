@@ -194,6 +194,16 @@ class TemporaryAllocationsAggregator : public AbstractAggregator
     reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads) override;
 };
 
+class AggregatedCaptureReaggregator : public AbstractAggregator
+{
+  public:
+    void addAllocation(const Allocation& allocation) override;
+    reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads) override;
+
+  private:
+    std::vector<Allocation> d_allocations;
+};
+
 PyObject*
 Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t& stack_to_allocation);
 

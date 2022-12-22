@@ -26,6 +26,7 @@ from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
 from _memray.record_writer cimport RecordWriter
 from _memray.record_writer cimport createRecordWriter
+from _memray.records cimport AggregatedAllocation
 from _memray.records cimport Allocation as _Allocation
 from _memray.records cimport FileFormat as _FileFormat
 from _memray.records cimport MemoryRecord
@@ -35,6 +36,7 @@ from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
 from _memray.sink cimport SocketSink
 from _memray.snapshot cimport AbstractAggregator
+from _memray.snapshot cimport AggregatedCaptureReaggregator
 from _memray.snapshot cimport AllocationStatsAggregator
 from _memray.snapshot cimport HighWatermark
 from _memray.snapshot cimport HighWatermarkFinder
@@ -614,6 +616,11 @@ cdef class FileReader:
                 if ret == RecordResult.RecordResultAllocationRecord:
                     finder.processAllocation(reader.getLatestAllocation())
                     progress_indicator.update(1)
+                elif ret == RecordResult.RecordResultAggregatedAllocationRecord:
+                    finder.processAllocation(
+                        reader.getLatestAggregatedAllocation().contributionToHighWaterMark()
+                    )
+                    progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
                     memory_record = reader.getLatestMemoryRecord()
                     self._memory_snapshots.push_back(
@@ -623,6 +630,8 @@ cdef class FileReader:
                             finder.getCurrentWatermark(),
                         )
                     )
+                elif ret == RecordResult.RecordResultMemorySnapshot:
+                    self._memory_snapshots.push_back(reader.getLatestMemorySnapshot())
                 else:
                     break
         self._high_watermark = finder.getHighWatermark()
@@ -650,6 +659,55 @@ cdef class FileReader:
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.close()
+
+    def _reaggregate_allocations(
+        self, size_t records_to_process, bool merge_threads, bool leaks
+    ):
+        """Aggregate records from an AGGREGATED_ALLOCATIONS capture file.
+
+        An extra aggregation pass is still needed to account for merge_threads,
+        as well as (for now at least) different location key formats.
+        """
+        cdef AggregatedCaptureReaggregator aggregator
+        cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(self._path))
+        )
+        cdef RecordReader* reader = reader_sp.get()
+
+        cdef ProgressIndicator progress_indicator = ProgressIndicator(
+            "Processing allocation records",
+            total=records_to_process,
+            report_progress=self._report_progress
+        )
+
+        cdef AggregatedAllocation record
+        with progress_indicator:
+            while True:
+                PyErr_CheckSignals()
+                ret = reader.nextRecord()
+                if ret == RecordResult.RecordResultAggregatedAllocationRecord:
+                    record = reader.getLatestAggregatedAllocation()
+                    if leaks:
+                        aggregator.addAllocation(record.contributionToLeaks())
+                    else:
+                        aggregator.addAllocation(record.contributionToHighWaterMark())
+                    records_to_process -= 1
+                    progress_indicator.update(1)
+                elif ret == RecordResult.RecordResultMemorySnapshot:
+                    pass
+                else:
+                    assert ret != RecordResult.RecordResultMemoryRecord
+                    assert ret != RecordResult.RecordResultAllocationRecord
+                    break
+
+        for elem in Py_ListFromSnapshotAllocationRecords(
+            aggregator.getSnapshotAllocations(merge_threads)
+        ):
+            alloc = AllocationRecord(elem)
+            (<AllocationRecord> alloc)._reader = reader_sp
+            yield alloc
+
+        reader.close()
 
     def _aggregate_allocations(self, size_t records_to_process, bool merge_threads,
                                size_t temporary_buffer_size=0):
@@ -684,6 +742,8 @@ cdef class FileReader:
                 elif ret == RecordResult.RecordResultMemoryRecord:
                     pass
                 else:
+                    assert ret != RecordResult.RecordResultMemorySnapshot
+                    assert ret != RecordResult.RecordResultAggregatedAllocationRecord
                     break
 
         for elem in Py_ListFromSnapshotAllocationRecords(
@@ -697,17 +757,38 @@ cdef class FileReader:
 
     def get_high_watermark_allocation_records(self, merge_threads=True):
         self._ensure_not_closed()
+        if self._header["file_format"] == FileFormat.AGGREGATED_ALLOCATIONS:
+            yield from self._reaggregate_allocations(
+                self._header["stats"]["n_allocations"],
+                merge_threads,
+                leaks=False,
+            )
+            return
+
         # If allocation 0 caused the peak, we need to process 1 record, etc
         cdef size_t max_records = self._high_watermark.index + 1
         yield from self._aggregate_allocations(max_records, merge_threads)
 
     def get_leaked_allocation_records(self, merge_threads=True):
         self._ensure_not_closed()
+        if self._header["file_format"] == FileFormat.AGGREGATED_ALLOCATIONS:
+            yield from self._reaggregate_allocations(
+                self._header["stats"]["n_allocations"],
+                merge_threads,
+                leaks=True,
+            )
+            return
+
         cdef size_t max_records = self._header["stats"]["n_allocations"]
         yield from self._aggregate_allocations(max_records, merge_threads)
 
     def get_temporary_allocation_records(self, merge_threads=True, threshold=1):
         self._ensure_not_closed()
+        if self._header["file_format"] == FileFormat.AGGREGATED_ALLOCATIONS:
+            raise NotImplementedError(
+                "Can't find temporary allocations using a pre-aggregated capture file."
+            )
+
         cdef size_t max_records = self._header["stats"]["n_allocations"]
         yield from self._aggregate_allocations(
             max_records,
@@ -717,6 +798,11 @@ cdef class FileReader:
 
     def get_allocation_records(self):
         self._ensure_not_closed()
+        if self._header["file_format"] == FileFormat.AGGREGATED_ALLOCATIONS:
+            raise NotImplementedError(
+                "Can't get all allocations from a pre-aggregated capture file."
+            )
+
         cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
             unique_ptr[FileSource](new FileSource(self._path))
         )
@@ -730,6 +816,8 @@ cdef class FileReader:
                 (<AllocationRecord> alloc)._reader = reader_sp
                 yield alloc
             elif ret == RecordResult.RecordResultMemoryRecord:
+                pass
+            elif ret == RecordResult.RecordResultMemorySnapshot:
                 pass
             else:
                 break
@@ -759,6 +847,11 @@ def compute_statistics(
     cdef header = reader.getHeader()
     total = header["stats"]["n_allocations"] or None
 
+    if header["file_format"] == FileFormat.AGGREGATED_ALLOCATIONS:
+        raise NotImplementedError(
+            "Can't compute statistics using a pre-aggregated capture file."
+        )
+
     cdef AllocationStatsAggregator aggregator
     cdef ProgressIndicator progress_indicator = ProgressIndicator(
         "Computing statistics",
@@ -777,7 +870,11 @@ def compute_statistics(
                 progress_indicator.update(1)
             elif ret == RecordResult.RecordResultMemoryRecord:
                 pass
+            elif ret == RecordResult.RecordResultMemorySnapshot:
+                pass
             else:
+                assert ret != RecordResult.RecordResultMemorySnapshot
+                assert ret != RecordResult.RecordResultAggregatedAllocationRecord
                 break
 
     # Ignore the n_allocations in the header, use our observed value.

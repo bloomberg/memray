@@ -55,6 +55,36 @@ Allocation::toPythonObject() const
     return tuple;
 }
 
+Allocation
+AggregatedAllocation::contributionToHighWaterMark() const
+{
+    return {
+            tid,
+            0,
+            bytes_in_high_water_mark,
+            allocator,
+            native_frame_id,
+            frame_index,
+            native_segment_generation,
+            n_allocations_in_high_water_mark,
+    };
+}
+
+Allocation
+AggregatedAllocation::contributionToLeaks() const
+{
+    return {
+            tid,
+            0,
+            bytes_leaked,
+            allocator,
+            native_frame_id,
+            frame_index,
+            native_segment_generation,
+            n_allocations_leaked,
+    };
+}
+
 PyObject*
 Frame::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const
 {

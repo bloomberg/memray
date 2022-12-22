@@ -32,7 +32,9 @@ class RecordReader
   public:
     enum class RecordResult {
         ALLOCATION_RECORD,
+        AGGREGATED_ALLOCATION_RECORD,
         MEMORY_RECORD,
+        MEMORY_SNAPSHOT,
         ERROR,
         END_OF_FILE,
     };
@@ -60,6 +62,8 @@ class RecordReader
     std::string getThreadName(thread_id_t tid);
     Allocation getLatestAllocation() const noexcept;
     MemoryRecord getLatestMemoryRecord() const noexcept;
+    AggregatedAllocation getLatestAggregatedAllocation() const noexcept;
+    MemorySnapshot getLatestMemorySnapshot() const noexcept;
 
   private:
     // Aliases
@@ -76,6 +80,10 @@ class RecordReader
     bool readSignedVarint(ssize_t* val);
     template<typename T>
     bool readIntegralDelta(T* cache, T* new_val);
+    RecordResult nextRecordFromAllAllocationsFile();
+    RecordResult nextRecordFromAggregatedAllocationsFile();
+    PyObject* dumpAllRecordsFromAllAllocationsFile();
+    PyObject* dumpAllRecordsFromAggregatedAllocationsFile();
 
     // Data members
     mutable std::mutex d_mutex;
@@ -91,7 +99,9 @@ class RecordReader
     DeltaEncodedFields d_last;
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;
+    AggregatedAllocation d_latest_aggregated_allocation;
     MemoryRecord d_latest_memory_record{};
+    MemorySnapshot d_latest_memory_snapshot{};
 
     // Methods
     [[nodiscard]] bool parseFramePush(FramePush* record);
@@ -129,6 +139,18 @@ class RecordReader
 
     [[nodiscard]] bool parseContextSwitch(thread_id_t* tid);
     [[nodiscard]] bool processContextSwitch(thread_id_t tid);
+
+    [[nodiscard]] bool parseMemorySnapshotRecord(MemorySnapshot* record);
+    [[nodiscard]] bool processMemorySnapshotRecord(const MemorySnapshot& record);
+
+    [[nodiscard]] bool parseAggregatedAllocationRecord(AggregatedAllocation* record);
+    [[nodiscard]] bool processAggregatedAllocationRecord(const AggregatedAllocation& record);
+
+    [[nodiscard]] bool parsePythonTraceIndexRecord(std::pair<frame_id_t, FrameTree::index_t>* record);
+    [[nodiscard]] bool processPythonTraceIndexRecord(const std::pair<frame_id_t, FrameTree::index_t>&);
+
+    [[nodiscard]] bool parsePythonFrameIndexRecord(tracking_api::pyframe_map_val_t* pyframe_val);
+    [[nodiscard]] bool processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_t& record);
 
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
