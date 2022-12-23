@@ -105,6 +105,11 @@ cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_MALLOC = 3
     PYTHON_ALLOCATOR_OTHER = 4
 
+cpdef enum FileFormat:
+    ALL_ALLOCATIONS = _FileFormat.ALL_ALLOCATIONS
+    AGGREGATED_ALLOCATIONS = _FileFormat.AGGREGATED_ALLOCATIONS
+
+
 def size_fmt(num, suffix='B'):
     for unit in ['','K','M','G','T','P','E','Z']:
         if abs(num) < 1024.0:
@@ -370,7 +375,8 @@ cdef class Tracker:
 
     def __cinit__(self, object file_name=None, *, object destination=None,
                   bool native_traces=False, unsigned int memory_interval_ms = 10,
-                  bool follow_fork=False, bool trace_python_allocators=False):
+                  bool follow_fork=False, bool trace_python_allocators=False,
+                  FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
@@ -383,15 +389,19 @@ cdef class Tracker:
         if file_name is not None:
             destination = FileDestination(path=file_name)
 
-        if follow_fork and not isinstance(destination, FileDestination):
-            raise RuntimeError("follow_fork requires an output file")
+        if not isinstance(destination, FileDestination):
+            if follow_fork:
+                raise RuntimeError("follow_fork requires an output file")
+
+            if file_format != FileFormat.ALL_ALLOCATIONS:
+                raise RuntimeError("AGGREGATED_ALLOCATIONS requires an output file")
 
         self._writer = move(
             createRecordWriter(
                 move(self._make_writer(destination)),
                 command_line,
                 native_traces,
-                _FileFormat.ALL_ALLOCATIONS,
+                file_format,
             )
         )
 

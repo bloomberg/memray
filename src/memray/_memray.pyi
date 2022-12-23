@@ -78,6 +78,10 @@ class AllocatorType(enum.IntEnum):
     PYMALLOC_REALLOC: int
     PYMALLOC_FREE: int
 
+class FileFormat(enum.IntEnum):
+    ALL_ALLOCATIONS: int
+    AGGREGATED_ALLOCATIONS: int
+
 def start_thread_trace(frame: FrameType, event: str, arg: Any) -> None: ...
 
 class FileReader:
@@ -150,6 +154,7 @@ class Tracker:
         memory_interval_ms: int = ...,
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
+        file_format: FileFormat = ...,
     ) -> None: ...
     @overload
     def __init__(
@@ -160,6 +165,7 @@ class Tracker:
         memory_interval_ms: int = ...,
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
+        file_format: FileFormat = ...,
     ) -> None: ...
     def __enter__(self) -> Any: ...
     def __exit__(
