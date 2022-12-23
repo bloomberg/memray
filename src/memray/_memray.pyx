@@ -344,6 +344,9 @@ cdef class Tracker:
             memory usage over time that appears at the top of the flame graph,
             for instance. This parameter lets you adjust the frequency between
             updates, though you shouldn't need to change it.
+        file_format (FileFormat): The format that should be used when writing
+            to the capture file. See the `FileFormat` documentation for a list
+            of supported file formats and their limitations.
     """
     cdef bool _native_traces
     cdef unsigned int _memory_interval_ms
