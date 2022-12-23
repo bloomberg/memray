@@ -13,6 +13,10 @@ from unittest.mock import patch
 
 import pytest
 
+from memray import FileFormat
+from memray import Tracker
+from memray._test import MemoryAllocator
+from memray._test import set_thread_name
 from memray.commands import main
 
 TIMEOUT = 10
@@ -503,6 +507,65 @@ class TestParseSubcommand:
 
         # THEN
         _, *records = proc.stdout.splitlines()
+
+        for record in records:
+            record_count_by_type[record.partition(" ")[0]] += 1
+
+        for _, count in record_count_by_type.items():
+            assert count > 0
+
+    def test_successful_parse_of_aggregated_capture_file(self, tmp_path):
+        # GIVEN
+        results_file = tmp_path / "result.bin"
+        record_types = [
+            "MEMORY_SNAPSHOT",
+            "AGGREGATED_ALLOCATION",
+            "PYTHON_TRACE_INDEX",
+            "PYTHON_FRAME_INDEX",
+            "NATIVE_TRACE_INDEX",
+            "MEMORY_MAP_START",
+            "SEGMENT_HEADER",
+            "SEGMENT",
+            "AGGREGATED_TRAILER",
+        ]
+
+        with Tracker(
+            results_file,
+            native_traces=True,
+            file_format=FileFormat.AGGREGATED_ALLOCATIONS,
+        ):
+            if set_thread_name("main") == 0:
+                # We should get CONTEXT_SWITCH and THREAD_RECORD records only
+                # if we can set the thread name. On macOS, we won't get these.
+                record_types.append("CONTEXT_SWITCH")
+                record_types.append("THREAD_RECORD")
+
+            allocator = MemoryAllocator()
+            allocator.valloc(1024)
+            allocator.free()
+            # Give it time to generate some memory records
+            time.sleep(0.1)
+
+        record_count_by_type = dict.fromkeys(record_types, 0)
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "parse",
+                str(results_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+
+        # THEN
+        _, *records = proc.stdout.splitlines()
+        print(records)
 
         for record in records:
             record_count_by_type[record.partition(" ")[0]] += 1
