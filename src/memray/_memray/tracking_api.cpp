@@ -943,6 +943,7 @@ Tracker::updateModuleCacheImpl()
 void
 Tracker::registerThreadNameImpl(const char* name)
 {
+    RecursionGuard guard;
     if (!d_writer->writeThreadSpecificRecord(thread_id(), ThreadRecord{name})) {
         std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
