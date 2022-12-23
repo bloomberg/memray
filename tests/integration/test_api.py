@@ -3,6 +3,7 @@
 import pytest
 
 from memray import FileDestination
+from memray import FileFormat
 from memray import FileReader
 from memray import SocketDestination
 from memray import Tracker
@@ -89,4 +90,16 @@ def test_follow_fork_with_socket_destination():
     # GIVEN
     with pytest.raises(RuntimeError, match="follow_fork requires an output file"):
         with Tracker(destination=SocketDestination(server_port=1234), follow_fork=True):
+            pass
+
+
+def test_aggregated_capture_with_socket_destination():
+    # GIVEN
+    with pytest.raises(
+        RuntimeError, match="AGGREGATED_ALLOCATIONS requires an output file"
+    ):
+        with Tracker(
+            destination=SocketDestination(server_port=1234),
+            file_format=FileFormat.AGGREGATED_ALLOCATIONS,
+        ):
             pass
