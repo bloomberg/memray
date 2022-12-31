@@ -1,0 +1,1 @@
+``memray run`` now supports ``--aggregate`` to produce :ref:`aggregated capture files <aggregated capture files>`, which can be much smaller but aren't able to be used for generating every type of report.
