@@ -189,6 +189,48 @@ any other capture file, and can be fed into any reporter of your choosing.
   ``--follow-fork`` mode can only be used with an output file. It is incompatible with ``--live``
   mode and ``--live-remote`` mode, since the TUI can't be attached to multiple processes at once.
 
+.. _aggregated capture files:
+
+Aggregated capture files
+------------------------
+
+If you supply the ``--aggregate`` argument to ``memray run``, it will write
+much smaller capture files. Instead of containing information about every
+individual allocation performed by the tracked program, a capture file produced
+using ``--aggregate`` will contain some statistics about the process's
+allocations aggregated by the location where the allocation happened.
+
+Specifically, for every location where the tracked process performed any
+allocations, an aggregated capture file includes a count of:
+
+- How many allocations at that location had not yet been deallocated when the
+  process reached its heap memory high water mark
+- How many bytes had been allocated at that location and not yet deallocated
+  when the process reached its heap memory high water mark
+- How many allocations at that location were leaked (i.e. not deallocated
+  before tracking stopped)
+- How many bytes were leaked by allocations at that location
+
+These counts provide enough information to generate flame graphs. In fact, this
+information is enough to run most of our reporters, with just a few exceptions:
+
+- You cannot find :doc:`temporary allocations </temporary_allocations>` using
+  this capture file format, since finding temporary allocations requires
+  knowing when each individual allocation was deallocated.
+- You cannot use the :doc:`stats reporter <stats>` with this capture file
+  format, because it needs to see each individual allocation's size.
+- You cannot use ``--aggregate`` with :ref:`live tracking <live tracking>`,
+  since the live TUI needs to see each allocation as it happens.
+
+Also, note that if the process is killed before tracking ends (for instance, by
+the Linux OOM killer), then the process will die before it finishes calculating
+its statistics, and so no useful information is ever written to the capture
+file. With the default file format, the capture file is usually still usable
+even if the process crashes or is killed, but with the aggregated file format
+it is not.
+
+If you can live with these limitations, then using ``--aggregate`` results in
+much smaller capture files that can be used seamlessly with most reporters.
 
 CLI Reference
 -------------
