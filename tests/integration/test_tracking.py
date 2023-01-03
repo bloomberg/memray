@@ -16,6 +16,7 @@ from memray import FileReader
 from memray import Tracker
 from memray._test import MemoryAllocator
 from memray._test import MmapAllocator
+from memray._test import PrimeCaches
 from memray._test import PymallocDomain
 from memray._test import PymallocMemoryAllocator
 from memray._test import _cython_allocate_in_two_places
@@ -315,10 +316,18 @@ def test_no_allocations(tmpdir):
 
 class TestHighWatermark:
     def test_no_allocations_while_tracking(self, tmp_path):
-        # GIVEN / WHEN
+        # GIVEN
         output = tmp_path / "test.bin"
-        with Tracker(output):
+
+        def tracking_function():
             pass
+
+        with PrimeCaches():
+            tracking_function()
+
+        # WHEN
+        with Tracker(output, native_traces=True):
+            tracking_function()
 
         # THEN
         assert list(FileReader(output).get_high_watermark_allocation_records()) == []
@@ -358,11 +367,17 @@ class TestHighWatermark:
         allocator = MemoryAllocator()
         output = tmp_path / "test.bin"
 
-        # WHEN
-        with Tracker(output):
+        def test_function():
             for _ in range(2):
                 allocator.valloc(1024)
                 allocator.free()
+
+        with PrimeCaches():
+            test_function()
+
+        # WHEN
+        with Tracker(output):
+            test_function()
 
         # THEN
         reader = FileReader(output)
@@ -387,12 +402,18 @@ class TestHighWatermark:
         allocator2 = MemoryAllocator()
         output = tmp_path / "test.bin"
 
-        # WHEN
-        with Tracker(output):
+        def test_function():
             allocator1.valloc(1024)
             allocator1.free()
             allocator2.valloc(2048)
             allocator2.free()
+
+        with PrimeCaches():
+            test_function()
+
+        # WHEN
+        with Tracker(output):
+            test_function()
 
         # THEN
         reader = FileReader(output)
@@ -417,12 +438,18 @@ class TestHighWatermark:
         allocator2 = MemoryAllocator()
         output = tmp_path / "test.bin"
 
-        # WHEN
-        with Tracker(output):
+        def test_function():
             allocator2.valloc(2048)
             allocator2.free()
             allocator1.valloc(1024)
             allocator1.free()
+
+        with PrimeCaches():
+            test_function()
+
+        # WHEN
+        with Tracker(output):
+            test_function()
 
         # THEN
         reader = FileReader(output)
@@ -665,11 +692,18 @@ class TestHighWatermark:
         allocator = MemoryAllocator()
         output = tmp_path / "test.bin"
 
-        # WHEN
-        with Tracker(output):
+        def test_function():
             allocator.valloc(2048)
             allocator.free()
             allocator.valloc(1024)
+
+        with PrimeCaches():
+            test_function()
+            allocator.free()
+
+        # WHEN
+        with Tracker(output):
+            test_function()
         allocator.free()
 
         # THEN
@@ -694,9 +728,10 @@ class TestHighWatermark:
         only account for the removal of the actually munmap'd chunk and not
         the entire mmap'd region when a partial munmap is performed."""
 
-        # GIVEN/WHEN
+        # GIVEN
         output = tmp_path / "test.bin"
-        with Tracker(output):
+
+        def test_function():
             # Mmap some memory and free just the first page. This should not register
             # the deallocation of the entire mmap'd region, only one page.
             alloc = MmapAllocator(2 * PAGE_SIZE)
@@ -705,6 +740,13 @@ class TestHighWatermark:
             # Now perform the peak allocation. This should be detected as the peak index.
             MmapAllocator(10 * PAGE_SIZE)
             # At this point we should have 11 * PAGE_SIZE allocated
+
+        with PrimeCaches():
+            test_function()
+
+        # WHEN
+        with Tracker(output):
+            test_function()
 
         # THEN
         reader = FileReader(output)
@@ -718,9 +760,10 @@ class TestHighWatermark:
         for the parts removed. This test allocates 4 pages and removes the first
         and last pages of the mmap'd region."""
 
-        # GIVEN/WHEN
+        # GIVEN
         output = tmp_path / "test.bin"
-        with Tracker(output):
+
+        def test_function():
             # Mmap some memory and free two pages: one at the beginning and one at the
             # end of the region.
             alloc = MmapAllocator(4 * PAGE_SIZE)
@@ -730,6 +773,13 @@ class TestHighWatermark:
             # Now perform the peak allocation. This should be detected as the peak index.
             MmapAllocator(10 * PAGE_SIZE)
             # At this point we should have 12 * PAGE_SIZE allocated
+
+        with PrimeCaches():
+            test_function()
+
+        # WHEN
+        with Tracker(output):
+            test_function()
 
         # THEN
         reader = FileReader(output)
@@ -808,14 +858,21 @@ class TestHighWatermark:
 
     def test_partial_munmap_multiple_split_in_middle(self, tmp_path):
         """Deallocate pages in of a larger mmap'd area, splitting it into 3 areas."""
-        # GIVEN/WHEN
+        # GIVEN
         output = tmp_path / "test.bin"
-        with Tracker(output):
+
+        def test_function():
             alloc = MmapAllocator(5 * PAGE_SIZE)
             alloc.munmap(PAGE_SIZE, 1 * PAGE_SIZE)
             alloc.munmap(PAGE_SIZE, 3 * PAGE_SIZE)
-
             MmapAllocator(10 * PAGE_SIZE)
+
+        with PrimeCaches():
+            test_function()
+
+        # WHEN
+        with Tracker(output):
+            test_function()
 
         # THEN
         reader = FileReader(output)
@@ -826,13 +883,21 @@ class TestHighWatermark:
 
     def test_partial_munmap_split_in_middle(self, tmp_path):
         """Deallocate a single page in the middle of a larger mmap'd area."""
-        # GIVEN/WHEN
+        # GIVEN
         output = tmp_path / "test.bin"
-        with Tracker(output):
+
+        def test_function():
             alloc = MmapAllocator(8 * PAGE_SIZE)
             alloc.munmap(PAGE_SIZE, 4 * PAGE_SIZE)
 
             MmapAllocator(10 * PAGE_SIZE)
+
+        with PrimeCaches():
+            test_function()
+
+        # WHEN
+        with Tracker(output):
+            test_function()
 
         # THEN
         reader = FileReader(output)
@@ -1370,6 +1435,9 @@ class TestHeader:
         allocator = MemoryAllocator()
         output = Path(tmpdir) / "test.bin"
 
+        with PrimeCaches():
+            pass
+
         # WHEN
 
         monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
@@ -1398,6 +1466,9 @@ class TestHeader:
         # GIVEN
         allocator = MemoryAllocator()
         output = Path(tmpdir) / "test.bin"
+
+        with PrimeCaches():
+            pass
 
         # WHEN
 

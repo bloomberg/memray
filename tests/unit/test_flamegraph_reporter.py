@@ -254,7 +254,7 @@ class TestFlameGraphReporter:
         allocator = MemoryAllocator()
         output = tmp_path / "test.bin"
         with Tracker(output):
-            allocator.valloc(1024)
+            allocator.valloc(4096)
             allocator.free()
 
         peak_allocations = filter_relevant_allocations(
@@ -268,13 +268,13 @@ class TestFlameGraphReporter:
 
         # THEN
         assert reporter.data["name"] == "<root>"
-        assert reporter.data["value"] == 1024
+        assert reporter.data["value"] == 4096
 
         assert isinstance(reporter.data["children"], list)
         assert len(reporter.data["children"]) == 1
 
         child = reporter.data["children"][0]
-        assert child["name"] == "            allocator.valloc(1024)\n"
+        assert child["name"] == "            allocator.valloc(4096)\n"
 
     def test_works_with_multiple_stacks_from_same_caller_two_frames_above(self):
         # GIVEN
