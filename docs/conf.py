@@ -36,6 +36,11 @@ html_theme_options = {
     "sidebar_hide_name": True,
 }
 
+templates_path = ["_templates"]
+html_additional_pages = {
+    "index": "index.html",
+}
+
 # -- Options for smartquotes ----------------------------------------------------------
 
 # Disable the conversion of dashes so that long options like "--find-links" won't
