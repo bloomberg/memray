@@ -205,7 +205,11 @@ calloc(size_t num, size_t size) noexcept
 {
     assert(hooks::calloc);
 
-    void* ret = hooks::calloc(num, size);
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::calloc(num, size);
+    }
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, num * size, hooks::Allocator::CALLOC);
     }
@@ -261,7 +265,11 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
 {
     assert(hooks::posix_memalign);
 
-    int ret = hooks::posix_memalign(memptr, alignment, size);
+    int ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::posix_memalign(memptr, alignment, size);
+    }
     if (!ret) {
         tracking_api::Tracker::trackAllocation(*memptr, size, hooks::Allocator::POSIX_MEMALIGN);
     }
