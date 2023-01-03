@@ -3,6 +3,8 @@
 If you make changes to this file that move functions around, you will need to
 change line numbers in test files as well.
 """
+import sys
+
 from posix.mman cimport MAP_ANONYMOUS
 from posix.mman cimport MAP_FAILED
 from posix.mman cimport MAP_SHARED
@@ -287,3 +289,13 @@ def exit(bint py_finalize=False):
     else:
         with nogil:
             _exit(0)
+
+
+cdef class PrimeCaches:
+    cdef object old_profile
+    def __enter__(self):
+        self.old_profile = sys.getprofile()
+        sys.setprofile(lambda *args: None)
+        return self
+    def __exit__(self, *args):
+        sys.setprofile(self.old_profile)

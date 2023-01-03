@@ -2,6 +2,7 @@ from typing import Callable
 
 from ._test_utils import MemoryAllocator as _MemoryAllocator
 from ._test_utils import MmapAllocator
+from ._test_utils import PrimeCaches
 from ._test_utils import PymallocDomain
 from ._test_utils import PymallocMemoryAllocator
 from ._test_utils import _cython_allocate_in_two_places
@@ -62,4 +63,5 @@ __all__ = [
     "set_thread_name",
     "fill_cpp_vector",
     "exit",
+    "PrimeCaches",
 ]
