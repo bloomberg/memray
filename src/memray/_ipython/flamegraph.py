@@ -94,10 +94,7 @@ def argument_parser() -> argparse.ArgumentParser:
 
 
 @magics_class
-class FlamegraphMagics(Magics):  # type: ignore
-    def parse_options(self, string: str) -> argparse.Namespace:
-        return argument_parser().parse_args(shlex.split(string))
-
+class FlamegraphMagics(Magics):
     @cell_magic  # type: ignore
     def memray_flamegraph(self, line: str, cell: str) -> None:
         """Memory profile the code in the cell and display a flame graph."""
@@ -105,7 +102,7 @@ class FlamegraphMagics(Magics):  # type: ignore
             raise UsageError("Cannot profile code when not in a shell")
 
         try:
-            options = self.parse_options(line)
+            options = argument_parser().parse_args(shlex.split(line))
         except SystemExit:
             # argparse wants to bail if the options aren't valid.
             # It already printed a message, just return control to IPython.
@@ -163,7 +160,7 @@ class FlamegraphMagics(Magics):  # type: ignore
             )
         dump_file.unlink()
         pprint(f"Results saved to [bold blue]{flamegraph_path}[/bold blue]")
-        display(IFrame(flamegraph_path, width="100%", height="600"))
+        display(IFrame(flamegraph_path, width="100%", height="600"))  # type: ignore
 
 
 assert FlamegraphMagics.memray_flamegraph.__doc__ is not None
