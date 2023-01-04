@@ -193,3 +193,17 @@ def get_symbolic_support() -> SymbolicSupport: ...
 
 RTLD_NOW: int
 RTLD_DEFAULT: int
+
+class HighWaterMarkAggregatorTestHarness:
+    def add_allocation(
+        self,
+        tid: int,
+        address: int,
+        size: int,
+        allocator: int,
+        native_frame_id: int,
+        frame_index: int,
+        native_segment_generation: int,
+    ) -> None: ...
+    def get_current_heap_size(self) -> int: ...
+    def get_allocations(self) -> list[dict[str, int]]: ...

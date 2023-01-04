@@ -1,7 +1,9 @@
+from _memray.records cimport AggregatedAllocation
 from _memray.records cimport Allocation
 from _memray.records cimport optional_frame_id_t
 from libc.stdint cimport uint64_t
 from libcpp cimport bool
+from libcpp.functional cimport function
 from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport pair
 from libcpp.vector cimport vector
@@ -40,6 +42,11 @@ cdef extern from "snapshot.h" namespace "memray::api":
 
     cdef cppclass index_thread_pair_hash:
         pass
+
+    cdef cppclass HighWaterMarkAggregator:
+        void addAllocation(const Allocation& allocation) except+
+        size_t getCurrentHeapSize()
+        bool visitAllocations[T](const T& callback) except+
 
     cdef cppclass AllocationStatsAggregator:
         void addAllocation(const Allocation&, optional_frame_id_t python_frame_id) except+
