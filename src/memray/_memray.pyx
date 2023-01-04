@@ -39,6 +39,7 @@ from _memray.snapshot cimport AbstractAggregator
 from _memray.snapshot cimport AggregatedCaptureReaggregator
 from _memray.snapshot cimport AllocationStatsAggregator
 from _memray.snapshot cimport HighWatermark
+from _memray.snapshot cimport HighWaterMarkAggregator
 from _memray.snapshot cimport HighWatermarkFinder
 from _memray.snapshot cimport Py_GetSnapshotAllocationRecords
 from _memray.snapshot cimport Py_ListFromSnapshotAllocationRecords
@@ -1043,3 +1044,67 @@ cdef extern from "<dlfcn.h>":
 
 RTLD_NOW = _RTLD_NOW
 RTLD_DEFAULT = <long long>_RTLD_DEFAULT
+
+
+cdef extern from "snapshot.h":
+    """
+    std::vector<memray::tracking_api::AggregatedAllocation>
+    collectAllocations(const memray::api::HighWaterMarkAggregator& aggregator)
+    {
+        std::vector<memray::tracking_api::AggregatedAllocation> ret;
+        aggregator.visitAllocations([&](const memray::tracking_api::AggregatedAllocation& agg) {
+            if (agg.n_allocations_in_high_water_mark || agg.n_allocations_leaked) {
+                ret.push_back(agg);
+            }
+            return true;
+        });
+        return ret;
+    }
+    """
+    vector[AggregatedAllocation] collectAllocations(HighWaterMarkAggregator) except+
+
+
+cdef class HighWaterMarkAggregatorTestHarness:
+    cdef HighWaterMarkAggregator aggregator
+
+    def add_allocation(
+        self,
+        tid,
+        address,
+        size,
+        allocator,
+        native_frame_id,
+        frame_index,
+        native_segment_generation,
+    ):
+        cdef _Allocation allocation
+        allocation.tid = tid
+        allocation.address = address
+        allocation.size = size
+        allocation.allocator = <Allocator><int>allocator
+        allocation.native_frame_id = native_frame_id
+        allocation.frame_index = frame_index
+        allocation.native_segment_generation = native_segment_generation
+        allocation.n_allocations = 1
+        self.aggregator.addAllocation(allocation)
+
+    def get_current_heap_size(self):
+        return self.aggregator.getCurrentHeapSize()
+
+    def get_allocations(self):
+        ret = []
+        for allocation in collectAllocations(self.aggregator):
+            ret.append(
+                dict(
+                    tid=allocation.tid,
+                    allocator=AllocatorType(<int>allocation.allocator),
+                    native_frame_id=allocation.native_frame_id,
+                    frame_index=allocation.frame_index,
+                    native_segment_generation=allocation.native_segment_generation,
+                    n_allocations_in_high_water_mark=allocation.n_allocations_in_high_water_mark,
+                    n_allocations_leaked=allocation.n_allocations_leaked,
+                    bytes_in_high_water_mark=allocation.bytes_in_high_water_mark,
+                    bytes_leaked=allocation.bytes_leaked,
+                )
+            )
+        return ret

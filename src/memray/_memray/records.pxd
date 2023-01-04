@@ -6,6 +6,8 @@ from libcpp.vector cimport vector
 
 
 cdef extern from "records.h" namespace "memray::tracking_api":
+   ctypedef unsigned long thread_id_t
+   ctypedef size_t frame_id_t
 
    struct Frame:
        string function_name
@@ -34,12 +36,29 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        int python_allocator
 
    cdef cppclass Allocation:
+       thread_id_t tid
+       uintptr_t address
+       size_t size
        Allocator allocator
+       frame_id_t native_frame_id
        size_t frame_index
+       size_t native_segment_generation
        size_t n_allocations
+
        object toPythonObject()
 
    cdef cppclass AggregatedAllocation:
+       thread_id_t tid
+       Allocator allocator
+       frame_id_t native_frame_id
+       size_t frame_index
+       size_t native_segment_generation
+
+       size_t n_allocations_in_high_water_mark
+       size_t n_allocations_leaked
+       size_t bytes_in_high_water_mark
+       size_t bytes_leaked
+
        Allocation contributionToHighWaterMark()
        Allocation contributionToLeaks()
 
