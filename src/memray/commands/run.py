@@ -32,14 +32,12 @@ def _run_tracker(
     destination: Destination,
     args: argparse.Namespace,
     post_run_message: Optional[str] = None,
-    follow_fork: bool = False,
-    trace_python_allocators: bool = False,
 ) -> None:
     try:
         kwargs = {}
-        if follow_fork:
+        if args.follow_fork:
             kwargs["follow_fork"] = True
-        if trace_python_allocators:
+        if args.trace_python_allocators:
             kwargs["trace_python_allocators"] = True
         tracker = Tracker(destination=destination, native_traces=args.native, **kwargs)
     except OSError as error:
@@ -69,6 +67,7 @@ def _run_tracker(
 def _child_process(
     port: int,
     native: bool,
+    trace_python_allocators: bool,
     run_as_module: bool,
     run_as_cmd: bool,
     quiet: bool,
@@ -77,6 +76,8 @@ def _child_process(
 ) -> None:
     args = argparse.Namespace(
         native=native,
+        trace_python_allocators=trace_python_allocators,
+        follow_fork=False,
         run_as_module=run_as_module,
         run_as_cmd=run_as_cmd,
         quiet=quiet,
@@ -94,7 +95,8 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
         raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     arguments = (
-        f"{port},{args.native},{args.run_as_module},{args.run_as_cmd},{args.quiet},"
+        f"{port},{args.native},{args.trace_python_allocators},"
+        f"{args.run_as_module},{args.run_as_cmd},{args.quiet},"
         f"{args.script!r},{args.script_args}"
     )
     tracked_app_cmd = [
@@ -168,8 +170,6 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
             destination=destination,
             args=args,
             post_run_message=example_report_generation_message,
-            follow_fork=args.follow_fork,
-            trace_python_allocators=args.trace_python_allocators,
         )
     except OSError as error:
         raise MemrayCommandError(str(error), exit_code=1)

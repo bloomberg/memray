@@ -167,8 +167,46 @@ class TestRunSubCommand:
                 sys.executable,
                 "-c",
                 "from memray.commands.run import _child_process;"
-                "_child_process(1234,False,False,False,False,'./directory/foobar.py',"
-                "['arg1', 'arg2'])",
+                "_child_process(1234,False,False,False,False,False,"
+                "'./directory/foobar.py',['arg1', 'arg2'])",
+            ],
+            stderr=-1,
+            stdout=-3,
+            text=True,
+        )
+        live_command_mock().start_live_interface.assert_called_with(1234)
+
+    @patch("memray.commands.run.subprocess.Popen")
+    @patch("memray.commands.run.LiveCommand")
+    def test_run_with_live_and_trace_python_allocators(
+        self,
+        live_command_mock,
+        popen_mock,
+        getpid_mock,
+        runpy_mock,
+        tracker_mock,
+        validate_mock,
+    ):
+        getpid_mock.return_value = 0
+        popen_mock().__enter__().returncode = 0
+        with patch("memray.commands.run._get_free_port", return_value=1234):
+            assert 0 == main(
+                [
+                    "run",
+                    "--live",
+                    "--trace-python-allocators",
+                    "./directory/foobar.py",
+                    "arg1",
+                    "arg2",
+                ]
+            )
+        popen_mock.assert_called_with(
+            [
+                sys.executable,
+                "-c",
+                "from memray.commands.run import _child_process;"
+                "_child_process(1234,False,True,False,False,False,"
+                "'./directory/foobar.py',['arg1', 'arg2'])",
             ],
             stderr=-1,
             stdout=-3,
@@ -260,6 +298,31 @@ class TestRunSubCommand:
 
         captured = capsys.readouterr()
         assert "--follow-fork cannot be used with" in captured.err
+
+    def test_run_with_trace_python_allocators_and_live_remote_mode(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
+    ):
+        getpid_mock.return_value = 0
+        with patch("memray.commands.run._get_free_port", return_value=1234):
+            assert 0 == main(
+                [
+                    "run",
+                    "--live-remote",
+                    "--trace-python-allocators",
+                    "./directory/foobar.py",
+                    "arg1",
+                    "arg2",
+                ]
+            )
+        runpy_mock.run_path.assert_called_with(
+            "./directory/foobar.py",
+            run_name="__main__",
+        )
+        tracker_mock.assert_called_with(
+            destination=SocketDestination(server_port=1234, address="127.0.0.1"),
+            native_traces=False,
+            trace_python_allocators=True,
+        )
 
 
 class TestFlamegraphSubCommand:
