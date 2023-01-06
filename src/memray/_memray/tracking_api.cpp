@@ -198,8 +198,10 @@ PythonStackTracker::emitPendingPushesAndPops()
     auto first_to_emit = it.base();
 
     // Emit pending pops
-    Tracker::getTracker()->popFrames(d_num_pending_pops);
-    d_num_pending_pops = 0;
+    if (d_num_pending_pops) {
+        Tracker::getTracker()->popFrames(d_num_pending_pops);
+        d_num_pending_pops = 0;
+    }
 
     // Emit pending pushes
     for (auto to_emit = first_to_emit; to_emit != d_stack->end(); ++to_emit) {
