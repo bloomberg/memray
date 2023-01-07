@@ -15,6 +15,7 @@ from memray import AllocatorType
 from memray import FileFormat
 from memray import FileReader
 from memray import Tracker
+from memray._memray import compute_statistics
 from memray._test import MemoryAllocator
 from memray._test import MmapAllocator
 from memray._test import PrimeCaches
@@ -313,6 +314,44 @@ def test_no_allocations(tmpdir):
 
     records = list(FileReader(output).get_allocation_records())
     assert not records
+
+
+def test_unsupported_operations_on_aggregated_capture(tmpdir):
+    """Verify that we can successfully read a file that has no allocations."""
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    subprocess_code = textwrap.dedent(
+        f"""
+        import os
+        from memray import Tracker, FileFormat
+        output = "{output}"
+        tracker = Tracker(output, file_format=FileFormat.AGGREGATED_ALLOCATIONS)
+        with tracker:
+            pass
+        """
+    )
+    process = subprocess.run([sys.executable, "-c", subprocess_code], timeout=5)
+    assert process.returncode == 0
+    reader = FileReader(output)
+
+    # WHEN / THEN
+    with pytest.raises(
+        NotImplementedError,
+        match="Can't find temporary allocations using a pre-aggregated capture file",
+    ):
+        list(reader.get_temporary_allocation_records())
+
+    with pytest.raises(
+        NotImplementedError,
+        match="Can't get all allocations from a pre-aggregated capture file",
+    ):
+        list(reader.get_allocation_records())
+
+    with pytest.raises(
+        NotImplementedError,
+        match="Can't compute statistics using a pre-aggregated capture file",
+    ):
+        compute_statistics(str(output))
 
 
 @pytest.mark.parametrize(
