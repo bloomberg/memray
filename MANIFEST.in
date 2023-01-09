@@ -9,7 +9,7 @@ exclude .medusarc
 exclude valgrind.supp
 
 recursive-exclude src/vendor/libbacktrace/install *
-recursive-exclude benchmarks *.py
+recursive-exclude benchmarks *
 recursive-exclude debian *
 recursive-exclude docker *
 recursive-exclude docs *

@@ -1,0 +1,352 @@
+========================
+ The Docutils Publisher
+========================
+
+:Author: David Goodger
+:Contact: docutils-develop@lists.sourceforge.net
+:Date: $Date$
+:Revision: $Revision$
+:Copyright: This document has been placed in the public domain.
+
+.. contents::
+
+
+The ``docutils.core.Publisher`` class is the core of Docutils,
+managing all the processing and relationships between components.  See
+`PEP 258`_ for an overview of Docutils components.
+
+The ``docutils.core.publish_*`` convenience functions are the normal
+entry points for using Docutils as a library.
+
+See `Inside A Docutils Command-Line Front-End Tool`_ for an overview
+of a typical Docutils front-end tool, including how the Publisher
+class is used.
+
+.. _PEP 258: ../peps/pep-0258.html
+.. _Inside A Docutils Command-Line Front-End Tool: ../howto/cmdline-tool.html
+
+
+Publisher Convenience Functions
+===============================
+
+Each of these functions set up a ``docutils.core.Publisher`` object,
+then call its ``publish`` method.  ``docutils.core.Publisher.publish``
+handles everything else.  There are several convenience functions in
+the ``docutils.core`` module:
+
+:_`publish_cmdline()`: for command-line front-end tools, like
+  ``rst2html.py``.  There are several examples in the ``tools/``
+  directory.  A detailed analysis of one such tool is in `Inside A
+  Docutils Command-Line Front-End Tool`_
+
+:_`publish_file()`: for programmatic use with file-like I/O.  In
+  addition to writing the encoded output to a file, also returns the
+  encoded output as a string.
+
+:_`publish_string()`: for programmatic use with string I/O.  Returns
+  the encoded output as a string.
+
+:_`publish_parts()`: for programmatic use with string input; returns a
+  dictionary of document parts.  Dictionary keys are the names of
+  parts, and values are Unicode strings; encoding is up to the client.
+  Useful when only portions of the processed document are desired.
+  See `publish_parts() Details`_ below.
+
+  There are usage examples in the `docutils/examples.py`_ module.
+
+:_`publish_doctree()`: for programmatic use with string input; returns a
+  Docutils document tree data structure (doctree).  The doctree can be
+  modified, pickled & unpickled, etc., and then reprocessed with
+  `publish_from_doctree()`_.
+
+:_`publish_from_doctree()`: for programmatic use to render from an
+  existing document tree data structure (doctree); returns the encoded
+  output as a string.
+
+:_`publish_programmatically()`: for custom programmatic use.  This
+  function implements common code and is used by ``publish_file``,
+  ``publish_string``, and ``publish_parts``.  It returns a 2-tuple:
+  the encoded string output and the Publisher object.
+
+.. _Inside A Docutils Command-Line Front-End Tool: ../howto/cmdline-tool.html
+.. _docutils/examples.py: ../../docutils/examples.py
+
+
+Configuration
+-------------
+
+To pass application-specific setting defaults to the Publisher
+convenience functions, use the ``settings_overrides`` parameter.  Pass
+a dictionary of setting names & values, like this::
+
+    overrides = {'input_encoding': 'ascii',
+                 'output_encoding': 'latin-1'}
+    output = publish_string(..., settings_overrides=overrides)
+
+Settings from command-line options override configuration file
+settings, and they override application defaults.  For details, see
+`Docutils Runtime Settings`_.  See `Docutils Configuration`_ for
+details about individual settings.
+
+.. _Docutils Runtime Settings: ./runtime-settings.html
+.. _Docutils Configuration: ../user/config.html
+
+
+Encodings
+---------
+
+The default output encoding of Docutils is UTF-8.
+Docutils may introduce some non-ASCII text if you use
+`auto-symbol footnotes`_ or the `"contents" directive`_.
+
+.. _auto-symbol footnotes:
+   ../ref/rst/restructuredtext.html#auto-symbol-footnotes
+.. _"contents" directive:
+   ../ref/rst/directives.html#table-of-contents
+
+
+``publish_parts()`` Details
+===========================
+
+The ``docutils.core.publish_parts()`` convenience function returns a
+dictionary of document parts.  Dictionary keys are the names of parts,
+and values are Unicode strings.
+
+Each Writer component may publish a different set of document parts,
+described below.  Not all writers implement all parts.
+
+
+Parts Provided By All Writers
+-----------------------------
+
+_`encoding`
+    The output encoding setting.
+
+_`version`
+    The version of Docutils used.
+
+_`whole`
+    ``parts['whole']`` contains the entire formatted document.
+
+
+Parts Provided By the HTML Writers
+----------------------------------
+
+HTML4 Writer
+````````````
+
+_`body`
+    ``parts['body']`` is equivalent to parts['fragment_'].  It is
+    *not* equivalent to parts['html_body_'].
+
+_`body_prefix`
+    ``parts['body_prefix']`` contains::
+
+        </head>
+        <body>
+        <div class="document" ...>
+
+    and, if applicable::
+
+        <div class="header">
+        ...
+        </div>
+
+_`body_pre_docinfo`
+    ``parts['body_pre_docinfo]`` contains (as applicable)::
+
+        <h1 class="title">...</h1>
+        <h2 class="subtitle" id="...">...</h2>
+
+_`body_suffix`
+    ``parts['body_suffix']`` contains::
+
+        </div>
+
+    (the end-tag for ``<div class="document">``), the footer division
+    if applicable::
+
+        <div class="footer">
+        ...
+        </div>
+
+    and::
+
+        </body>
+        </html>
+
+_`docinfo`
+    ``parts['docinfo']`` contains the document bibliographic data, the
+    docinfo field list rendered as a table.
+
+_`footer`
+    ``parts['footer']`` contains the document footer content, meant to
+    appear at the bottom of a web page, or repeated at the bottom of
+    every printed page.
+
+_`fragment`
+    ``parts['fragment']`` contains the document body (*not* the HTML
+    ``<body>``).  In other words, it contains the entire document,
+    less the document title, subtitle, docinfo, header, and footer.
+
+_`head`
+    ``parts['head']`` contains ``<meta ... />`` tags and the document
+    ``<title>...</title>``.
+
+_`head_prefix`
+    ``parts['head_prefix']`` contains the XML declaration, the DOCTYPE
+    declaration, the ``<html ...>`` start tag and the ``<head>`` start
+    tag.
+
+_`header`
+    ``parts['header']`` contains the document header content, meant to
+    appear at the top of a web page, or repeated at the top of every
+    printed page.
+
+_`html_body`
+    ``parts['html_body']`` contains the HTML ``<body>`` content, less
+    the ``<body>`` and ``</body>`` tags themselves.
+
+_`html_head`
+    ``parts['html_head']`` contains the HTML ``<head>`` content, less
+    the stylesheet link and the ``<head>`` and ``</head>`` tags
+    themselves.  Since ``publish_parts`` returns Unicode strings and
+    does not know about the output encoding, the "Content-Type" meta
+    tag's "charset" value is left unresolved, as "%s"::
+
+        <meta http-equiv="Content-Type" content="text/html; charset=%s" />
+
+    The interpolation should be done by client code.
+
+_`html_prolog`
+    ``parts['html_prolog]`` contains the XML declaration and the
+    doctype declaration.  The XML declaration's "encoding" attribute's
+    value is left unresolved, as "%s"::
+
+        <?xml version="1.0" encoding="%s" ?>
+
+    The interpolation should be done by client code.
+
+_`html_subtitle`
+    ``parts['html_subtitle']`` contains the document subtitle,
+    including the enclosing ``<h2 class="subtitle">`` & ``</h2>``
+    tags.
+
+_`html_title`
+    ``parts['html_title']`` contains the document title, including the
+    enclosing ``<h1 class="title">`` & ``</h1>`` tags.
+
+_`meta`
+    ``parts['meta']`` contains all ``<meta ... />`` tags.
+
+_`stylesheet`
+    ``parts['stylesheet']`` contains the embedded stylesheet or
+    stylesheet link.
+
+_`subtitle`
+    ``parts['subtitle']`` contains the document subtitle text and any
+    inline markup.  It does not include the enclosing ``<h2>`` &
+    ``</h2>`` tags.
+
+_`title`
+    ``parts['title']`` contains the document title text and any inline
+    markup.  It does not include the enclosing ``<h1>`` & ``</h1>``
+    tags.
+
+
+PEP/HTML Writer
+```````````````
+
+The PEP/HTML writer provides the same parts as the `HTML4 writer`_,
+plus the following:
+
+_`pepnum`
+    ``parts['pepnum']`` contains
+
+
+S5/HTML Writer
+``````````````
+
+The S5/HTML writer provides the same parts as the `HTML4 writer`_.
+
+
+HTML5 Writer
+````````````
+
+The HTML5 writer provides the same parts as the `HTML4 writer`_.
+However, it uses semantic HTML5 elements for the document, header and
+footer.
+
+
+Parts Provided by the LaTeX2e Writer
+------------------------------------
+
+See the template files for examples how these parts can be combined
+into a valid LaTeX document.
+
+abstract
+    ``parts['abstract']`` contains the formatted content of the
+    'abstract' docinfo field.
+
+body
+    ``parts['body']`` contains the document's content. In other words, it
+    contains the entire document, except the document title, subtitle, and
+    docinfo.
+
+    This part can be included into another LaTeX document body using the
+    ``\input{}`` command.
+
+body_pre_docinfo
+    ``parts['body_pre_docinfo]`` contains the ``\maketitle`` command.
+
+dedication
+    ``parts['dedication']`` contains the formatted content of the
+    'dedication' docinfo field.
+
+docinfo
+    ``parts['docinfo']`` contains the document bibliographic data, the
+    docinfo field list rendered as a table.
+
+    With ``--use-latex-docinfo`` 'author', 'organization', 'contact',
+    'address' and 'date' info is moved to titledata.
+
+    'dedication' and 'abstract' are always moved to separate parts.
+
+fallbacks
+    ``parts['fallbacks']`` contains fallback definitions for
+    Docutils-specific commands and environments.
+
+head_prefix
+    ``parts['head_prefix']`` contains the declaration of
+    documentclass and document options.
+
+latex_preamble
+    ``parts['latex_preamble']`` contains the argument of the
+    ``--latex-preamble`` option.
+
+pdfsetup
+     ``parts['pdfsetup']`` contains the PDF properties
+     ("hyperref" package setup).
+
+requirements
+    ``parts['requirements']`` contains required packages and setup
+    before the stylesheet inclusion.
+
+stylesheet
+    ``parts['stylesheet']`` contains the embedded stylesheet(s) or
+    stylesheet loading command(s).
+
+subtitle
+    ``parts['subtitle']`` contains the document subtitle text and any
+    inline markup.
+
+title
+    ``parts['title']`` contains the document title text and any inline
+    markup.
+
+titledata
+    ``parts['titledata]`` contains the combined title data in
+    ``\title``, ``\author``, and ``\data`` macros.
+
+    With ``--use-latex-docinfo``, this includes the 'author',
+    'organization', 'contact', 'address' and 'date' docinfo items.

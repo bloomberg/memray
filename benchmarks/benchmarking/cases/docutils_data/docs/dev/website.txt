@@ -1,0 +1,107 @@
+===================
+ Docutils Web Site
+===================
+
+:Author: David Goodger; open to all Docutils developers
+:Contact: docutils-develop@lists.sourceforge.net
+:Date: $Date$
+:Revision: $Revision$
+:Copyright: This document has been placed in the public domain.
+
+The Docutils web site, <https://docutils.sourceforge.io/>, is
+maintained by the ``docutils-update.local`` script, run by project
+maintainers on their local machines.  The script
+will process any .txt file which is newer than the corresponding .html
+file in the local copy of the project's web directory and upload the changes
+to the web site at SourceForge.
+
+..  .. old instructions, for cron job:
+
+    The Docutils web site, <https://docutils.sourceforge.io/>, is
+    maintained automatically by the ``docutils-update`` script, run as an
+    hourly cron job on shell.berlios.de (by user "wiemann").  The script
+    will process any .txt file which is newer than the corresponding .html
+    file in the project's web directory on shell.berlios.de
+    (``/home/groups/docutils/htdocs/aux/htdocs/``) and upload the changes
+    to the web site at SourceForge.
+
+Please **do not** add any generated .html files to the Docutils
+repository.  They will be generated automatically after a one-time
+setup (`described below`__).
+
+__ `Adding .txt Files`_
+
+The docutils-update.local__ script is located at
+``sandbox/infrastructure/docutils-update.local``.
+
+__ https://docutils.sourceforge.io/sandbox/infrastructure/docutils-update.local
+
+If you want to share files via the web, you can upload them using the
+uploaddocutils.sh__ script
+(``sandbox/infrastructure/uploaddocutils.sh``).
+
+__ https://docutils.sourceforge.io/sandbox/infrastructure/uploaddocutils.sh
+
+
+Setting Up
+==========
+
+(TBA)
+
+.. hint::
+  Anyone with checkin privileges can be a web-site maintainer. You need to
+  set up the directories for a local website build.
+
+  The procedure for that was on the docutils-devel list a while ago.
+
+
+Adding .txt Files
+=================
+
+User/Contributor
+----------------
+
+When adding a new .txt file that should be converted to HTML:
+
+#. Edit sandbox/infrastructure/htmlfiles.lst, and add the .html file
+   corresponding to the new .txt file (please keep the sorted order).
+
+#. Commit the edited version to the SVN repository.
+
+Maintainer
+----------
+
+#. If there are new directories in the SVN, allow the update script to run
+   once to create the directories in the filesystem before preparing for
+   HTML processing.
+
+#. Run the sandbox/infrastructure/update-htmlfiles shell script to generate
+   .html files::
+
+      cd <DOCUTILS-ROOT>/docutils/
+      sandbox/infrastructure/update-htmlfiles \
+      sandbox/infrastructure/htmlfiles.lst
+
+   (Maybe this should become part of docutils-update.local.)
+
+
+Removing Files & Directories
+============================
+
+#. Remove from SVN
+
+#. Remove to-be-generated HTML files from
+   ``sandbox/infrastructure/htmlfiles.lst``.
+
+#. Removing files and directories from SVN will not trigger their removal
+   from the web site.  Files and directories must be manually removed from
+   sourceforge.net (under ``/home/project-web/docutils/htdocs/``).
+
+
+..
+   Local Variables:
+   mode: indented-text
+   indent-tabs-mode: nil
+   sentence-end-double-space: t
+   fill-column: 70
+   End:

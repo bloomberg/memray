@@ -18,7 +18,7 @@ generated_js_files := \
 css_files := 'src/**/*.css'
 markdown_files := $(shell find . -name \*.md -not -path '*/\.*' -not -path './src/vendor/*')
 cpp_files := $(shell find src/memray/_memray -name \*.cpp -o -name \*.h)
-python_files := $(shell find . -name \*.py -not -path '*/\.*')
+python_files := $(shell find . -name \*.py -not -path '*/\.*' -not -path './benchmarks/benchmarking/cases/*')
 cython_files := $(shell find src -name \*.pyx -or -name \*.pxd -not -path '*/\.*')
 type_files := $(shell find src -name \*.pyi -not -path '*/\.*')
 

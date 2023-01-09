@@ -1,0 +1,149 @@
+===============================
+ Docutils_ Distributor's Guide
+===============================
+
+:Author: Lea Wiemann
+:Contact: docutils-develop@lists.sourceforge.net
+:Revision: $Revision$
+:Date: $Date$
+:Copyright: This document has been placed in the public domain.
+
+.. _Docutils: https://docutils.sourceforge.io/
+
+.. contents::
+
+This document describes how to create packages of Docutils (e.g. for
+shipping with a Linux distribution).  If you have any questions,
+please direct them to the Docutils-develop_ mailing list.
+
+First, please download the most current `release tarball`_ and unpack
+it.
+
+.. _Docutils-develop: ../user/mailing-lists.html#docutils-develop
+.. _release tarball: https://docutils.sourceforge.io/#download
+
+
+Dependencies
+============
+
+Docutils has the following dependencies:
+
+* Python 3.7 or later is required.
+  Use ">= Python 3.7" in the dependencies.
+
+* Docutils may optionally make use of the PIL (`Python Imaging
+  Library`_ or Pillow_).  If PIL is present, it is automatically
+  detected by Docutils.
+
+* Docutils recommends the `Pygments`_ syntax hightlighter. If available, it
+  is used for highlighting the content of `code directives`_ and roles as
+  well as included source code files (with the "code" option to the include_
+  directive).
+
+* Docutils can use the `recommonmark`_ parser to parse input in
+  the Markdown format (new in 0.17).
+
+.. _Python Imaging Library:
+    https://en.wikipedia.org/wiki/Python_Imaging_Library
+.. _Pillow: https://pypi.org/project/Pillow/
+.. _Pygments: https://pygments.org/
+.. _recommonmark: https://pypi.org/project/recommonmark/
+
+.. _code directives: ../ref/rst/directives.html#code
+.. _include: ../ref/rst/directives.html#include
+
+
+Python Files
+============
+
+The Docutils Python files must be installed into the
+``site-packages/`` directory of Python.  Running ``python setup.py
+install`` should do the trick, but if you want to place the files
+yourself, you can just install the ``docutils/`` directory of the
+Docutils tarball to ``/usr/lib/python/site-packages/docutils/``.  In
+this case you should also compile the Python files to ``.pyc`` and/or
+``.pyo`` files so that Docutils doesn't need to be recompiled every
+time it's executed.
+
+
+Executables
+===========
+
+The executable front-end tools are located in the ``tools/`` directory
+of the Docutils tarball.
+
+The ``rst2*.py`` tools are intended for end-users. You should install them
+to ``/usr/bin/``.  You do not need to change the names (e.g. to
+``docutils-rst2html.py``) because the ``rst2`` prefix is unique.
+
+
+Documentation
+=============
+
+The documentation should be generated using ``buildhtml.py``.  To
+generate HTML for all documentation files, go to the ``tools/``
+directory and run::
+
+    # Place html4css1.css in base directory.
+    cp ../docutils/writers/html4css1/html4css1.css ..
+    ./buildhtml.py --stylesheet-path=../html4css1.css ..
+
+Then install the following files to ``/usr/share/doc/docutils/`` (or
+wherever you install documentation):
+
+* All ``.html`` and ``.txt`` files in the base directory.
+
+* The ``docs/`` directory.
+
+  Do not install the contents of the ``docs/`` directory directly to
+  ``/usr/share/doc/docutils/``; it's incomplete and would contain
+  invalid references!
+
+* The ``licenses/`` directory.
+
+* ``html4css1.css`` in the base directory.
+
+
+Removing the ``.txt`` Files
+---------------------------
+
+If you are tight with disk space, you can remove all ``.txt`` files in
+the tree except for:
+
+* those in the ``licenses/`` directory because they have not been
+  processed to HTML and
+
+* ``user/rst/cheatsheet.txt`` and ``user/rst/demo.txt``, which should
+  be readable in source form.
+
+Before you remove the ``.txt`` files you should rerun ``buildhtml.py``
+with the ``--no-source-link`` switch to avoid broken references to the
+source files.
+
+
+Other Files
+===========
+
+You may want to install the Emacs-Lisp files
+``tools/editors/emacs/*.el`` into the appropriate directory.
+
+
+Configuration File
+==================
+
+It is possible to have a system-wide configuration file at
+``/etc/docutils.conf``.  However, this is usually not necessary.  You
+should *not* install ``tools/docutils.conf`` into ``/etc/``.
+
+
+Tests
+=====
+
+While you probably do not need to ship the tests with your
+distribution, you can test your package by installing it and then
+running ``alltests.py`` from the ``tests/`` directory of the Docutils
+tarball.
+
+For more information on testing, view the `Docutils Testing`_ page.
+
+.. _Docutils Testing: https://docutils.sourceforge.io/docs/dev/testing.html
