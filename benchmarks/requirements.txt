@@ -1,0 +1,4 @@
+pyperf
+matplotlib
+seaborn
+numpy

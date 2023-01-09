@@ -1,0 +1,218 @@
+===========================
+ Docutils Runtime Settings
+===========================
+
+:Author: David Goodger, Günter Milde
+:Contact: docutils-develop@lists.sourceforge.net
+:Date: $Date$
+:Revision: $Revision$
+:Copyright: This document has been placed in the public domain.
+
+.. contents::
+
+
+Introduction
+============
+
+Docutils runtime settings are assembled from several sources:
+
+* Settings specifications of the selected components_,
+* `configuration files`_ (if enabled), and
+* command-line options (if enabled).
+
+Docutils overlays default and explicitly specified values from these
+sources such that settings behave the way we want and expect them to
+behave.
+
+
+Settings priority
+=================
+
+The sources are overlaid in the following order (later sources
+overwrite earlier ones):
+
+1. Defaults specified in the `settings_spec`__ and
+   `settings_defaults`__ attributes for each component_.
+
+   __ SettingsSpec.settings_spec_
+   __ SettingsSpec.settings_defaults_
+
+2. Defaults specified in the `settings_default_overrides`__ attribute
+   for each component_.
+
+   __ SettingsSpec.settings_default_overrides_
+
+3. Settings specified in the `settings_overrides`__ parameter of the
+   `convenience functions`_ resp. the `settings_overrides` attribute of
+   a `Publisher`_ instance.
+
+   __ `settings_overrides parameter`_
+
+4. Settings specified in `active sections`_ of the `configuration files`_
+   in the order described in `Configuration File Sections & Entries`_
+   (if enabled).
+
+5. Command line options (if enabled).
+
+For details see the ``docutils/__init__.py``, ``docutils/core.py``, and
+``docutils.frontend.py`` modules and the implementation description in
+`Runtime Settings Processing`_.
+
+
+.. _SettingsSpec:
+
+SettingsSpec base class
+=======================
+
+.. note::
+   Implementation details will change with the move to replace the
+   deprecated optparse_ module with argparse_.
+
+The `docutils.SettingsSpec` base class is inherited by Docutils
+components_ and `frontend.OptionParser`.
+It defines the following six **attributes**:
+
+.. _SettingsSpec.settings_spec:
+
+`settings_spec`
+   a sequence of
+
+   1. option group title (string or None)
+
+   2. description (string or None)
+
+   3. option tuples with
+
+      a) help text
+      b) options string(s)
+      c) dictionary with keyword arguments for `OptionParser.add_option()`_
+         and an optional "validator", a `frontend.validate_*()` function
+         that processes the values (e.g. convert to other data types).
+
+   For examples, see the source of ``frontend.OptionParser.settings_spec``
+   or the `settings_spec` attributes of the Docutils components_.
+
+   .. _SettingsSpec.settings_defaults:
+
+`settings_defaults`
+   for purely programmatic settings
+   (not accessible from command line and configuration files).
+
+   .. _SettingsSpec.settings_default_overrides:
+
+`settings_default_overrides`
+   to override defaults for settings
+   defined in other components' `setting_specs`.
+
+`relative_path_settings`
+   listing settings containing filesystem paths.
+
+   .. _active sections:
+
+`config_section`
+   the configuration file section specific to this
+   component.
+
+`config_section_dependencies`
+   lists configuration files sections
+   that should also be read (before the `config_section`).
+
+The last two attributes define which configuration file sections are
+"active". See also `Configuration File Sections & Entries`_.
+
+
+Glossary
+========
+
+.. _component:
+
+components
+----------
+
+Docutils front-ends and applications combine a selection of
+*components* of the `Docutils Project Model`_.
+
+All components inherit the `SettingsSpec`_ base class.
+This means that all instances of ``readers.Reader``, ``parsers.Parser``, and
+``writers.Writer`` are also instances of ``docutils.SettingsSpec``.
+
+For the determination of runtime settings, ``frontend.OptionParser`` and
+the `settings_spec parameter`_ in application settings specifications
+are treated as components as well.
+
+
+.. _convenience function:
+
+convenience functions
+---------------------
+
+Applications usually deploy Docutils by one of the
+`Publisher convenience functions`_.
+
+All convenience functions accept the following optional parameters:
+
+.. _settings parameter:
+
+`settings`
+  a ``frontend.Values`` instance.
+  If present, it must be complete.
+
+  No further runtime settings processing is done and the
+  following parameters have no effect.
+
+  .. _settings_spec parameter:
+
+`settings_spec`
+  a `SettingsSpec`_ subclass or instance containing the settings
+  specification for the "Application" itself.
+  The instance is added to the components_ (after the generic
+  settings, parser, reader, and writer).
+
+  .. _settings_overrides parameter:
+
+`settings_overrides`
+  a dictionary which is used to update the
+  defaults of the components' settings specifications.
+
+  .. _config_section parameter:
+
+`config_section`
+  the name of an application-specific
+  `configuration file section`_ for this application.
+
+  Can be specified instead of a `settings_spec` (a new SettingsSpec_
+  instance that just defines a configuration section will be created)
+  or in addition to a `settings_spec`
+  (overriding its `config_section` attribute).
+
+
+settings_spec
+-------------
+
+The name ``settings_spec`` may refer to
+
+a) an instance of the SettingsSpec_ class, or
+b) the data structure `SettingsSpec.settings_spec`_ which is used to
+   store settings details.
+
+
+.. References:
+
+.. _Publisher: publisher.html
+.. _Publisher convenience functions:
+    publisher.html#publisher-convenience-functions
+.. _front-end tools: ../user/tools.html
+.. _configuration files:
+.. _Docutils Configuration: ../user/config.html#configuration-files
+.. _configuration file section:
+.. _Configuration File Sections & Entries:
+    ../user/config.html#configuration-file-sections-entries
+.. _Docutils Project Model: ../peps/pep-0258.html#docutils-project-model
+.. _Reader: ../peps/pep-0258.html#reader
+.. _Runtime Settings Processing: ../dev/runtime-settings-processing.html
+
+.. _optparse: https://docs.python.org/dev/library/optparse.html
+.. _argparse: https://docs.python.org/dev/library/argparse.html
+.. _OptionParser.add_option():
+    https://docs.python.org/dev/library/optparse.html
+    #optparse.OptionParser.add_option
