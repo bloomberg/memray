@@ -11,6 +11,7 @@
    examples/README
    api
    jupyter_magic
+   performance
 
 .. toctree::
    :hidden:

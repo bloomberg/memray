@@ -29,9 +29,7 @@ class Case:
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdirname:
             case_file = pathlib.Path(tmpdirname) / f"{self.file_name}.py"
-            code = template_file.read_text().replace(
-                "MEMRAY_TRACKER_CODE_HERE", tracker_options
-            )
+            code = template_file.read_text()
             case_file.write_text(code)
 
             helper_file = pathlib.Path(tmpdirname) / "memray_helper.py"
