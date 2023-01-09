@@ -402,3 +402,21 @@ a:hover {
     margin-top: 7rem;
   }
 }
+
+.card:hover {
+  background: linear-gradient(90deg, #cc9add 8.06%, #ebad98 106.93%);
+  text-decoration: none;
+  transform: scale(1.05);
+  transition: all .3s ease-in-out;
+}
+
+.card:hover .card-title,
+.card:hover .card-subtitle,
+.card:hover .card-text {
+  color: white;
+}
+
+.card:hover .card-link {
+  color: rgb(231, 231, 231);
+}
+
