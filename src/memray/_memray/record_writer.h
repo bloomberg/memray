@@ -4,7 +4,6 @@
 #include <climits>
 #include <cstring>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <type_traits>
 #include <unistd.h>
@@ -53,14 +52,12 @@ class RecordWriter
     bool writeHeader(bool seek_to_start);
     bool writeTrailer();
 
-    std::unique_lock<std::mutex> acquireLock();
     std::unique_ptr<RecordWriter> cloneInChildProcess();
 
   private:
     // Data members
     int d_version{CURRENT_HEADER_VERSION};
     std::unique_ptr<memray::io::Sink> d_sink;
-    std::mutex d_mutex;
     HeaderRecord d_header{};
     TrackerStats d_stats{};
     DeltaEncodedFields d_last;
@@ -118,14 +115,12 @@ bool inline RecordWriter::writeIntegralDelta(T* prev, T new_val)
 template<typename T>
 bool inline RecordWriter::writeRecord(const T& item)
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
     return writeRecordUnsafe(item);
 }
 
 template<typename T>
 bool inline RecordWriter::writeThreadSpecificRecord(thread_id_t tid, const T& item)
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
     if (d_last.thread_id != tid) {
         d_last.thread_id = tid;
         if (!writeRecordUnsafe(ContextSwitch{tid})) {

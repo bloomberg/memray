@@ -175,7 +175,11 @@ RecordReader::processFramePush(const FramePush& record)
         stack.reserve(1024);
     }
     FrameTree::index_t current_stack_id = stack.empty() ? 0 : stack.back();
-    FrameTree::index_t new_stack_id = d_tree.getTraceIndex(current_stack_id, record.frame_id);
+    FrameTree::index_t new_stack_id;
+    {
+        std::unique_lock<std::mutex> lock(d_mutex);
+        new_stack_id = d_tree.getTraceIndex(current_stack_id, record.frame_id);
+    }
     stack.push_back(new_stack_id);
     return true;
 }
@@ -638,6 +642,7 @@ RecordReader::getLatestPythonFrameId(const Allocation& allocation) const
     if (0 == allocation.frame_index) {
         return {};
     }
+    std::unique_lock<std::mutex> lock(d_mutex);
     return d_tree.nextNode(allocation.frame_index).first;
 }
 

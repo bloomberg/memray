@@ -425,6 +425,7 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     std::for_each(stack.rbegin(), stack.rend(), [this](auto& frame) { pushPythonFrame(frame); });
 }
 
+std::unique_ptr<std::mutex> Tracker::s_mutex(new std::mutex);
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
 
@@ -582,20 +583,30 @@ Tracker::~Tracker()
 {
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
+
     PythonStackTracker::s_native_tracking_enabled = false;
     d_background_thread->stop();
-    d_patcher.restore_symbols();
+
+    {
+        std::scoped_lock<std::mutex> lock(*s_mutex);
+        d_patcher.restore_symbols();
+    }
+
     if (Py_IsInitialized() && !_Py_IsFinalizing()) {
         PyGILState_STATE gstate;
         gstate = PyGILState_Ensure();
 
         if (d_trace_python_allocators) {
+            std::scoped_lock<std::mutex> lock(*s_mutex);
             unregisterPymallocHooks();
         }
+
         PythonStackTracker::removeProfileHooks();
 
         PyGILState_Release(gstate);
     }
+
+    std::scoped_lock<std::mutex> lock(*s_mutex);
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
     d_writer.reset();
@@ -662,19 +673,22 @@ Tracker::BackgroundThread::start()
     assert(d_thread.get_id() == std::thread::id());
     d_thread = std::thread([&]() {
         RecursionGuard::isActive = true;
+        std::unique_lock<std::mutex> lock(*s_mutex);
         while (true) {
-            {
-                std::unique_lock<std::mutex> lock(d_mutex);
-                d_cv.wait_for(lock, d_memory_interval * 1ms, [this]() { return d_stop; });
-                if (d_stop) {
-                    break;
-                }
+            d_cv.wait_for(lock, d_memory_interval * 1ms, [this]() { return d_stop; });
+            if (d_stop) {
+                break;
             }
+
+            lock.unlock();
             size_t rss = getRSS();
+            lock.lock();
+
             if (rss == 0) {
                 Tracker::deactivate();
                 break;
             }
+
             if (!d_writer->writeRecord(MemoryRecord{timeElapsed(), rss})) {
                 std::cerr << "Failed to write output, deactivating tracking" << std::endl;
                 Tracker::deactivate();
@@ -688,7 +702,7 @@ void
 Tracker::BackgroundThread::stop()
 {
     {
-        std::scoped_lock<std::mutex> lock(d_mutex);
+        std::scoped_lock<std::mutex> lock(*s_mutex);
         d_stop = true;
         d_cv.notify_one();
     }
@@ -725,6 +739,10 @@ Tracker::childFork()
     // and unset before d_instance.
     (void)s_instance_owner.release();
 
+    // Likewise, leak our old mutex, and re-create it.
+    (void)s_mutex.release();
+    s_mutex.reset(new std::mutex);
+
     // Save a reference to the old tracker (if any), then unset our singleton.
     Tracker* old_tracker = s_instance;
     Tracker::deactivate();
@@ -738,9 +756,11 @@ Tracker::childFork()
     if (!new_writer) {
         // Either tracking wasn't active, or the tracker was using a sink that
         // can't be cloned. Leave our singleton unset and bail out. Note that
-        // the old tracker's hooks may still be installed. This is OK, as long
-        // as they always check the (static) isActive() flag before calling any
-        // methods on the now null tracker singleton.
+        // the old tracker's hooks may still be installed.  If this process
+        // exits, trackDeallocation will be called to track the deallocation of
+        // s_mutex when the process's globals are destroyed! To handle this,
+        // the hooks must check the (static) isActive() flag before acquiring
+        // s_mutex or calling any methods on the now null tracker singleton.
         RecursionGuard::isActive = false;
         return;
     }
@@ -871,7 +891,6 @@ Tracker::updateModuleCacheImpl()
     if (!d_unwind_native_frames) {
         return;
     }
-    auto writer_lock = d_writer->acquireLock();
     if (!d_writer->writeRecordUnsafe(MemoryMapStart{})) {
         std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
@@ -964,6 +983,7 @@ Tracker::pushFrame(const RawFrame& frame)
 void
 Tracker::activate()
 {
+    // NOTE: Tracker::s_mutex must be held
     s_instance = s_instance_owner.get();
 }
 
@@ -996,6 +1016,8 @@ Tracker::createTracker(
             memory_interval,
             follow_fork,
             trace_python_allocators));
+
+    std::unique_lock<std::mutex> lock(*s_mutex);
     tracking_api::Tracker::activate();
     Py_RETURN_NONE;
 }
@@ -1125,6 +1147,8 @@ Tracker::forgetPythonStack()
         return;
     }
 
+    // Grab the Tracker lock, as this may need to write pushes/pops.
+    std::unique_lock<std::mutex> lock(*s_mutex);
     RecursionGuard guard;
     PythonStackTracker::get().clear();
 }
@@ -1139,6 +1163,9 @@ Tracker::beginTrackingGreenlets()
 void
 Tracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 {
+    // Grab the Tracker lock, as this may need to write pushes/pops.
+    std::unique_lock<std::mutex> lock(*s_mutex);
+    RecursionGuard guard;
     PythonStackTracker::get().handleGreenletSwitch(from, to);
 }
 
