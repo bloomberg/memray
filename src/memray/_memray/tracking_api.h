@@ -93,27 +93,6 @@ PyTraceTrampoline(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 void
 install_trace_function();
 
-/**
- * Drop any references to frames on this thread's stack.
- *
- * This should be called when either the thread is dying or our profile
- * function is being uninstalled from it.
- */
-void
-forget_python_stack();
-
-/**
- * Sets a flag to enable integration with the `greenlet` module.
- */
-void
-begin_tracking_greenlets();
-
-/**
- * Handle a notification of control switching from one greenlet to another.
- */
-void
-handle_greenlet_switch(PyObject* from, PyObject* to);
-
 class NativeTrace
 {
   public:
@@ -291,6 +270,24 @@ class Tracker
     static bool isActive();
     static void activate();
     static void deactivate();
+
+    /**
+     * Drop any references to frames on this thread's stack.
+     *
+     * This should be called when either the thread is dying or our profile
+     * function is being uninstalled from it.
+     */
+    static void forgetPythonStack();
+
+    /**
+     * Sets a flag to enable integration with the `greenlet` module.
+     */
+    static void beginTrackingGreenlets();
+
+    /**
+     * Handle a notification of control switching from one greenlet to another.
+     */
+    static void handleGreenletSwitch(PyObject* from, PyObject* to);
 
   private:
     class BackgroundThread
