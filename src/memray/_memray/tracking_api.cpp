@@ -425,8 +425,8 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     std::for_each(stack.rbegin(), stack.rend(), [this](auto& frame) { pushPythonFrame(frame); });
 }
 
-std::unique_ptr<Tracker> Tracker::d_instance_owner;
-std::atomic<Tracker*> Tracker::d_instance = nullptr;
+std::unique_ptr<Tracker> Tracker::s_instance_owner;
+std::atomic<Tracker*> Tracker::s_instance = nullptr;
 
 MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{128};
 
@@ -723,10 +723,10 @@ Tracker::childFork()
     // exists, and potentially to flush buffered output to a socket it no
     // longer owns. Note that d_instance_owner is always set after d_instance
     // and unset before d_instance.
-    (void)d_instance_owner.release();
+    (void)s_instance_owner.release();
 
     // Save a reference to the old tracker (if any), then unset our singleton.
-    Tracker* old_tracker = d_instance;
+    Tracker* old_tracker = s_instance;
     Tracker::deactivate();
 
     // If we inherited an active tracker, try to clone its record writer.
@@ -747,7 +747,7 @@ Tracker::childFork()
 
     // Re-enable tracking with a brand new tracker.
     // Disable tracking until the new tracker is fully installed.
-    d_instance_owner.reset(new Tracker(
+    s_instance_owner.reset(new Tracker(
             std::move(new_writer),
             old_tracker->d_unwind_native_frames,
             old_tracker->d_memory_interval,
@@ -964,19 +964,19 @@ Tracker::pushFrame(const RawFrame& frame)
 void
 Tracker::activate()
 {
-    d_instance = d_instance_owner.get();
+    s_instance = s_instance_owner.get();
 }
 
 void
 Tracker::deactivate()
 {
-    d_instance = nullptr;
+    s_instance = nullptr;
 }
 
 bool
 Tracker::isActive()
 {
-    return d_instance != nullptr;
+    return s_instance != nullptr;
 }
 
 // Static methods managing the singleton
@@ -990,7 +990,7 @@ Tracker::createTracker(
         bool trace_python_allocators)
 {
     // Note: the GIL is used for synchronization of the singleton
-    d_instance_owner.reset(new Tracker(
+    s_instance_owner.reset(new Tracker(
             std::move(record_writer),
             native_traces,
             memory_interval,
@@ -1004,14 +1004,14 @@ PyObject*
 Tracker::destroyTracker()
 {
     // Note: the GIL is used for synchronization of the singleton
-    d_instance_owner.reset();
+    s_instance_owner.reset();
     Py_RETURN_NONE;
 }
 
 Tracker*
 Tracker::getTracker()
 {
-    return d_instance;
+    return s_instance;
 }
 
 static struct
