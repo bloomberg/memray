@@ -232,6 +232,11 @@ class Tracker
     __attribute__((always_inline)) inline static void
     trackAllocation(void* ptr, size_t size, hooks::Allocator func)
     {
+        if (RecursionGuard::isActive || !Tracker::isActive()) {
+            return;
+        }
+        RecursionGuard guard;
+
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->trackAllocationImpl(ptr, size, func);
@@ -241,6 +246,11 @@ class Tracker
     __attribute__((always_inline)) inline static void
     trackDeallocation(void* ptr, size_t size, hooks::Allocator func)
     {
+        if (RecursionGuard::isActive || !Tracker::isActive()) {
+            return;
+        }
+        RecursionGuard guard;
+
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->trackDeallocationImpl(ptr, size, func);
@@ -249,6 +259,11 @@ class Tracker
 
     __attribute__((always_inline)) inline static void invalidate_module_cache()
     {
+        if (RecursionGuard::isActive || !Tracker::isActive()) {
+            return;
+        }
+        RecursionGuard guard;
+
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->invalidate_module_cache_impl();
@@ -257,6 +272,11 @@ class Tracker
 
     __attribute__((always_inline)) inline static void registerThreadName(const char* name)
     {
+        if (RecursionGuard::isActive || !Tracker::isActive()) {
+            return;
+        }
+        RecursionGuard guard;
+
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->registerThreadNameImpl(name);

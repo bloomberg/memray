@@ -786,11 +786,6 @@ Tracker::computeMainTidSkip()
 void
 Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
 {
-    if (RecursionGuard::isActive || !Tracker::isActive()) {
-        return;
-    }
-    RecursionGuard guard;
-
     PythonStackTracker::get().emitPendingPushesAndPops();
 
     if (d_unwind_native_frames) {
@@ -819,11 +814,6 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
 void
 Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
 {
-    if (RecursionGuard::isActive || !Tracker::isActive()) {
-        return;
-    }
-    RecursionGuard guard;
-
     AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
     if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
@@ -834,7 +824,6 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
 void
 Tracker::invalidate_module_cache_impl()
 {
-    RecursionGuard guard;
     d_patcher.overwrite_symbols();
     updateModuleCacheImpl();
 }
