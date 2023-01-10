@@ -564,9 +564,10 @@ Tracker::Tracker(
     if (!d_writer->writeHeader(false)) {
         throw IoError{"Failed to write output header"};
     }
-    updateModuleCache();
 
     RecursionGuard guard;
+    updateModuleCacheImpl();
+
     PythonStackTracker::s_native_tracking_enabled = native_traces;
     PythonStackTracker::installProfileHooks();
     if (d_trace_python_allocators) {
@@ -835,7 +836,7 @@ Tracker::invalidate_module_cache_impl()
 {
     RecursionGuard guard;
     d_patcher.overwrite_symbols();
-    updateModuleCache();
+    updateModuleCacheImpl();
 }
 
 #ifdef __linux__
