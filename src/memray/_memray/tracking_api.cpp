@@ -1119,7 +1119,7 @@ PyTraceFunction(
 }
 
 void
-forget_python_stack()
+Tracker::forgetPythonStack()
 {
     if (!Tracker::isActive()) {
         return;
@@ -1130,14 +1130,14 @@ forget_python_stack()
 }
 
 void
-begin_tracking_greenlets()
+Tracker::beginTrackingGreenlets()
 {
     assert(PyGILState_Check());
     PythonStackTracker::s_greenlet_tracking_enabled = true;
 }
 
 void
-handle_greenlet_switch(PyObject* from, PyObject* to)
+Tracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 {
     PythonStackTracker::get().handleGreenletSwitch(from, to);
 }

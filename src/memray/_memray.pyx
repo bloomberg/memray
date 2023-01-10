@@ -44,9 +44,6 @@ from _memray.socket_reader_thread cimport BackgroundSocketReader
 from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
 from _memray.tracking_api cimport Tracker as NativeTracker
-from _memray.tracking_api cimport begin_tracking_greenlets
-from _memray.tracking_api cimport forget_python_stack
-from _memray.tracking_api cimport handle_greenlet_switch
 from _memray.tracking_api cimport install_trace_function
 from cpython cimport PyErr_CheckSignals
 from libc.stdint cimport uint64_t
@@ -296,7 +293,7 @@ cdef class ProfileFunctionGuard:
         deregistered when the PyThreadState is destroyed, so we can also use
         this to perform some cleanup when a thread dies.
         """
-        forget_python_stack()
+        NativeTracker.forgetPythonStack()
 
 
 cdef class Tracker:
@@ -405,7 +402,7 @@ cdef class Tracker:
         threading.setprofile(start_thread_trace)
 
         if "greenlet._greenlet" in sys.modules:
-            begin_tracking_greenlets()
+            NativeTracker.beginTrackingGreenlets()
 
         NativeTracker.createTracker(
             move(writer),
@@ -431,7 +428,7 @@ def start_thread_trace(frame, event, arg):
 
 def greenlet_trace_function(event, args):
     if event in {"switch", "throw"}:
-        handle_greenlet_switch(args[0], args[1])
+        NativeTracker.handleGreenletSwitch(args[0], args[1])
 
 
 def print_greenlet_warning():
