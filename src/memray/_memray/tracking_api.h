@@ -255,14 +255,6 @@ class Tracker
         }
     }
 
-    __attribute__((always_inline)) inline static void updateModuleCache()
-    {
-        Tracker* tracker = getTracker();
-        if (tracker) {
-            tracker->updateModuleCacheImpl();
-        }
-    }
-
     __attribute__((always_inline)) inline static void registerThreadName(const char* name)
     {
         Tracker* tracker = getTracker();
