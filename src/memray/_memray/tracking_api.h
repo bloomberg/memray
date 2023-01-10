@@ -216,6 +216,7 @@ class Tracker
         }
         RecursionGuard guard;
 
+        std::unique_lock<std::mutex> lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->trackAllocationImpl(ptr, size, func);
@@ -230,6 +231,7 @@ class Tracker
         }
         RecursionGuard guard;
 
+        std::unique_lock<std::mutex> lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->trackDeallocationImpl(ptr, size, func);
@@ -243,6 +245,7 @@ class Tracker
         }
         RecursionGuard guard;
 
+        std::unique_lock<std::mutex> lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->invalidate_module_cache_impl();
@@ -256,6 +259,7 @@ class Tracker
         }
         RecursionGuard guard;
 
+        std::unique_lock<std::mutex> lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->registerThreadNameImpl(name);
@@ -305,7 +309,6 @@ class Tracker
         std::shared_ptr<RecordWriter> d_writer;
         bool d_stop{false};
         unsigned int d_memory_interval;
-        std::mutex d_mutex;
         std::condition_variable d_cv;
         std::thread d_thread;
         mutable std::ifstream d_procs_statm;
@@ -316,16 +319,17 @@ class Tracker
     };
 
     // Data members
-    FrameCollection<RawFrame> d_frames;
+    static std::unique_ptr<std::mutex> s_mutex;
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
 
+    FrameCollection<RawFrame> d_frames;
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
-    bool d_unwind_native_frames;
-    unsigned int d_memory_interval;
-    bool d_follow_fork;
-    bool d_trace_python_allocators;
+    const bool d_unwind_native_frames;
+    const unsigned int d_memory_interval;
+    const bool d_follow_fork;
+    const bool d_trace_python_allocators;
     linker::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
 

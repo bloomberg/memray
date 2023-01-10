@@ -5,7 +5,6 @@
 
 #include <fstream>
 #include <mutex>
-#include <shared_mutex>
 #include <stddef.h>
 #include <string>
 #include <tuple>
@@ -262,13 +261,9 @@ class FrameCollection
     template<typename T>
     auto getIndex(T&& frame) -> std::pair<frame_id_t, bool>
     {
-        std::shared_lock<std::shared_mutex> r_lock(d_mutex);
         bool inserted = false;
         auto it = d_frame_map.find(frame);
         if (it == d_frame_map.end()) {
-            r_lock.unlock();
-            std::unique_lock<std::shared_mutex> w_lock(d_mutex);
-
             std::tie(it, inserted) = d_frame_map.emplace(std::forward<T>(frame), d_current_frame_id);
             if (inserted) {
                 d_current_frame_id++;
@@ -280,7 +275,6 @@ class FrameCollection
   private:
     frame_id_t d_current_frame_id{};
     std::unordered_map<FrameType, frame_id_t, typename FrameType::Hash> d_frame_map{};
-    std::shared_mutex d_mutex;
 };
 
 using pyrawframe_map_val_t = std::pair<frame_id_t, RawFrame>;

@@ -61,7 +61,6 @@ RecordWriter::setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_fr
 bool
 RecordWriter::writeHeader(bool seek_to_start)
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
     if (seek_to_start) {
         // If we can't seek to the beginning to the stream (e.g. dealing with a socket), just give
         // up.
@@ -86,17 +85,10 @@ RecordWriter::writeHeader(bool seek_to_start)
 bool
 RecordWriter::writeTrailer()
 {
-    std::lock_guard<std::mutex> lock(d_mutex);
     // The FileSource will ignore trailing 0x00 bytes. This non-zero trailer
     // marks the boundary between bytes we wrote and padding bytes.
     RecordTypeAndFlags token{RecordType::OTHER, int(OtherRecordType::TRAILER)};
     return writeSimpleType(token);
-}
-
-std::unique_lock<std::mutex>
-RecordWriter::acquireLock()
-{
-    return std::unique_lock<std::mutex>(d_mutex);
 }
 
 std::unique_ptr<RecordWriter>
