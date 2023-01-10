@@ -320,8 +320,8 @@ class Tracker
 
     // Data members
     FrameCollection<RawFrame> d_frames;
-    static std::unique_ptr<Tracker> d_instance_owner;
-    static std::atomic<Tracker*> d_instance;
+    static std::unique_ptr<Tracker> s_instance_owner;
+    static std::atomic<Tracker*> s_instance;
 
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
