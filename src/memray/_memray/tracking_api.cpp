@@ -197,18 +197,21 @@ PythonStackTracker::emitPendingPushesAndPops()
     }
     auto first_to_emit = it.base();
 
-    // Emit pending pops
-    if (d_num_pending_pops) {
-        Tracker::getTracker()->popFrames(d_num_pending_pops);
-        d_num_pending_pops = 0;
-    }
-
-    // Emit pending pushes
-    for (auto to_emit = first_to_emit; to_emit != d_stack->end(); ++to_emit) {
-        if (!Tracker::getTracker()->pushFrame(to_emit->raw_frame_record)) {
-            break;
+    Tracker* tracker = Tracker::getTracker();
+    if (tracker) {
+        // Emit pending pops
+        if (d_num_pending_pops) {
+            tracker->popFrames(d_num_pending_pops);
+            d_num_pending_pops = 0;
         }
-        to_emit->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
+
+        // Emit pending pushes
+        for (auto to_emit = first_to_emit; to_emit != d_stack->end(); ++to_emit) {
+            if (!tracker->pushFrame(to_emit->raw_frame_record)) {
+                break;
+            }
+            to_emit->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
+        }
     }
 
     invalidateMostRecentFrameLineNumber();
@@ -422,7 +425,6 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     std::for_each(stack.rbegin(), stack.rend(), [this](auto& frame) { pushPythonFrame(frame); });
 }
 
-std::atomic<bool> Tracker::d_active = false;
 std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
 
@@ -547,9 +549,6 @@ Tracker::Tracker(
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
 {
-    // Note: this must be set before the hooks are installed.
-    d_instance = this;
-
     static std::once_flag once;
     call_once(once, [] {
         hooks::ensureAllHooksAreValid();
@@ -577,8 +576,6 @@ Tracker::Tracker(
     d_background_thread->start();
 
     d_patcher.overwrite_symbols();
-
-    tracking_api::Tracker::activate();
 }
 
 Tracker::~Tracker()
@@ -602,9 +599,6 @@ Tracker::~Tracker()
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
     d_writer.reset();
-
-    // Note: this must not be unset before the hooks are uninstalled.
-    d_instance = nullptr;
 }
 
 Tracker::BackgroundThread::BackgroundThread(
@@ -731,35 +725,35 @@ Tracker::childFork()
     // and unset before d_instance.
     (void)d_instance_owner.release();
 
+    // Save a reference to the old tracker (if any), then unset our singleton.
     Tracker* old_tracker = d_instance;
+    Tracker::deactivate();
 
     // If we inherited an active tracker, try to clone its record writer.
     std::unique_ptr<RecordWriter> new_writer;
-    if (old_tracker && memray::tracking_api::Tracker::isActive() && old_tracker->d_follow_fork) {
+    if (old_tracker && old_tracker->d_follow_fork) {
         new_writer = old_tracker->d_writer->cloneInChildProcess();
     }
 
     if (!new_writer) {
-        // We either have no tracker, or a deactivated tracker, or a tracker
-        // with a sink that can't be cloned. Unset our singleton and bail out.
-        // Note that the old tracker's hooks may still be installed. This is
-        // OK, as long as they always check the (static) isActive() flag before
-        // calling any methods on the now null tracker singleton.
-        Tracker::deactivate();
-        d_instance = nullptr;
+        // Either tracking wasn't active, or the tracker was using a sink that
+        // can't be cloned. Leave our singleton unset and bail out. Note that
+        // the old tracker's hooks may still be installed. This is OK, as long
+        // as they always check the (static) isActive() flag before calling any
+        // methods on the now null tracker singleton.
         RecursionGuard::isActive = false;
         return;
     }
 
     // Re-enable tracking with a brand new tracker.
     // Disable tracking until the new tracker is fully installed.
-    Tracker::deactivate();
     d_instance_owner.reset(new Tracker(
             std::move(new_writer),
             old_tracker->d_unwind_native_frames,
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators));
+    Tracker::activate();
     RecursionGuard::isActive = false;
 }
 
@@ -970,19 +964,19 @@ Tracker::pushFrame(const RawFrame& frame)
 void
 Tracker::activate()
 {
-    d_active = true;
+    d_instance = d_instance_owner.get();
 }
 
 void
 Tracker::deactivate()
 {
-    d_active = false;
+    d_instance = nullptr;
 }
 
-const std::atomic<bool>&
+bool
 Tracker::isActive()
 {
-    return Tracker::d_active;
+    return d_instance != nullptr;
 }
 
 // Static methods managing the singleton
@@ -1002,6 +996,7 @@ Tracker::createTracker(
             memory_interval,
             follow_fork,
             trace_python_allocators));
+    tracking_api::Tracker::activate();
     Py_RETURN_NONE;
 }
 

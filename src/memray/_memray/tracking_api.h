@@ -288,7 +288,7 @@ class Tracker
     bool popFrames(uint32_t count);
 
     // Interface to activate/deactivate the tracking
-    static const std::atomic<bool>& isActive();
+    static bool isActive();
     static void activate();
     static void deactivate();
 
@@ -320,7 +320,6 @@ class Tracker
 
     // Data members
     FrameCollection<RawFrame> d_frames;
-    static std::atomic<bool> d_active;
     static std::unique_ptr<Tracker> d_instance_owner;
     static std::atomic<Tracker*> d_instance;
 
