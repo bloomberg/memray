@@ -98,11 +98,6 @@ class NativeTrace
   public:
     using ip_t = frame_id_t;
 
-    NativeTrace()
-    {
-        d_data.resize(MAX_SIZE);
-    };
-
     auto begin() const
     {
         return std::reverse_iterator(d_data.begin() + d_skip + d_size);
@@ -121,6 +116,8 @@ class NativeTrace
     }
     __attribute__((always_inline)) inline bool fill(size_t skip)
     {
+        d_data.resize(MAX_SIZE);
+
         size_t size;
         while (true) {
 #ifdef __linux__
@@ -216,10 +213,16 @@ class Tracker
         }
         RecursionGuard guard;
 
+        NativeTrace trace;
+        if (Tracker::areNativeTracesEnabled()) {
+            // Skip the internal frames so we don't need to filter them later.
+            trace.fill(1);
+        }
+
         std::unique_lock<std::mutex> lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
-            tracker->trackAllocationImpl(ptr, size, func);
+            tracker->trackAllocationImpl(ptr, size, func, trace);
         }
     }
 
@@ -337,7 +340,7 @@ class Tracker
     static size_t computeMainTidSkip();
     frame_id_t registerFrame(const RawFrame& frame);
 
-    void trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func);
+    void trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func, const NativeTrace& trace);
     void trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func);
     void invalidate_module_cache_impl();
     void updateModuleCacheImpl();
@@ -355,6 +358,8 @@ class Tracker
     static void prepareFork();
     static void parentFork();
     static void childFork();
+
+    static bool areNativeTracesEnabled();
 };
 
 }  // namespace memray::tracking_api

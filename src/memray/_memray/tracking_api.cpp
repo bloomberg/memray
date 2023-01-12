@@ -797,16 +797,21 @@ Tracker::computeMainTidSkip()
     return num_frames - 1;
 }
 
+bool
+Tracker::areNativeTracesEnabled()
+{
+    return PythonStackTracker::s_native_tracking_enabled;
+}
+
 void
-Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
+Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func, const NativeTrace& trace)
 {
     PythonStackTracker::get().emitPendingPushesAndPops();
 
     if (d_unwind_native_frames) {
-        NativeTrace trace;
         frame_id_t native_index = 0;
         // Skip the internal frames so we don't need to filter them later.
-        if (trace.fill(2)) {
+        if (trace.size()) {
             native_index = d_native_trace_tree.getTraceIndex(trace, [&](frame_id_t ip, uint32_t index) {
                 return d_writer->writeRecord(UnresolvedNativeFrame{ip, index});
             });
