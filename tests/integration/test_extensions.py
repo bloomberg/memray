@@ -271,8 +271,52 @@ def test_valloc_at_thread_exit(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from testext import run_valloc_at_exit  # type: ignore
 
-        with Tracker(output):
+        with Tracker(output, native_traces=True):
             run_valloc_at_exit()
+
+    # THEN
+    records = list(FileReader(output).get_allocation_records())
+    assert records
+
+    vallocs = [record for record in records if record.allocator == AllocatorType.VALLOC]
+    assert len(vallocs) == 1
+
+
+def test_valloc_at_thread_exit_in_subprocess(tmpdir, monkeypatch):
+    """Test tracking allocations in the destructor of a TLS variable.
+
+    Ensure that TLS variable is created before Memray is imported.
+    """
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "multithreaded_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_MULTITHREADED_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    code = dedent(
+        f"""
+        from testext import run_valloc_at_exit
+        run_valloc_at_exit()  # First call creates the test extension TLS.
+
+        from memray import Tracker
+        with Tracker({str(output)!r}, native_traces=True):
+            run_valloc_at_exit()
+        """
+    )
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setenv("PYTHONPATH", str(extension_path), prepend=":")
+        subprocess.run(
+            [sys.executable, "-c", code],
+            check=True,
+        )
 
     # THEN
     records = list(FileReader(output).get_allocation_records())

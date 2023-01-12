@@ -426,10 +426,9 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 }
 
 std::unique_ptr<std::mutex> Tracker::s_mutex(new std::mutex);
+pthread_key_t Tracker::s_native_unwind_vector_key;
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
-
-MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{128};
 
 std::vector<PythonStackTracker::LazilyEmittedFrame>
 PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
@@ -552,6 +551,18 @@ Tracker::Tracker(
 {
     static std::once_flag once;
     call_once(once, [] {
+        // We use the pthread TLS API for this vector because we must be able
+        // to re-create it while TLS destructors are running (a destructor can
+        // call malloc, hitting our malloc hook). POSIX guarantees multiple
+        // rounds of TLS destruction if destructors call pthread_setspecific.
+        // Note: If this raises an exception, the call_once can be retried.
+        if (0 != pthread_key_create(&s_native_unwind_vector_key, [](void* data) {
+                delete static_cast<std::vector<NativeTrace::ip_t>*>(data);
+            }))
+        {
+            throw std::runtime_error{"Failed to create pthread key"};
+        }
+
         hooks::ensureAllHooksAreValid();
         NativeTrace::setup();
 
@@ -806,17 +817,23 @@ Tracker::areNativeTracesEnabled()
 }
 
 void
-Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func, const NativeTrace& trace)
+Tracker::trackAllocationImpl(
+        void* ptr,
+        size_t size,
+        hooks::Allocator func,
+        const std::optional<NativeTrace>& trace)
 {
     PythonStackTracker::get().emitPendingPushesAndPops();
 
     if (d_unwind_native_frames) {
         frame_id_t native_index = 0;
+
         // Skip the internal frames so we don't need to filter them later.
-        if (trace.size()) {
-            native_index = d_native_trace_tree.getTraceIndex(trace, [&](frame_id_t ip, uint32_t index) {
-                return d_writer->writeRecord(UnresolvedNativeFrame{ip, index});
-            });
+        if (trace && trace.value().size()) {
+            native_index =
+                    d_native_trace_tree.getTraceIndex(trace.value(), [&](frame_id_t ip, uint32_t index) {
+                        return d_writer->writeRecord(UnresolvedNativeFrame{ip, index});
+                    });
         }
         NativeAllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
