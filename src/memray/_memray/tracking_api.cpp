@@ -673,26 +673,28 @@ Tracker::BackgroundThread::start()
     assert(d_thread.get_id() == std::thread::id());
     d_thread = std::thread([&]() {
         RecursionGuard::isActive = true;
-        std::unique_lock<std::mutex> lock(*s_mutex);
         while (true) {
-            d_cv.wait_for(lock, d_memory_interval * 1ms, [this]() { return d_stop; });
-            if (d_stop) {
-                break;
+            {
+                std::unique_lock<std::mutex> lock(d_mutex);
+                d_cv.wait_for(lock, d_memory_interval * 1ms, [this]() { return d_stop; });
+                if (d_stop) {
+                    break;
+                }
             }
 
-            lock.unlock();
             size_t rss = getRSS();
-            lock.lock();
-
             if (rss == 0) {
                 Tracker::deactivate();
                 break;
             }
 
-            if (!d_writer->writeRecord(MemoryRecord{timeElapsed(), rss})) {
-                std::cerr << "Failed to write output, deactivating tracking" << std::endl;
-                Tracker::deactivate();
-                break;
+            {
+                std::lock_guard<std::mutex> lock(*s_mutex);
+                if (!d_writer->writeRecord(MemoryRecord{timeElapsed(), rss})) {
+                    std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+                    Tracker::deactivate();
+                    break;
+                }
             }
         }
     });
@@ -702,10 +704,10 @@ void
 Tracker::BackgroundThread::stop()
 {
     {
-        std::scoped_lock<std::mutex> lock(*s_mutex);
+        std::scoped_lock<std::mutex> lock(d_mutex);
         d_stop = true;
-        d_cv.notify_one();
     }
+    d_cv.notify_one();
     if (d_thread.joinable()) {
         try {
             d_thread.join();

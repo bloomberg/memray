@@ -312,6 +312,7 @@ class Tracker
         std::shared_ptr<RecordWriter> d_writer;
         bool d_stop{false};
         unsigned int d_memory_interval;
+        std::mutex d_mutex;
         std::condition_variable d_cv;
         std::thread d_thread;
         mutable std::ifstream d_procs_statm;
