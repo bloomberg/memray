@@ -197,18 +197,21 @@ PythonStackTracker::emitPendingPushesAndPops()
     }
     auto first_to_emit = it.base();
 
-    // Emit pending pops
-    if (d_num_pending_pops) {
-        Tracker::getTracker()->popFrames(d_num_pending_pops);
-        d_num_pending_pops = 0;
-    }
-
-    // Emit pending pushes
-    for (auto to_emit = first_to_emit; to_emit != d_stack->end(); ++to_emit) {
-        if (!Tracker::getTracker()->pushFrame(to_emit->raw_frame_record)) {
-            break;
+    std::shared_ptr<Tracker> tracker = Tracker::getTracker();
+    if (tracker) {
+        // Emit pending pops
+        if (d_num_pending_pops) {
+            tracker->popFrames(d_num_pending_pops);
+            d_num_pending_pops = 0;
         }
-        to_emit->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
+
+        // Emit pending pushes
+        for (auto to_emit = first_to_emit; to_emit != d_stack->end(); ++to_emit) {
+            if (!tracker->pushFrame(to_emit->raw_frame_record)) {
+                break;
+            }
+            to_emit->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
+        }
     }
 
     invalidateMostRecentFrameLineNumber();
@@ -423,8 +426,7 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 }
 
 std::atomic<bool> Tracker::d_active = false;
-std::unique_ptr<Tracker> Tracker::d_instance_owner;
-std::atomic<Tracker*> Tracker::d_instance = nullptr;
+std::shared_ptr<Tracker> Tracker::d_singleton;
 
 MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{128};
 
@@ -546,10 +548,8 @@ Tracker::Tracker(
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
+, d_all_users_done(false)
 {
-    // Note: this must be set before the hooks are installed.
-    d_instance = this;
-
     static std::once_flag once;
     call_once(once, [] {
         hooks::ensureAllHooksAreValid();
@@ -602,9 +602,35 @@ Tracker::~Tracker()
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
     d_writer.reset();
+}
 
-    // Note: this must not be unset before the hooks are uninstalled.
-    d_instance = nullptr;
+void
+Tracker::signalThatAllUsersAreDone(Tracker* tracker) noexcept
+{
+    std::unique_lock<std::mutex> lock(tracker->d_all_users_done_mutex);
+    tracker->d_all_users_done = true;
+    lock.unlock();
+    tracker->d_all_users_done_cv.notify_one();
+}
+
+void
+Tracker::destroyTrackerSingletonAfterAllUsersAreDone() noexcept
+{
+    // Unset the singleton, capturing a reference to its old value.
+    std::shared_ptr<Tracker> shared_tracker = std::atomic_exchange(&d_singleton, {});
+
+    // Drop our 1 reference to it (saving a unique_ptr to the Tracker)
+    std::unique_ptr<Tracker> tracker(shared_tracker.get());
+    shared_tracker.reset();
+
+    if (tracker) {
+        // Wait for any running hooks to drop their reference to the Tracker.
+        std::unique_lock<std::mutex> lock(tracker->d_all_users_done_mutex);
+        tracker->d_all_users_done_cv.wait(lock, [&tracker]() { return tracker->d_all_users_done; });
+    }
+
+    // Destroy the Tracker.
+    tracker.reset();
 }
 
 Tracker::BackgroundThread::BackgroundThread(
@@ -727,11 +753,9 @@ Tracker::childFork()
     // because it would try to destroy mutexes that might be locked by threads
     // that no longer exist, and to join a background thread that no longer
     // exists, and potentially to flush buffered output to a socket it no
-    // longer owns. Note that d_instance_owner is always set after d_instance
-    // and unset before d_instance.
-    (void)d_instance_owner.release();
-
-    Tracker* old_tracker = d_instance;
+    // longer owns.
+    Tracker* old_tracker = d_singleton.get();
+    d_singleton.swap(*(new std::shared_ptr<Tracker>));
 
     // If we inherited an active tracker, try to clone its record writer.
     std::unique_ptr<RecordWriter> new_writer;
@@ -741,12 +765,10 @@ Tracker::childFork()
 
     if (!new_writer) {
         // We either have no tracker, or a deactivated tracker, or a tracker
-        // with a sink that can't be cloned. Unset our singleton and bail out.
+        // with a sink that can't be cloned. Bail out with our singleton unset.
         // Note that the old tracker's hooks may still be installed. This is
-        // OK, as long as they always check the (static) isActive() flag before
-        // calling any methods on the now null tracker singleton.
+        // OK, since they always check to ensure the singleton is non-null.
         Tracker::deactivate();
-        d_instance = nullptr;
         RecursionGuard::isActive = false;
         return;
     }
@@ -754,12 +776,14 @@ Tracker::childFork()
     // Re-enable tracking with a brand new tracker.
     // Disable tracking until the new tracker is fully installed.
     Tracker::deactivate();
-    d_instance_owner.reset(new Tracker(
-            std::move(new_writer),
-            old_tracker->d_unwind_native_frames,
-            old_tracker->d_memory_interval,
-            old_tracker->d_follow_fork,
-            old_tracker->d_trace_python_allocators));
+    d_singleton.reset(
+            new Tracker(
+                    std::move(new_writer),
+                    old_tracker->d_unwind_native_frames,
+                    old_tracker->d_memory_interval,
+                    old_tracker->d_follow_fork,
+                    old_tracker->d_trace_python_allocators),
+            &Tracker::signalThatAllUsersAreDone);
     RecursionGuard::isActive = false;
 }
 
@@ -1006,28 +1030,42 @@ Tracker::createTracker(
         bool follow_fork,
         bool trace_python_allocators)
 {
-    // Note: the GIL is used for synchronization of the singleton
-    d_instance_owner.reset(new Tracker(
-            std::move(record_writer),
-            native_traces,
-            memory_interval,
-            follow_fork,
-            trace_python_allocators));
+    // If exit() or Py_Finalize() are called while tracking is active, we need
+    // to gracefully destroy our tracker before our static member variables
+    // (including the singleton shared_ptr) are destroyed. This function-scoped
+    // static will be destroyed before static member variables.
+    static struct ModuleTeardownTrackerDestroyer
+    {
+        ~ModuleTeardownTrackerDestroyer()
+        {
+            destroyTrackerSingletonAfterAllUsersAreDone();
+        }
+    } module_teardown_tracker_destroyer;
+
+    std::shared_ptr<Tracker> new_singleton(
+            new Tracker(
+                    std::move(record_writer),
+                    native_traces,
+                    memory_interval,
+                    follow_fork,
+                    trace_python_allocators),
+            &Tracker::signalThatAllUsersAreDone);
+
+    std::atomic_exchange(&d_singleton, new_singleton);
     Py_RETURN_NONE;
 }
 
 PyObject*
 Tracker::destroyTracker()
 {
-    // Note: the GIL is used for synchronization of the singleton
-    d_instance_owner.reset();
+    destroyTrackerSingletonAfterAllUsersAreDone();
     Py_RETURN_NONE;
 }
 
-Tracker*
+std::shared_ptr<Tracker>
 Tracker::getTracker()
 {
-    return d_instance;
+    return std::atomic_load(&d_singleton);
 }
 
 static struct

@@ -226,13 +226,13 @@ class Tracker
             bool follow_fork,
             bool trace_python_allocators);
     static PyObject* destroyTracker();
-    static Tracker* getTracker();
+    static std::shared_ptr<Tracker> getTracker();
 
     // Allocation tracking interface
     __attribute__((always_inline)) inline static void
     trackAllocation(void* ptr, size_t size, hooks::Allocator func)
     {
-        Tracker* tracker = getTracker();
+        std::shared_ptr<Tracker> tracker = getTracker();
         if (tracker) {
             tracker->trackAllocationImpl(ptr, size, func);
         }
@@ -241,7 +241,7 @@ class Tracker
     __attribute__((always_inline)) inline static void
     trackDeallocation(void* ptr, size_t size, hooks::Allocator func)
     {
-        Tracker* tracker = getTracker();
+        std::shared_ptr<Tracker> tracker = getTracker();
         if (tracker) {
             tracker->trackDeallocationImpl(ptr, size, func);
         }
@@ -249,7 +249,7 @@ class Tracker
 
     __attribute__((always_inline)) inline static void invalidate_module_cache()
     {
-        Tracker* tracker = getTracker();
+        std::shared_ptr<Tracker> tracker = getTracker();
         if (tracker) {
             tracker->invalidate_module_cache_impl();
         }
@@ -257,7 +257,7 @@ class Tracker
 
     __attribute__((always_inline)) inline static void registerThreadName(const char* name)
     {
-        Tracker* tracker = getTracker();
+        std::shared_ptr<Tracker> tracker = getTracker();
         if (tracker) {
             tracker->registerThreadNameImpl(name);
         }
@@ -301,8 +301,7 @@ class Tracker
     // Data members
     FrameCollection<RawFrame> d_frames;
     static std::atomic<bool> d_active;
-    static std::unique_ptr<Tracker> d_instance_owner;
-    static std::atomic<Tracker*> d_instance;
+    static std::shared_ptr<Tracker> d_singleton;
 
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
@@ -312,6 +311,10 @@ class Tracker
     bool d_trace_python_allocators;
     linker::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
+
+    std::mutex d_all_users_done_mutex;
+    std::condition_variable d_all_users_done_cv;
+    bool d_all_users_done;
 
     // Methods
     static size_t computeMainTidSkip();
@@ -331,6 +334,9 @@ class Tracker
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators);
+
+    static void signalThatAllUsersAreDone(Tracker* tracker) noexcept;
+    static void destroyTrackerSingletonAfterAllUsersAreDone() noexcept;
 
     static void prepareFork();
     static void parentFork();

@@ -1,5 +1,6 @@
 from _memray.record_writer cimport RecordWriter
 from libcpp cimport bool
+from libcpp.memory cimport shared_ptr
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 
@@ -24,4 +25,4 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
         object destroyTracker() except +
 
         @staticmethod
-        Tracker* getTracker()
+        shared_ptr[Tracker] getTracker()
