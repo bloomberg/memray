@@ -42,8 +42,8 @@ from _memray.pthread cimport pthread_t
 from cpython.pylifecycle cimport Py_FinalizeEx
 from libc.errno cimport errno
 from libc.stdint cimport uintptr_t
+from libc.stdlib cimport exit as _exit
 from libcpp.vector cimport vector
-from stdlib cimport exit as _exit
 
 from ._destination import Destination
 
