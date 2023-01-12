@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_set>
@@ -98,6 +99,11 @@ class NativeTrace
   public:
     using ip_t = frame_id_t;
 
+    NativeTrace(std::vector<ip_t>& data)
+    : d_data(data)
+    {
+    }
+
     auto begin() const
     {
         return std::reverse_iterator(d_data.begin() + d_skip + d_size);
@@ -116,23 +122,20 @@ class NativeTrace
     }
     __attribute__((always_inline)) inline bool fill(size_t skip)
     {
-        d_data.resize(MAX_SIZE);
-
         size_t size;
         while (true) {
 #ifdef __linux__
-            size = unw_backtrace((void**)d_data.data(), MAX_SIZE);
+            size = unw_backtrace((void**)d_data.data(), d_data.size());
 #elif defined(__APPLE__)
-            size = ::backtrace((void**)d_data.data(), MAX_SIZE);
+            size = ::backtrace((void**)d_data.data(), d_data.size());
 #else
             return 0;
 #endif
-            if (size < MAX_SIZE) {
+            if (size < d_data.size()) {
                 break;
             }
 
-            MAX_SIZE = MAX_SIZE * 2;
-            d_data.resize(MAX_SIZE);
+            d_data.resize(d_data.size() * 2);
         }
         d_size = size > skip ? size - skip : 0;
         d_skip = skip;
@@ -166,12 +169,9 @@ class NativeTrace
     }
 
   private:
-    MEMRAY_FAST_TLS static thread_local size_t MAX_SIZE;
-
-  private:
     size_t d_size = 0;
     size_t d_skip = 0;
-    std::vector<ip_t> d_data;
+    std::vector<ip_t>& d_data;
 };
 
 /**
@@ -213,10 +213,13 @@ class Tracker
         }
         RecursionGuard guard;
 
-        NativeTrace trace;
+        std::optional<NativeTrace> trace{std::nullopt};
         if (Tracker::areNativeTracesEnabled()) {
+            if (!prepareNativeTrace(trace)) {
+                return;
+            }
             // Skip the internal frames so we don't need to filter them later.
-            trace.fill(1);
+            trace.value().fill(1);
         }
 
         std::unique_lock<std::mutex> lock(*s_mutex);
@@ -224,6 +227,24 @@ class Tracker
         if (tracker) {
             tracker->trackAllocationImpl(ptr, size, func, trace);
         }
+    }
+
+    static inline bool prepareNativeTrace(std::optional<NativeTrace>& trace)
+    {
+        auto t_trace_data_ptr = static_cast<std::vector<NativeTrace::ip_t>*>(
+                pthread_getspecific(s_native_unwind_vector_key));
+        if (!t_trace_data_ptr) {
+            t_trace_data_ptr = new std::vector<NativeTrace::ip_t>();
+            if (pthread_setspecific(s_native_unwind_vector_key, t_trace_data_ptr) != 0) {
+                Tracker::deactivate();
+                std::cerr << "memray: pthread_setspecific failed" << std::endl;
+                delete t_trace_data_ptr;
+                return false;
+            }
+            t_trace_data_ptr->resize(128);
+        }
+        trace.emplace(*t_trace_data_ptr);
+        return true;
     }
 
     __attribute__((always_inline)) inline static void
@@ -324,6 +345,7 @@ class Tracker
 
     // Data members
     static std::unique_ptr<std::mutex> s_mutex;
+    static pthread_key_t s_native_unwind_vector_key;
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
 
@@ -341,7 +363,11 @@ class Tracker
     static size_t computeMainTidSkip();
     frame_id_t registerFrame(const RawFrame& frame);
 
-    void trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func, const NativeTrace& trace);
+    void trackAllocationImpl(
+            void* ptr,
+            size_t size,
+            hooks::Allocator func,
+            const std::optional<NativeTrace>& trace);
     void trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func);
     void invalidate_module_cache_impl();
     void updateModuleCacheImpl();
