@@ -48,14 +48,17 @@ struct RecursionGuard
     : wasLocked(isActive)
     {
         isActive = true;
+        counter.fetch_add(1);
     }
 
     ~RecursionGuard()
     {
         isActive = wasLocked;
+        counter.fetch_add(-1);
     }
 
     const bool wasLocked;
+    static std::atomic<int> counter;
     MEMRAY_FAST_TLS static thread_local bool isActive;
 };
 

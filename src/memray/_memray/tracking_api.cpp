@@ -423,6 +423,7 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 std::atomic<bool> Tracker::d_active = false;
 std::unique_ptr<Tracker> Tracker::d_instance_owner;
 std::atomic<Tracker*> Tracker::d_instance = nullptr;
+std::atomic<int> RecursionGuard::counter = 0;
 
 MEMRAY_FAST_TLS thread_local size_t NativeTrace::MAX_SIZE{128};
 
@@ -596,10 +597,13 @@ Tracker::~Tracker()
 
         PyGILState_Release(gstate);
     }
+    while (RecursionGuard::counter.load() != 1) {
+        std::this_thread::yield();
+    }
+
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
     d_writer.reset();
-
     // Note: this must not be unset before the hooks are uninstalled.
     d_instance = nullptr;
 }
@@ -783,10 +787,14 @@ Tracker::computeMainTidSkip()
 void
 Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
 {
-    if (RecursionGuard::isActive || !Tracker::isActive()) {
+    if (RecursionGuard::isActive) {
         return;
     }
     RecursionGuard guard;
+
+    if (!Tracker::isActive()) {
+        return;
+    }
 
     PythonStackTracker::get().emitPendingPushesAndPops();
 
@@ -816,10 +824,14 @@ Tracker::trackAllocationImpl(void* ptr, size_t size, hooks::Allocator func)
 void
 Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
 {
-    if (RecursionGuard::isActive || !Tracker::isActive()) {
+    if (RecursionGuard::isActive) {
         return;
     }
     RecursionGuard guard;
+
+    if (!Tracker::isActive()) {
+        return;
+    }
 
     AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
     if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
@@ -831,7 +843,15 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
 void
 Tracker::invalidate_module_cache_impl()
 {
+    if (RecursionGuard::isActive) {
+        return;
+    }
     RecursionGuard guard;
+
+    if (!Tracker::isActive()) {
+        return;
+    }
+
     d_patcher.overwrite_symbols();
     updateModuleCache();
 }
@@ -930,6 +950,15 @@ Tracker::updateModuleCacheImpl()
 void
 Tracker::registerThreadNameImpl(const char* name)
 {
+    if (RecursionGuard::isActive) {
+        return;
+    }
+    RecursionGuard guard;
+
+    if (!Tracker::isActive()) {
+        return;
+    }
+
     if (!d_writer->writeThreadSpecificRecord(thread_id(), ThreadRecord{name})) {
         std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
         deactivate();
