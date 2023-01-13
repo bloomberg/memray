@@ -308,25 +308,25 @@ a:hover {
 
 .reveal_l {
   position: relative;
-  transform: translateX(150px);
+  transform: translateY(150px);
   opacity: 0;
   transition: 2s all ease;
 }
 
 .reveal_l.active {
-  transform: translateX(0);
+  transform: translateY(0);
   opacity: 1;
 }
 
 .reveal_r {
   position: relative;
-  transform: translateX(-150px);
+  transform: translateY(-150px);
   opacity: 0;
   transition: 2s all ease;
 }
 
 .reveal_r.active {
-  transform: translateX(0);
+  transform: translateY(0);
   opacity: 1;
 }
 
