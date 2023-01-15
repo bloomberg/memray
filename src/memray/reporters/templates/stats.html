@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    {% include "assets/stats.css" %}
+    {% include "assets/sidebar.css" %}
+</style>
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.14.0/css/all.css"
+    integrity="sha384-HzLeBuhoNPvSl5KYnjx0BT+WB0QEEqLprO+NBkkk5gbc67FTaL7XIGa2w1L0Xbgc" crossorigin="anonymous">
+{% endblock %}
+
+{% block content %}
+<nav class="col-md-2 d-none d-md-block bg-light sidebar">
+    <div class="sidebar-sticky">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link active" href="/">
+                    <span class="fa fa-chart-pie"></span>
+                    Statistics
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/flamegraph">
+                    <span class="fa fa-fire"></span>
+                    Famegraph
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<main role="main" class="col-md-9 ml-sm-auto col-lg-10 pt-3 px-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4 col-xl-3">
+                <div class="card bg-c-blue order-card">
+                    <div class="card-block">
+                        <h6 class="m-b-20">Peak memory</h6>
+                        <h2 class="text-right"><i class="fa fa-trophy f-left"></i><span>{{stats.peak}}</span>
+                        </h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 col-xl-3">
+                <div class="card bg-c-green order-card">
+                    <div class="card-block">
+                        <h6 class="m-b-20">Total memory</h6>
+                        <h2 class="text-right"><i class="fa fa-memory f-left"></i><span>{{stats.total}}</span>
+                        </h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 col-xl-3">
+                <div class="card bg-c-yellow order-card">
+                    <div class="card-block">
+                        <h6 class="m-b-20">Number of allocations</h6>
+                        <h2 class="text-right"><i class="fa fa-box f-left"></i><span>{{stats.num_allocations}}</span>
+                        </h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 col-xl-3">
+                <div class="card bg-c-pink order-card">
+                    <div class="card-block">
+                        <h6 class="m-b-20">Total frames</h6>
+                        <h2 class="text-right"><i class="fa fa-fire f-left"></i><span>{{stats.num_frames}}</span></h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2>Allocation count by allocator</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Allocator</th>
+                    <th scope="col">Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for allocator, count in stats.allocation_count_by_allocator.items() %}
+                <tr>
+                    <td>{{ allocator }}</td>
+                    <td>{{ count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Top 6 Locations by Size</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th scope="col">Function</th>
+                    <th scope="col">Location</th>
+                    <th scope="col">Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for location in stats.top_locations_by_size %}
+                <tr>
+                    <td>{{ location['function'] }}</td>
+                    <td>{{ location['file'] }}</td>
+                    <td>{{ location['size'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <h2>Top 6 Locations by Count</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th scope="col">Function</th>
+                    <th scope="col">Location</th>
+                    <th scope="col">Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for location in stats.top_locations_by_count %}
+                <tr>
+                    <td>{{ location['function'] }}</td>
+                    <td>{{ location['file'] }}</td>
+                    <td>{{ location['size'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+
+{% endblock %}

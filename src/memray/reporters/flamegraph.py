@@ -147,6 +147,24 @@ class FlameGraphReporter:
         transformed_data["unique_threads"] = sorted(unique_threads)
         return cls(transformed_data, memory_records=memory_records)
 
+    def get_html(
+        self,
+        metadata: Metadata,
+        show_memory_leaks: bool,
+        merge_threads: bool,
+        kind: str = "flamegraph",
+        **kwargs: Any,
+    ) -> str:
+        return render_report(
+            kind=kind,
+            data=self.data,
+            metadata=metadata,
+            memory_records=self.memory_records,
+            show_memory_leaks=show_memory_leaks,
+            merge_threads=merge_threads,
+            **kwargs,
+        )
+
     def render(
         self,
         outfile: TextIO,
@@ -154,12 +172,5 @@ class FlameGraphReporter:
         show_memory_leaks: bool,
         merge_threads: bool,
     ) -> None:
-        html_code = render_report(
-            kind="flamegraph",
-            data=self.data,
-            metadata=metadata,
-            memory_records=self.memory_records,
-            show_memory_leaks=show_memory_leaks,
-            merge_threads=merge_threads,
-        )
+        html_code = self.get_html(metadata, show_memory_leaks, merge_threads)
         print(html_code, file=outfile)

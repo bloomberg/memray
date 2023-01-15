@@ -40,6 +40,7 @@ xfail_strict = true
 
 [tool.check-manifest]
 ignore = [
+  "src/memray/reporters/templates/assets/flamegraph_common.js",
   "src/memray/reporters/templates/assets/flamegraph.js",
   "src/memray/reporters/templates/assets/table.js",
 ]

@@ -645,7 +645,7 @@ cdef class FileReader:
         self.close()
 
     def _aggregate_allocations(self, size_t records_to_process, bool merge_threads,
-                               size_t temporary_buffer_size=0):
+                               size_t temporary_buffer_size=0, size_t t0=0, size_t t1=0):
         cdef unique_ptr[AbstractAggregator] the_aggregator
         if temporary_buffer_size:
             the_aggregator.reset(
@@ -666,16 +666,25 @@ cdef class FileReader:
             report_progress=self._report_progress
         )
 
+        cdef bool first_record_found = False if t0 != 0 else True
+        cdef MemoryRecord memory_record
+
         with progress_indicator:
             while records_to_process > 0:
                 PyErr_CheckSignals()
                 ret = reader.nextRecord()
                 if ret == RecordResult.RecordResultAllocationRecord:
+                    if not first_record_found:
+                        continue
                     aggregator.addAllocation(reader.getLatestAllocation())
                     records_to_process -= 1
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
-                    pass
+                    memory_record = reader.getLatestMemoryRecord()
+                    if t0 != 0 and memory_record.ms_since_epoch >= t0:
+                        first_record_found = True
+                    if t1 !=0 and memory_record.ms_since_epoch >= t1:
+                        break
                 else:
                     break
 
@@ -687,12 +696,18 @@ cdef class FileReader:
             yield alloc
 
         reader.close()
-
+    
     def get_high_watermark_allocation_records(self, merge_threads=True):
         self._ensure_not_closed()
         # If allocation 0 caused the peak, we need to process 1 record, etc
         cdef size_t max_records = self._high_watermark.index + 1
         yield from self._aggregate_allocations(max_records, merge_threads)
+
+    def get_range_allocation_records(self, size_t t0, size_t t1, merge_threads=True):
+        self._ensure_not_closed()
+        # If allocation 0 caused the peak, we need to process 1 record, etc
+        cdef size_t max_records = self._header["stats"]["n_allocations"]
+        yield from self._aggregate_allocations(max_records, merge_threads, t0=t0, t1=t1)
 
     def get_leaked_allocation_records(self, merge_threads=True):
         self._ensure_not_closed()

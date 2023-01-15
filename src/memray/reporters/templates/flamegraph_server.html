@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block styles %}
+{{ super() }}
+<style>
+  {% include "assets/flamegraph.css" %}
+  {% include "assets/sidebar.css" %}
+</style>
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.14.0/css/all.css"
+  integrity="sha384-HzLeBuhoNPvSl5KYnjx0BT+WB0QEEqLprO+NBkkk5gbc67FTaL7XIGa2w1L0Xbgc" crossorigin="anonymous">
+{% endblock %}
+
+{% block topbar_buttons %}
+<div class="dropdown" id="threadsDropdown" hidden>
+  <button class="btn btn-outline-light dropdown-toggle mr-3" type="button" id="threadsDropdownButton"
+    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-toggle-second="tooltip"
+    data-placement="right" title="Display only the selected thread">
+    Filter Thread
+  </button>
+  <div class="dropdown-menu" aria-labelledby="threadsDropdownButton" id="threadsDropdownList">
+    <a class="dropdown-item" data-thread="-0x1" id="resetThreadFilterItem">Reset</a>
+  </div>
+</div>
+<div class="form-check mr-3">
+  <input class="form-check-input" type="checkbox" data-toggle="tooltip" id="hideUninteresting"
+    title="Hide CPython eval frames and other, memray-related frames" checked>
+  <label class="form-check-label text-white bg-dark">Hide Irrelevant Frames</label>
+</div>
+<div class="form-check mr-3">
+  <input class="form-check-input" type="checkbox" data-toggle="tooltip" id="hideImportSystem"
+    title="Hide frames related to the Python import system">
+  <label class="form-check-label text-white bg-dark">Hide Import System Frames</label>
+</div>
+<button id="resetZoomButton" class="btn btn-outline-light mr-3">Reset Zoom</button>
+<button id="invertButton" class="btn btn-outline-light mr-3">Invert</button>
+{% endblock %}
+
+{% block content %}
+<nav class="col-md-2 d-none d-md-block bg-light sidebar">
+    <div class="sidebar-sticky">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="/">
+                    <span class="fa fa-chart-pie"></span>
+                    Statistics
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" href="/flamegraph">
+                    <span class="fa fa-fire"></span>
+                    Flamegraph
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<main role="main" class="col-md-10 ml-sm-auto col-lg-10 pt-3 px-4" , id="flamegraph_container">
+  <div class="toast" style="position: absolute; top: 5%; left: 40%; z-index: 100;">
+    <div class="toast-header">
+      <strong class="mr-auto">How to use this plot</strong>
+      <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    <div class="toast-body">
+      You can move the plot slider to select different ranges for the flame
+      graph. The flame graph shows the allocations that are created in the
+      selected range that are not deallocated before the end of the range.
+    </div>
+  </div>
+  <div id="overlay" style="display: none;"></div>
+  <div class="chart-container">
+    <div id="loading" style="display: none; z-index: 100;">
+      <div class="loading-spinner"></div>
+      <p>Loading...</p>
+    </div>
+
+    <div id="plot"></div>
+    <div id="chart"></div>
+</main>
+</div>
+{% endblock %}
+
+{% block help %}
+{% if show_memory_leaks %}
+<p>
+  The flame graph displays stack frames at allocation, for memory that was leaked during the tracking period (i.e.
+  allocated and not deallocated).
+</p>
+<div class="alert alert-warning" role="alert">
+  Note that the Python allocator doesn't necessarily release memory to the system when Python objects are deallocated
+  and these can still appear as "leaks". If you want to exclude these, you can run your application with the
+  `PYTHONMALLOC=malloc` environment variable set.
+</div>
+{% else %}
+<p>
+  The flame graph displays a snapshot of memory used across stack frames at the time <b>when the memory usage was at its
+    peak</b>.
+</p>
+{% endif %}
+<p>
+  The vertical ordering of the stack frames corresponds to the order of function calls, from parent to children.
+  The horizontal ordering does not represent the passage of time in the application: they simply represent child frames
+  in arbitrary order.
+</p>
+<p>
+  On the flame graph, each bar represents a stack frame and shows the code which triggered the memory allocation.
+  Hovering over the frame you can also see the overall memory allocated in the given frame and its children and the
+  number of times allocations have occurred.
+</p>
+<p>
+  The <b>Show/Hide Irrelevant Frames</b> button can be used to reveal and hide frames which contain allocations in code
+  which might not be
+  relevant for the application. These include frames in the CPython eval loop as well as frames introduced by memray
+  during the analysis.
+</p>
+<p>
+  You can find more information in the <a target="_blank"
+    href="https://bloomberg.github.io/memray/flamegraph.html">documentation</a>.
+</p>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://d3js.org/d3.v4.min.js" charset="utf-8"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-tip@0.9.1/dist/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@4.0.6/dist/d3-flamegraph.min.js"></script>
+<script type="text/javascript">
+  const update_url = {{ update_url| tojson }};
+</script>
+<script type="text/javascript">
+  {%- include "assets/serve_flamegraph.js" -%}
+</script>
+{% endblock %}

@@ -13,7 +13,9 @@ PIP_INSTALL=PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" $(PYTHON) -m pip install
 reporters_path := ./src/memray/reporters
 js_files := $(wildcard $(reporters_path)/assets/*.js)
 generated_js_files := \
+    $(reporters_path)/templates/assets/flamegraph_common.js \
     $(reporters_path)/templates/assets/flamegraph.js \
+    $(reporters_path)/templates/assets/serve_flamegraph.js \
     $(reporters_path)/templates/assets/table.js
 css_files := 'src/**/*.css'
 markdown_files := $(shell find . -name \*.md -not -path '*/\.*' -not -path './src/vendor/*')

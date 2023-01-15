@@ -19,6 +19,7 @@ from . import flamegraph
 from . import live
 from . import parse
 from . import run
+from . import serve
 from . import stats
 from . import summary
 from . import table
@@ -66,6 +67,7 @@ _COMMANDS: List[Command] = [
     stats.StatsCommand(),
     transform.TransformCommand(),
     attach.AttachCommand(),
+    serve.ServeCommand(),
 ]
 
 

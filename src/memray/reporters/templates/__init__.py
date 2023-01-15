@@ -32,6 +32,7 @@ def render_report(
     memory_records: Iterable[MemorySnapshot],
     show_memory_leaks: bool,
     merge_threads: bool,
+    **kwargs: Any,
 ) -> str:
     env = get_render_environment()
     template = env.get_template(kind + ".html")
@@ -45,4 +46,5 @@ def render_report(
         memory_records=memory_records,
         show_memory_leaks=show_memory_leaks,
         merge_threads=merge_threads,
+        **kwargs,
     )
