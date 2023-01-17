@@ -8,6 +8,22 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.6.0 (2023-01-17)
+-------------------------
+
+Features
+~~~~~~~~
+
+- Speed up native allocation tracking by up to 45% (#294)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- ``memray run --live`` and ``memray run --live-remote`` silently dropped the ``--trace-python-allocators`` flag. This has been fixed, and the flag is now properly propagated from the CLI to the tracker. (#283)
+- Fix a bug that was causing Memray to crash when the Tracker is being destroyed and some other thread is still registering allocations or deallocations (#289)
+
+
 Memray 1.5.0 (2022-12-09)
 -------------------------
 
