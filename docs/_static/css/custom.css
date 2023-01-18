@@ -383,13 +383,12 @@ a:hover {
 /* Cards and card columns
 ----------------------------- */
 
-.card-columns{
-    display: flex;
-    flex-wrap: wrap;
+.card-container {
+  margin: 0 50px;
 }
 
-.card {
-    flex-basis: calc(33.33% - 30px); 
+.card-columns {
+  flex-wrap: wrap;
 }
 
 .card:hover {
@@ -409,6 +408,11 @@ a:hover {
   color: rgb(231, 231, 231);
 }
 
+@media (min-width: 768px) {
+  .card {
+    flex-basis: calc(33.33% - 30px);
+  }
+}
 
 /* RESPONSIVE CSS
 -------------------------------------------------- */
@@ -432,4 +436,3 @@ a:hover {
     margin-top: 7rem;
   }
 }
-
