@@ -334,6 +334,9 @@ cdef class Tracker:
         native_traces (bool): Whether or not to capture native stack frames, in
             addition to Python stack frames (see :ref:`Native Tracking`).
             Defaults to False.
+        trace_python_allocators (bool): Whether or not to trace Python allocators
+            as independent allocations. (see :ref:`Python allocators`).
+            Defaults to False.
         follow_fork (bool): Whether or not to continue tracking in a subprocess
             that is forked from the tracked process (see :ref:`Tracking across
             Forks`). Defaults to False.

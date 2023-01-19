@@ -1,3 +1,5 @@
+.. _Python allocators:
+
 Python allocators
 =================
 
