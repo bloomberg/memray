@@ -9,7 +9,6 @@ from memray.reporters.tui import TUI
 
 
 class SummaryReporter:
-
     N_COLUMNS = len(TUI.KEY_TO_COLUMN_NAME)
 
     def __init__(self, data: Iterable[AllocationRecord], native: bool):

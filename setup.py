@@ -48,7 +48,6 @@ class BuildMemray(build_ext_orig):
         subprocess.run(command, check=True, **kwargs)
 
     def build_libbacktrace(self):
-
         archive_location = LIBBACKTRACE_LIBDIR / "libbacktrace.a"
 
         if archive_location.exists():

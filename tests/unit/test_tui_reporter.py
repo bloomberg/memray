@@ -34,7 +34,6 @@ class TestTUIHeader:
         ],
     )
     def test_pid(self, pid, out_str):
-
         # GIVEN
         snapshot = []
         output = StringIO()
@@ -107,7 +106,6 @@ class TestTUIHeader:
         assert actual == expected
 
     def test_with_no_allocations(self):
-
         # GIVEN
         snapshot = []
         output = StringIO()

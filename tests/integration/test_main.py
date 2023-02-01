@@ -957,7 +957,6 @@ class TestReporterSubCommands:
 
 class TestLiveRemoteSubcommand:
     def test_live_tracking(self, tmp_path, simple_test_file, free_port):
-
         # GIVEN
         server = subprocess.Popen(
             [
@@ -1165,7 +1164,6 @@ class TestLiveRemoteSubcommand:
         assert b"Interrupted system call" not in stderr
 
     def test_live_client_exits_properly_on_sigint_before_connecting(self, free_port):
-
         # GIVEN
         client = subprocess.Popen(
             [

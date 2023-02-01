@@ -1115,7 +1115,6 @@ class TestLeaks:
     def test_leaks_that_happen_in_the_same_function_are_aggregated(
         self, tmp_path, file_format
     ):
-
         # GIVEN
         allocators = []
         output = tmp_path / "test.bin"
@@ -1172,7 +1171,6 @@ class TestLeaks:
         )
 
     def test_thread_allocations_multiple_threads(self, tmpdir, file_format):
-
         # GIVEN
         def allocating_function(allocator, amount, stop_flag):
             allocator.posix_memalign(amount)
@@ -1352,7 +1350,6 @@ class TestTemporaryAllocations:
     def test_temporary_allocations_that_happen_in_the_same_function_are_aggregated(
         self, tmp_path
     ):
-
         # GIVEN
         output = tmp_path / "test.bin"
 
@@ -1400,7 +1397,6 @@ class TestTemporaryAllocations:
         )
 
     def test_thread_allocations_multiple_threads(self, tmpdir):
-
         # GIVEN
         def allocating_function(allocator, amount, stop_flag):
             allocator.posix_memalign(amount)

@@ -41,7 +41,6 @@ class TransformReporter:
         outfile: TextIO,
         **kwargs: Any,
     ) -> None:
-
         location_to_index: Dict[Location, int] = {}
         all_locations: List[Dict[str, str]] = []
         events = []
@@ -87,7 +86,6 @@ class TransformReporter:
         outfile: TextIO,
         **kwargs: Any,
     ) -> None:
-
         writer = csv.writer(outfile)
         writer.writerow(
             [
