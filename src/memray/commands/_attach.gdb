@@ -27,7 +27,7 @@ b PyMem_Calloc
 b PyMem_Realloc
 b PyMem_Free
 # Apply commands to all 8 breakpoints above
-commands 1 2 3 4 5 6 7 8
+commands 1-8
     disable breakpoints
     call (void*)dlopen($libpath, $rtld_now)
     p (char*)dlerror()

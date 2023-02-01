@@ -1,0 +1,1 @@
+Work around `a bug in GDB versions before 10.1 <https://sourceware.org/git/?p=binutils-gdb.git;a=commit;h=da1df1db9ae43050c8de62e4842428ddda7eb509>`_ that could cause ``memray attach`` to fail.
