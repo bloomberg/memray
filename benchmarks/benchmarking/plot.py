@@ -32,7 +32,6 @@ def remove_outliers(values, m=2):
 
 
 def plot_diff_pair(ax, ref, head, names, outlier_rejection=True):
-
     master_data = []
     all_data = []
     means = []

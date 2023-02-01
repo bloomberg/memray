@@ -32,7 +32,6 @@ class TableReporter:
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
     ) -> "TableReporter":
-
         result = []
         for record in allocations:
             stack_trace = (
