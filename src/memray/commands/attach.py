@@ -107,6 +107,15 @@ def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
         output = exc.output
         returncode = exc.returncode
 
+    if cmd is lldb_cmd:
+        # A bug in lldb sometimes means processes stay stopped after it exits.
+        # Send a signal to wake the process up. Ignore any errors: the process
+        # may have died, or may have never existed, or may be owned by another
+        # user, etc. Processes that aren't stopped will ignore this signal, so
+        # this should be harmless, though it is a huge hack.
+        with contextlib.suppress(OSError):
+            os.kill(pid, signal.SIGCONT)
+
     if verbose:
         print(f"debugger return code: {returncode}")
         print(f"debugger output:\n{output}")
