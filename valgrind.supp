@@ -360,3 +360,25 @@
    fun:_dl_open
    ...
 }
+
+{
+   <dlopen_is_drunk_go_home_now_with_calloc>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   ...
+   fun:_dl_catch_exception
+   ...
+   fun:_dl_open
+   ...
+}
+
+
+{
+   <dlopen_mutex_invalid_argument>
+   Helgrind:Misc
+   ...
+   fun:_dl_fini
+   fun:__run_exit_handlers
+   ...
+}

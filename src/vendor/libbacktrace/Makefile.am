@@ -35,7 +35,7 @@ AM_CPPFLAGS =
 
 AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
 
-include_HEADERS = backtrace.h backtrace-supported.h internal.h
+include_HEADERS = backtrace.h backtrace-supported.h internal.h debuginfod_support.h
 
 lib_LTLIBRARIES = libbacktrace.la
 
@@ -45,6 +45,7 @@ libbacktrace_la_SOURCES = \
 	dwarf.c \
 	fileline.c \
 	internal.h \
+	debuginfod_support.h \
 	posix.c \
 	print.c \
 	sort.c \
@@ -562,7 +563,7 @@ alloc.lo: config.h backtrace.h internal.h
 backtrace.lo: config.h backtrace.h internal.h
 btest.lo: filenames.h backtrace.h backtrace-supported.h
 dwarf.lo: config.h filenames.h backtrace.h internal.h
-elf.lo: config.h backtrace.h internal.h
+elf.lo: config.h backtrace.h internal.h debuginfod_support.h
 fileline.lo: config.h backtrace.h internal.h
 macho.lo: config.h backtrace.h internal.h
 mmap.lo: config.h backtrace.h internal.h
