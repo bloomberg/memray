@@ -14,8 +14,10 @@ echo ">>> Checking out commit ${SNAPSHOT_COMMIT}"
 cd "$LIBBACKTRACE_DIR"
 git checkout $SNAPSHOT_COMMIT 1>/dev/null
 
-echo ">>> Applying patch for commit ${SNAPSHOT_COMMIT}"
+echo ">>> Applying main patch for commit ${SNAPSHOT_COMMIT}"
 git apply ../libbacktrace_${SNAPSHOT_COMMIT}_patch.diff
+echo ">>> Applying debuginfod patch for commit ${SNAPSHOT_COMMIT}"
+git apply ../libbacktrace_${SNAPSHOT_COMMIT}_debuginfod_patch.diff
 rm -rf .git
 
 echo "Regenerated vendored libbacktrace"

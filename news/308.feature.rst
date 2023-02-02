@@ -1,0 +1,1 @@
+Add integration with debuginfod to automatically download debug information for binaries if it is available.
