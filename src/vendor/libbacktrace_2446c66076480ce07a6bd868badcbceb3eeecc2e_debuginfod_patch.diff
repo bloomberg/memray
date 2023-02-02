@@ -1,0 +1,332 @@
+diff --git a/Makefile.am b/Makefile.am
+index 998cc67..f065ade 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -35,7 +35,7 @@ AM_CPPFLAGS =
+ 
+ AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
+ 
+-include_HEADERS = backtrace.h backtrace-supported.h internal.h
++include_HEADERS = backtrace.h backtrace-supported.h internal.h debuginfod_support.h
+ 
+ lib_LTLIBRARIES = libbacktrace.la
+ 
+@@ -45,6 +45,7 @@ libbacktrace_la_SOURCES = \
+ 	dwarf.c \
+ 	fileline.c \
+ 	internal.h \
++	debuginfod_support.h \
+ 	posix.c \
+ 	print.c \
+ 	sort.c \
+@@ -562,7 +563,7 @@ alloc.lo: config.h backtrace.h internal.h
+ backtrace.lo: config.h backtrace.h internal.h
+ btest.lo: filenames.h backtrace.h backtrace-supported.h
+ dwarf.lo: config.h filenames.h backtrace.h internal.h
+-elf.lo: config.h backtrace.h internal.h
++elf.lo: config.h backtrace.h internal.h debuginfod_support.h
+ fileline.lo: config.h backtrace.h internal.h
+ macho.lo: config.h backtrace.h internal.h
+ mmap.lo: config.h backtrace.h internal.h
+diff --git a/Makefile.in b/Makefile.in
+index dc1e692..5dde684 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -940,7 +940,7 @@ top_srcdir = @top_srcdir@
+ ACLOCAL_AMFLAGS = -I config
+ AM_CPPFLAGS = 
+ AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
+-include_HEADERS = backtrace.h backtrace-supported.h internal.h
++include_HEADERS = backtrace.h backtrace-supported.h internal.h debuginfod_support.h
+ lib_LTLIBRARIES = libbacktrace.la
+ libbacktrace_la_SOURCES = \
+ 	backtrace.h \
+@@ -948,6 +948,7 @@ libbacktrace_la_SOURCES = \
+ 	dwarf.c \
+ 	fileline.c \
+ 	internal.h \
++	debuginfod_support.h \
+ 	posix.c \
+ 	print.c \
+ 	sort.c \
+@@ -2514,7 +2515,7 @@ alloc.lo: config.h backtrace.h internal.h
+ backtrace.lo: config.h backtrace.h internal.h
+ btest.lo: filenames.h backtrace.h backtrace-supported.h
+ dwarf.lo: config.h filenames.h backtrace.h internal.h
+-elf.lo: config.h backtrace.h internal.h
++elf.lo: config.h backtrace.h internal.h debuginfod_support.h
+ fileline.lo: config.h backtrace.h internal.h
+ macho.lo: config.h backtrace.h internal.h
+ mmap.lo: config.h backtrace.h internal.h
+diff --git a/debuginfod_support.h b/debuginfod_support.h
+new file mode 100644
+index 0000000..8c3674a
+--- /dev/null
++++ b/debuginfod_support.h
+@@ -0,0 +1,118 @@
++/* External declarations for the libdebuginfod client library.
++   Copyright (C) 2019-2020 Red Hat, Inc.
++   This file is part of elfutils.
++
++   This file is free software; you can redistribute it and/or modify
++   it under the terms of either
++
++   * the GNU Lesser General Public License as published by the Free
++       Software Foundation; either version 3 of the License, or (at
++       your option) any later version
++
++   or
++
++   * the GNU General Public License as published by the Free
++       Software Foundation; either version 2 of the License, or (at
++       your option) any later version
++
++   or both in parallel, as here.
++
++   elfutils is distributed in the hope that it will be useful, but
++   WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   General Public License for more details.
++
++   You should have received copies of the GNU General Public License and
++   the GNU Lesser General Public License along with this program.  If
++   not, see <http://www.gnu.org/licenses/>.  */
++
++#ifndef _DEBUGINFOD_CLIENT_H
++#define _DEBUGINFOD_CLIENT_H 1
++
++/* Names of environment variables that control the client logic. */
++#define DEBUGINFOD_URLS_ENV_VAR "DEBUGINFOD_URLS"
++#define DEBUGINFOD_CACHE_PATH_ENV_VAR "DEBUGINFOD_CACHE_PATH"
++#define DEBUGINFOD_TIMEOUT_ENV_VAR "DEBUGINFOD_TIMEOUT"
++#define DEBUGINFOD_PROGRESS_ENV_VAR "DEBUGINFOD_PROGRESS"
++#define DEBUGINFOD_VERBOSE_ENV_VAR "DEBUGINFOD_VERBOSE"
++#define DEBUGINFOD_RETRY_LIMIT_ENV_VAR "DEBUGINFOD_RETRY_LIMIT"
++#define DEBUGINFOD_MAXSIZE_ENV_VAR "DEBUGINFOD_MAXSIZE"
++#define DEBUGINFOD_MAXTIME_ENV_VAR "DEBUGINFOD_MAXTIME"
++#define DEBUGINFOD_HEADERS_FILE_ENV_VAR "DEBUGINFOD_HEADERS_FILE"
++
++/* The libdebuginfod soname.  */
++#define DEBUGINFOD_SONAME "libdebuginfod.so.1"
++
++/* Handle for debuginfod-client connection.  */
++typedef struct debuginfod_client debuginfod_client;
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* Create a handle for a new debuginfod-client session.  */
++debuginfod_client *debuginfod_begin (void);
++
++/* Query the urls contained in $DEBUGINFOD_URLS for a file with
++   the specified type and build id.  If build_id_len == 0, the
++   build_id is supplied as a lowercase hexadecimal string; otherwise
++   it is a binary blob of given length.
++
++   If successful, return a file descriptor to the target, otherwise
++   return a posix error code.  If successful, set *path to a
++   strdup'd copy of the name of the same file in the cache.
++   Caller must free() it later. */
++
++int debuginfod_find_debuginfo (debuginfod_client *client,
++			       const unsigned char *build_id,
++                               int build_id_len,
++                               char **path);
++
++int debuginfod_find_executable (debuginfod_client *client,
++				const unsigned char *build_id,
++                                int build_id_len,
++                                char **path);
++
++int debuginfod_find_source (debuginfod_client *client,
++			    const unsigned char *build_id,
++                            int build_id_len,
++                            const char *filename,
++                            char **path);
++
++int debuginfod_find_section (debuginfod_client *client,
++			     const unsigned char *build_id,
++			     int build_id_len,
++			     const char *section,
++			     char **path);
++
++typedef int (*debuginfod_progressfn_t)(debuginfod_client *c, long a, long b);
++void debuginfod_set_progressfn(debuginfod_client *c,
++			       debuginfod_progressfn_t fn);
++
++void debuginfod_set_verbose_fd(debuginfod_client *c, int fd);
++
++/* Set the user parameter.  */
++void debuginfod_set_user_data (debuginfod_client *client, void *value);
++
++/* Get the user parameter.  */
++void* debuginfod_get_user_data (debuginfod_client *client);
++
++/* Get the current or last active URL, if known.  */
++const char* debuginfod_get_url (debuginfod_client *client);
++
++/* Returns set of x-debuginfod* header lines received from current or
++   last active transfer, \n separated, if known. */
++const char* debuginfod_get_headers(debuginfod_client *client);
++
++/* Add an outgoing HTTP request  "Header: Value".  Copies string.  */
++int debuginfod_add_http_header (debuginfod_client *client, const char* header);
++
++/* Release debuginfod client connection context handle.  */
++void debuginfod_end (debuginfod_client *client);
++
++#ifdef __cplusplus
++}
++#endif
++
++
++#endif /* _DEBUGINFOD_CLIENT_H */
+diff --git a/elf.c b/elf.c
+index fb54165..1bc4de0 100644
+--- a/elf.c
++++ b/elf.c
+@@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <unistd.h>
++#include <dlfcn.h>
+ 
+ #ifdef HAVE_DL_ITERATE_PHDR
+ #include <link.h>
+@@ -45,6 +46,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
+ 
+ #include "backtrace.h"
+ #include "internal.h"
++#include "debuginfod_support.h"
+ 
+ #ifndef S_ISLNK
+  #ifndef S_IFLNK
+@@ -851,6 +853,82 @@ elf_readlink (struct backtrace_state *state, const char *filename,
+ 
+ #define SYSTEM_BUILD_ID_DIR "/usr/lib/debug/.build-id/"
+ 
++typedef debuginfod_client*(*debuginfod_begin_t)(void);
++
++typedef int(*debuginfod_find_debuginfo_t)(debuginfod_client *client,
++                                            const unsigned char *build_id,
++                                            int build_id_len,
++                                            char **path);
++typedef void(*debuginfod_end_t)(debuginfod_client *client);
++
++ 
++static debuginfod_find_debuginfo_t the_debuginfod_find_debuginfo = NULL;
++static debuginfod_begin_t the_debuginfod_begin = NULL;
++static debuginfod_end_t the_debuginfod_end = NULL;
++static int debuginfod_guard = 0;
++static int debuginfod_dlopen_failed = 0;
++ 
++static int
++elf_open_debugfile_by_debuginfod (const char *buildid_data,
++			       size_t buildid_size,
++			       backtrace_error_callback error_callback,
++			       void *data)
++{
++  if (debuginfod_dlopen_failed) {
++      return -1;
++  }
++
++  if (the_debuginfod_find_debuginfo == NULL) {
++    void *handle = dlopen(DEBUGINFOD_SONAME, RTLD_LAZY);
++    if (!handle) {
++      debuginfod_dlopen_failed = 1;
++      return -1;
++    }
++
++    the_debuginfod_find_debuginfo = (debuginfod_find_debuginfo_t)dlsym(handle, "debuginfod_find_debuginfo");
++    if (!the_debuginfod_find_debuginfo) {
++      return -1;
++    }
++
++    the_debuginfod_begin = (debuginfod_begin_t)dlsym(handle, "debuginfod_begin");
++    if (!the_debuginfod_begin) {
++      the_debuginfod_find_debuginfo = NULL;
++      return -1;
++    }
++
++    the_debuginfod_end = (debuginfod_end_t)dlsym(handle, "debuginfod_end");
++    if (!the_debuginfod_end) {
++      the_debuginfod_find_debuginfo = NULL;
++      the_debuginfod_begin = NULL;
++      return -1;
++    }
++  }
++
++  char* path = NULL;
++  const unsigned char* bi = (const unsigned char*)buildid_data;
++
++  debuginfod_client* client = the_debuginfod_begin();
++  if (!client) {
++    return -1;
++  }
++
++  const int fd = the_debuginfod_find_debuginfo(client, bi, buildid_size, &path);
++
++  the_debuginfod_end(client);
++
++  if (!path || fd <= 0) {
++    return -1;
++  } 
++
++  const int ret = backtrace_open (path, error_callback, data, NULL);
++
++  free(path);
++  close(fd);
++
++  return ret;
++}
++
++
+ /* Open a separate debug info file, using the build ID to find it.
+    Returns an open file descriptor, or -1.
+ 
+@@ -4422,6 +4500,14 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
+ 
+       d = elf_open_debugfile_by_buildid (state, buildid_data, buildid_size,
+ 					 error_callback, data);
++      if (d < 0 && !debuginfod_guard) {
++          char* env = getenv(DEBUGINFOD_PROGRESS_ENV_VAR);
++          if (env) {
++            fprintf(stderr, "Trying to download debuginfo for %s\n", filename);
++          }
++          d = elf_open_debugfile_by_debuginfod(buildid_data, buildid_size,
++                                               error_callback, data);
++      }
+       if (d >= 0)
+ 	{
+ 	  int ret;
+@@ -4889,7 +4975,29 @@ backtrace_initialize (struct backtrace_state *state, const char *filename,
+   pd.exe_filename = filename;
+   pd.exe_descriptor = ret < 0 ? descriptor : -1;
+ 
++   
++  /* Here, There Be Dragons: we are about to call dl_iterate_phdr,
++     which is a glibc-internal function that holds a libc internal
++     lock. As this function needs to iterate over all the loaded
++     modules, this lock is shared by dlopen so no new modules can be
++     loaded while is iterating. This is a problem for us, as the 
++     debuginfod client will use libcurl to spawn threads to download
++     debuginfo files, and libcurl uses dlopen to load a bunch of stuff
++     for its backend in some versions. This can cause a deadlock because
++     the debuginfod client will wait until the libcurl threads finish but
++     they will never finish because they are waiting for the dlopen lock
++     to be released, which will not happen until the call to dl_iterate_phdr
++     finishes.
++      
++     To avoid this, we use a global variable to detect if we are already
++     iterating over the modules, and if so, we skip the query to debuginfod
++     and just try with the other default methods.
++
++     Note this ONLY affects the symbol resolution when retrieving a backtrace,
++     and it doesn't affect offline symbolication.  */
++  debuginfod_guard++;
+   dl_iterate_phdr (phdr_callback, (void *) &pd);
++  debuginfod_guard--;
+ 
+   if (!state->threaded)
+     {
