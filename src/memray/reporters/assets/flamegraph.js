@@ -85,11 +85,6 @@ class FilteredChart {
 }
 
 function onResize() {
-  const width = getChartWidth();
-  // Update element widths
-  const svg = document.getElementById("chart").children[0];
-  svg.setAttribute("width", width);
-  chart.width(width);
   filteredChart.drawChart(data);
 }
 
@@ -238,6 +233,13 @@ function initThreadsDropdown(data, merge_threads) {
 }
 
 function drawChart(chart_data) {
+  // Clear any existing chart
+  if (chart) {
+    chart.destroy();
+    d3.selectAll(".d3-flame-graph-tip").remove();
+  }
+
+  // Create the chart
   chart = flamegraph()
     .width(getChartWidth())
     // smooth transitions
