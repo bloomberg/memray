@@ -90,7 +90,7 @@ function onResize() {
   const svg = document.getElementById("chart").children[0];
   svg.setAttribute("width", width);
   chart.width(width);
-  filteredChart.drawChart();
+  filteredChart.drawChart(data);
 }
 
 function onFilterThread() {
