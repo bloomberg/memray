@@ -63,9 +63,8 @@ export function onResetZoom() {
 
 // For window resizing
 function getChartWidth() {
-  // Figure out the width from window size
-  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-  return window.innerWidth - 2 * rem;
+  // Return the display width of the div we're drawing into
+  return document.getElementById("chart").clientWidth;
 }
 
 class FilteredChart {
@@ -269,4 +268,7 @@ export function drawChart(chart_data) {
 
   // Render the chart
   d3.select("#chart").datum(chart_data).call(chart);
+
+  // Rendering the chart can add a scroll bar, so the width may have changed.
+  chart.width(getChartWidth());
 }
