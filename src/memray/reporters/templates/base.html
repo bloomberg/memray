@@ -48,9 +48,8 @@
       {% endblock topbar_search %}
     </div>
   </nav>
-  <nav class="navbar navbar-dark bg-dark px-0">
-    <div id="smallMemoryGraph" class="w-100" data-toggle="modal" data-target="#memoryModal" onclick="javascript:resizeMemoryGraph();"></div>
-  </nav>
+  {% block extra_nav %}
+  {% endblock extra_nav %}
 
   <!-- Main Content -->
   <main class="container-fluid">
@@ -79,26 +78,6 @@
       </div>
     </div>
   </main>
-
-  <!-- Stats Modal -->
-  <div class="modal fade" id="memoryModal" tabindex="-1" role="dialog" aria-labelledby="memoryModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="memoryModalLabel">Resident set size over time</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div id="memoryGraph"></div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Stats Modal -->
   <div class="modal fade" id="statsModal" tabindex="-1" role="dialog" aria-labelledby="statsModalLabel" aria-hidden="true">
@@ -147,6 +126,9 @@
       </div>
     </div>
   </div>
+
+  {% block extra_modal %}
+  {% endblock extra_modal %}
 
   {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
