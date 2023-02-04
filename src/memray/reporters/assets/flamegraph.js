@@ -86,6 +86,11 @@ class FilteredChart {
 
 function onResize() {
   filteredChart.drawChart(data);
+
+  // Set zoom to correct element
+  if (location.hash) {
+    handleFragments();
+  }
 }
 
 function onFilterThread() {
