@@ -10,14 +10,49 @@ from tests.utils import MockAllocationRecord
 from tests.utils import filter_relevant_allocations
 
 
+def packed_data_to_tree(packed_data):
+    """Python implementation of packedDataToTree in flamegraph.js"""
+    strings, nodes, unique_threads = (
+        packed_data["strings"],
+        packed_data["nodes"],
+        packed_data["unique_threads"],
+    )
+
+    node_objects = [
+        {
+            "name": strings[nodes["name"][i]],
+            "location": [
+                strings[nodes["function"][i]],
+                strings[nodes["filename"][i]],
+                nodes["lineno"][i],
+            ],
+            "value": nodes["value"][i],
+            "children": nodes["children"][i],
+            "n_allocations": nodes["n_allocations"][i],
+            "thread_id": strings[nodes["thread_id"][i]],
+            "interesting": nodes["interesting"][i] != 0,
+            "import_system": nodes["import_system"][i] != 0,
+        }
+        for i in range(len(nodes["name"]))
+    ]
+
+    for node in node_objects:
+        node["children"] = [node_objects[idx] for idx in node["children"]]
+
+    root = node_objects[0]
+    root["unique_threads"] = [strings[tid] for tid in unique_threads]
+    return root
+
+
 class TestFlameGraphReporter:
     def test_works_with_no_allocations(self):
         reporter = FlameGraphReporter.from_snapshot(
             [], memory_records=[], native_traces=False
         )
-        assert reporter.data["name"] == "<root>"
-        assert reporter.data["value"] == 0
-        assert reporter.data["children"] == []
+        tree = packed_data_to_tree(reporter.data)
+        assert tree["name"] == "<root>"
+        assert tree["value"] == 0
+        assert tree["children"] == []
 
     def test_works_with_single_call(self):
         # GIVEN
@@ -56,7 +91,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "grandparent at fun.py:4",
                     "thread_id": "0x1",
-                    "location": ["grandparent", "fun.py", "4"],
+                    "location": ["grandparent", "fun.py", 4],
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
@@ -65,7 +100,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent at fun.py:8",
                             "thread_id": "0x1",
-                            "location": ["parent", "fun.py", "8"],
+                            "location": ["parent", "fun.py", 8],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -74,7 +109,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "me at fun.py:12",
                                     "thread_id": "0x1",
-                                    "location": ["me", "fun.py", "12"],
+                                    "location": ["me", "fun.py", 12],
                                     "value": 1024,
                                     "children": [],
                                     "interesting": True,
@@ -86,7 +121,7 @@ class TestFlameGraphReporter:
                     ],
                 }
             ],
-        } == reporter.data
+        } == packed_data_to_tree(reporter.data)
 
     def test_uses_hybrid_stack_for_native_traces(self):
         # GIVEN
@@ -112,7 +147,7 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data == {
+        assert packed_data_to_tree(reporter.data) == {
             "name": "<root>",
             "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
@@ -125,7 +160,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "grandparent at fun.c:4",
                     "thread_id": "0x1",
-                    "location": ["grandparent", "fun.c", "4"],
+                    "location": ["grandparent", "fun.c", 4],
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
@@ -134,7 +169,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent at fun.pyx:8",
                             "thread_id": "0x1",
-                            "location": ["parent", "fun.pyx", "8"],
+                            "location": ["parent", "fun.pyx", 8],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -143,7 +178,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "me at fun.py:12",
                                     "thread_id": "0x1",
-                                    "location": ["me", "fun.py", "12"],
+                                    "location": ["me", "fun.py", 12],
                                     "value": 1024,
                                     "children": [],
                                     "interesting": True,
@@ -194,7 +229,7 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data == {
+        assert packed_data_to_tree(reporter.data) == {
             "name": "<root>",
             "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
@@ -207,7 +242,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "grandparent at fun.py:4",
                     "thread_id": "0x1",
-                    "location": ["grandparent", "fun.py", "4"],
+                    "location": ["grandparent", "fun.py", 4],
                     "value": 2048,
                     "n_allocations": 2,
                     "interesting": True,
@@ -216,7 +251,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent at fun.py:8",
                             "thread_id": "0x1",
-                            "location": ["parent", "fun.py", "8"],
+                            "location": ["parent", "fun.py", 8],
                             "value": 2048,
                             "n_allocations": 2,
                             "interesting": True,
@@ -225,7 +260,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "me at fun.py:12",
                                     "thread_id": "0x1",
-                                    "location": ["me", "fun.py", "12"],
+                                    "location": ["me", "fun.py", 12],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -235,7 +270,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "sibling at fun.py:16",
                                     "thread_id": "0x1",
-                                    "location": ["sibling", "fun.py", "16"],
+                                    "location": ["sibling", "fun.py", 16],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -267,13 +302,14 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data["name"] == "<root>"
-        assert reporter.data["value"] == 4096
+        tree = packed_data_to_tree(reporter.data)
+        assert tree["name"] == "<root>"
+        assert tree["value"] == 4096
 
-        assert isinstance(reporter.data["children"], list)
-        assert len(reporter.data["children"]) == 1
+        assert isinstance(tree["children"], list)
+        assert len(tree["children"]) == 1
 
-        child = reporter.data["children"][0]
+        child = tree["children"][0]
         assert child["name"] == "            allocator.valloc(4096)\n"
 
     def test_works_with_multiple_stacks_from_same_caller_two_frames_above(self):
@@ -313,7 +349,7 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data == {
+        assert packed_data_to_tree(reporter.data) == {
             "name": "<root>",
             "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
@@ -326,7 +362,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "grandparent at fun.py:4",
                     "thread_id": "0x1",
-                    "location": ["grandparent", "fun.py", "4"],
+                    "location": ["grandparent", "fun.py", 4],
                     "value": 2048,
                     "n_allocations": 2,
                     "interesting": True,
@@ -335,7 +371,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent_one at fun.py:8",
                             "thread_id": "0x1",
-                            "location": ["parent_one", "fun.py", "8"],
+                            "location": ["parent_one", "fun.py", 8],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -344,7 +380,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "me at fun.py:12",
                                     "thread_id": "0x1",
-                                    "location": ["me", "fun.py", "12"],
+                                    "location": ["me", "fun.py", 12],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -356,7 +392,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "parent_two at fun.py:10",
                             "thread_id": "0x1",
-                            "location": ["parent_two", "fun.py", "10"],
+                            "location": ["parent_two", "fun.py", 10],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -365,7 +401,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "sibling at fun.py:16",
                                     "thread_id": "0x1",
-                                    "location": ["sibling", "fun.py", "16"],
+                                    "location": ["sibling", "fun.py", 16],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -407,7 +443,7 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data == {
+        assert packed_data_to_tree(reporter.data) == {
             "name": "<root>",
             "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
@@ -420,7 +456,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "main at recursive.py:5",
                     "thread_id": "0x1",
-                    "location": ["main", "recursive.py", "5"],
+                    "location": ["main", "recursive.py", 5],
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
@@ -429,7 +465,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "two at recursive.py:20",
                             "thread_id": "0x1",
-                            "location": ["two", "recursive.py", "20"],
+                            "location": ["two", "recursive.py", 20],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -438,7 +474,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "one at recursive.py:10",
                                     "thread_id": "0x1",
-                                    "location": ["one", "recursive.py", "10"],
+                                    "location": ["one", "recursive.py", 10],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -447,7 +483,7 @@ class TestFlameGraphReporter:
                                         {
                                             "name": "two at recursive.py:20",
                                             "thread_id": "0x1",
-                                            "location": ["two", "recursive.py", "20"],
+                                            "location": ["two", "recursive.py", 20],
                                             "value": 1024,
                                             "n_allocations": 1,
                                             "interesting": True,
@@ -459,7 +495,7 @@ class TestFlameGraphReporter:
                                                     "location": [
                                                         "one",
                                                         "recursive.py",
-                                                        "10",
+                                                        10,
                                                     ],
                                                     "value": 1024,
                                                     "n_allocations": 1,
@@ -472,7 +508,7 @@ class TestFlameGraphReporter:
                                                             "location": [
                                                                 "two",
                                                                 "recursive.py",
-                                                                "20",
+                                                                20,
                                                             ],
                                                             "value": 1024,
                                                             "n_allocations": 1,
@@ -485,7 +521,7 @@ class TestFlameGraphReporter:
                                                                     "location": [
                                                                         "one",
                                                                         "recursive.py",
-                                                                        "9",
+                                                                        9,
                                                                     ],
                                                                     "value": 1024,
                                                                     "n_allocations": 1,
@@ -545,7 +581,7 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data == {
+        assert packed_data_to_tree(reporter.data) == {
             "name": "<root>",
             "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
@@ -558,7 +594,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo2 at /src/lel.py:12",
                     "thread_id": "0x1",
-                    "location": ["foo2", "/src/lel.py", "12"],
+                    "location": ["foo2", "/src/lel.py", 12],
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
@@ -567,7 +603,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar2 at /src/lel.py:15",
                             "thread_id": "0x1",
-                            "location": ["bar2", "/src/lel.py", "15"],
+                            "location": ["bar2", "/src/lel.py", 15],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -576,7 +612,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz2 at /src/lel.py:18",
                                     "thread_id": "0x1",
-                                    "location": ["baz2", "/src/lel.py", "18"],
+                                    "location": ["baz2", "/src/lel.py", 18],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -590,7 +626,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo1 at /src/lel.py:2",
                     "thread_id": "0x1",
-                    "location": ["foo1", "/src/lel.py", "2"],
+                    "location": ["foo1", "/src/lel.py", 2],
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
@@ -599,7 +635,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar1 at /src/lel.py:5",
                             "thread_id": "0x1",
-                            "location": ["bar1", "/src/lel.py", "5"],
+                            "location": ["bar1", "/src/lel.py", 5],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -608,7 +644,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz1 at /src/lel.py:8",
                                     "thread_id": "0x1",
-                                    "location": ["baz1", "/src/lel.py", "8"],
+                                    "location": ["baz1", "/src/lel.py", 8],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -659,7 +695,7 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data == {
+        assert packed_data_to_tree(reporter.data) == {
             "name": "<root>",
             "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
@@ -672,7 +708,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo2 at /src/lel.py:12",
                     "thread_id": "0x1",
-                    "location": ["foo2", "/src/lel.py", "12"],
+                    "location": ["foo2", "/src/lel.py", 12],
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
@@ -681,7 +717,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar2 at /src/lel.py:15",
                             "thread_id": "0x1",
-                            "location": ["bar2", "/src/lel.py", "15"],
+                            "location": ["bar2", "/src/lel.py", 15],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -690,7 +726,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz2 at /src/lel.py:18",
                                     "thread_id": "0x1",
-                                    "location": ["baz2", "/src/lel.py", "18"],
+                                    "location": ["baz2", "/src/lel.py", 18],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -704,7 +740,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo2 at /src/lel.py:12",
                     "thread_id": "0x2",
-                    "location": ["foo2", "/src/lel.py", "12"],
+                    "location": ["foo2", "/src/lel.py", 12],
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
@@ -713,7 +749,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar2 at /src/lel.py:15",
                             "thread_id": "0x2",
-                            "location": ["bar2", "/src/lel.py", "15"],
+                            "location": ["bar2", "/src/lel.py", 15],
                             "value": 1024,
                             "n_allocations": 1,
                             "interesting": True,
@@ -722,7 +758,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz2 at /src/lel.py:18",
                                     "thread_id": "0x2",
-                                    "location": ["baz2", "/src/lel.py", "18"],
+                                    "location": ["baz2", "/src/lel.py", 18],
                                     "value": 1024,
                                     "n_allocations": 1,
                                     "interesting": True,
@@ -773,7 +809,7 @@ class TestFlameGraphReporter:
         )
 
         # THEN
-        assert reporter.data == {
+        assert packed_data_to_tree(reporter.data) == {
             "name": "<root>",
             "thread_id": "0x0",
             "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
@@ -786,7 +822,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "foo2 at /src/lel.py:12",
                     "thread_id": "merged thread",
-                    "location": ["foo2", "/src/lel.py", "12"],
+                    "location": ["foo2", "/src/lel.py", 12],
                     "value": 2048,
                     "n_allocations": 2,
                     "interesting": True,
@@ -795,7 +831,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "bar2 at /src/lel.py:15",
                             "thread_id": "merged thread",
-                            "location": ["bar2", "/src/lel.py", "15"],
+                            "location": ["bar2", "/src/lel.py", 15],
                             "value": 2048,
                             "n_allocations": 2,
                             "interesting": True,
@@ -804,7 +840,7 @@ class TestFlameGraphReporter:
                                 {
                                     "name": "baz2 at /src/lel.py:18",
                                     "thread_id": "merged thread",
-                                    "location": ["baz2", "/src/lel.py", "18"],
+                                    "location": ["baz2", "/src/lel.py", 18],
                                     "value": 2048,
                                     "n_allocations": 2,
                                     "interesting": True,
@@ -860,7 +896,7 @@ class TestFlameGraphReporter:
                 {
                     "name": "parent at fun.py:8",
                     "thread_id": "0x1",
-                    "location": ["parent", "fun.py", "8"],
+                    "location": ["parent", "fun.py", 8],
                     "value": 1024,
                     "n_allocations": 1,
                     "interesting": True,
@@ -869,7 +905,7 @@ class TestFlameGraphReporter:
                         {
                             "name": "me at fun.py:12",
                             "thread_id": "0x1",
-                            "location": ["me", "fun.py", "12"],
+                            "location": ["me", "fun.py", 12],
                             "value": 1024,
                             "children": [],
                             "interesting": True,
@@ -879,7 +915,7 @@ class TestFlameGraphReporter:
                     ],
                 }
             ],
-        } == reporter.data
+        } == packed_data_to_tree(reporter.data)
 
     def test_very_deep_call_is_limited(self):
         # GIVEN
@@ -903,7 +939,7 @@ class TestFlameGraphReporter:
 
         # THEN
         current_depth = 0
-        current_node = reporter.data["children"][0]
+        current_node = packed_data_to_tree(reporter.data)["children"][0]
         while current_node["children"]:
             current_depth += 1
             assert len(current_node["children"]) == 1
@@ -951,7 +987,7 @@ class TestFlameGraphReporter:
                     "children": [],
                     "import_system": True,
                     "interesting": False,
-                    "location": ["me", "&lt;frozen importlib&gt;", "4"],
+                    "location": ["me", "&lt;frozen importlib&gt;", 4],
                     "n_allocations": 1,
                     "name": "me at <frozen importlib>:4",
                     "thread_id": "0x1",
@@ -967,7 +1003,7 @@ class TestFlameGraphReporter:
             "unique_threads": ["0x1"],
             "value": 1024,
         }
-        assert expected == reporter.data
+        assert expected == packed_data_to_tree(reporter.data)
 
     def test_importlib_full_stack_is_detected(self):
         # GIVEN
@@ -1003,7 +1039,7 @@ class TestFlameGraphReporter:
                                     "children": [],
                                     "import_system": True,
                                     "interesting": True,
-                                    "location": ["me", "fun.py", "12"],
+                                    "location": ["me", "fun.py", 12],
                                     "n_allocations": 1,
                                     "name": "me at fun.py:12",
                                     "thread_id": "0x1",
@@ -1012,7 +1048,7 @@ class TestFlameGraphReporter:
                             ],
                             "import_system": True,
                             "interesting": True,
-                            "location": ["parent", "fun.py", "8"],
+                            "location": ["parent", "fun.py", 8],
                             "n_allocations": 1,
                             "name": "parent at fun.py:8",
                             "thread_id": "0x1",
@@ -1021,7 +1057,7 @@ class TestFlameGraphReporter:
                     ],
                     "import_system": True,
                     "interesting": False,
-                    "location": ["grandparent", "&lt;frozen importlib&gt;", "4"],
+                    "location": ["grandparent", "&lt;frozen importlib&gt;", 4],
                     "n_allocations": 1,
                     "name": "grandparent at <frozen importlib>:4",
                     "thread_id": "0x1",
@@ -1037,7 +1073,7 @@ class TestFlameGraphReporter:
             "unique_threads": ["0x1"],
             "value": 1024,
         }
-        assert expected == reporter.data
+        assert expected == packed_data_to_tree(reporter.data)
 
     def test_importlib_partial_stack_is_detected(self):
         # GIVEN
@@ -1076,7 +1112,7 @@ class TestFlameGraphReporter:
                                             "children": [],
                                             "import_system": True,
                                             "interesting": True,
-                                            "location": ["me", "fun.py", "12"],
+                                            "location": ["me", "fun.py", 12],
                                             "n_allocations": 1,
                                             "name": "me at " "fun.py:12",
                                             "thread_id": "0x1",
@@ -1088,7 +1124,7 @@ class TestFlameGraphReporter:
                                     "location": [
                                         "parent",
                                         "&lt;frozen " "importlib&gt;",
-                                        "8",
+                                        8,
                                     ],
                                     "n_allocations": 1,
                                     "name": "parent at <frozen " "importlib>:8",
@@ -1098,7 +1134,7 @@ class TestFlameGraphReporter:
                             ],
                             "import_system": True,
                             "interesting": True,
-                            "location": ["grandparent", "fun.py", "4"],
+                            "location": ["grandparent", "fun.py", 4],
                             "n_allocations": 1,
                             "name": "grandparent at fun.py:4",
                             "thread_id": "0x1",
@@ -1107,7 +1143,7 @@ class TestFlameGraphReporter:
                     ],
                     "import_system": False,
                     "interesting": True,
-                    "location": ["grandgrandparent", "fun.py", "4"],
+                    "location": ["grandgrandparent", "fun.py", 4],
                     "n_allocations": 1,
                     "name": "grandgrandparent at fun.py:4",
                     "thread_id": "0x1",
@@ -1123,7 +1159,7 @@ class TestFlameGraphReporter:
             "unique_threads": ["0x1"],
             "value": 1024,
         }
-        assert expected == reporter.data
+        assert expected == packed_data_to_tree(reporter.data)
 
     def test_two_branches_one_is_importlib(self):
         # GIVEN
@@ -1173,7 +1209,7 @@ class TestFlameGraphReporter:
                                     "children": [],
                                     "import_system": True,
                                     "interesting": True,
-                                    "location": ["me", "fun.py", "12"],
+                                    "location": ["me", "fun.py", 12],
                                     "n_allocations": 1,
                                     "name": "me at fun.py:12",
                                     "thread_id": "0x1",
@@ -1182,7 +1218,7 @@ class TestFlameGraphReporter:
                             ],
                             "import_system": True,
                             "interesting": False,
-                            "location": ["parent_one", "&lt;frozen importlib&gt;", "8"],
+                            "location": ["parent_one", "&lt;frozen importlib&gt;", 8],
                             "n_allocations": 1,
                             "name": "parent_one at <frozen importlib>:8",
                             "thread_id": "0x1",
@@ -1194,7 +1230,7 @@ class TestFlameGraphReporter:
                                     "children": [],
                                     "import_system": False,
                                     "interesting": True,
-                                    "location": ["sibling", "fun.py", "16"],
+                                    "location": ["sibling", "fun.py", 16],
                                     "n_allocations": 1,
                                     "name": "sibling at fun.py:16",
                                     "thread_id": "0x1",
@@ -1203,7 +1239,7 @@ class TestFlameGraphReporter:
                             ],
                             "import_system": False,
                             "interesting": True,
-                            "location": ["parent_two", "fun.py", "10"],
+                            "location": ["parent_two", "fun.py", 10],
                             "n_allocations": 1,
                             "name": "parent_two at fun.py:10",
                             "thread_id": "0x1",
@@ -1212,7 +1248,7 @@ class TestFlameGraphReporter:
                     ],
                     "import_system": True,
                     "interesting": True,
-                    "location": ["grandparent", "fun.py", "4"],
+                    "location": ["grandparent", "fun.py", 4],
                     "n_allocations": 2,
                     "name": "grandparent at fun.py:4",
                     "thread_id": "0x1",
@@ -1229,7 +1265,7 @@ class TestFlameGraphReporter:
             "value": 2048,
         }
 
-        assert expected == reporter.data
+        assert expected == packed_data_to_tree(reporter.data)
 
     def test_two_branches_both_are_importlib(self):
         # GIVEN
@@ -1279,7 +1315,7 @@ class TestFlameGraphReporter:
                                     "children": [],
                                     "import_system": True,
                                     "interesting": True,
-                                    "location": ["me", "fun.py", "12"],
+                                    "location": ["me", "fun.py", 12],
                                     "n_allocations": 1,
                                     "name": "me at fun.py:12",
                                     "thread_id": "0x1",
@@ -1288,7 +1324,7 @@ class TestFlameGraphReporter:
                             ],
                             "import_system": True,
                             "interesting": True,
-                            "location": ["parent_one", "fun.py", "8"],
+                            "location": ["parent_one", "fun.py", 8],
                             "n_allocations": 1,
                             "name": "parent_one at fun.py:8",
                             "thread_id": "0x1",
@@ -1300,7 +1336,7 @@ class TestFlameGraphReporter:
                                     "children": [],
                                     "import_system": True,
                                     "interesting": True,
-                                    "location": ["sibling", "fun.py", "16"],
+                                    "location": ["sibling", "fun.py", 16],
                                     "n_allocations": 1,
                                     "name": "sibling at fun.py:16",
                                     "thread_id": "0x1",
@@ -1309,7 +1345,7 @@ class TestFlameGraphReporter:
                             ],
                             "import_system": True,
                             "interesting": True,
-                            "location": ["parent_two", "fun.py", "10"],
+                            "location": ["parent_two", "fun.py", 10],
                             "n_allocations": 1,
                             "name": "parent_two at fun.py:10",
                             "thread_id": "0x1",
@@ -1318,7 +1354,7 @@ class TestFlameGraphReporter:
                     ],
                     "import_system": True,
                     "interesting": False,
-                    "location": ["grandparent", "&lt;frozen importlib&gt;", "4"],
+                    "location": ["grandparent", "&lt;frozen importlib&gt;", 4],
                     "n_allocations": 2,
                     "name": "grandparent at <frozen importlib>:4",
                     "thread_id": "0x1",
@@ -1335,4 +1371,4 @@ class TestFlameGraphReporter:
             "value": 2048,
         }
 
-        assert expected == reporter.data
+        assert expected == packed_data_to_tree(reporter.data)

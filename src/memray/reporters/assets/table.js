@@ -2,6 +2,8 @@ import { humanFileSize, initMemoryGraph, resizeMemoryGraph } from "./common";
 window.resizeMemoryGraph = resizeMemoryGraph;
 
 function main() {
+  data = packed_data;
+
   initMemoryGraph(memory_records);
 
   const columns = [

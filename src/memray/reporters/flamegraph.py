@@ -1,3 +1,4 @@
+import collections
 import html
 import linecache
 import sys
@@ -7,6 +8,7 @@ from typing import Any
 from typing import Dict
 from typing import Iterable
 from typing import Iterator
+from typing import List
 from typing import TextIO
 from typing import Tuple
 from typing import TypeVar
@@ -31,15 +33,6 @@ def pairwise_longest(iterable: Iterator[T]) -> Iterable[Tuple[T, T]]:
     return zip_longest(a, b)
 
 
-def with_converted_children_dict(node: Dict[str, Any]) -> Dict[str, Any]:
-    stack = [node]
-    while stack:
-        the_node = stack.pop()
-        the_node["children"] = [child for child in the_node["children"].values()]
-        stack.extend(the_node["children"])
-    return node
-
-
 def create_framegraph_node_from_stack_frame(
     stack_frame: StackFrame, **kwargs: Any
 ) -> Dict[str, Any]:
@@ -53,17 +46,28 @@ def create_framegraph_node_from_stack_frame(
     )
     return {
         "name": name,
-        "location": [html.escape(str(part)) for part in stack_frame],
+        "location": [html.escape(function), html.escape(filename), lineno],
         "value": 0,
-        "children": {},
+        "children": [],
         "n_allocations": 0,
-        "thread_id": 0,
         "interesting": (
             is_frame_interesting(stack_frame)
             and not is_frame_from_import_system(stack_frame)
         ),
         **kwargs,
     }
+
+
+class StringRegistry:
+    def __init__(self) -> None:
+        self.strings: List[str] = []
+        self._index_by_string: Dict[str, int] = {}
+
+    def register(self, string: str) -> int:
+        idx = self._index_by_string.setdefault(string, len(self.strings))
+        if idx == len(self.strings):
+            self.strings.append(string)
+        return idx
 
 
 class FlameGraphReporter:
@@ -85,26 +89,34 @@ class FlameGraphReporter:
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
     ) -> "FlameGraphReporter":
-        data: Dict[str, Any] = {
+        root: Dict[str, Any] = {
             "name": "<root>",
             "location": [html.escape("<tracker>"), "<b>memray</b>", 0],
             "value": 0,
-            "children": {},
+            "children": [],
             "n_allocations": 0,
             "thread_id": "0x0",
             "interesting": True,
             "import_system": False,
         }
 
+        frames = [root]
+
+        node_index_by_key: Dict[Tuple[int, StackFrame, str], int] = {}
+
         unique_threads = set()
         for record in allocations:
             size = record.size
             thread_id = record.thread_name
 
-            data["value"] += size
-            data["n_allocations"] += record.n_allocations
+            unique_threads.add(thread_id)
 
-            current_frame = data
+            root["value"] += size
+            root["n_allocations"] += record.n_allocations
+
+            current_frame_id = 0
+            current_frame = root
+
             stack = (
                 tuple(record.hybrid_stack_trace())
                 if native_traces
@@ -118,6 +130,7 @@ class FlameGraphReporter:
                 if is_cpython_internal(stack_frame):
                     num_skipped_frames += 1
                     continue
+
                 # Check if the next frame is from the import system. We check
                 # the next frame because the "import ..." code will be the parent
                 # of the first frame to enter the import system and we want to hide
@@ -126,26 +139,53 @@ class FlameGraphReporter:
                     next_frame and is_frame_from_import_system(next_frame)
                 ):
                     is_import_system = True
-                if (stack_frame, thread_id) not in current_frame["children"]:
-                    node = create_framegraph_node_from_stack_frame(
-                        stack_frame, import_system=is_import_system
-                    )
-                    current_frame["children"][(stack_frame, thread_id)] = node
 
-                current_frame = current_frame["children"][(stack_frame, thread_id)]
+                node_key = (current_frame_id, stack_frame, thread_id)
+                if node_key not in node_index_by_key:
+                    new_node_id = len(frames)
+                    node_index_by_key[node_key] = new_node_id
+                    current_frame["children"].append(new_node_id)
+                    frames.append(
+                        create_framegraph_node_from_stack_frame(
+                            stack_frame,
+                            import_system=is_import_system,
+                            thread_id=thread_id,
+                        )
+                    )
+
+                current_frame_id = node_index_by_key[node_key]
+                current_frame = frames[current_frame_id]
                 current_frame["value"] += size
                 current_frame["n_allocations"] += record.n_allocations
-                current_frame["thread_id"] = thread_id
-                unique_threads.add(thread_id)
 
                 if index - num_skipped_frames > MAX_STACKS:
                     current_frame["name"] = "<STACK TOO DEEP>"
                     current_frame["location"] = ["...", "...", 0]
                     break
 
-        transformed_data = with_converted_children_dict(data)
-        transformed_data["unique_threads"] = sorted(unique_threads)
-        return cls(transformed_data, memory_records=memory_records)
+        all_strings = StringRegistry()
+        nodes = collections.defaultdict(list)
+        for frame in frames:
+            nodes["name"].append(all_strings.register(frame["name"]))
+            nodes["function"].append(all_strings.register(frame["location"][0]))
+            nodes["filename"].append(all_strings.register(frame["location"][1]))
+            nodes["lineno"].append(frame["location"][2])
+            nodes["value"].append(frame["value"])
+            nodes["children"].append(frame["children"])
+            nodes["n_allocations"].append(frame["n_allocations"])
+            nodes["thread_id"].append(all_strings.register(frame["thread_id"]))
+            nodes["interesting"].append(int(frame["interesting"]))
+            nodes["import_system"].append(int(frame["import_system"]))
+
+        data = {
+            "unique_threads": tuple(
+                all_strings.register(t) for t in sorted(unique_threads)
+            ),
+            "nodes": nodes,
+            "strings": all_strings.strings,
+        }
+
+        return cls(data, memory_records=memory_records)
 
     def render(
         self,
