@@ -5,5 +5,4 @@ mypy
 bump2version
 towncrier
 check-manifest
-types-Jinja2
 -r requirements-docs.txt

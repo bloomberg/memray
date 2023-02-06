@@ -13,9 +13,11 @@ from memray import Metadata
 
 @lru_cache(maxsize=1)
 def get_render_environment() -> jinja2.Environment:
-    return jinja2.Environment(
+    env = jinja2.Environment(
         loader=jinja2.PackageLoader("memray.reporters"),
     )
+    env.policies["json.dumps_kwargs"] = {"sort_keys": True, "separators": (",", ":")}
+    return env
 
 
 def get_report_title(*, kind: str, show_memory_leaks: bool) -> str:
