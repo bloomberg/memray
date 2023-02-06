@@ -1,0 +1,1 @@
+Flame graphs produced by ``memray flamegraph`` are now around 85% smaller.
