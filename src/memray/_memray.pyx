@@ -330,7 +330,7 @@ cdef class Tracker:
             argument must be provided.
         destination (FileDestination or SocketDestination): The destination to
             write captured allocations to. If provided, the *file_name*
-            argument must not be.
+            argument must not be provided.
         native_traces (bool): Whether or not to capture native stack frames, in
             addition to Python stack frames (see :ref:`Native Tracking`).
             Defaults to False.
