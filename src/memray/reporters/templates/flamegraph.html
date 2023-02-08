@@ -13,7 +13,7 @@
 </div>
 <div class="form-check mr-3">
   <input class="form-check-input" type="checkbox" data-toggle="tooltip" id="hideUninteresting"
-          title="Hide CPython eval frames and other, memray-related frames" checked>
+          title="Hide CPython eval frames and Memray-related frames" checked>
     <label class="form-check-label text-white bg-dark">Hide Irrelevant Frames</label>
 </div>
 <div class="form-check mr-3">
@@ -72,7 +72,11 @@
 <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-tip@0.9.1/dist/index.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@4.0.6/dist/d3-flamegraph.min.js"></script>
+
+{% block flamegraph_script %}
 <script type="text/javascript">
   {%- include "assets/flamegraph.js" -%}
 </script>
+{% endblock %}
+
 {% endblock %}
