@@ -39,6 +39,16 @@ class FlamegraphCommand(HighWatermarkCommand):
             default=False,
         )
         alloc_type_group.add_argument(
+            "--temporal-leaks",
+            help=(
+                "Generate a dynamic flame graph showing allocations performed"
+                " in a user-selected time range and not freed before the end"
+                " of that time range."
+            ),
+            action="store_true",
+            default=False,
+        )
+        alloc_type_group.add_argument(
             "--temporary-allocation-threshold",
             metavar="N",
             help=dedent(

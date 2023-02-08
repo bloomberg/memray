@@ -16,6 +16,7 @@ from typing import TypeVar
 from memray import AllocationRecord
 from memray import MemorySnapshot
 from memray import Metadata
+from memray._memray import TemporalAllocationRecord
 from memray.reporters.frame_tools import StackFrame
 from memray.reporters.frame_tools import is_cpython_internal
 from memray.reporters.frame_tools import is_frame_from_import_system
@@ -101,6 +102,7 @@ class FlameGraphReporter:
         }
 
         frames = [root]
+        interval_list = []
 
         node_index_by_key: Dict[Tuple[int, StackFrame, str], int] = {}
 
@@ -163,6 +165,17 @@ class FlameGraphReporter:
                     current_frame["location"] = ["...", "...", 0]
                     break
 
+            if isinstance(record, TemporalAllocationRecord):
+                interval_list.append(
+                    (
+                        record.allocated_before_snapshot,
+                        record.deallocated_before_snapshot,
+                        current_frame_id,
+                        record.n_allocations,
+                        record.size,
+                    )
+                )
+
         all_strings = StringRegistry()
         nodes = collections.defaultdict(list)
         for frame in frames:
@@ -170,9 +183,10 @@ class FlameGraphReporter:
             nodes["function"].append(all_strings.register(frame["location"][0]))
             nodes["filename"].append(all_strings.register(frame["location"][1]))
             nodes["lineno"].append(frame["location"][2])
-            nodes["value"].append(frame["value"])
             nodes["children"].append(frame["children"])
-            nodes["n_allocations"].append(frame["n_allocations"])
+            if not interval_list:
+                nodes["value"].append(frame["value"])
+                nodes["n_allocations"].append(frame["n_allocations"])
             nodes["thread_id"].append(all_strings.register(frame["thread_id"]))
             nodes["interesting"].append(int(frame["interesting"]))
             nodes["import_system"].append(int(frame["import_system"]))
@@ -185,6 +199,9 @@ class FlameGraphReporter:
             "strings": all_strings.strings,
         }
 
+        if interval_list:
+            data["intervals"] = interval_list
+
         return cls(data, memory_records=memory_records)
 
     def render(
@@ -194,8 +211,9 @@ class FlameGraphReporter:
         show_memory_leaks: bool,
         merge_threads: bool,
     ) -> None:
+        kind = "temporal_flamegraph" if "intervals" in self.data else "flamegraph"
         html_code = render_report(
-            kind="flamegraph",
+            kind=kind,
             data=self.data,
             metadata=metadata,
             memory_records=self.memory_records,

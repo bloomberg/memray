@@ -1,4 +1,4 @@
-import { debounced, initMemoryGraph, resizeMemoryGraph } from "./common";
+import { debounced } from "./common";
 
 import {
   initThreadsDropdown,
@@ -10,14 +10,27 @@ import {
   onResetZoom,
   onResize,
   onInvert,
+  getFilteredChart,
   getFlamegraph,
 } from "./flamegraph_common";
 
-window.resizeMemoryGraph = resizeMemoryGraph;
+var active_plot = null;
+var current_dimensions = null;
 
-function packedDataToTree(packedData) {
+var parent_index_by_child_index = (function () {
+  let ret = new Array(packed_data.nodes.children.length);
+  console.log("finding parent index for each node");
+  for (const [parentIndex, children] of packed_data.nodes.children.entries()) {
+    children.forEach((idx) => (ret[idx] = parentIndex));
+  }
+  console.assert(ret[0] === undefined, "root node has a parent");
+  return ret;
+})();
+
+function packedDataToTree(packedData, rangeStart, rangeEnd) {
   const { strings, nodes, unique_threads } = packedData;
 
+  console.log("constructing nodes");
   const node_objects = nodes.name.map((_, i) => ({
     name: strings[nodes["name"][i]],
     location: [
@@ -25,31 +38,216 @@ function packedDataToTree(packedData) {
       strings[nodes["filename"][i]],
       nodes["lineno"][i],
     ],
-    value: nodes["value"][i],
+    value: 0,
     children: nodes["children"][i],
-    n_allocations: nodes["n_allocations"][i],
+    n_allocations: 0,
     thread_id: strings[nodes["thread_id"][i]],
     interesting: nodes["interesting"][i] !== 0,
     import_system: nodes["import_system"][i] !== 0,
   }));
 
-  for (const node of node_objects) {
+  console.log("mapping child indices to child nodes");
+  for (const [parentIndex, node] of node_objects.entries()) {
     node["children"] = node["children"].map((idx) => node_objects[idx]);
   }
 
-  const root = node_objects[0];
-  root["unique_threads"] = unique_threads.map((tid) => strings[tid]);
-  return root;
+  // We could binary search rather than using a linear scan...
+  console.log("finding leaked allocations");
+  packedData.intervals.forEach((interval) => {
+    let [allocBefore, deallocBefore, nodeIndex, count, bytes] = interval;
+
+    if (
+      allocBefore >= rangeStart &&
+      allocBefore <= rangeEnd &&
+      deallocBefore > rangeEnd
+    ) {
+      while (nodeIndex !== undefined) {
+        node_objects[nodeIndex].n_allocations += count;
+        node_objects[nodeIndex].value += bytes;
+        nodeIndex = parent_index_by_child_index[nodeIndex];
+      }
+    }
+  });
+
+  console.log(
+    "total leaked allocations in range: " + node_objects[0].n_allocations
+  );
+  console.log("total leaked bytes in range: " + node_objects[0].value);
+
+  node_objects.forEach((node) => {
+    node.children = node.children.filter((node) => node.n_allocations > 0);
+  });
+
+  return node_objects[0];
+}
+
+function initMemoryGraph(memory_records) {
+  console.log("init memory graph");
+  const time = memory_records.map((a) => new Date(a[0]));
+  const resident_size = memory_records.map((a) => a[1]);
+  const heap_size = memory_records.map((a) => a[2]);
+
+  var resident_size_plot = {
+    x: time,
+    y: resident_size,
+    mode: "lines",
+    name: "Resident size",
+  };
+
+  var heap_size_plot = {
+    x: time,
+    y: heap_size,
+    mode: "lines",
+    name: "Heap size",
+  };
+
+  var plot_data = [resident_size_plot, heap_size_plot];
+  var config = {
+    responsive: true,
+    displayModeBar: false,
+  };
+  var layout = {
+    xaxis: {
+      title: {
+        text: "Time",
+      },
+      rangeslider: {
+        visible: true,
+      },
+    },
+    yaxis: {
+      title: {
+        text: "Memory Size",
+      },
+      tickformat: ".4~s",
+      exponentformat: "B",
+      ticksuffix: "B",
+    },
+  };
+
+  Plotly.newPlot("plot", plot_data, layout, config).then((plot) => {
+    console.assert(active_plot === null);
+    active_plot = plot;
+  });
+}
+
+function showLoadingAnimation() {
+  console.log("showLoadingAnimation");
+  document.getElementById("loading").style.display = "block";
+  document.getElementById("overlay").style.display = "block";
+}
+
+function hideLoadingAnimation() {
+  console.log("hideLoadingAnimation");
+  document.getElementById("loading").style.display = "none";
+  document.getElementById("overlay").style.display = "none";
+}
+
+function refreshFlamegraph(event) {
+  console.log("refreshing flame graph!");
+
+  let request_data = getRangeData(event);
+  console.log("range data: " + request_data);
+
+  if (
+    current_dimensions != null &&
+    JSON.stringify(request_data) === JSON.stringify(current_dimensions)
+  ) {
+    return;
+  }
+
+  console.log("showing loading animation");
+  showLoadingAnimation();
+
+  current_dimensions = request_data;
+
+  console.log("finding range of relevant snapshot");
+
+  let idx0 = 0;
+  let idx1 = memory_records.length - 1;
+
+  if (request_data) {
+    let t0 = new Date(request_data.string1).getTime();
+    for (let i = 0; i < memory_records.length; i++) {
+      if (memory_records[i][0] >= t0) {
+        idx0 = i;
+        break;
+      }
+    }
+
+    idx1 = 0;
+    let t1 = new Date(request_data.string2).getTime();
+    for (let i = memory_records.length - 1; i >= 1; i--) {
+      if (memory_records[i - 1][0] < t1) {
+        idx1 = i;
+        break;
+      }
+    }
+  }
+
+  console.log("start index is " + idx0);
+  console.log("end index is " + idx1);
+  console.log("first possible index is 0");
+  console.log("last possible index is " + (memory_records.length - 1));
+
+  console.log("constructing tree");
+  data = packedDataToTree(packed_data, idx0, idx1);
+
+  console.log("drawing chart");
+  getFilteredChart().drawChart(data);
+  console.log("hiding loading animation");
+  hideLoadingAnimation();
+}
+
+function getRangeData(event) {
+  console.log("getRangeData");
+  let request_data = {};
+  if (event.hasOwnProperty("xaxis.range[0]")) {
+    request_data = {
+      string1: event["xaxis.range[0]"],
+      string2: event["xaxis.range[1]"],
+    };
+  } else if (event.hasOwnProperty("xaxis.range")) {
+    request_data = {
+      string1: event["xaxis.range"][0],
+      string2: event["xaxis.range"][1],
+    };
+  } else if (active_plot !== null) {
+    let the_range = active_plot.layout.xaxis.range;
+    request_data = {
+      string1: the_range[0],
+      string2: the_range[1],
+    };
+  } else {
+    return;
+  }
+  return request_data;
+}
+
+var debounce = null;
+function refreshFlamegraphDebounced(event) {
+  console.log("refreshFlamegraphDebounced");
+  if (debounce) {
+    clearTimeout(debounce);
+  }
+  debounce = setTimeout(function () {
+    refreshFlamegraph(event);
+  }, 500);
 }
 
 // Main entrypoint
 function main() {
-  data = packedDataToTree(packed_data);
-  initMemoryGraph(memory_records);
-  initThreadsDropdown(data, merge_threads);
+  console.log("main");
 
-  // Create the flamegraph renderer
-  drawChart(data);
+  const unique_threads = packed_data.unique_threads.map(
+    (tid) => packed_data.strings[tid]
+  );
+  initThreadsDropdown({ unique_threads: unique_threads }, merge_threads);
+
+  initMemoryGraph(memory_records);
+
+  // Draw the initial flame graph
+  refreshFlamegraph({});
 
   // Set zoom to correct element
   if (location.hash) {
@@ -83,6 +281,19 @@ function main() {
   // Enable tooltips
   $('[data-toggle-second="tooltip"]').tooltip();
   $('[data-toggle="tooltip"]').tooltip();
+
+  // Set up the reload handler
+  console.log("setup reload handler");
+  document
+    .getElementById("plot")
+    .on("plotly_relayout", refreshFlamegraphDebounced);
+
+  // Enable toasts
+  var toastElList = [].slice.call(document.querySelectorAll(".toast"));
+  var toastList = toastElList.map(function (toastEl) {
+    return new bootstrap.Toast(toastEl, { delay: 10000 });
+  });
+  toastList.forEach((toast) => toast.show());
 }
 
 document.addEventListener("DOMContentLoaded", main);
