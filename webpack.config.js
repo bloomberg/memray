@@ -6,6 +6,7 @@ module.exports = {
   entry: {
     flamegraph_common: "./src/memray/reporters/assets/flamegraph_common.js",
     flamegraph: "./src/memray/reporters/assets/flamegraph.js",
+    temporal_flamegraph: "./src/memray/reporters/assets/temporal_flamegraph.js",
     table: "./src/memray/reporters/assets/table.js",
   },
   output: {
