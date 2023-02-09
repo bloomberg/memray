@@ -1201,3 +1201,38 @@ cdef class HighWaterMarkAggregatorTestHarness:
                 )
             )
         return ret
+
+
+cdef class AllocationLifetimeAggregatorTestHarness:
+    cdef AllocationLifetimeAggregator aggregator
+
+    def add_allocation(
+        self,
+        tid,
+        address,
+        size,
+        allocator,
+        native_frame_id,
+        frame_index,
+        native_segment_generation,
+    ):
+        cdef _Allocation allocation
+        allocation.tid = tid
+        allocation.address = address
+        allocation.size = size
+        allocation.allocator = <Allocator><int>allocator
+        allocation.native_frame_id = native_frame_id
+        allocation.frame_index = frame_index
+        allocation.native_segment_generation = native_segment_generation
+        allocation.n_allocations = 1
+        self.aggregator.addAllocation(allocation)
+
+    def capture_snapshot(self):
+        return self.aggregator.captureSnapshot()
+
+    def get_allocations(self):
+        cdef shared_ptr[RecordReader] reader
+        return [
+            create_temporal_allocation_record(lifetime, False, reader)
+            for lifetime in self.aggregator.generateIndex()
+        ]
