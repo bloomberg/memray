@@ -296,8 +296,8 @@ cdef class AllocationRecord:
 
 
 cdef class TemporalAllocationRecord(AllocationRecord):
-    cdef public size_t allocated_before_snapshot
-    cdef public size_t deallocated_before_snapshot
+    cdef public object allocated_before_snapshot
+    cdef public object deallocated_before_snapshot
 
     def __init__(self, record, allocated_before_snapshot, deallocated_before_snapshot):
         super().__init__(record)
@@ -317,6 +317,12 @@ cdef create_temporal_allocation_record(
 ):
     thread_id = 0 if merge_threads else lifetime.key.thread_id
     address = 0
+
+    if lifetime.deallocatedBeforeSnapshot == <size_t>(-1):
+        deallocatedBeforeOrNone = None
+    else:
+        deallocatedBeforeOrNone = lifetime.deallocatedBeforeSnapshot
+
     elem = (
         thread_id,
         address,
@@ -328,7 +334,7 @@ cdef create_temporal_allocation_record(
         lifetime.key.native_segment_generation,
     )
     cdef TemporalAllocationRecord alloc = TemporalAllocationRecord(
-        elem, lifetime.allocatedBeforeSnapshot, lifetime.deallocatedBeforeSnapshot
+        elem, lifetime.allocatedBeforeSnapshot, deallocatedBeforeOrNone
     )
     alloc._reader = reader
     return alloc
