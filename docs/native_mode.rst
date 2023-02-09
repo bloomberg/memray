@@ -1,6 +1,8 @@
 Symbolic information in native mode
 ===================================
 
+.. highlight:: shell-session
+
 .. important::
 
    For the best native mode experience, we recommend running your program on
@@ -76,25 +78,21 @@ You can see that file names are reported as ``<unknown>`` and line numbers as
 ``0`` when debugging information is not available.
 
 On Linux, you can check whether your binaries have DWARF debug information
-available by running:
+available by running::
 
-    .. code-block:: bash
-
-        $ readelf -S ./a.out | grep debug
+    $ readelf -S ./a.out | grep debug
 
 For example, for checking if the Python interpreter has DWARF debug information
-available:
+available::
 
-    .. code-block:: bash
+    $ readelf -S $(which python) | grep debug
 
-        $ readelf -S $(which python) | grep debug
-
-        [26] .debug_aranges    PROGBITS         0000000000000000  00001057
-        [27] .debug_info       PROGBITS         0000000000000000  00001087
-        [28] .debug_abbrev     PROGBITS         0000000000000000  000010de
-        [29] .debug_line       PROGBITS         0000000000000000  0000111a
-        [30] .debug_str        PROGBITS         0000000000000000  00001177
-        [31] .debug_macro      PROGBITS         0000000000000000  00003eb1
+    [26] .debug_aranges    PROGBITS         0000000000000000  00001057
+    [27] .debug_info       PROGBITS         0000000000000000  00001087
+    [28] .debug_abbrev     PROGBITS         0000000000000000  000010de
+    [29] .debug_line       PROGBITS         0000000000000000  0000111a
+    [30] .debug_str        PROGBITS         0000000000000000  00001177
+    [31] .debug_macro      PROGBITS         0000000000000000  00003eb1
 
 
 .. _mac symbolification:
@@ -136,20 +134,16 @@ If you are debugging your own native extension, you can generate debug
 information that Memray can use by executing ``dsymutil`` on your shared object
 **while the object files used to generate the shared object still exist**. For
 instance, for the Memray extension itself (the paths will be different for your
-own extension):
+own extension)::
 
-.. code-block:: bash
-
-    # Sanity check: ensure that the object files are still around
-
+    $ # Sanity check: ensure that the object files are still around
     $ dsymutil -s  src/memray/_memray.cpython-310-darwin.so | grep OSO | head -n 1
     [  9431] 000d39a1 66 (N_OSO        ) 00     0001   0000000062fb8052 'memray/build/temp.macosx-12.5-arm64-cpython-310/src/memray/_memray.o'
 
     $ ls memray/build/temp.macosx-12.5-arm64-cpython-310/src/memray/_memray.o
     .rw-r--r-- 3.5M pgalindo3 16 Aug 12:32 memray/build/temp.macosx-12.5-arm64-cpython-310/src/memray/_memray.o
 
-    # Then generate a dSYM bundle with the debug information:
-
+    $ # Then generate a dSYM bundle with the debug information:
     $ dsymutil src/memray/_memray.cpython-310-darwin.so
 
 This will place a new file called ``_memray.cpython-310-darwin.dSYM`` in the
