@@ -320,6 +320,64 @@ class HighWaterMarkAggregator
     reduced_snapshot_map_t getAllocations(bool merge_threads, bool stop_at_high_water_mark) const;
 };
 
+struct AllocationLifetime
+{
+    size_t allocatedBeforeSnapshot;
+    size_t deallocatedBeforeSnapshot;  // SIZE_MAX if never deallocated
+    HighWaterMarkLocationKey key;
+    size_t n_allocations;
+    size_t n_bytes;
+};
+
+class AllocationLifetimeAggregator
+{
+  public:
+    void addAllocation(const Allocation& allocation);
+    void captureSnapshot();
+
+    std::vector<AllocationLifetime> generateIndex();
+
+  private:
+    size_t d_num_snapshots{};
+
+    struct allocation_history_key_hash
+    {
+        size_t operator()(const std::tuple<size_t, size_t, HighWaterMarkLocationKey>& key) const
+        {
+            size_t ret = HighWaterMarkLocationKeyHash{}(std::get<2>(key));
+            ret = (ret << 1) ^ std::get<1>(key);
+            ret = (ret << 1) ^ std::get<0>(key);
+            return ret;
+        }
+    };
+
+    // Record of freed allocations that spanned multiple snapshots.
+    std::unordered_map<
+            std::tuple<size_t, size_t, HighWaterMarkLocationKey>,
+            std::pair<size_t, size_t>,
+            allocation_history_key_hash>
+            d_allocation_history;
+
+    // Simple allocations contributing to the current heap size.
+    std::unordered_map<uintptr_t, std::pair<Allocation, size_t>> d_ptr_to_allocation;
+
+    // Ranged allocations contributing to the current heap size.
+    IntervalTree<std::pair<std::shared_ptr<Allocation>, size_t>> d_mmap_intervals;
+
+    HighWaterMarkLocationKey extractKey(const Allocation& allocation);
+
+    void recordRangedDeallocation(
+            const std::shared_ptr<Allocation>& allocation,
+            size_t bytes_deallocated,
+            size_t generation_allocated);
+
+    void recordDeallocation(
+            const HighWaterMarkLocationKey& key,
+            size_t count_delta,
+            size_t bytes_delta,
+            size_t generation);
+};
+
 class AllocationStatsAggregator
 {
   public:

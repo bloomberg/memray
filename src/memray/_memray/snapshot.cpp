@@ -1,6 +1,7 @@
-#include <numeric>
-
 #include "snapshot.h"
+
+#include <numeric>
+#include <unordered_set>
 
 namespace memray::api {
 
@@ -17,6 +18,18 @@ HighWaterMarkLocationKey::operator==(const HighWaterMarkLocationKey& rhs) const
     return thread_id == rhs.thread_id && python_frame_id == rhs.python_frame_id
            && native_frame_id == rhs.native_frame_id
            && native_segment_generation == rhs.native_segment_generation && allocator == rhs.allocator;
+}
+
+bool
+operator<(const AllocationLifetime& lhs, const AllocationLifetime& rhs)
+{
+    // Sort by n_bytes if allocatedBefore/deallocatedBefore are equal,
+    // so that our test suite gets records in a predictable order.
+    return lhs.allocatedBeforeSnapshot != rhs.allocatedBeforeSnapshot
+                   ? lhs.allocatedBeforeSnapshot < rhs.allocatedBeforeSnapshot
+           : lhs.deallocatedBeforeSnapshot != rhs.deallocatedBeforeSnapshot
+                   ? lhs.deallocatedBeforeSnapshot < rhs.deallocatedBeforeSnapshot
+                   : lhs.n_bytes < rhs.n_bytes;
 }
 
 Interval::Interval(uintptr_t begin, uintptr_t end)
@@ -405,6 +418,163 @@ HighWaterMarkAggregator::visitAllocations(const allocation_callback_t& callback)
         }
     }
     return true;
+}
+
+void
+AllocationLifetimeAggregator::addAllocation(const Allocation& allocation_or_deallocation)
+{
+    // Note: Deallocation records don't tell us where the memory was allocated,
+    //       so we need to save the records for allocations and cross-reference
+    //       deallocations against them.
+    switch (hooks::allocatorKind(allocation_or_deallocation.allocator)) {
+        case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
+            const Allocation& allocation = allocation_or_deallocation;
+            size_t generation = d_num_snapshots;
+            d_ptr_to_allocation[allocation.address] = {allocation, generation};
+            break;
+        }
+        case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
+            const Allocation& deallocation = allocation_or_deallocation;
+            const auto it = d_ptr_to_allocation.find(deallocation.address);
+            if (it != d_ptr_to_allocation.end()) {
+                const auto& [allocation, generation] = it->second;
+                recordDeallocation(extractKey(allocation), 1, allocation.size, generation);
+                d_ptr_to_allocation.erase(it);
+            }
+            break;
+        }
+        case hooks::AllocatorKind::RANGED_ALLOCATOR: {
+            const Allocation& allocation = allocation_or_deallocation;
+            size_t generation = d_num_snapshots;
+            d_mmap_intervals.addInterval(
+                    allocation.address,
+                    allocation.size,
+                    {std::make_shared<Allocation>(allocation), generation});
+            break;
+        }
+        case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
+            const Allocation& deallocation = allocation_or_deallocation;
+            auto removal_stats =
+                    d_mmap_intervals.removeInterval(deallocation.address, deallocation.size);
+            for (const auto& [interval, pair] : removal_stats.freed_allocations) {
+                recordRangedDeallocation(pair.first, interval.size(), pair.second);
+            }
+            for (const auto& [interval, pair] : removal_stats.shrunk_allocations) {
+                recordRangedDeallocation(pair.first, interval.size(), pair.second);
+            }
+            for (const auto& [interval, pair] : removal_stats.split_allocations) {
+                recordRangedDeallocation(pair.first, interval.size(), pair.second);
+            }
+            break;
+        }
+    }
+}
+
+HighWaterMarkLocationKey
+AllocationLifetimeAggregator::extractKey(const Allocation& allocation)
+{
+    return {allocation.tid,
+            allocation.frame_index,
+            allocation.native_frame_id,
+            allocation.native_segment_generation,
+            allocation.allocator};
+}
+
+void
+AllocationLifetimeAggregator::recordRangedDeallocation(
+        const std::shared_ptr<Allocation>& allocation_ptr,
+        size_t bytes_deallocated,
+        size_t generation_allocated)
+{
+    // We hold one reference, and the IntervalTree may or may not hold others.
+    // We use a count of 0 for all but the last deallocation of a range so that
+    // partial deallocations won't affect the count of allocations by location.
+    bool fully_deallocated = allocation_ptr.use_count() == 1;
+    recordDeallocation(
+            extractKey(*allocation_ptr),
+            (fully_deallocated ? 1 : 0),
+            bytes_deallocated,
+            generation_allocated);
+}
+
+void
+AllocationLifetimeAggregator::recordDeallocation(
+        const HighWaterMarkLocationKey& key,
+        size_t count_delta,
+        size_t bytes_delta,
+        size_t generation)
+{
+    if (d_num_snapshots == generation) {
+        // Allocated and deallocated within the same snapshot. We can ignore this.
+        return;
+    }
+
+    auto& counts = d_allocation_history[std::make_tuple(generation, d_num_snapshots, key)];
+    counts.first += count_delta;
+    counts.second += bytes_delta;
+}
+
+void
+AllocationLifetimeAggregator::captureSnapshot()
+{
+    ++d_num_snapshots;
+}
+
+std::vector<AllocationLifetime>
+AllocationLifetimeAggregator::generateIndex()
+{
+    struct KeyHash
+    {
+        size_t operator()(const std::pair<size_t, HighWaterMarkLocationKey>& key) const
+        {
+            size_t ret = HighWaterMarkLocationKeyHash{}(std::get<1>(key));
+            ret = (ret << 1) ^ std::get<0>(key);
+            return ret;
+        }
+    };
+
+    std::unordered_map<std::pair<size_t, HighWaterMarkLocationKey>, std::pair<size_t, size_t>, KeyHash>
+            leaks;
+
+    // Leaked simple allocations
+    for (const auto& [ptr, allocation_and_generation] : d_ptr_to_allocation) {
+        (void)ptr;
+        const auto& [allocation, generation] = allocation_and_generation;
+        auto& counts = leaks[std::make_pair(generation, extractKey(allocation))];
+        counts.first += 1;
+        counts.second += allocation.size;
+    }
+
+    // Leaked range allocations
+    std::unordered_set<void*> leaked_mappings;
+    for (const auto& [interval, allocation_ptr_and_generation] : d_mmap_intervals) {
+        const auto& [allocation_ptr, generation] = allocation_ptr_and_generation;
+        auto& counts = leaks[std::make_pair(generation, extractKey(*allocation_ptr))];
+
+        // Ensure we only count each allocation once, even if it's been split.
+        auto inserted = leaked_mappings.insert(allocation_ptr.get()).second;
+        counts.first += (inserted ? 1 : 0);
+        counts.second += interval.size();
+    }
+
+    std::vector<AllocationLifetime> ret;
+
+    // Things that were leaked
+    for (const auto& [when_where, how_much] : leaks) {
+        const auto& [allocated_before, key] = when_where;
+        const auto& [n_allocations, n_bytes] = how_much;
+        ret.push_back({allocated_before, static_cast<size_t>(-1), key, n_allocations, n_bytes});
+    }
+
+    // Things that weren't leaked
+    for (const auto& [when_where, how_much] : d_allocation_history) {
+        const auto& [allocated_before, deallocated_before, key] = when_where;
+        const auto& [n_allocations, n_bytes] = how_much;
+        ret.push_back({allocated_before, deallocated_before, key, n_allocations, n_bytes});
+    }
+
+    std::sort(ret.begin(), ret.end());
+    return ret;
 }
 
 /**
