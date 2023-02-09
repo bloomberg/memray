@@ -59,7 +59,7 @@ function packedDataToTree(packedData, rangeStart, rangeEnd) {
     if (
       allocBefore >= rangeStart &&
       allocBefore <= rangeEnd &&
-      deallocBefore > rangeEnd
+      (deallocBefore === null || deallocBefore > rangeEnd)
     ) {
       while (nodeIndex !== undefined) {
         node_objects[nodeIndex].n_allocations += count;
