@@ -37,10 +37,13 @@ from _memray.sink cimport Sink
 from _memray.sink cimport SocketSink
 from _memray.snapshot cimport AbstractAggregator
 from _memray.snapshot cimport AggregatedCaptureReaggregator
+from _memray.snapshot cimport AllocationLifetime
+from _memray.snapshot cimport AllocationLifetimeAggregator
 from _memray.snapshot cimport AllocationStatsAggregator
 from _memray.snapshot cimport HighWatermark
 from _memray.snapshot cimport HighWaterMarkAggregator
 from _memray.snapshot cimport HighWatermarkFinder
+from _memray.snapshot cimport HighWaterMarkLocationKey
 from _memray.snapshot cimport Py_GetSnapshotAllocationRecords
 from _memray.snapshot cimport Py_ListFromSnapshotAllocationRecords
 from _memray.snapshot cimport SnapshotAllocationAggregator
@@ -290,6 +293,45 @@ cdef class AllocationRecord:
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
                 f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}, "
                 f"allocations={self.n_allocations}>")
+
+
+cdef class TemporalAllocationRecord(AllocationRecord):
+    cdef public size_t allocated_before_snapshot
+    cdef public size_t deallocated_before_snapshot
+
+    def __init__(self, record, allocated_before_snapshot, deallocated_before_snapshot):
+        super().__init__(record)
+        self.allocated_before_snapshot = allocated_before_snapshot
+        self.deallocated_before_snapshot = deallocated_before_snapshot
+
+    def __repr__(self):
+        start = self.allocated_before_snapshot
+        end = self.deallocated_before_snapshot
+        return super().__repr__().replace(">", f", range=range({start}, {end})>")
+
+
+cdef create_temporal_allocation_record(
+    AllocationLifetime lifetime,
+    bool merge_threads,
+    shared_ptr[RecordReader] reader,
+):
+    thread_id = 0 if merge_threads else lifetime.key.thread_id
+    address = 0
+    elem = (
+        thread_id,
+        address,
+        lifetime.n_bytes,
+        <int>lifetime.key.allocator,
+        lifetime.key.python_frame_id,
+        lifetime.n_allocations,
+        lifetime.key.native_frame_id,
+        lifetime.key.native_segment_generation,
+    )
+    cdef TemporalAllocationRecord alloc = TemporalAllocationRecord(
+        elem, lifetime.allocatedBeforeSnapshot, lifetime.deallocatedBeforeSnapshot
+    )
+    alloc._reader = reader
+    return alloc
 
 
 MemorySnapshot = collections.namedtuple("MemorySnapshot", "time rss heap")
@@ -812,6 +854,48 @@ cdef class FileReader:
             merge_threads,
             temporary_buffer_size=threshold + 1,
         )
+
+    def get_temporal_allocation_records(self, merge_threads=True):
+        self._ensure_not_closed()
+        if self._header["file_format"] == FileFormat.AGGREGATED_ALLOCATIONS:
+            raise NotImplementedError(
+                "Can't get allocation history using a pre-aggregated capture file."
+            )
+
+        cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(self._path))
+        )
+        cdef RecordReader* reader = reader_sp.get()
+
+        cdef size_t records_to_process = self._header["stats"]["n_allocations"]
+        cdef ProgressIndicator progress_indicator = ProgressIndicator(
+            "Processing allocation records",
+            total=records_to_process,
+            report_progress=self._report_progress
+        )
+
+        cdef AllocationLifetimeAggregator aggregator
+
+        with progress_indicator:
+            while records_to_process > 0:
+                PyErr_CheckSignals()
+                ret = reader.nextRecord()
+                if ret == RecordResult.RecordResultAllocationRecord:
+                    aggregator.addAllocation(reader.getLatestAllocation())
+                    records_to_process -= 1
+                    progress_indicator.update(1)
+                elif ret == RecordResult.RecordResultMemoryRecord:
+                    aggregator.captureSnapshot()
+                else:
+                    assert ret != RecordResult.RecordResultMemorySnapshot
+                    assert ret != RecordResult.RecordResultAggregatedAllocationRecord
+                    break
+
+        cdef vector[AllocationLifetime] lifetimes = aggregator.generateIndex()
+        return [
+            create_temporal_allocation_record(lifetime, merge_threads, reader_sp)
+            for lifetime in lifetimes
+        ]
 
     def get_allocation_records(self):
         self._ensure_not_closed()

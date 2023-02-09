@@ -61,6 +61,10 @@ class AllocationRecord:
     def __lt__(self, other: Any) -> Any: ...
     def __ne__(self, other: Any) -> Any: ...
 
+class TemporalAllocationRecord(AllocationRecord):
+    allocated_before_snapshot: int
+    deallocated_before_snapshot: int
+
 class AllocatorType(enum.IntEnum):
     MALLOC: int
     FREE: int
@@ -91,6 +95,10 @@ class FileReader:
         self, file_name: Union[str, Path], *, report_progress: bool = False
     ) -> None: ...
     def get_allocation_records(self) -> Iterable[AllocationRecord]: ...
+    def get_temporal_allocation_records(
+        self,
+        merge_threads: bool,
+    ) -> List[TemporalAllocationRecord]: ...
     def get_high_watermark_allocation_records(
         self,
         merge_threads: bool = ...,

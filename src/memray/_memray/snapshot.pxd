@@ -1,3 +1,4 @@
+from _memray.hooks cimport Allocator
 from _memray.records cimport AggregatedAllocation
 from _memray.records cimport Allocation
 from _memray.records cimport optional_frame_id_t
@@ -47,6 +48,25 @@ cdef extern from "snapshot.h" namespace "memray::api":
         void addAllocation(const Allocation& allocation) except+
         size_t getCurrentHeapSize()
         bool visitAllocations[T](const T& callback) except+
+
+    cdef cppclass HighWaterMarkLocationKey:
+        unsigned long thread_id
+        size_t python_frame_id
+        size_t native_frame_id
+        size_t native_segment_generation
+        Allocator allocator
+
+    cdef cppclass AllocationLifetime:
+        size_t allocatedBeforeSnapshot
+        size_t deallocatedBeforeSnapshot
+        HighWaterMarkLocationKey key
+        size_t n_allocations
+        size_t n_bytes
+
+    cdef cppclass AllocationLifetimeAggregator:
+        void addAllocation(const Allocation& allocation) except+
+        void captureSnapshot()
+        vector[AllocationLifetime] generateIndex() except+
 
     cdef cppclass AllocationStatsAggregator:
         void addAllocation(const Allocation&, optional_frame_id_t python_frame_id) except+
