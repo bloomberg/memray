@@ -149,3 +149,79 @@ own extension)::
 This will place a new file called ``_memray.cpython-310-darwin.dSYM`` in the
 same directory as the original shared object. Once this file is in place,
 memray will be able to leverage the debug information it contains.
+
+Debuginfod integration
+----------------------
+
+Memray can use `debuginfod <https://sourceware.org/elfutils/Debuginfod.html>`_
+to fetch debug information from remote servers on demand. This is useful
+because many Linux distributions don't ship debug information with their
+binaries, so you can use debuginfod to download the debug information from
+a server that does have it. Many modern Linux distributions have debuginfod
+integration so you can take advantage of this with little to no effort.
+
+To take advantage of debuginfod, you need two things:
+
+1. The ``debuginfod`` client library must be installed. This library allows you
+   to query debuginfod servers. It is available in most Linux distributions
+   (including Debian, Ubuntu, Fedora, Arch Linux, etc.) and can be installed
+   with your package manager. For example, in Debian/Ubuntu::
+
+       $ sudo apt install debuginfod
+
+   In Arch Linux::
+
+       $ sudo pacman -S debuginfod
+
+   In Fedora::
+
+      $ sudo dnf install elfutils-debuginfod
+
+2. The ``DEBUGINFOD_URLS`` environment variable must point to the debuginfod
+   server you want to use. This is a space separated list of URLs.
+   For example::
+
+       $ export DEBUGINFOD_URLS="https://debuginfod.archlinux.org/"
+
+   .. tip::
+       You can also use https://debuginfod.elfutils.org/ which works as a
+       federated server and queries all available debuginfod servers.
+
+   Some modern Linux distributions set this variable by default when the
+   ``debuginfod`` client is installed, so you may not need to set this up.
+
+Once the client is installed and the environment variable is set, Memray will
+automatically use debuginfod to download debug information for the binaries it
+encounters when generating native mode reports. The first time that Memray uses
+debuginfod to fetch debug information it will take a bit longer to generate the
+report, but subsequent runs will be much faster because the debug information
+gets cached locally.
+
+If you'd like to see progress diagnostics during downloads, set::
+
+    $ export DEBUGINFOD_PROGRESS=1
+
+If you want to see exactly which network requests are being made and which
+cached files are used you can set ``$DEBUGINFOD_VERBOSE`` (warning: it is
+*very* verbose)::
+
+    $ export DEBUGINFOD_VERBOSE=1
+
+If you want to limit download times and/or sizes you can set these variables::
+
+    $ export DEBUGINFOD_TIMEOUT=10       # seconds
+    $ export DEBUGINFOD_MAXSIZE=1000000  # bytes
+
+If you never want to query a debuginfod server, clear the ``$DEBUGINFOD_URLS``
+environment variable::
+
+    $ unset DEBUGINFOD_URLS
+
+If you have a local debuginfod cache that you'd like to use, but don't want to
+attempt any upstream debuginfod queries, set ``$DEBUGINFOD_URLS`` to something
+non-empty but ineffective, such as ``/dev/null``.
+
+.. tip::
+    Clients automatically clean the cache of files not accessed in a while. You
+    may also remove the debuginfod cache directory
+    ``$HOME/.cache/debuginfod_client`` at any time to clear space.
