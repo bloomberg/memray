@@ -11,6 +11,8 @@ from libcpp.vector cimport vector
 
 
 cdef extern from "snapshot.h" namespace "memray::api":
+    unsigned long NO_THREAD_INFO
+
     cdef struct HighWatermark:
         size_t index
         size_t peak_memory
