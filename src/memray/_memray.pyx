@@ -35,6 +35,7 @@ from _memray.sink cimport FileSink
 from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
 from _memray.sink cimport SocketSink
+from _memray.snapshot cimport NO_THREAD_INFO
 from _memray.snapshot cimport AbstractAggregator
 from _memray.snapshot cimport AggregatedCaptureReaggregator
 from _memray.snapshot cimport AllocationLifetime
@@ -312,10 +313,8 @@ cdef class TemporalAllocationRecord(AllocationRecord):
 
 cdef create_temporal_allocation_record(
     AllocationLifetime lifetime,
-    bool merge_threads,
     shared_ptr[RecordReader] reader,
 ):
-    thread_id = 0 if merge_threads else lifetime.key.thread_id
     address = 0
 
     if lifetime.deallocatedBeforeSnapshot == <size_t>(-1):
@@ -324,7 +323,7 @@ cdef create_temporal_allocation_record(
         deallocatedBeforeOrNone = lifetime.deallocatedBeforeSnapshot
 
     elem = (
-        thread_id,
+        lifetime.key.thread_id,
         address,
         lifetime.n_bytes,
         <int>lifetime.key.allocator,
@@ -881,13 +880,17 @@ cdef class FileReader:
         )
 
         cdef AllocationLifetimeAggregator aggregator
+        cdef _Allocation allocation
 
         with progress_indicator:
             while records_to_process > 0:
                 PyErr_CheckSignals()
                 ret = reader.nextRecord()
                 if ret == RecordResult.RecordResultAllocationRecord:
-                    aggregator.addAllocation(reader.getLatestAllocation())
+                    allocation = reader.getLatestAllocation()
+                    if merge_threads:
+                        allocation.tid = NO_THREAD_INFO
+                    aggregator.addAllocation(allocation)
                     records_to_process -= 1
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
@@ -899,7 +902,7 @@ cdef class FileReader:
 
         cdef vector[AllocationLifetime] lifetimes = aggregator.generateIndex()
         return [
-            create_temporal_allocation_record(lifetime, merge_threads, reader_sp)
+            create_temporal_allocation_record(lifetime, reader_sp)
             for lifetime in lifetimes
         ]
 
@@ -1233,6 +1236,6 @@ cdef class AllocationLifetimeAggregatorTestHarness:
     def get_allocations(self):
         cdef shared_ptr[RecordReader] reader
         return [
-            create_temporal_allocation_record(lifetime, False, reader)
+            create_temporal_allocation_record(lifetime, reader)
             for lifetime in self.aggregator.generateIndex()
         ]
