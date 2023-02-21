@@ -1,1 +1,0 @@
-Fix a bug that was causing Memray to crash when the Tracker is being destroyed and some other thread is still registering allocations or deallocations

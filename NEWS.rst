@@ -8,6 +8,26 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.7.0 (2023-02-21)
+-------------------------
+
+Features
+~~~~~~~~
+
+- ``memray run`` now supports ``--aggregate`` to produce :ref:`aggregated capture files <aggregated capture files>`, which can be much smaller but aren't able to be used for generating every type of report. (#277)
+- Add integration with debuginfod to automatically download debug information for binaries if it is available. (#308)
+- Flame graphs produced by ``memray flamegraph`` are now around 85% smaller. (#314)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- ``memray run --live`` and ``memray run --live-remote`` silently dropped the ``--trace-python-allocators`` flag. This has been fixed, and the flag is now properly propagated from the CLI to the tracker. (#283)
+- Fix a bug that was causing Memray to crash when the Tracker is being destroyed and some other thread is still registering allocations or deallocations (#289)
+- Work around `a bug in GDB versions before 10.1 <https://sourceware.org/git/?p=binutils-gdb.git;a=commit;h=da1df1db9ae43050c8de62e4842428ddda7eb509>`_ that could cause ``memray attach`` to fail. (#310)
+- Work around `a bug in LLDB on Linux <https://github.com/llvm/llvm-project/issues/60408>`_ that could cause ``memray attach`` to hang. (#311)
+
+
 memray 1.6.0 (2023-01-17)
 -------------------------
 

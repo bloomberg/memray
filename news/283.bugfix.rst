@@ -1,1 +1,0 @@
-``memray run --live`` and ``memray run --live-remote`` silently dropped the ``--trace-python-allocators`` flag. This has been fixed, and the flag is now properly propagated from the CLI to the tracker.
