@@ -1,1 +1,0 @@
-Work around `a bug in LLDB on Linux <https://github.com/llvm/llvm-project/issues/60408>`_ that could cause ``memray attach`` to hang.
