@@ -124,18 +124,138 @@ def size_fmt(num, suffix='B'):
 
 # Memray core
 
-PYTHON_VERSION = (sys.version_info.major, sys.version_info.minor)
+cdef stack_trace(
+    RecordReader* reader,
+    tid,
+    allocator,
+    python_stack_id,
+    max_stacks=None,
+):
+    if allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
+        raise NotImplementedError("Stack traces for deallocations aren't captured.")
+
+    assert reader != NULL, "Cannot get stack trace without reader."
+    cdef ssize_t to_skip
+    cdef ssize_t to_keep
+
+    if max_stacks is not None:
+        return reader.Py_GetStackFrame(python_stack_id, max_stacks)
+
+    stack_trace = reader.Py_GetStackFrame(python_stack_id)
+    if tid == reader.getMainThreadTid():
+        to_skip = reader.getSkippedFramesOnMainThread()
+        to_keep = max(len(stack_trace) - to_skip, 0)
+        del stack_trace[to_keep:]
+    return stack_trace
+
+
+cdef native_stack_trace(
+    RecordReader* reader,
+    allocator,
+    native_stack_id,
+    generation,
+    max_stacks=None,
+):
+    if allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
+        raise NotImplementedError("Stack traces for deallocations aren't captured.")
+
+    assert reader != NULL, "Cannot get stack trace without reader."
+    if max_stacks is None:
+        return reader.Py_GetNativeStackFrame(native_stack_id, generation)
+    return reader.Py_GetNativeStackFrame(native_stack_id, generation, max_stacks)
+
+
+cdef hybrid_stack_trace(
+    RecordReader* reader,
+    tid,
+    allocator,
+    python_stack_id,
+    native_stack_id,
+    generation,
+    max_stacks=None,
+):
+    # This function merges a Python stack and a native stack into
+    # a "hybrid" stack. It substitutes _PyFrame_EvalFrameDefault calls in
+    # the native stack with the corresponding frame in the Python stack.
+    # This sounds easy, but there are several tricky aspects:
+    # 1. For the thread that called Tracker.__enter__, we want to hide
+    #    frames (both Python and C) above the one that made that call.
+    #    For other threads we want to keep all frames.
+    # 2. If _PyFrame_EvalFrameDefault allocates memory before calling our
+    #    profile function, we'll have too few Python frames to pair up
+    #    every _PyFrame_EvalFrameDefault call. This happens in 3.11.
+    # 3. Since Python 3.11, one _PyFrame_EvalFrameDefault call can evaluate
+    #    many Python frames. If a frame's is_entry_frame flag is unset, it
+    #    uses the same _PyFrame_EvalFrameDefault call as its caller.
+    # 4. If the interpreter was stripped, we may not be able to recognize
+    #    every (or even any) _PyFrame_EvalFrameDefault call, so we may
+    #    have extra Python frames left after pairing.
+    cdef vector[unsigned char] is_entry_frame
+    native_stack = native_stack_trace(reader, allocator, native_stack_id, generation)
+    python_stack = reader.Py_GetStackFrameAndEntryInfo(python_stack_id, &is_entry_frame)
+
+    cdef ssize_t num_non_entry_frames = count(
+        is_entry_frame.begin(), is_entry_frame.end(), 0
+    )
+
+    # Entry frames replace native frames; non-entry frames are inserted.
+    hybrid_stack = [None] * (len(native_stack) + num_non_entry_frames)
+
+    # Both stacks are from most recent to least, but we must pair things up
+    # least recent to most to handle cases where _PyFrame_EvalFrameDefault
+    # allocated memory before calling the profile function.
+    native_stack.reverse()
+    cdef ssize_t pidx = len(python_stack) - 1
+    cdef ssize_t hidx = len(hybrid_stack) - 1
+
+    cdef ssize_t to_skip = 0
+    if tid == reader.getMainThreadTid():
+        to_skip = reader.getSkippedFramesOnMainThread()
+    cdef ssize_t first_kept_frame = pidx - to_skip
+
+    for native_frame in native_stack:
+        symbol = native_frame[0]
+        if pidx >= 0 and "_PyEval_EvalFrameDefault" in symbol:
+            while True:
+                # If we're not keeping all frames and we've reached the
+                # first one we want to keep, remove frames above it.
+                if to_skip != 0 and pidx == first_kept_frame:
+                    del hybrid_stack[hidx + 1:]
+
+                assert hidx >= 0
+                hybrid_stack[hidx] = python_stack[pidx]
+                hidx -= 1
+                pidx -= 1
+
+                # Stop when we either run out of Python frames or reach the
+                # entry frame being evaluated by the next eval loop.
+                if pidx < 0 or is_entry_frame[pidx]:
+                    break
+        else:
+            assert hidx >= 0
+            hybrid_stack[hidx] = native_frame
+            hidx -= 1
+
+    assert hidx == -1
+    if pidx >= 0:
+        # We ran out of native frames without using up all of our Python
+        # frames. We've seen this happen on stripped interpreters on Alpine
+        # Linux in CI. Presumably this indicates that unwinding failed to
+        # symbolify some of the calls to _PyEval_EvalFrameDefault.
+        return [("<unknown stack>", "<unknown>", 0)]
+
+    return hybrid_stack[:max_stacks]
+
 
 @cython.freelist(1024)
 cdef class AllocationRecord:
     cdef object _tuple
-    cdef object _stack_trace
-    cdef object _native_stack_trace
+    cdef dict _stack_trace_cache
     cdef shared_ptr[RecordReader] _reader
 
     def __init__(self, record):
         self._tuple = record
-        self._stack_trace = None
+        self._stack_trace_cache = {}
 
     def __eq__(self, other):
         cdef AllocationRecord _other
@@ -172,6 +292,14 @@ cdef class AllocationRecord:
         return self._tuple[5]
 
     @property
+    def native_stack_id(self):
+        return self._tuple[6]
+
+    @property
+    def native_segment_generation(self):
+        return self._tuple[7]
+
+    @property
     def thread_name(self):
         if self.tid == -1:
             return "merged thread"
@@ -181,114 +309,42 @@ cdef class AllocationRecord:
         return f"{thread_id} ({name})" if name else f"{thread_id}"
 
     def stack_trace(self, max_stacks=None):
-        assert self._reader.get() != NULL, "Cannot get stack trace without reader."
-        cdef ssize_t to_skip
-        cdef ssize_t to_keep
-        if self._stack_trace is None:
-            if self.allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
-                raise NotImplementedError("Stack traces for deallocations aren't captured.")
-
-            if max_stacks is None:
-                self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4])
-                if self._tuple[0] == self._reader.get().getMainThreadTid():
-                    to_skip = self._reader.get().getSkippedFramesOnMainThread()
-                    to_keep = max(len(self._stack_trace) - to_skip, 0)
-                    del self._stack_trace[to_keep:]
-            else:
-                self._stack_trace = self._reader.get().Py_GetStackFrame(self._tuple[4], max_stacks)
-        return self._stack_trace
+        cache_key = ("python", max_stacks)
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = stack_trace(
+                self._reader.get(),
+                self.tid,
+                self.allocator,
+                self.stack_id,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
 
     def native_stack_trace(self, max_stacks=None):
-        assert self._reader.get() != NULL, "Cannot get stack trace without reader."
-        if self._native_stack_trace is None:
-            if self.allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
-                raise NotImplementedError("Stack traces for deallocations aren't captured.")
-
-            if max_stacks is None:
-                self._native_stack_trace = self._reader.get().Py_GetNativeStackFrame(
-                        self._tuple[6], self._tuple[7])
-            else:
-                self._native_stack_trace = self._reader.get().Py_GetNativeStackFrame(
-                        self._tuple[6], self._tuple[7], max_stacks)
-        return self._native_stack_trace
-
-    cdef _is_eval_frame(self, object symbol):
-        return "_PyEval_EvalFrameDefault" in symbol
+        cache_key = ("native", max_stacks)
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = native_stack_trace(
+                self._reader.get(),
+                self.allocator,
+                self.native_stack_id,
+                self.native_segment_generation,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
 
     def hybrid_stack_trace(self, max_stacks=None):
-        # This function merges a Python stack and a native stack into
-        # a "hybrid" stack. It substitutes _PyFrame_EvalFrameDefault calls in
-        # the native stack with the corresponding frame in the Python stack.
-        # This sounds easy, but there are several tricky aspects:
-        # 1. For the thread that called Tracker.__enter__, we want to hide
-        #    frames (both Python and C) above the one that made that call.
-        #    For other threads we want to keep all frames.
-        # 2. If _PyFrame_EvalFrameDefault allocates memory before calling our
-        #    profile function, we'll have too few Python frames to pair up
-        #    every _PyFrame_EvalFrameDefault call. This happens in 3.11.
-        # 3. Since Python 3.11, one _PyFrame_EvalFrameDefault call can evaluate
-        #    many Python frames. If a frame's is_entry_frame flag is unset, it
-        #    uses the same _PyFrame_EvalFrameDefault call as its caller.
-        # 4. If the interpreter was stripped, we may not be able to recognize
-        #    every (or even any) _PyFrame_EvalFrameDefault call, so we may
-        #    have extra Python frames left after pairing.
-        cdef vector[unsigned char] is_entry_frame
-        python_stack = self._reader.get().Py_GetStackFrameAndEntryInfo(
-            self._tuple[4], &is_entry_frame
-        )
-        native_stack = self.native_stack_trace()
-
-        cdef ssize_t num_non_entry_frames = count(
-            is_entry_frame.begin(), is_entry_frame.end(), 0
-        )
-
-        # Entry frames replace native frames; non-entry frames are inserted.
-        hybrid_stack = [None] * (len(native_stack) + num_non_entry_frames)
-
-        # Both stacks are from most recent to least, but we must pair things up
-        # least recent to most to handle cases where _PyFrame_EvalFrameDefault
-        # allocated memory before calling the profile function.
-        native_stack.reverse()
-        cdef ssize_t pidx = len(python_stack) - 1
-        cdef ssize_t hidx = len(hybrid_stack) - 1
-
-        cdef ssize_t to_skip = 0
-        if self._tuple[0] == self._reader.get().getMainThreadTid():
-            to_skip = self._reader.get().getSkippedFramesOnMainThread()
-        cdef ssize_t first_kept_frame = pidx - to_skip
-
-        for native_frame in native_stack:
-            symbol = native_frame[0]
-            if pidx >= 0 and self._is_eval_frame(symbol):
-                while True:
-                    # If we're not keeping all frames and we've reached the
-                    # first one we want to keep, remove frames above it.
-                    if to_skip != 0 and pidx == first_kept_frame:
-                        del hybrid_stack[hidx + 1:]
-
-                    assert hidx >= 0
-                    hybrid_stack[hidx] = python_stack[pidx]
-                    hidx -= 1
-                    pidx -= 1
-
-                    # Stop when we either run out of Python frames or reach the
-                    # entry frame being evaluated by the next eval loop.
-                    if pidx < 0 or is_entry_frame[pidx]:
-                        break
-            else:
-                assert hidx >= 0
-                hybrid_stack[hidx] = native_frame
-                hidx -= 1
-
-        assert hidx == -1
-        if pidx >= 0:
-            # We ran out of native frames without using up all of our Python
-            # frames. We've seen this happen on stripped interpreters on Alpine
-            # Linux in CI. Presumably this indicates that unwinding failed to
-            # symbolify some of the calls to _PyEval_EvalFrameDefault.
-            return [("<unknown stack>", "<unknown>", 0)]
-
-        return hybrid_stack[:max_stacks]
+        cache_key = ("hybrid", max_stacks)
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = hybrid_stack_trace(
+                self._reader.get(),
+                self.tid,
+                self.allocator,
+                self.stack_id,
+                self.native_stack_id,
+                self.native_segment_generation,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
 
     def __repr__(self):
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
