@@ -150,6 +150,16 @@ class IntervalTree
         return d_intervals.end();
     }
 
+    const_iterator begin() const
+    {
+        return d_intervals.begin();
+    }
+
+    const_iterator end() const
+    {
+        return d_intervals.end();
+    }
+
     const_iterator cbegin()
     {
         return d_intervals.cbegin();
@@ -337,7 +347,7 @@ class AllocationLifetimeAggregator
     void addAllocation(const Allocation& allocation);
     void captureSnapshot();
 
-    std::vector<AllocationLifetime> generateIndex();
+    std::vector<AllocationLifetime> generateIndex() const;
 
   private:
     size_t d_num_snapshots{};
@@ -366,7 +376,7 @@ class AllocationLifetimeAggregator
     // Ranged allocations contributing to the current heap size.
     IntervalTree<std::pair<std::shared_ptr<Allocation>, size_t>> d_mmap_intervals;
 
-    HighWaterMarkLocationKey extractKey(const Allocation& allocation);
+    HighWaterMarkLocationKey extractKey(const Allocation& allocation) const;
 
     void recordRangedDeallocation(
             const std::shared_ptr<Allocation>& allocation,

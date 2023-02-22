@@ -499,7 +499,7 @@ AllocationLifetimeAggregator::addAllocation(const Allocation& allocation_or_deal
 }
 
 HighWaterMarkLocationKey
-AllocationLifetimeAggregator::extractKey(const Allocation& allocation)
+AllocationLifetimeAggregator::extractKey(const Allocation& allocation) const
 {
     return {allocation.tid,
             allocation.frame_index,
@@ -549,7 +549,7 @@ AllocationLifetimeAggregator::captureSnapshot()
 }
 
 std::vector<AllocationLifetime>
-AllocationLifetimeAggregator::generateIndex()
+AllocationLifetimeAggregator::generateIndex() const
 {
     struct KeyHash
     {
@@ -561,10 +561,13 @@ AllocationLifetimeAggregator::generateIndex()
         }
     };
 
+    // First, gather information about allocations that were never deallocated.
+    // These are still sitting in `d_ptr_to_allocation` and `d_mmap_intervals`,
+    // since `d_allocation_history` only gets updated when things are freed.
+    // We can't update `d_allocation_history` here since this method is const.
     std::unordered_map<std::pair<size_t, HighWaterMarkLocationKey>, std::pair<size_t, size_t>, KeyHash>
             leaks;
 
-    // Leaked simple allocations
     for (const auto& [ptr, allocation_and_generation] : d_ptr_to_allocation) {
         (void)ptr;
         const auto& [allocation, generation] = allocation_and_generation;
@@ -573,7 +576,6 @@ AllocationLifetimeAggregator::generateIndex()
         counts.second += allocation.size;
     }
 
-    // Leaked range allocations
     std::unordered_set<void*> leaked_mappings;
     for (const auto& [interval, allocation_ptr_and_generation] : d_mmap_intervals) {
         const auto& [allocation_ptr, generation] = allocation_ptr_and_generation;
@@ -585,22 +587,24 @@ AllocationLifetimeAggregator::generateIndex()
         counts.second += interval.size();
     }
 
+    // Then, combine information about both leaked allocations and freed
+    // allocations into the vector we'll be returning.
     std::vector<AllocationLifetime> ret;
 
-    // Things that were leaked
     for (const auto& [when_where, how_much] : leaks) {
         const auto& [allocated_before, key] = when_where;
         const auto& [n_allocations, n_bytes] = how_much;
         ret.push_back({allocated_before, static_cast<size_t>(-1), key, n_allocations, n_bytes});
     }
 
-    // Things that weren't leaked
     for (const auto& [when_where, how_much] : d_allocation_history) {
         const auto& [allocated_before, deallocated_before, key] = when_where;
         const auto& [n_allocations, n_bytes] = how_much;
         ret.push_back({allocated_before, deallocated_before, key, n_allocations, n_bytes});
     }
 
+    // Finally, sort the vector we're returning, so that our callers can count
+    // on all intervals for a given location being contiguous.
     std::sort(ret.begin(), ret.end());
     return ret;
 }
