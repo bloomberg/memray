@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from memray import AllocatorType
 from memray._memray import AllocationLifetimeAggregatorTestHarness
+from memray._memray import Interval
 
 CALLOC = AllocatorType.CALLOC
 FREE = AllocatorType.FREE
@@ -23,7 +24,7 @@ def test_no_allocations_at_start():
 
     # WHEN
     # THEN
-    assert [] == tester.get_allocations()
+    assert [] == list(tester.get_allocations())
 
 
 def test_allocation_not_reported_when_freed_within_same_snapshot():
@@ -41,7 +42,7 @@ def test_allocation_not_reported_when_freed_within_same_snapshot():
     tester.add_allocation(**loc.__dict__, allocator=FREE, address=4096, size=0)
 
     # THEN
-    assert [] == tester.get_allocations()
+    assert [] == list(tester.get_allocations())
 
 
 def test_allocation_reported_when_freed_within_different_snapshot():
@@ -61,14 +62,12 @@ def test_allocation_reported_when_freed_within_different_snapshot():
 
     # THEN
     (alloc,) = tester.get_allocations()
-    assert alloc.address == 0
     assert alloc.allocator == CALLOC
-    assert alloc.n_allocations == 1
-    assert alloc.size == 1234
+    assert alloc.native_stack_id == 4
     assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
     assert alloc.tid == 1
-    assert alloc.allocated_before_snapshot == 0
-    assert alloc.deallocated_before_snapshot == 1
+    assert alloc.intervals == [Interval(0, 1, 1, 1234)]
 
 
 def test_allocation_reported_when_leaked():
@@ -86,14 +85,12 @@ def test_allocation_reported_when_leaked():
 
     # THEN
     (alloc,) = tester.get_allocations()
-    assert alloc.address == 0
     assert alloc.allocator == CALLOC
-    assert alloc.n_allocations == 1
-    assert alloc.size == 1234
+    assert alloc.native_stack_id == 4
     assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
     assert alloc.tid == 1
-    assert alloc.allocated_before_snapshot == 0
-    assert alloc.deallocated_before_snapshot is None
+    assert alloc.intervals == [Interval(0, None, 1, 1234)]
 
 
 def test_multiple_snapshots_between_allocation_and_deallocation():
@@ -118,14 +115,12 @@ def test_multiple_snapshots_between_allocation_and_deallocation():
 
     # THEN
     (alloc,) = tester.get_allocations()
-    assert alloc.address == 0
     assert alloc.allocator == CALLOC
-    assert alloc.n_allocations == 1
-    assert alloc.size == 1234
+    assert alloc.native_stack_id == 4
     assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
     assert alloc.tid == 1
-    assert alloc.allocated_before_snapshot == 2
-    assert alloc.deallocated_before_snapshot == 5
+    assert alloc.intervals == [Interval(2, 5, 1, 1234)]
 
 
 def test_allocations_from_same_location_and_snapshot_freed_in_different_snapshots():
@@ -148,24 +143,13 @@ def test_allocations_from_same_location_and_snapshot_freed_in_different_snapshot
     tester.add_allocation(**loc.__dict__, allocator=FREE, address=4096, size=0)
 
     # THEN
-    alloc1, alloc2 = tester.get_allocations()
-    assert alloc1.address == 0
-    assert alloc1.allocator == CALLOC
-    assert alloc1.n_allocations == 1
-    assert alloc1.size == 4321
-    assert alloc1.stack_id == 5
-    assert alloc1.tid == 1
-    assert alloc1.allocated_before_snapshot == 1
-    assert alloc1.deallocated_before_snapshot == 2
-
-    assert alloc2.address == 0
-    assert alloc2.allocator == CALLOC
-    assert alloc2.n_allocations == 1
-    assert alloc2.size == 1234
-    assert alloc2.stack_id == 5
-    assert alloc2.tid == 1
-    assert alloc2.allocated_before_snapshot == 1
-    assert alloc2.deallocated_before_snapshot == 3
+    (alloc,) = tester.get_allocations()
+    assert alloc.allocator == CALLOC
+    assert alloc.native_stack_id == 4
+    assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
+    assert alloc.tid == 1
+    assert alloc.intervals == [Interval(1, 2, 1, 4321), Interval(1, 3, 1, 1234)]
 
 
 def test_allocations_from_same_location_and_different_snapshots_freed_in_one_snapshot():
@@ -187,24 +171,13 @@ def test_allocations_from_same_location_and_different_snapshots_freed_in_one_sna
     tester.add_allocation(**loc.__dict__, allocator=FREE, address=4096, size=0)
 
     # THEN
-    alloc1, alloc2 = tester.get_allocations()
-    assert alloc1.address == 0
-    assert alloc1.allocator == CALLOC
-    assert alloc1.n_allocations == 1
-    assert alloc1.size == 1234
-    assert alloc1.stack_id == 5
-    assert alloc1.tid == 1
-    assert alloc1.allocated_before_snapshot == 0
-    assert alloc1.deallocated_before_snapshot == 2
-
-    assert alloc2.address == 0
-    assert alloc2.allocator == CALLOC
-    assert alloc2.n_allocations == 1
-    assert alloc2.size == 4321
-    assert alloc2.stack_id == 5
-    assert alloc2.tid == 1
-    assert alloc2.allocated_before_snapshot == 1
-    assert alloc2.deallocated_before_snapshot == 2
+    (alloc,) = tester.get_allocations()
+    assert alloc.allocator == CALLOC
+    assert alloc.native_stack_id == 4
+    assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
+    assert alloc.tid == 1
+    assert alloc.intervals == [Interval(0, 2, 1, 1234), Interval(1, 2, 1, 4321)]
 
 
 def test_two_leaked_allocations_from_one_location():
@@ -224,24 +197,13 @@ def test_two_leaked_allocations_from_one_location():
     tester.capture_snapshot()
 
     # THEN
-    alloc1, alloc2 = tester.get_allocations()
-    assert alloc1.address == 0
-    assert alloc1.allocator == CALLOC
-    assert alloc1.n_allocations == 1
-    assert alloc1.size == 1234
-    assert alloc1.stack_id == 5
-    assert alloc1.tid == 1
-    assert alloc1.allocated_before_snapshot == 0
-    assert alloc1.deallocated_before_snapshot is None
-
-    assert alloc2.address == 0
-    assert alloc2.allocator == CALLOC
-    assert alloc2.n_allocations == 1
-    assert alloc2.size == 4321
-    assert alloc2.stack_id == 5
-    assert alloc2.tid == 1
-    assert alloc2.allocated_before_snapshot == 1
-    assert alloc2.deallocated_before_snapshot is None
+    (alloc,) = tester.get_allocations()
+    assert alloc.allocator == CALLOC
+    assert alloc.native_stack_id == 4
+    assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
+    assert alloc.tid == 1
+    assert alloc.intervals == [Interval(0, None, 1, 1234), Interval(1, None, 1, 4321)]
 
 
 def test_allocations_made_and_freed_together_are_aggregated():
@@ -263,14 +225,12 @@ def test_allocations_made_and_freed_together_are_aggregated():
 
     # THEN
     (alloc,) = tester.get_allocations()
-    assert alloc.address == 0
     assert alloc.allocator == CALLOC
-    assert alloc.n_allocations == 2
-    assert alloc.size == 1234 + 4321
+    assert alloc.native_stack_id == 4
     assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
     assert alloc.tid == 1
-    assert alloc.allocated_before_snapshot == 0
-    assert alloc.deallocated_before_snapshot == 1
+    assert alloc.intervals == [Interval(0, 1, 2, 1234 + 4321)]
 
 
 def test_leaked_allocations_within_one_snapshot_are_aggregated():
@@ -290,14 +250,12 @@ def test_leaked_allocations_within_one_snapshot_are_aggregated():
 
     # THEN
     (alloc,) = tester.get_allocations()
-    assert alloc.address == 0
     assert alloc.allocator == CALLOC
-    assert alloc.n_allocations == 2
-    assert alloc.size == 1234 + 4321
+    assert alloc.native_stack_id == 4
     assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
     assert alloc.tid == 1
-    assert alloc.allocated_before_snapshot == 0
-    assert alloc.deallocated_before_snapshot is None
+    assert alloc.intervals == [Interval(0, None, 2, 1234 + 4321)]
 
 
 def test_freed_allocations_from_different_locations_are_not_aggregated():
@@ -331,23 +289,19 @@ def test_freed_allocations_from_different_locations_are_not_aggregated():
 
     # THEN
     alloc1, alloc2 = tester.get_allocations()
-    assert alloc1.address == 0
     assert alloc1.allocator == CALLOC
-    assert alloc1.n_allocations == 1
-    assert alloc1.size == 1234
+    assert alloc1.native_stack_id == 4
     assert alloc1.stack_id == 5
+    assert alloc1.native_segment_generation == 6
     assert alloc1.tid == 1
-    assert alloc1.allocated_before_snapshot == 0
-    assert alloc1.deallocated_before_snapshot == 1
+    assert alloc1.intervals == [Interval(0, 1, 1, 1234)]
 
-    assert alloc2.address == 0
     assert alloc2.allocator == CALLOC
-    assert alloc2.n_allocations == 1
-    assert alloc2.size == 4321
+    assert alloc2.native_stack_id == 7
     assert alloc2.stack_id == 8
+    assert alloc2.native_segment_generation == 9
     assert alloc2.tid == 1
-    assert alloc2.allocated_before_snapshot == 0
-    assert alloc2.deallocated_before_snapshot == 1
+    assert alloc2.intervals == [Interval(0, 1, 1, 4321)]
 
 
 def test_leaked_allocations_from_different_locations_are_not_aggregated():
@@ -372,23 +326,19 @@ def test_leaked_allocations_from_different_locations_are_not_aggregated():
 
     # THEN
     alloc1, alloc2 = tester.get_allocations()
-    assert alloc1.address == 0
     assert alloc1.allocator == CALLOC
-    assert alloc1.n_allocations == 1
-    assert alloc1.size == 1234
+    assert alloc1.native_stack_id == 4
     assert alloc1.stack_id == 5
+    assert alloc1.native_segment_generation == 6
     assert alloc1.tid == 1
-    assert alloc1.allocated_before_snapshot == 0
-    assert alloc1.deallocated_before_snapshot is None
+    assert alloc1.intervals == [Interval(0, None, 1, 1234)]
 
-    assert alloc2.address == 0
     assert alloc2.allocator == CALLOC
-    assert alloc2.n_allocations == 1
-    assert alloc2.size == 4321
+    assert alloc2.native_stack_id == 7
     assert alloc2.stack_id == 8
+    assert alloc2.native_segment_generation == 9
     assert alloc2.tid == 1
-    assert alloc2.allocated_before_snapshot == 0
-    assert alloc2.deallocated_before_snapshot is None
+    assert alloc2.intervals == [Interval(0, None, 1, 4321)]
 
 
 def test_range_freed_in_same_snapshot():
@@ -406,7 +356,7 @@ def test_range_freed_in_same_snapshot():
     tester.add_allocation(**loc.__dict__, allocator=MUNMAP, address=4096, size=1234)
 
     # THEN
-    assert [] == tester.get_allocations()
+    assert [] == list(tester.get_allocations())
 
 
 def test_range_freed_in_different_snapshot():
@@ -426,14 +376,12 @@ def test_range_freed_in_different_snapshot():
 
     # THEN
     (alloc,) = tester.get_allocations()
-    assert alloc.address == 0
     assert alloc.allocator == MMAP
-    assert alloc.n_allocations == 1
-    assert alloc.size == 1234
+    assert alloc.native_stack_id == 4
     assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
     assert alloc.tid == 1
-    assert alloc.allocated_before_snapshot == 0
-    assert alloc.deallocated_before_snapshot == 1
+    assert alloc.intervals == [Interval(0, 1, 1, 1234)]
 
 
 def test_range_leaked():
@@ -451,14 +399,12 @@ def test_range_leaked():
 
     # THEN
     (alloc,) = tester.get_allocations()
-    assert alloc.address == 0
     assert alloc.allocator == MMAP
-    assert alloc.n_allocations == 1
-    assert alloc.size == 1234
+    assert alloc.native_stack_id == 4
     assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
     assert alloc.tid == 1
-    assert alloc.allocated_before_snapshot == 0
-    assert alloc.deallocated_before_snapshot is None
+    assert alloc.intervals == [Interval(0, None, 1, 1234)]
 
 
 def test_shrunk_then_leaked_range():
@@ -477,14 +423,12 @@ def test_shrunk_then_leaked_range():
 
     # THEN
     (alloc,) = tester.get_allocations()
-    assert alloc.address == 0
     assert alloc.allocator == MMAP
-    assert alloc.n_allocations == 1
-    assert alloc.size == 234
+    assert alloc.native_stack_id == 4
     assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
     assert alloc.tid == 1
-    assert alloc.allocated_before_snapshot == 0
-    assert alloc.deallocated_before_snapshot is None
+    assert alloc.intervals == [Interval(0, None, 1, 234)]
 
 
 def test_shrunk_then_freed_range():
@@ -505,24 +449,13 @@ def test_shrunk_then_freed_range():
     tester.add_allocation(**loc.__dict__, allocator=MUNMAP, address=4096, size=1234)
 
     # THEN
-    alloc1, alloc2 = tester.get_allocations()
-    assert alloc1.address == 0
-    assert alloc1.allocator == MMAP
-    assert alloc1.n_allocations == 0
-    assert alloc1.size == 1000
-    assert alloc1.stack_id == 5
-    assert alloc1.tid == 1
-    assert alloc1.allocated_before_snapshot == 0
-    assert alloc1.deallocated_before_snapshot == 1
-
-    assert alloc2.address == 0
-    assert alloc2.allocator == MMAP
-    assert alloc2.n_allocations == 1
-    assert alloc2.size == 234
-    assert alloc2.stack_id == 5
-    assert alloc2.tid == 1
-    assert alloc2.allocated_before_snapshot == 0
-    assert alloc2.deallocated_before_snapshot == 2
+    (alloc,) = tester.get_allocations()
+    assert alloc.allocator == MMAP
+    assert alloc.native_stack_id == 4
+    assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
+    assert alloc.tid == 1
+    assert alloc.intervals == [Interval(0, 1, 0, 1000), Interval(0, 2, 1, 234)]
 
 
 def test_split_then_leaked_range():
@@ -541,25 +474,14 @@ def test_split_then_leaked_range():
     tester.add_allocation(**loc.__dict__, allocator=MUNMAP, address=5000, size=100)
 
     # THEN
-    alloc1, alloc2 = tester.get_allocations()
+    (alloc,) = tester.get_allocations()
 
-    assert alloc1.address == 0
-    assert alloc1.allocator == MMAP
-    assert alloc1.n_allocations == 0
-    assert alloc1.size == 100
-    assert alloc1.stack_id == 5
-    assert alloc1.tid == 1
-    assert alloc1.allocated_before_snapshot == 0
-    assert alloc1.deallocated_before_snapshot == 1
-
-    assert alloc2.address == 0
-    assert alloc2.allocator == MMAP
-    assert alloc2.n_allocations == 1
-    assert alloc2.size == 1234 - 100
-    assert alloc2.stack_id == 5
-    assert alloc2.tid == 1
-    assert alloc2.allocated_before_snapshot == 0
-    assert alloc2.deallocated_before_snapshot is None
+    assert alloc.allocator == MMAP
+    assert alloc.native_stack_id == 4
+    assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
+    assert alloc.tid == 1
+    assert alloc.intervals == [Interval(0, 1, 0, 100), Interval(0, None, 1, 1234 - 100)]
 
 
 def test_split_then_freed_range():
@@ -582,30 +504,14 @@ def test_split_then_freed_range():
     tester.add_allocation(**loc.__dict__, allocator=MUNMAP, address=5100, size=230)
 
     # THEN
-    (alloc1, alloc2, alloc3) = tester.get_allocations()
-    assert alloc1.address == 0
-    assert alloc1.allocator == MMAP
-    assert alloc1.n_allocations == 0
-    assert alloc1.size == 100
-    assert alloc1.stack_id == 5
-    assert alloc1.tid == 1
-    assert alloc1.allocated_before_snapshot == 0
-    assert alloc1.deallocated_before_snapshot == 1
-
-    assert alloc2.address == 0
-    assert alloc2.allocator == MMAP
-    assert alloc2.n_allocations == 0
-    assert alloc2.size == 904
-    assert alloc2.stack_id == 5
-    assert alloc2.tid == 1
-    assert alloc2.allocated_before_snapshot == 0
-    assert alloc2.deallocated_before_snapshot == 2
-
-    assert alloc3.address == 0
-    assert alloc3.allocator == MMAP
-    assert alloc3.n_allocations == 1
-    assert alloc3.size == 230
-    assert alloc3.stack_id == 5
-    assert alloc3.tid == 1
-    assert alloc3.allocated_before_snapshot == 0
-    assert alloc3.deallocated_before_snapshot == 3
+    (alloc,) = tester.get_allocations()
+    assert alloc.allocator == MMAP
+    assert alloc.native_stack_id == 4
+    assert alloc.stack_id == 5
+    assert alloc.native_segment_generation == 6
+    assert alloc.tid == 1
+    assert alloc.intervals == [
+        Interval(0, 1, 0, 100),
+        Interval(0, 2, 0, 904),
+        Interval(0, 3, 1, 230),
+    ]

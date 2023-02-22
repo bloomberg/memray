@@ -248,6 +248,8 @@ struct HighWaterMarkLocationKey
     hooks::Allocator allocator;
 
     bool operator==(const HighWaterMarkLocationKey& rhs) const;
+    bool operator!=(const HighWaterMarkLocationKey& rhs) const;
+    bool operator<(const HighWaterMarkLocationKey& rhs) const;
 };
 
 struct HighWaterMarkLocationKeyHash

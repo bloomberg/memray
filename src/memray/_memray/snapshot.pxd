@@ -58,6 +58,9 @@ cdef extern from "snapshot.h" namespace "memray::api":
         size_t native_segment_generation
         Allocator allocator
 
+        bool operator==(const HighWaterMarkLocationKey& other)
+        bool operator!=(const HighWaterMarkLocationKey& other)
+
     cdef cppclass AllocationLifetime:
         size_t allocatedBeforeSnapshot
         size_t deallocatedBeforeSnapshot

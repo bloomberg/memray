@@ -352,47 +352,208 @@ cdef class AllocationRecord:
                 f"allocations={self.n_allocations}>")
 
 
-cdef class TemporalAllocationRecord(AllocationRecord):
-    cdef public object allocated_before_snapshot
+@cython.freelist(1024)
+cdef class Interval:
+    cdef public size_t allocated_before_snapshot
     cdef public object deallocated_before_snapshot
+    cdef public size_t n_allocations
+    cdef public size_t n_bytes
 
-    def __init__(self, record, allocated_before_snapshot, deallocated_before_snapshot):
-        super().__init__(record)
+    def __cinit__(
+        self,
+        size_t allocated_before_snapshot,
+        object deallocated_before_snapshot,
+        size_t n_allocations,
+        size_t n_bytes,
+    ):
         self.allocated_before_snapshot = allocated_before_snapshot
         self.deallocated_before_snapshot = deallocated_before_snapshot
+        self.n_allocations = n_allocations
+        self.n_bytes = n_bytes
+
+    def __eq__(self, other):
+        if type(other) is not Interval:
+            return NotImplemented
+        return (
+            self.allocated_before_snapshot,
+            self.deallocated_before_snapshot,
+            self.n_allocations,
+            self.n_bytes,
+        ) == (
+            other.allocated_before_snapshot,
+            other.deallocated_before_snapshot,
+            other.n_allocations,
+            other.n_bytes,
+        )
 
     def __repr__(self):
-        start = self.allocated_before_snapshot
-        end = self.deallocated_before_snapshot
-        return super().__repr__().replace(">", f", range=range({start}, {end})>")
+        return (
+            f"Interval(allocated_before_snapshot={self.allocated_before_snapshot},"
+            f" deallocated_before_snapshot={self.deallocated_before_snapshot},"
+            f" n_allocations={self.n_allocations},"
+            f" n_bytes={self.n_bytes})"
+        )
+
+
+@cython.freelist(1024)
+cdef class TemporalAllocationRecord:
+    cdef object _tuple
+    cdef dict _stack_trace_cache
+    cdef shared_ptr[RecordReader] _reader
+    cdef public object intervals
+
+    def __cinit__(self, record):
+        self._tuple = record
+        self._stack_trace_cache = {}
+        self.intervals = []
+
+    def __eq__(self, other):
+        if type(other) != TemporalAllocationRecord:
+            return NotImplemented
+        cdef TemporalAllocationRecord o = other
+        return self._tuple == o._tuple and self._intervals == o._intervals
+
+    def __hash__(self):
+        return hash(self._tuple)
+
+    @property
+    def tid(self):
+        return self._tuple[0]
+
+    @property
+    def allocator(self):
+        return self._tuple[1]
+
+    @property
+    def stack_id(self):
+        return self._tuple[2]
+
+    @property
+    def native_stack_id(self):
+        return self._tuple[3]
+
+    @property
+    def native_segment_generation(self):
+        return self._tuple[4]
+
+    @property
+    def thread_name(self):
+        assert self._reader.get() != NULL, "Cannot get thread name without reader."
+        cdef object name = self._reader.get().getThreadName(self.tid)
+        thread_id = hex(self.tid)
+        return f"{thread_id} ({name})" if name else f"{thread_id}"
+
+    def stack_trace(self, max_stacks=None):
+        cache_key = ("python", max_stacks)
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = stack_trace(
+                self._reader.get(),
+                self.tid,
+                self.allocator,
+                self.stack_id,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
+
+    def native_stack_trace(self, max_stacks=None):
+        cache_key = ("native", max_stacks)
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = native_stack_trace(
+                self._reader.get(),
+                self.allocator,
+                self.native_stack_id,
+                self.native_segment_generation,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
+
+    def hybrid_stack_trace(self, max_stacks=None):
+        cache_key = ("hybrid", max_stacks)
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = hybrid_stack_trace(
+                self._reader.get(),
+                self.tid,
+                self.allocator,
+                self.stack_id,
+                self.native_stack_id,
+                self.native_segment_generation,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
 
 
 cdef create_temporal_allocation_record(
-    AllocationLifetime lifetime,
+    const HighWaterMarkLocationKey& key,
     shared_ptr[RecordReader] reader,
 ):
-    address = 0
-
-    if lifetime.deallocatedBeforeSnapshot == <size_t>(-1):
-        deallocatedBeforeOrNone = None
-    else:
-        deallocatedBeforeOrNone = lifetime.deallocatedBeforeSnapshot
-
-    elem = (
-        lifetime.key.thread_id,
-        address,
-        lifetime.n_bytes,
-        <int>lifetime.key.allocator,
-        lifetime.key.python_frame_id,
-        lifetime.n_allocations,
-        lifetime.key.native_frame_id,
-        lifetime.key.native_segment_generation,
+    cdef object elem = (
+        key.thread_id,
+        <int>key.allocator,
+        key.python_frame_id,
+        key.native_frame_id,
+        key.native_segment_generation,
     )
-    cdef TemporalAllocationRecord alloc = TemporalAllocationRecord(
-        elem, lifetime.allocatedBeforeSnapshot, deallocatedBeforeOrNone
-    )
+    cdef TemporalAllocationRecord alloc = TemporalAllocationRecord(elem)
     alloc._reader = reader
     return alloc
+
+
+cdef class TemporalAllocationGenerator:
+    cdef vector[AllocationLifetime] lifetimes
+    cdef shared_ptr[RecordReader] reader
+
+    cdef object curr_record
+    cdef HighWaterMarkLocationKey last_key
+    cdef size_t idx
+
+    cdef setup(
+        self,
+        vector[AllocationLifetime]&& lifetimes,
+        shared_ptr[RecordReader] reader,
+    ):
+        self.lifetimes = move(lifetimes)
+        self.reader = move(reader)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        to_return = None
+        cdef AllocationLifetime lifetime
+        while self.idx < self.lifetimes.size():
+            lifetime = self.lifetimes[self.idx]
+            self.idx += 1
+
+            if lifetime.key != self.last_key:
+                if self.curr_record is not None:
+                    to_return = self.curr_record
+                self.last_key = lifetime.key
+                self.curr_record = create_temporal_allocation_record(
+                    lifetime.key, self.reader
+                )
+
+            if lifetime.deallocatedBeforeSnapshot == <size_t>(-1):
+                deallocated_before_snapshot = None
+            else:
+                deallocated_before_snapshot = lifetime.deallocatedBeforeSnapshot
+
+            self.curr_record.intervals.append(
+                Interval(
+                    lifetime.allocatedBeforeSnapshot,
+                    deallocated_before_snapshot,
+                    lifetime.n_allocations,
+                    lifetime.n_bytes,
+                )
+            )
+
+            if to_return is not None:
+                return to_return
+
+        if self.curr_record is not None:
+            to_return = self.curr_record
+            self.curr_record = None
+            return to_return
+        raise StopIteration
 
 
 MemorySnapshot = collections.namedtuple("MemorySnapshot", "time rss heap")
@@ -956,11 +1117,9 @@ cdef class FileReader:
                     assert ret != RecordResult.RecordResultAggregatedAllocationRecord
                     break
 
-        cdef vector[AllocationLifetime] lifetimes = aggregator.generateIndex()
-        return [
-            create_temporal_allocation_record(lifetime, reader_sp)
-            for lifetime in lifetimes
-        ]
+        cdef TemporalAllocationGenerator gen = TemporalAllocationGenerator()
+        gen.setup(move(aggregator.generateIndex()), reader_sp)
+        yield from gen
 
     def get_allocation_records(self):
         self._ensure_not_closed()
@@ -1291,7 +1450,6 @@ cdef class AllocationLifetimeAggregatorTestHarness:
 
     def get_allocations(self):
         cdef shared_ptr[RecordReader] reader
-        return [
-            create_temporal_allocation_record(lifetime, reader)
-            for lifetime in self.aggregator.generateIndex()
-        ]
+        cdef TemporalAllocationGenerator gen = TemporalAllocationGenerator()
+        gen.setup(move(self.aggregator.generateIndex()), reader)
+        yield from gen
