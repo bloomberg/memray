@@ -21,15 +21,43 @@ HighWaterMarkLocationKey::operator==(const HighWaterMarkLocationKey& rhs) const
 }
 
 bool
+HighWaterMarkLocationKey::operator!=(const HighWaterMarkLocationKey& rhs) const
+{
+    return !(*this == rhs);
+}
+
+bool
+HighWaterMarkLocationKey::operator<(const HighWaterMarkLocationKey& rhs) const
+{
+    if (thread_id != rhs.thread_id) {
+        return thread_id < rhs.thread_id;
+    } else if (python_frame_id != rhs.python_frame_id) {
+        return python_frame_id < rhs.python_frame_id;
+    } else if (native_frame_id != rhs.native_frame_id) {
+        return native_frame_id < rhs.native_frame_id;
+    } else if (native_segment_generation != rhs.native_segment_generation) {
+        return native_segment_generation < rhs.native_segment_generation;
+    } else if (allocator != rhs.allocator) {
+        return allocator < rhs.allocator;
+    }
+    return false;
+}
+
+bool
 operator<(const AllocationLifetime& lhs, const AllocationLifetime& rhs)
 {
+    // Sort first by location, then allocatedBefore, then deallocatedBefore.
     // Sort by n_bytes if allocatedBefore/deallocatedBefore are equal,
     // so that our test suite gets records in a predictable order.
-    return lhs.allocatedBeforeSnapshot != rhs.allocatedBeforeSnapshot
-                   ? lhs.allocatedBeforeSnapshot < rhs.allocatedBeforeSnapshot
-           : lhs.deallocatedBeforeSnapshot != rhs.deallocatedBeforeSnapshot
-                   ? lhs.deallocatedBeforeSnapshot < rhs.deallocatedBeforeSnapshot
-                   : lhs.n_bytes < rhs.n_bytes;
+    if (lhs.key != rhs.key) {
+        return lhs.key < rhs.key;
+    } else if (lhs.allocatedBeforeSnapshot != rhs.allocatedBeforeSnapshot) {
+        return lhs.allocatedBeforeSnapshot < rhs.allocatedBeforeSnapshot;
+    } else if (lhs.deallocatedBeforeSnapshot != rhs.deallocatedBeforeSnapshot) {
+        return lhs.deallocatedBeforeSnapshot < rhs.deallocatedBeforeSnapshot;
+    } else {
+        return lhs.n_bytes < rhs.n_bytes;
+    }
 }
 
 Interval::Interval(uintptr_t begin, uintptr_t end)

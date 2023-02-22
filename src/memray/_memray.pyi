@@ -65,9 +65,46 @@ class AllocationRecord:
     def __lt__(self, other: Any) -> Any: ...
     def __ne__(self, other: Any) -> Any: ...
 
-class TemporalAllocationRecord(AllocationRecord):
+class Interval:
+    def __init__(
+        self,
+        allocated_before_snapshot: int,
+        deallocated_before_snapshot: int | None,
+        n_allocations: int,
+        n_bytes: int,
+    ) -> None: ...
+    def __eq__(self, other: Any) -> Any: ...
     allocated_before_snapshot: int
-    deallocated_before_snapshot: int
+    deallocated_before_snapshot: int | None
+    n_allocations: int
+    n_bytes: int
+
+class TemporalAllocationRecord:
+    @property
+    def allocator(self) -> int: ...
+    @property
+    def stack_id(self) -> int: ...
+    @property
+    def tid(self) -> int: ...
+    @property
+    def native_stack_id(self) -> int: ...
+    @property
+    def native_segment_generation(self) -> int: ...
+    @property
+    def thread_name(self) -> str: ...
+    def hybrid_stack_trace(
+        self,
+        max_stacks: Optional[int] = None,
+    ) -> List[Union[PythonStackElement, NativeStackElement]]: ...
+    def native_stack_trace(
+        self, max_stacks: Optional[int] = None
+    ) -> List[NativeStackElement]: ...
+    def stack_trace(
+        self, max_stacks: Optional[int] = None
+    ) -> List[PythonStackElement]: ...
+    def __eq__(self, other: Any) -> Any: ...
+    def __hash__(self) -> Any: ...
+    intervals: List[Interval]
 
 class AllocatorType(enum.IntEnum):
     MALLOC: int
@@ -102,7 +139,7 @@ class FileReader:
     def get_temporal_allocation_records(
         self,
         merge_threads: bool,
-    ) -> List[TemporalAllocationRecord]: ...
+    ) -> Iterable[TemporalAllocationRecord]: ...
     def get_high_watermark_allocation_records(
         self,
         merge_threads: bool = ...,

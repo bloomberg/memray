@@ -9,9 +9,11 @@ from typing import Dict
 from typing import Iterable
 from typing import Iterator
 from typing import List
+from typing import Optional
 from typing import TextIO
 from typing import Tuple
 from typing import TypeVar
+from typing import Union
 
 from memray import AllocationRecord
 from memray import MemorySnapshot
@@ -85,7 +87,7 @@ class FlameGraphReporter:
     @classmethod
     def from_snapshot(
         cls,
-        allocations: Iterator[AllocationRecord],
+        allocations: Iterator[Union[AllocationRecord, TemporalAllocationRecord]],
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
@@ -102,19 +104,19 @@ class FlameGraphReporter:
         }
 
         frames = [root]
-        interval_list = []
+        interval_list: List[Tuple[int, Optional[int], int, int, int]] = []
 
         node_index_by_key: Dict[Tuple[int, StackFrame, str], int] = {}
 
         unique_threads = set()
         for record in allocations:
-            size = record.size
             thread_id = record.thread_name
 
             unique_threads.add(thread_id)
 
-            root["value"] += size
-            root["n_allocations"] += record.n_allocations
+            if not isinstance(record, TemporalAllocationRecord):
+                root["value"] += record.size
+                root["n_allocations"] += record.n_allocations
 
             current_frame_id = 0
             current_frame = root
@@ -157,8 +159,9 @@ class FlameGraphReporter:
 
                 current_frame_id = node_index_by_key[node_key]
                 current_frame = frames[current_frame_id]
-                current_frame["value"] += size
-                current_frame["n_allocations"] += record.n_allocations
+                if not isinstance(record, TemporalAllocationRecord):
+                    current_frame["value"] += record.size
+                    current_frame["n_allocations"] += record.n_allocations
 
                 if index - num_skipped_frames > MAX_STACKS:
                     current_frame["name"] = "<STACK TOO DEEP>"
@@ -166,14 +169,15 @@ class FlameGraphReporter:
                     break
 
             if isinstance(record, TemporalAllocationRecord):
-                interval_list.append(
+                interval_list.extend(
                     (
-                        record.allocated_before_snapshot,
-                        record.deallocated_before_snapshot,
+                        interval.allocated_before_snapshot,
+                        interval.deallocated_before_snapshot,
                         current_frame_id,
-                        record.n_allocations,
-                        record.size,
+                        interval.n_allocations,
+                        interval.n_bytes,
                     )
+                    for interval in record.intervals
                 )
 
         all_strings = StringRegistry()
