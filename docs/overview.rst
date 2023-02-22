@@ -31,5 +31,5 @@ Memray can help with the following problems:
    :align: center
 
 .. note::
-    Memray only works on Linux and MacOS, and cannot be installed on other platforms.
+    Memray only works on Linux and MacOS, and cannot be installed on other platforms. Some change
 
