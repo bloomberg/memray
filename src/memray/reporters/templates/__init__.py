@@ -38,9 +38,10 @@ def render_report(
     env = get_render_environment()
     template = env.get_template(kind + ".html")
 
-    title = get_report_title(kind=kind, show_memory_leaks=show_memory_leaks)
+    pretty_kind = kind.replace("_", " ")
+    title = get_report_title(kind=pretty_kind, show_memory_leaks=show_memory_leaks)
     return template.render(
-        kind=kind,
+        kind=pretty_kind,
         title=title,
         data=data,
         metadata=metadata,

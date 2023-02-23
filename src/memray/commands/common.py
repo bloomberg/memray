@@ -129,6 +129,7 @@ class HighWatermarkCommand:
                 snapshot = reader.get_temporal_allocation_records(
                     merge_threads=default_merge_threads
                 )  # type: ignore
+                show_memory_leaks = True
             else:
                 snapshot = reader.get_high_watermark_allocation_records(
                     merge_threads=default_merge_threads
