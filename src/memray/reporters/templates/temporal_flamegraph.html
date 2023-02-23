@@ -26,6 +26,16 @@
 </div>
 {% endblock %}
 
+{% block slider_help %}
+<p>
+  Initially the report shows allocations made at any time and not freed before
+  tracking was deactivated. By using the two sliders on the bottom line chart,
+  you can select a different time range for analysis instead. The flame graph
+  will be updated to reflect allocations made within your chosen time window
+  and not freed within it.
+</p>
+{% endblock %}
+
 {% block flamegraph_script %}
 <script type="text/javascript">
   {%- include "assets/temporal_flamegraph.js" -%}
