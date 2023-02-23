@@ -2,7 +2,6 @@ import html
 from typing import Any
 from typing import Dict
 from typing import Iterable
-from typing import Iterator
 from typing import List
 from typing import TextIO
 
@@ -27,7 +26,7 @@ class TableReporter:
     @classmethod
     def from_snapshot(
         cls,
-        allocations: Iterator[AllocationRecord],
+        allocations: Iterable[AllocationRecord],
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
@@ -62,13 +61,16 @@ class TableReporter:
         outfile: TextIO,
         metadata: Metadata,
         show_memory_leaks: bool,
+        merge_threads: bool,
     ) -> None:
+        if not merge_threads:
+            raise NotImplementedError("TableReporter only supports merged threads.")
         html_code = render_report(
             kind="table",
             data=self.data,
             metadata=metadata,
             memory_records=self.memory_records,
             show_memory_leaks=show_memory_leaks,
-            merge_threads=True,
+            merge_threads=merge_threads,
         )
         print(html_code, file=outfile)

@@ -3,7 +3,6 @@ import json
 from typing import Any
 from typing import Dict
 from typing import Iterable
-from typing import Iterator
 from typing import List
 from typing import TextIO
 from typing import Tuple
@@ -24,7 +23,7 @@ class TransformReporter:
 
     def __init__(
         self,
-        allocations: Iterator[AllocationRecord],
+        allocations: Iterable[AllocationRecord],
         *,
         format: str,
         native_traces: bool,
@@ -77,7 +76,10 @@ class TransformReporter:
         outfile: TextIO,
         metadata: Metadata,
         show_memory_leaks: bool,
+        merge_threads: bool,
     ) -> None:
+        if not merge_threads:
+            raise NotImplementedError("TransformReporter only supports merged threads.")
         renderer = getattr(self, f"render_as_{self.format}")
         renderer(outfile, metadata=metadata, show_memory_leaks=show_memory_leaks)
 

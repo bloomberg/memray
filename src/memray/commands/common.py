@@ -112,28 +112,28 @@ class HighWatermarkCommand:
     ) -> None:
         try:
             reader = FileReader(os.fspath(result_path), report_progress=True)
-            default_merge_threads = True if merge_threads is None else merge_threads
+            merge_threads = True if merge_threads is None else merge_threads
 
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
 
             if show_memory_leaks:
                 snapshot = reader.get_leaked_allocation_records(
-                    merge_threads=default_merge_threads
+                    merge_threads=merge_threads
                 )
             elif temporary_allocation_threshold >= 0:
                 snapshot = reader.get_temporary_allocation_records(
                     threshold=temporary_allocation_threshold,
-                    merge_threads=default_merge_threads,
+                    merge_threads=merge_threads,
                 )
             elif temporal_leaks:
                 snapshot = reader.get_temporal_allocation_records(
-                    merge_threads=default_merge_threads
+                    merge_threads=merge_threads
                 )  # type: ignore
                 show_memory_leaks = True
             else:
                 snapshot = reader.get_high_watermark_allocation_records(
-                    merge_threads=default_merge_threads
+                    merge_threads=merge_threads
                 )
             memory_records = tuple(reader.get_memory_snapshots())
             reporter = self.reporter_factory(
@@ -149,14 +149,11 @@ class HighWatermarkCommand:
             )
 
         with open(os.fspath(output_file.expanduser()), "w") as f:
-            kwargs = {}
-            if merge_threads is not None:
-                kwargs["merge_threads"] = merge_threads
             reporter.render(
                 outfile=f,
                 metadata=reader.metadata,
                 show_memory_leaks=show_memory_leaks,
-                **kwargs,
+                merge_threads=merge_threads,
             )
 
     def run(
