@@ -87,7 +87,7 @@ class FlameGraphReporter:
     @classmethod
     def from_snapshot(
         cls,
-        allocations: Iterator[Union[AllocationRecord, TemporalAllocationRecord]],
+        allocations: Iterable[Union[AllocationRecord, TemporalAllocationRecord]],
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,

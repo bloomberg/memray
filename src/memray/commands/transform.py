@@ -4,7 +4,6 @@ import shutil
 import sys
 from textwrap import dedent
 from typing import Any
-from typing import cast
 
 from rich import print as pprint
 
@@ -12,7 +11,6 @@ from memray._errors import MemrayCommandError
 
 from ..reporters.transform import TransformReporter
 from .common import HighWatermarkCommand
-from .common import ReporterFactory
 
 
 class TransformCommand(HighWatermarkCommand):
@@ -20,7 +18,7 @@ class TransformCommand(HighWatermarkCommand):
 
     def __init__(self) -> None:
         super().__init__(
-            reporter_factory=cast(ReporterFactory, TransformReporter),
+            reporter_factory=TransformReporter,
             reporter_name="transform",
         )
 
