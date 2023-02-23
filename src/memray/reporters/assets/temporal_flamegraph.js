@@ -147,7 +147,7 @@ function refreshFlamegraph(event) {
   console.log("refreshing flame graph!");
 
   let request_data = getRangeData(event);
-  console.log("range data: " + request_data);
+  console.log("range data: " + JSON.stringify(request_data));
 
   if (
     current_dimensions != null &&
@@ -164,31 +164,22 @@ function refreshFlamegraph(event) {
   console.log("finding range of relevant snapshot");
 
   let idx0 = 0;
-  let idx1 = memory_records.length - 1;
+  let idx1 = memory_records.length;
 
   if (request_data) {
-    let t0 = new Date(request_data.string1).getTime();
-    for (let i = 0; i < memory_records.length; i++) {
-      if (memory_records[i][0] >= t0) {
-        idx0 = i;
-        break;
-      }
-    }
+    const t0 = new Date(request_data.string1).getTime();
+    const t0_idx = memory_records.findIndex((rec) => rec[0] >= t0);
+    if (t0_idx != -1) idx0 = t0_idx;
 
-    idx1 = 0;
-    let t1 = new Date(request_data.string2).getTime();
-    for (let i = memory_records.length - 1; i >= 1; i--) {
-      if (memory_records[i - 1][0] < t1) {
-        idx1 = i;
-        break;
-      }
-    }
+    const t1 = new Date(request_data.string2).getTime();
+    const t1_idx = memory_records.findIndex((rec) => rec[0] > t1);
+    if (t1_idx != -1) idx1 = t1_idx;
   }
 
   console.log("start index is " + idx0);
   console.log("end index is " + idx1);
   console.log("first possible index is 0");
-  console.log("last possible index is " + (memory_records.length - 1));
+  console.log("last possible index is " + memory_records.length);
 
   console.log("constructing tree");
   data = packedDataToTree(packed_data, idx0, idx1);
