@@ -1,16 +1,17 @@
 import argparse
 import os
 import pathlib
+import sys
 from pathlib import Path
 from typing import Any
 from typing import Iterable
 from typing import Optional
 from typing import Tuple
 
-try:
+if sys.version_info >= (3, 8):
     from typing import Protocol
-except ImportError:
-    from typing_extensions import Protocol  # type: ignore
+else:
+    from typing_extensions import Protocol
 
 from rich import print as pprint
 
