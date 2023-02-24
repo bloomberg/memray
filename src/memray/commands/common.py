@@ -4,7 +4,6 @@ import pathlib
 import sys
 from pathlib import Path
 from textwrap import dedent
-from typing import Any
 from typing import Iterable
 from typing import Optional
 from typing import Tuple
@@ -123,7 +122,6 @@ class HighWatermarkCommand:
         temporary_allocation_threshold: int,
         merge_threads: Optional[bool] = None,
         temporal_leaks: bool = False,
-        **kwargs: Any,
     ) -> None:
         try:
             reader = FileReader(os.fspath(result_path), report_progress=True)
@@ -141,7 +139,6 @@ class HighWatermarkCommand:
                     temporal_snapshot,
                     memory_records=tuple(reader.get_memory_snapshots()),
                     native_traces=reader.metadata.has_native_traces,
-                    **kwargs,
                 )
                 show_memory_leaks = True
             else:
@@ -162,7 +159,6 @@ class HighWatermarkCommand:
                     snapshot,
                     memory_records=tuple(reader.get_memory_snapshots()),
                     native_traces=reader.metadata.has_native_traces,
-                    **kwargs,
                 )
         except OSError as e:
             raise MemrayCommandError(
@@ -237,15 +233,14 @@ class HighWatermarkCommand:
         )
         parser.add_argument("results", help="Results of the tracker run")
 
-    def run(
-        self, args: argparse.Namespace, parser: argparse.ArgumentParser, **kwargs: Any
-    ) -> None:
+    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         result_path, output_file = self.validate_filenames(
             output=args.output,
             results=args.results,
             overwrite=args.force,
         )
         self.output_file = output_file
+        kwargs = {}
         if hasattr(args, "split_threads"):
             kwargs["merge_threads"] = not args.split_threads
 
