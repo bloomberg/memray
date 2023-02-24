@@ -85,12 +85,13 @@ class FlameGraphReporter:
         self.memory_records = memory_records
 
     @classmethod
-    def from_snapshot(
+    def _from_any_snapshot(
         cls,
         allocations: Iterable[Union[AllocationRecord, TemporalAllocationRecord]],
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
+        temporal: bool,
     ) -> "FlameGraphReporter":
         root: Dict[str, Any] = {
             "name": "<root>",
@@ -114,9 +115,21 @@ class FlameGraphReporter:
 
             unique_threads.add(thread_id)
 
-            if not isinstance(record, TemporalAllocationRecord):
-                root["value"] += record.size
-                root["n_allocations"] += record.n_allocations
+            if temporal:
+                assert isinstance(record, TemporalAllocationRecord)
+                intervals = record.intervals
+                size = None
+                n_allocations = None
+            else:
+                assert not isinstance(record, TemporalAllocationRecord)
+                intervals = None
+                size = record.size
+                n_allocations = record.n_allocations
+
+            if size is not None:
+                root["value"] += size
+            if n_allocations is not None:
+                root["n_allocations"] += n_allocations
 
             current_frame_id = 0
             current_frame = root
@@ -159,16 +172,17 @@ class FlameGraphReporter:
 
                 current_frame_id = node_index_by_key[node_key]
                 current_frame = frames[current_frame_id]
-                if not isinstance(record, TemporalAllocationRecord):
-                    current_frame["value"] += record.size
-                    current_frame["n_allocations"] += record.n_allocations
+                if size is not None:
+                    current_frame["value"] += size
+                if n_allocations is not None:
+                    current_frame["n_allocations"] += n_allocations
 
                 if index - num_skipped_frames > MAX_STACKS:
                     current_frame["name"] = "<STACK TOO DEEP>"
                     current_frame["location"] = ["...", "...", 0]
                     break
 
-            if isinstance(record, TemporalAllocationRecord):
+            if intervals is not None:
                 interval_list.extend(
                     (
                         interval.allocated_before_snapshot,
@@ -177,7 +191,7 @@ class FlameGraphReporter:
                         interval.n_allocations,
                         interval.n_bytes,
                     )
-                    for interval in record.intervals
+                    for interval in intervals
                 )
 
         all_strings = StringRegistry()
@@ -207,6 +221,36 @@ class FlameGraphReporter:
             data["intervals"] = interval_list
 
         return cls(data, memory_records=memory_records)
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        allocations: Iterable[AllocationRecord],
+        *,
+        memory_records: Iterable[MemorySnapshot],
+        native_traces: bool,
+    ) -> "FlameGraphReporter":
+        return cls._from_any_snapshot(
+            allocations,
+            memory_records=memory_records,
+            native_traces=native_traces,
+            temporal=False,
+        )
+
+    @classmethod
+    def from_temporal_snapshot(
+        cls,
+        allocations: Iterable[TemporalAllocationRecord],
+        *,
+        memory_records: Iterable[MemorySnapshot],
+        native_traces: bool,
+    ) -> "FlameGraphReporter":
+        return cls._from_any_snapshot(
+            allocations,
+            memory_records=memory_records,
+            native_traces=native_traces,
+            temporal=True,
+        )
 
     def render(
         self,

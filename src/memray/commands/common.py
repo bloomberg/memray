@@ -20,6 +20,7 @@ from memray import FileReader
 from memray import MemorySnapshot
 from memray._errors import MemrayCommandError
 from memray._memray import SymbolicSupport
+from memray._memray import TemporalAllocationRecord
 from memray._memray import get_symbolic_support
 from memray.reporters import BaseReporter
 
@@ -28,6 +29,17 @@ class ReporterFactory(Protocol):
     def __call__(
         self,
         allocations: Iterable[AllocationRecord],
+        *,
+        memory_records: Iterable[MemorySnapshot],
+        native_traces: bool,
+    ) -> BaseReporter:
+        ...
+
+
+class TemporalReporterFactory(Protocol):
+    def __call__(
+        self,
+        allocations: Iterable[TemporalAllocationRecord],
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
@@ -67,10 +79,12 @@ class HighWatermarkCommand:
         reporter_factory: ReporterFactory,
         reporter_name: str,
         suffix: str = ".html",
+        temporal_reporter_factory: Optional[TemporalReporterFactory] = None,
     ) -> None:
         self.reporter_factory = reporter_factory
         self.reporter_name = reporter_name
         self.suffix = suffix
+        self.temporal_reporter_factory = temporal_reporter_factory
         self.output_file: Optional[Path] = None
 
     def determine_output_filename(self, results_file: pathlib.Path) -> pathlib.Path:
@@ -117,31 +131,38 @@ class HighWatermarkCommand:
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
 
-            if show_memory_leaks:
-                snapshot = reader.get_leaked_allocation_records(
+            if temporal_leaks:
+                assert self.temporal_reporter_factory is not None
+                temporal_snapshot = reader.get_temporal_allocation_records(
                     merge_threads=merge_threads
                 )
-            elif temporary_allocation_threshold >= 0:
-                snapshot = reader.get_temporary_allocation_records(
-                    threshold=temporary_allocation_threshold,
-                    merge_threads=merge_threads,
+                reporter = self.temporal_reporter_factory(
+                    temporal_snapshot,
+                    memory_records=tuple(reader.get_memory_snapshots()),
+                    native_traces=reader.metadata.has_native_traces,
+                    **kwargs,
                 )
-            elif temporal_leaks:
-                snapshot = reader.get_temporal_allocation_records(
-                    merge_threads=merge_threads
-                )  # type: ignore
                 show_memory_leaks = True
             else:
-                snapshot = reader.get_high_watermark_allocation_records(
-                    merge_threads=merge_threads
+                if show_memory_leaks:
+                    snapshot = reader.get_leaked_allocation_records(
+                        merge_threads=merge_threads
+                    )
+                elif temporary_allocation_threshold >= 0:
+                    snapshot = reader.get_temporary_allocation_records(
+                        threshold=temporary_allocation_threshold,
+                        merge_threads=merge_threads,
+                    )
+                else:
+                    snapshot = reader.get_high_watermark_allocation_records(
+                        merge_threads=merge_threads
+                    )
+                reporter = self.reporter_factory(
+                    snapshot,
+                    memory_records=tuple(reader.get_memory_snapshots()),
+                    native_traces=reader.metadata.has_native_traces,
+                    **kwargs,
                 )
-            memory_records = tuple(reader.get_memory_snapshots())
-            reporter = self.reporter_factory(
-                snapshot,
-                memory_records=memory_records,
-                native_traces=reader.metadata.has_native_traces,
-                **kwargs,
-            )
         except OSError as e:
             raise MemrayCommandError(
                 f"Failed to parse allocation records in {result_path}\nReason: {e}",
