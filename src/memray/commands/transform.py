@@ -2,7 +2,6 @@ import argparse
 import importlib.util
 import shutil
 import sys
-from typing import Any
 
 from rich import print as pprint
 
@@ -17,7 +16,9 @@ class TransformCommand(HighWatermarkCommand):
 
     def __init__(self) -> None:
         super().__init__(
-            reporter_factory=TransformReporter,
+            reporter_factory=lambda *args, **kwargs: TransformReporter(
+                *args, **kwargs, format=self.reporter_name
+            ),
             reporter_name="transform",
         )
 
@@ -29,9 +30,7 @@ class TransformCommand(HighWatermarkCommand):
         )
         super().prepare_parser(parser)
 
-    def run(
-        self, args: argparse.Namespace, parser: argparse.ArgumentParser, **kwargs: Any
-    ) -> None:
+    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         the_format = args.format.lower()
         suffix = TransformReporter.SUFFIX_MAP.get(the_format)
         if not suffix:
@@ -41,7 +40,7 @@ class TransformCommand(HighWatermarkCommand):
 
         self.suffix = suffix
         self.reporter_name = the_format
-        super().run(args, parser, format=the_format)
+        super().run(args, parser)
 
         post_run_callable = getattr(self, f"post_run_{the_format}", None)
         if post_run_callable:
