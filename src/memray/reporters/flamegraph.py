@@ -137,11 +137,11 @@ class FlameGraphReporter:
                     num_skipped_frames += 1
                     continue
 
-                if not is_import_system:
-                    is_import_system = is_frame_from_import_system(stack_frame)
-
                 node_key = (current_frame_id, stack_frame, thread_id)
                 if node_key not in node_index_by_key:
+                    if not is_import_system:
+                        is_import_system = is_frame_from_import_system(stack_frame)
+
                     new_node_id = len(frames)
                     node_index_by_key[node_key] = new_node_id
                     current_frame["children"].append(new_node_id)
@@ -155,6 +155,7 @@ class FlameGraphReporter:
 
                 current_frame_id = node_index_by_key[node_key]
                 current_frame = frames[current_frame_id]
+                is_import_system = current_frame["import_system"]
                 if size is not None:
                     current_frame["value"] += size
                 if n_allocations is not None:
