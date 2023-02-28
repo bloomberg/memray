@@ -137,8 +137,8 @@ class FlameGraphReporter:
                     num_skipped_frames += 1
                     continue
 
-                if is_frame_from_import_system(stack_frame):
-                    is_import_system = True
+                if not is_import_system:
+                    is_import_system = is_frame_from_import_system(stack_frame)
 
                 node_key = (current_frame_id, stack_frame, thread_id)
                 if node_key not in node_index_by_key:
