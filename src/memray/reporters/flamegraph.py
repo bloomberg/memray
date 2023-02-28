@@ -133,12 +133,12 @@ class FlameGraphReporter:
             num_skipped_frames = 0
             is_import_system = False
             for index, stack_frame in enumerate(reversed(stack)):
-                if is_cpython_internal(stack_frame):
-                    num_skipped_frames += 1
-                    continue
-
                 node_key = (current_frame_id, stack_frame, thread_id)
                 if node_key not in node_index_by_key:
+                    if is_cpython_internal(stack_frame):
+                        num_skipped_frames += 1
+                        continue
+
                     if not is_import_system:
                         is_import_system = is_frame_from_import_system(stack_frame)
 
