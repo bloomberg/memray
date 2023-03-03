@@ -2,12 +2,9 @@ import collections
 import html
 import linecache
 import sys
-from itertools import tee
-from itertools import zip_longest
 from typing import Any
 from typing import Dict
 from typing import Iterable
-from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import TextIO
@@ -28,12 +25,6 @@ from memray.reporters.templates import render_report
 MAX_STACKS = int(sys.getrecursionlimit() // 2.5)
 
 T = TypeVar("T")
-
-
-def pairwise_longest(iterable: Iterator[T]) -> Iterable[Tuple[T, T]]:
-    a, b = tee(iterable)
-    next(b, None)
-    return zip_longest(a, b)
 
 
 def create_framegraph_node_from_stack_frame(
@@ -141,20 +132,12 @@ class FlameGraphReporter:
             )
             num_skipped_frames = 0
             is_import_system = False
-            for index, (stack_frame, next_frame) in enumerate(
-                pairwise_longest(reversed(stack))
-            ):
+            for index, stack_frame in enumerate(reversed(stack)):
                 if is_cpython_internal(stack_frame):
                     num_skipped_frames += 1
                     continue
 
-                # Check if the next frame is from the import system. We check
-                # the next frame because the "import ..." code will be the parent
-                # of the first frame to enter the import system and we want to hide
-                # that one as well.
-                if is_frame_from_import_system(stack_frame) or (
-                    next_frame and is_frame_from_import_system(next_frame)
-                ):
+                if is_frame_from_import_system(stack_frame):
                     is_import_system = True
 
                 node_key = (current_frame_id, stack_frame, thread_id)
