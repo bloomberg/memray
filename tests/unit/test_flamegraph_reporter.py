@@ -1161,7 +1161,7 @@ class TestFlameGraphReporter:
         }
         assert expected == packed_data_to_tree(reporter.data)
 
-    def test_two_branches_one_is_importlib(self):
+    def test_two_branches_first_is_importlib(self):
         # GIVEN
         peak_allocations = [
             MockAllocationRecord(
@@ -1242,6 +1242,112 @@ class TestFlameGraphReporter:
                             "location": ["parent_two", "fun.py", 10],
                             "n_allocations": 1,
                             "name": "parent_two at fun.py:10",
+                            "thread_id": "0x1",
+                            "value": 1024,
+                        },
+                    ],
+                    "import_system": True,
+                    "interesting": True,
+                    "location": ["grandparent", "fun.py", 4],
+                    "n_allocations": 2,
+                    "name": "grandparent at fun.py:4",
+                    "thread_id": "0x1",
+                    "value": 2048,
+                }
+            ],
+            "import_system": False,
+            "interesting": True,
+            "location": ["&lt;tracker&gt;", "<b>memray</b>", 0],
+            "n_allocations": 2,
+            "name": "<root>",
+            "thread_id": "0x0",
+            "unique_threads": ["0x1"],
+            "value": 2048,
+        }
+
+        assert expected == packed_data_to_tree(reporter.data)
+
+    def test_two_branches_second_is_importlib(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("sibling", "fun.py", 16),
+                    ("parent_two", "fun.py", 10),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent_one", "<frozen importlib>", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+
+        # THEN
+
+        expected = {
+            "children": [
+                {
+                    "children": [
+                        {
+                            "children": [
+                                {
+                                    "children": [],
+                                    "import_system": False,
+                                    "interesting": True,
+                                    "location": ["sibling", "fun.py", 16],
+                                    "n_allocations": 1,
+                                    "name": "sibling at fun.py:16",
+                                    "thread_id": "0x1",
+                                    "value": 1024,
+                                }
+                            ],
+                            "import_system": False,
+                            "interesting": True,
+                            "location": ["parent_two", "fun.py", 10],
+                            "n_allocations": 1,
+                            "name": "parent_two at fun.py:10",
+                            "thread_id": "0x1",
+                            "value": 1024,
+                        },
+                        {
+                            "children": [
+                                {
+                                    "children": [],
+                                    "import_system": True,
+                                    "interesting": True,
+                                    "location": ["me", "fun.py", 12],
+                                    "n_allocations": 1,
+                                    "name": "me at fun.py:12",
+                                    "thread_id": "0x1",
+                                    "value": 1024,
+                                }
+                            ],
+                            "import_system": True,
+                            "interesting": False,
+                            "location": ["parent_one", "&lt;frozen importlib&gt;", 8],
+                            "n_allocations": 1,
+                            "name": "parent_one at <frozen importlib>:8",
                             "thread_id": "0x1",
                             "value": 1024,
                         },
