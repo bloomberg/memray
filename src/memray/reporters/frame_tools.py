@@ -55,12 +55,12 @@ def _is_cpython_internal_symbol(symbol: str, file: str) -> bool:
 
 
 def is_cpython_internal(frame: StackFrame) -> bool:
-    symbol, file, *_ = frame
+    symbol, file, _ = frame
     return _is_cpython_internal_symbol(symbol, file)
 
 
 def is_frame_interesting(frame: StackFrame) -> bool:
-    function, file, *_ = frame
+    function, file, _ = frame
 
     if file.endswith("runpy.py"):
         return False
@@ -69,7 +69,7 @@ def is_frame_interesting(frame: StackFrame) -> bool:
 
 
 def is_frame_from_import_system(frame: StackFrame) -> bool:
-    function, file, *_ = frame
+    function, file, _ = frame
     if "frozen importlib" in file:
         return True
     if function in {"import_name", "import_from", "import_all_from"} and file.endswith(
