@@ -236,13 +236,13 @@ cdef hybrid_stack_trace(
             hybrid_stack[hidx] = native_frame
             hidx -= 1
 
-    assert hidx == -1
     if pidx >= 0:
         # We ran out of native frames without using up all of our Python
         # frames. We've seen this happen on stripped interpreters on Alpine
         # Linux in CI. Presumably this indicates that unwinding failed to
         # symbolify some of the calls to _PyEval_EvalFrameDefault.
-        return [("<unknown stack>", "<unknown>", 0)]
+        return python_stack
+    assert hidx == -1
 
     return hybrid_stack[:max_stacks]
 
