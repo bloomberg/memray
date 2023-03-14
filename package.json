@@ -5,7 +5,7 @@
     "@babel/preset-env": "^7.14.7",
     "jest": "^27.0.1",
     "lodash": "^4.17.21",
-    "webpack": "^5.37.1",
+    "webpack": "^5.76.0",
     "webpack-cli": "^4.7.0"
   },
   "jest": {
