@@ -37,27 +37,27 @@ Interpreting flame graphs
 
 Flame graphs can be interpreted as follows:
 
-- The nodes at the top of the flame graph represent functions that
+- The nodes at the bottom of the flame graph represent functions that
   allocated memory.
 
 - For quickly identifying the functions that allocated more memory
-  directly, look for large plateaus along the top edge, as these show
+  directly, look for large plateaus along the bottom edge, as these show
   a single stack trace was responsible for a large chunk of the total
   memory of the snapshot that the flame graph represents.
 
-- Reading the flame graph from top down shows the ancestry relationship:
-  Every function is called by its parent, which is shown directly below
-  it; the parent was called by its parent shown below it, and so on.
-  A quick scan downward from a function identifies how it was called.
+- Reading flame graphs from the bottom up shows ancestry relationships.
+  Every function is called by its parent, which is shown directly above
+  it; the parent was called by its parent shown above it, and so on.
+  A quick scan upward from a function identifies how it was called.
 
-- Reading the flame graph from bottom up shows code flow and the bigger
-  picture. A function calls all child functions shown above it, which,
-  in turn, call functions shown above them. Reading bottom up also shows
+- Reading flame graphs from the top down shows code flow and the bigger
+  picture. A function calls all child functions shown below it, which,
+  in turn, call functions shown below them. Reading top down also shows
   the big picture of code flow before various forks split execution into
-  smaller towers.
+  smaller shafts.
 
-- You can directly compare the width of function boxes as wider boxes
-  mean more memory was allocated by the given node and those are the
+- You can directly compare the width of function boxes: wider boxes
+  mean more memory was allocated by the given node, so those are the
   most important to understand first.
 
 - Major forks in the flame graph (when a node splits into several ones in
@@ -68,7 +68,7 @@ Flame graphs can be interpreted as follows:
 
 - If the application is multi-threaded, the stacks of all the threads
   that contribute to the memory peak will appear commingled in the flame
-  graph.
+  graph by default.
 
 Simple example
 --------------
