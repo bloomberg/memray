@@ -57,7 +57,7 @@ body:
 - type: dropdown
   id: os
   attributes:
-    label: Operative System
+    label: Operating System
     description: What OS are you seeing the problem on?
     multiple: true
     options:
