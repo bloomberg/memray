@@ -1,0 +1,1 @@
+Change the font color used by the ``%%memray_flamegraph`` Jupyter magic's progress updates for better contrast on the JupyterLab dark theme.

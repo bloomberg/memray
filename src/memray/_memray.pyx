@@ -798,7 +798,7 @@ cdef class ProgressIndicator:
             return self
         self._context_manager = self._indicator.__enter__()
         self._task = self._context_manager.add_task(
-            f"[blue]{self._task_description}...",
+            f"[cyan]{self._task_description}...",
             total=self._total
         )
         return self
