@@ -159,7 +159,7 @@ class FlamegraphMagics(Magics):
                 merge_threads=merge_threads,
             )
         dump_file.unlink()
-        pprint(f"Results saved to [bold blue]{flamegraph_path}[/bold blue]")
+        pprint(f"Results saved to [bold cyan]{flamegraph_path}")
         display(IFrame(flamegraph_path, width="100%", height="600"))  # type: ignore
 
 
