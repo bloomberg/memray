@@ -39,6 +39,17 @@ easier to validate it.
 
 ## Pull requests
 
+### Linting your code
+
+Before commiting anything, install the pre-commit hooks:
+
+```shell
+python3 -m pip install -r requirements-extra.txt
+pre-commit install
+```
+
+This will ensure that your contribution passes our linting checks.
+
 ### PRs should be linked to a GitHub issue
 
 Before opening a pull request to this repository, first please make sure there is a GitHub issue
