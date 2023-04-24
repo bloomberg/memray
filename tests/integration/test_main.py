@@ -750,6 +750,142 @@ class TestFlamegraphSubCommand:
         assert str(source_file) in output_file.read_text()
 
 
+class TestSummarySubCommand:
+    def test_summary_generated(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+
+        # WHEN
+        output = subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "summary",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            text=True,
+        )
+
+        # THEN
+        assert output
+
+    def test_temporary_allocations_summary(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+
+        # WHEN
+        output = subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "summary",
+                "--temporary-allocations",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            text=True,
+        )
+
+        # THEN
+        assert output
+
+
+class TestTreeSubCommand:
+    def test_tree_generated(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+
+        # WHEN
+        output = subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "tree",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            text=True,
+        )
+
+        # THEN
+        assert "frames hidden" in output
+
+    def test_temporary_allocations_tree(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+
+        # WHEN
+        output = subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "tree",
+                "--temporary-allocations",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            text=True,
+        )
+
+        # THEN
+        assert output
+
+
+class TestStatsSubCommand:
+    def test_report_generated(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+
+        # WHEN
+        output = subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "stats",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            text=True,
+        )
+
+        # THEN
+        assert "VALLOC" in output
+
+    def test_report_detects_corrupt_input(self, tmp_path):
+        # GIVEN
+        bad_file = Path(tmp_path) / "badfile.bin"
+        bad_file.write_text("This is some garbage")
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "stats",
+                str(bad_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 1
+        assert re.match(r"Failed to compute statistics for .*badfile\.bin", proc.stderr)
+
+
 class TestTableSubCommand:
     def test_reads_from_correct_file(self, tmp_path, simple_test_file):
         # GIVEN
@@ -797,7 +933,9 @@ class TestTableSubCommand:
 
 
 class TestReporterSubCommands:
-    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    @pytest.mark.parametrize(
+        "report", ["flamegraph", "table", "summary", "tree", "stats"]
+    )
     def test_report_detects_missing_input(self, report):
         # GIVEN / WHEN
         proc = subprocess.run(
@@ -816,7 +954,7 @@ class TestReporterSubCommands:
         assert proc.returncode == 1
         assert "No such file: nosuchfile" in proc.stderr
 
-    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    @pytest.mark.parametrize("report", ["flamegraph", "table", "summary", "tree"])
     def test_report_detects_corrupt_input(self, tmp_path, report):
         # GIVEN
         bad_file = Path(tmp_path) / "badfile.bin"
@@ -924,7 +1062,7 @@ class TestReporterSubCommands:
             "--leaks: not allowed with argument --temporary-allocations" in proc.stderr
         )
 
-    @pytest.mark.parametrize("report", ["flamegraph", "table"])
+    @pytest.mark.parametrize("report", ["flamegraph", "table", "summary", "tree"])
     def test_report_both_temporary_allocation_arguments(
         self, tmp_path, simple_test_file, report
     ):
