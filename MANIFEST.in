@@ -30,6 +30,7 @@ include webpack.config.js
 include NEWS.rst
 include .flake8
 include src/memray/py.typed
+include .pre-commit-config.yaml
 
 recursive-include src/vendor *
 recursive-include src/memray *.py
