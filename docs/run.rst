@@ -109,7 +109,7 @@ had memory available for reuse. It can be useful in some cases, though,
 especially when tracking down memory leaks.
 
 .. note::
-  This acts also as an alternative way to run with `PYTHONMALLOC=malloc` but
+  This acts also as an alternative way to run with ``PYTHONMALLOC=malloc`` but
   in a way that allows distiguishing allocations made by using the system
   allocator directly and ones made by using the Python allocator.
 

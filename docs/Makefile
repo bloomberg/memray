@@ -4,7 +4,7 @@
 SPHINXAUTOBUILD = sphinx-autobuild
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
+SPHINXOPTS    = -n
 SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = bloombergdmp
 SOURCEDIR     = .
