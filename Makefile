@@ -73,7 +73,7 @@ pycoverage:  ## Run the test suite, with Python code coverage
 		--cov=tests \
 		--cov-config=pyproject.toml \
 		--cov-report=term \
-		--cov-fail-under=80 \
+		--cov-fail-under=90 \
 		--cov-append $(PYTEST_ARGS) \
 		tests
 
