@@ -13,12 +13,12 @@ You can also search this project for issues with the following labels:
 
 ## Contribution Licensing
 
-Since this project is distributed under the terms of an [open source license](LICENSE), contributions that you make
-are licensed under the same terms. In order for us to be able to accept your contributions,
+Since this project is distributed under the terms of an [open source license](LICENSE), contributions that
+you make are licensed under the same terms. In order for us to be able to accept your contributions,
 we will need explicit confirmation from you that you are able and willing to provide them under
 these terms, and the mechanism we use to do this is called a Developer's Certificate of Origin
-[(DCO)](https://github.com/bloomberg/.github/blob/main/DCO.md). This is very similar to the process used by the Linux(R) kernel, Samba, and many
-other major open source projects.
+[(DCO)](https://github.com/bloomberg/.github/blob/main/DCO.md). This is very similar to the process
+used by the Linux kernel, Samba, and many other major open source projects.
 
 To participate under these terms, all that you must do is include a line like the following as the
 last line of the commit message for each commit in your contribution:
