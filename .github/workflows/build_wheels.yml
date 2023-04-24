@@ -3,6 +3,9 @@ name: Wheels
 on:
   push:
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "CONTRIBUTING.md"
   release:
     types:
       - published
@@ -14,7 +17,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
-
 jobs:
   build_wheels:
     name: Wheel for Linux-${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
@@ -23,8 +25,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        cibw_python: [ "cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*"]
-        cibw_arch: [ "x86_64", "i686" ]
+        cibw_python: ["cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+        cibw_arch: ["x86_64", "i686"]
 
     steps:
       - uses: actions/checkout@v3
@@ -51,7 +53,7 @@ jobs:
       matrix:
         os: [macos-11]
         cibw_python: ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
-        cibw_arch: [ "x86_64", "arm64" ]
+        cibw_arch: ["x86_64", "arm64"]
 
     steps:
       - uses: actions/checkout@v3
