@@ -4,7 +4,6 @@ exclude CONTRIBUTING.md
 exclude Dockerfile
 exclude Jenkinsfile
 exclude requirements-*.txt
-exclude tox.ini
 exclude .medusarc
 exclude valgrind.supp
 

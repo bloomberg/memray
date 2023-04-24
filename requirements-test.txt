@@ -1,4 +1,5 @@
 Cython
+coverage[toml]
 greenlet; python_version < '3.11'
 pytest
 pytest-cov

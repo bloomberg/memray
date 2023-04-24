@@ -78,7 +78,7 @@ pycoverage:  ## Run the test suite, with Python code coverage
 		--color=yes \
 		--cov=memray \
 		--cov=tests \
-		--cov-config=tox.ini \
+		--cov-config=pyproject.toml \
 		--cov-report=term \
 		--cov-fail-under=80 \
 		--cov-append $(PYTEST_ARGS) \

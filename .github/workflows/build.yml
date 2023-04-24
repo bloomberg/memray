@@ -50,15 +50,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm gdb lldb
+      - name: Create virtual environment
+        run: |
+          python3 -m venv venv
       - name: Install Python dependencies
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install tox tox-gh-actions
+          ./venv/bin/python -m pip install --upgrade pip
       - name: Disable ptrace security restrictions
         run: |
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-      - name: Run tox
-        run: python3 -m tox -e py310-cov -vvv
+      - name: Run coverage
+        env:
+          CYTHON_TEST_MACROS: 1
+          PYTHON: ./venv/bin/python
+        run: |
+          make dev-install pycoverage
 
   test_in_alpine:
     name: "Test in Alpine Linux"
@@ -71,13 +77,18 @@ jobs:
       - name: Set up dependencies
         run: |
           apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev python3-dbg gdb lldb
-      - name: Install Python dependencies
+      - name: Create virtual environment
         run: |
           python3 -m venv /venv
+      - name: Install Python dependencies
+        run: |
           /venv/bin/python -m pip install --upgrade pip
-          /venv/bin/python -m pip install tox
-      - name: Run tox
-        run: /venv/bin/python -m tox -e py310 -vvv
+      - name: Run coverage
+        env:
+          CYTHON_TEST_MACROS: 1
+          PYTHON: /venv/bin/python
+        run: |
+          make dev-install pycoverage
 
   lint_and_docs:
     name: "Lint and Docs"
