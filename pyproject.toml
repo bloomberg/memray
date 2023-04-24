@@ -74,3 +74,21 @@ before-test = [
   "codesign --remove-signature /Library/Frameworks/Python.framework/Versions/*/bin/python3 || true",
   "codesign --remove-signature /Library/Frameworks/Python.framework/Versions/*/Resources/Python.app/Contents/MacOS/Python || true",
 ]
+
+[tool.coverage.run]
+plugins = [
+  "Cython.Coverage",
+]
+source = [
+  "src/memray",
+  "tests/",
+]
+branch = true
+parallel = true
+omit = [
+  "*__init__.py",
+]
+
+[tool.coverage.report]
+skip_covered = true
+show_missing = true
