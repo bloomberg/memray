@@ -3,6 +3,8 @@ repos:
     rev: v4.4.0
     hooks:
       - id: check-added-large-files
+      - id: check-json
+        exclude: "^asv.conf.json$"
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
