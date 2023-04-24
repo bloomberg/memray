@@ -11,6 +11,24 @@ You can also search this project for issues with the following labels:
 | [help wanted](https://github.com/bloomberg/memray/search?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+&type=Issues&utf8=%E2%9C%93)    | `is:issue is:open label:"help wanted"`    | General issues where contributors help is wanted.                                                                                                                  |
 | [question](https://github.com/bloomberg/memray/search?q=is%3Aissue+is%3Aopen+label%3Aquestion&type=Issues&utf8=%E2%9C%93)                 | `is:issue is:open label:question`         | Open discussions to resolve everything from implementation details to desired functionality.                                                                       |
 
+## Contribution Licensing
+
+Since this project is distributed under the terms of an [open source license](LICENSE), contributions that you make
+are licensed under the same terms. In order for us to be able to accept your contributions,
+we will need explicit confirmation from you that you are able and willing to provide them under
+these terms, and the mechanism we use to do this is called a Developer's Certificate of Origin
+[(DCO)](https://github.com/bloomberg/.github/blob/main/DCO.md). This is very similar to the process used by the Linux(R) kernel, Samba, and many
+other major open source projects.
+
+To participate under these terms, all that you must do is include a line like the following as the
+last line of the commit message for each commit in your contribution:
+
+    Signed-Off-By: Random J. Developer <random@developer.example.org>
+
+The simplest way to accomplish this is to add `-s` or `--signoff` to your `git commit` command.
+
+You must use your real name (sorry, no pseudonyms, and no anonymous contributions).
+
 ## Documentation
 
 **Public** modules, functions, classes, and methods must be documented using [Python
