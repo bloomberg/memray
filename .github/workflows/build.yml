@@ -14,120 +14,119 @@ concurrency:
 
 jobs:
   check_generated_files:
-    name: 'Check if generated files are up to date'
+    name: "Check if generated files are up to date"
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -qy npm git
-    - name: Check if files are up to date
-      run: make build-js
-    - name: Check for changes
-      run: |
-        git add -u
-        changes=$(git status --porcelain)
-        # Check for changes in regenerated files
-        if test -n "$changes"; then
-          echo "Generated files not up to date."
-          echo "$changes"
-          echo ""
-          git diff --staged || true
-          exit 1
-        fi
+      - uses: actions/checkout@v3
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -qy npm git
+      - name: Check if files are up to date
+        run: make build-js
+      - name: Check for changes
+        run: |
+          git add -u
+          changes=$(git status --porcelain)
+          # Check for changes in regenerated files
+          if test -n "$changes"; then
+            echo "Generated files not up to date."
+            echo "$changes"
+            echo ""
+            git diff --staged || true
+            exit 1
+          fi
 
   test_with_coverage:
-    name: 'Test with coverage'
+    name: "Test with coverage"
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-    - name: Set up dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm gdb lldb
-    - name: Install Python dependencies
-      run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install tox tox-gh-actions
-    - name: Disable ptrace security restrictions
-      run: |
-        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-    - name: Run tox
-      run: python3 -m tox -e py310-cov -vvv
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm gdb lldb
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install tox tox-gh-actions
+      - name: Disable ptrace security restrictions
+        run: |
+          echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+      - name: Run tox
+        run: python3 -m tox -e py310-cov -vvv
 
   test_in_alpine:
-    name: 'Test in Alpine Linux'
+    name: "Test in Alpine Linux"
     runs-on: ubuntu-latest
     container:
       image: alpine
       options: --cap-add=SYS_PTRACE
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up dependencies
-      run: |
-        apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev python3-dbg gdb lldb
-    - name: Install Python dependencies
-      run: |
-        python3 -m venv /venv
-        /venv/bin/python -m pip install --upgrade pip
-        /venv/bin/python -m pip install tox
-    - name: Run tox
-      run: /venv/bin/python -m tox -e py310 -vvv
+      - uses: actions/checkout@v3
+      - name: Set up dependencies
+        run: |
+          apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev python3-dbg gdb lldb
+      - name: Install Python dependencies
+        run: |
+          python3 -m venv /venv
+          /venv/bin/python -m pip install --upgrade pip
+          /venv/bin/python -m pip install tox
+      - name: Run tox
+        run: /venv/bin/python -m tox -e py310 -vvv
 
   lint_and_docs:
-    name: 'Lint and Docs'
+    name: "Lint and Docs"
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    - name: Set up dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -qy clang-format npm libunwind-dev liblz4-dev pkg-config
-        npm install -g prettier
-    - name: Install Python dependencies
-      run: |
-        python3 -m pip install -r requirements-extra.txt
-    - name: Install Package
-      run: |
-        python3 -m pip install -e .
-    - name: Lint sources
-      run: |
-        make lint
-    - name: Build docs
-      run: |
-        make docs
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -qy clang-format npm libunwind-dev liblz4-dev pkg-config
+          npm install -g prettier
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install -r requirements-extra.txt
+      - name: Install Package
+        run: |
+          python3 -m pip install -e .
+      - name: Lint sources
+        run: |
+          make lint
+      - name: Build docs
+        run: |
+          make docs
 
   valgrind:
-    name: 'Valgrind & Helgrind'
+    name: "Valgrind & Helgrind"
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-    - name: Set up dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm valgrind
-    - name: Install Python dependencies and package
-      run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install -r requirements-test.txt
-        python3 -m pip install -e .
-      env:
-        MEMRAY_MINIMIZE_INLINING: 1
-    - name: Run Valgrind
-      run: make valgrind
-    - name: Run Helgrind
-      run: make helgrind
-
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm valgrind
+      - name: Install Python dependencies and package
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements-test.txt
+          python3 -m pip install -e .
+        env:
+          MEMRAY_MINIMIZE_INLINING: 1
+      - name: Run Valgrind
+        run: make valgrind
+      - name: Run Helgrind
+        run: make helgrind
