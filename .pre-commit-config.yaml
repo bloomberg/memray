@@ -1,3 +1,4 @@
+exclude: "^(src/memray/reporters/templates/assets|src/vendor|benchmarks|docs/_static/flamegraphs)/"
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
@@ -37,4 +38,5 @@ repos:
     rev: v2.7.1
     hooks:
       - id: prettier
-        exclude: "^asv.conf.json$"
+        exclude: "^asv\\.conf\\.json$"
+        exclude_types: [html]
