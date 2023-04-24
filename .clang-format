@@ -41,7 +41,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma
 BreakStringLiterals: true
-ColumnLimit:     105
+ColumnLimit: 105
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ConstructorInitializerIndentWidth: 0
@@ -49,14 +49,14 @@ ContinuationIndentWidth: 8
 Cpp11BracedListStyle: true
 DerivePointerAlignment: false
 FixNamespaceComments: true
-IncludeBlocks:   Preserve
+IncludeBlocks: Preserve
 IncludeCategories:
-  - Regex:           '^"(llvm|llvm-c|clang|clang-c)/'
-    Priority:        2
-  - Regex:           '^(<|"(gtest|gmock|isl|json)/)'
-    Priority:        3
-  - Regex:           '.*'
-    Priority:        1
+  - Regex: '^"(llvm|llvm-c|clang|clang-c)/'
+    Priority: 2
+  - Regex: '^(<|"(gtest|gmock|isl|json)/)'
+    Priority: 3
+  - Regex: ".*"
+    Priority: 1
 IndentCaseLabels: true
 IndentGotoLabels: false
 IndentPPDirectives: AfterHash
@@ -87,7 +87,7 @@ SpaceBeforeParens: ControlStatements
 SpaceBeforeRangeBasedForLoopColon: true
 SpaceInEmptyParentheses: false
 SpacesBeforeTrailingComments: 2
-SpacesInAngles:  false
+SpacesInAngles: false
 SpacesInContainerLiterals: true
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false

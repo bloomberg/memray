@@ -1,30 +1,30 @@
 name: Sanity check
-on: 
+on:
   pull_request:
     types:
-    - "opened"
-    - "reopened"
-    - "synchronize"
-    - "labeled"
-    - "unlabeled"
+      - "opened"
+      - "reopened"
+      - "synchronize"
+      - "labeled"
+      - "unlabeled"
 
 jobs:
   commits_check_job:
     runs-on: ubuntu-latest
     name: Commits Check
     steps:
-    - name: Get PR Commits
-      id: 'get-pr-commits'
-      uses: tim-actions/get-pr-commits@master
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-    - name: DCO Check
-      uses: tim-actions/dco@master
-      with:
-        commits: ${{ steps.get-pr-commits.outputs.commits }}
-    - name: "Check for news entry"
-      uses: brettcannon/check-for-changed-files@v1
-      with:
-        file-pattern: "news/*.rst"
-        skip-label: "skip news"
-        failure-message: "Missing a news file in ${file-pattern}; please add one or apply the ${skip-label} label to the pull request"
+      - name: Get PR Commits
+        id: "get-pr-commits"
+        uses: tim-actions/get-pr-commits@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: DCO Check
+        uses: tim-actions/dco@master
+        with:
+          commits: ${{ steps.get-pr-commits.outputs.commits }}
+      - name: "Check for news entry"
+        uses: brettcannon/check-for-changed-files@v1
+        with:
+          file-pattern: "news/*.rst"
+          skip-label: "skip news"
+          failure-message: "Missing a news file in ${file-pattern}; please add one or apply the ${skip-label} label to the pull request"

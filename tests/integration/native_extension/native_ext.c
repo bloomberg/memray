@@ -129,4 +129,3 @@ initnative_ext(void)
     Py_InitModule("native_ext", methods);
 }
 #endif
-

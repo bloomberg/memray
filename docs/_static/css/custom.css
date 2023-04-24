@@ -9,7 +9,7 @@ body {
 }
 
 a {
-  color: #FE2F4E;
+  color: #fe2f4e;
 }
 
 a:hover {
@@ -24,7 +24,7 @@ a:hover {
 }
 
 .navbar li {
-  transition: .3s background-color;
+  transition: 0.3s background-color;
   text-align: center;
   background-color: transparent;
   padding: 0rem 1rem;
@@ -33,11 +33,11 @@ a:hover {
 }
 
 .navbar li:hover {
-  background-color: #FE2F4E;
+  background-color: #fe2f4e;
 }
 
 .navbar li .nav-link {
-  color: #FE2F4E;
+  color: #fe2f4e;
 }
 
 .navbar li:hover .nav-link {
@@ -50,11 +50,11 @@ a:hover {
 }
 
 .dropdown-item {
-  color: #FE2F4E;
+  color: #fe2f4e;
 }
 
 .dropdown-item:hover {
-  background-color: #FE2F4E;
+  background-color: #fe2f4e;
 }
 
 /* Buttons
@@ -63,12 +63,12 @@ a:hover {
 .outline-memray {
   color: #31373e;
   background-color: transparent;
-  border-color: #00A3E0;
+  border-color: #00a3e0;
 }
 
 .filled-memray {
   color: #fff;
-  background-color: #FE2F4E;
+  background-color: #fe2f4e;
   border-color: #ff0000;
 }
 
@@ -90,7 +90,7 @@ a:hover {
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
-  font-family: 'Open Sans', sans-serif;
+  font-family: "Open Sans", sans-serif;
   font-weight: 300;
 }
 
@@ -209,29 +209,26 @@ a:hover {
 
 .typewriter {
   overflow: hidden;
-  border-right: .15em solid #31373e;
+  border-right: 0.15em solid #31373e;
   white-space: nowrap;
   margin: 0 auto;
-  animation:
-    typing 2.75s steps(40, end),
-    blink-caret .75s step-end infinite;
+  animation: typing 2.75s steps(40, end), blink-caret 0.75s step-end infinite;
 }
 
 @keyframes typing {
   from {
-    width: 0
+    width: 0;
   }
 
   to {
-    width: 32ch
+    width: 32ch;
   }
 }
 
 @keyframes blink-caret {
-
   from,
   to {
-    border-color: transparent
+    border-color: transparent;
   }
 
   50% {
@@ -330,7 +327,6 @@ a:hover {
   opacity: 1;
 }
 
-
 /* MARKETING CONTENT
 -------------------------------------------------- */
 
@@ -339,13 +335,13 @@ a:hover {
 .rounded-header-image {
   border-radius: 50%;
   border: 5px solid rgb(245, 245, 245);
-  box-shadow: 0 2px 2px rgba(0, 0, 0, .3);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
 }
 
 .rounded-header-image:hover {
   -webkit-transform: scale(1.1);
   transform: scale(1.1);
-  transition: all .3s ease-in-out;
+  transition: all 0.3s ease-in-out;
 }
 
 /* Center align the text within the three columns below the carousel */
@@ -359,10 +355,9 @@ a:hover {
 }
 
 .marketing .col-lg-4 p {
-  margin-right: .75rem;
-  margin-left: .75rem;
+  margin-right: 0.75rem;
+  margin-left: 0.75rem;
 }
-
 
 /* Featurettes
 ------------------------- */
@@ -376,9 +371,8 @@ a:hover {
 .featurette-heading {
   font-weight: 300;
   line-height: 1;
-  letter-spacing: -.05rem;
+  letter-spacing: -0.05rem;
 }
-
 
 /* Cards and card columns
 ----------------------------- */
@@ -395,7 +389,7 @@ a:hover {
   background: linear-gradient(90deg, #cc9add 8.06%, #ebad98 106.93%);
   text-decoration: none;
   transform: scale(1.05);
-  transition: all .3s ease-in-out;
+  transition: all 0.3s ease-in-out;
 }
 
 .card:hover .card-title,
@@ -418,7 +412,6 @@ a:hover {
 -------------------------------------------------- */
 
 @media (min-width: 40em) {
-
   /* Bump up size of carousel content */
   .carousel-caption p {
     margin-bottom: 1.25rem;
