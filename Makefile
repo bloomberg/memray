@@ -179,8 +179,12 @@ gh-pages:  ## Publish documentation on BBGitHub Pages
 
 .PHONY: clean
 clean:  ## Clean any built/generated artifacts
-	find . | grep -E '(\.o|\.so|\.gcda|\.gcno|\.gcov\.json\.gz)' | xargs rm -rf
+	find . | grep -E '(\.o|\.gcda|\.gcno|\.gcov\.json\.gz)' | xargs rm -rf
 	find . | grep -E '(__pycache__|\.pyc|\.pyo)' | xargs rm -rf
+	rm -rf build
+	rm -f src/memray/_test_utils.*.so
+	rm -f src/memray/_memray.*.so
+	rm -f src/memray/_inject.*.so
 	rm -f src/memray/_memray.cpp
 	rm -f memray.info
 	rm -rf memray-coverage
