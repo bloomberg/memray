@@ -5,7 +5,7 @@ repos:
     hooks:
       - id: check-added-large-files
       - id: check-json
-        exclude: "^asv.conf.json$"
+        exclude: "^asv\\.conf\\.json$"
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
@@ -38,5 +38,19 @@ repos:
     rev: v2.7.1
     hooks:
       - id: prettier
+        args: [--no-editorconfig]
         exclude: "^asv\\.conf\\.json$"
         exclude_types: [html]
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v16.0.2
+    hooks:
+      - id: clang-format
+        args: [--Werror, -i]
+        types_or: [c++, c, cuda]
+
+  - repo: https://github.com/mgedmin/check-manifest
+    rev: "0.49"
+    hooks:
+      - id: check-manifest
+        stages: [pre-push]

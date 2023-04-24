@@ -1,14 +1,12 @@
 PYTHON ?= python
 NPM ?= npm
 CLANG_FORMAT ?= clang-format
-PRETTIER ?= prettier --no-editorconfig
 
 # Doc generation variables
 UPSTREAM_GIT_REMOTE ?= origin
 DOCSBUILDDIR := docs/_build
 HTMLDIR := $(DOCSBUILDDIR)/html
-PKG_CONFIG_PATH ?= /opt/bb/lib64/pkgconfig
-PIP_INSTALL=PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" $(PYTHON) -m pip install
+PIP_INSTALL=$(PYTHON) -m pip install
 
 reporters_path := ./src/memray/reporters
 js_files := $(wildcard $(reporters_path)/assets/*.js)
@@ -17,12 +15,7 @@ generated_js_files := \
     $(reporters_path)/templates/assets/flamegraph.js \
     $(reporters_path)/templates/assets/temporal_flamegraph.js \
     $(reporters_path)/templates/assets/table.js
-css_files := 'src/**/*.css'
-markdown_files := $(shell find . -name \*.md -not -path '*/\.*' -not -path './src/vendor/*')
 cpp_files := $(shell find src/memray/_memray -name \*.cpp -o -name \*.h)
-python_files := $(shell find . -name \*.py -not -path '*/\.*' -not -path './benchmarks/benchmarking/cases/*')
-cython_files := $(shell find src -name \*.pyx -or -name \*.pxd -not -path '*/\.*')
-type_files := $(shell find src -name \*.pyi -not -path '*/\.*')
 
 # Use this to inject arbitrary commands before the make targets (e.g. docker)
 ENV :=
@@ -114,45 +107,15 @@ ccoverage:  ## Run the test suite, with C++ code coverage
 	genhtml memray.info --output-directory memray-coverage
 	find . | grep -E '(\.gcda|\.gcno|\.gcov\.json\.gz)' | xargs rm -rf
 
-.PHONY: format-python
-format-python:  ## Autoformat Python files
-	$(PYTHON) -m isort $(python_files) $(cython_files) $(type_files)
-	$(PYTHON) -m black $(python_files)
-	$(PYTHON) -m black $(type_files)
-
-.PHONY: format-markdown
-format-markdown:  ## Autoformat markdown files
-	$(PRETTIER) --write $(markdown_files)
-
-.PHONY: format-assets
-format-assets:  ## Autoformat CSS and JS files
-	$(PRETTIER) --write $(js_files) $(css_files)
-
 .PHONY: format
-format: format-python format-markdown format-assets  ## Autoformat all files
-	$(CLANG_FORMAT) -i $(cpp_files)
-
-.PHONY: lint-python
-lint-python:  ## Lint Python files
-	$(PYTHON) -m isort --check $(python_files) $(cython_files) $(type_files)
-	$(PYTHON) -m flake8 $(python_files)
-	$(PYTHON) -m black --check $(python_files)
-	$(PYTHON) -m black --check $(type_files)
-	$(PYTHON) -m mypy -p memray --strict --ignore-missing-imports
-	$(PYTHON) -m mypy tests --ignore-missing-imports
-
-.PHONY: lint-markdown
-lint-markdown:  ## Lint markdown files
-	$(PRETTIER) --check $(markdown_files)
-
-.PHONY: lint-assets
-lint-assets:  ## Lint CSS and JS files
-	$(PRETTIER) --check $(js_files) $(css_files)
+format:  ## Autoformat all files
+	$(PYTHON) -m pre_commit run --all-files
 
 .PHONY: lint
-lint: lint-python lint-markdown lint-assets  ## Lint all files
-	$(CLANG_FORMAT) --Werror --dry-run $(cpp_files)
-	$(PYTHON) -m check_manifest
+lint:  ## Lint all files
+	$(PYTHON) -m pre_commit run --all-files
+	$(PYTHON) -m mypy -p memray --strict --ignore-missing-imports
+	$(PYTHON) -m mypy tests --ignore-missing-imports
 
 .PHONY: docs
 docs:  ## Generate documentation
@@ -165,7 +128,7 @@ docs-live:  ## Serve documentation on localhost:8000, with live-reload
 	$(MAKE) -C docs livehtml
 
 .PHONY: gh-pages
-gh-pages:  ## Publish documentation on BBGitHub Pages
+gh-pages:  ## Publish documentation on GitHub Pages
 	$(eval GIT_REMOTE := $(shell git remote get-url $(UPSTREAM_GIT_REMOTE)))
 	$(eval COMMIT_HASH := $(shell git rev-parse HEAD))
 	touch $(HTMLDIR)/.nojekyll

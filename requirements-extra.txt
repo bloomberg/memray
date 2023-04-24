@@ -1,9 +1,5 @@
-black
-flake8
-isort
 mypy
 bump2version
 towncrier
-check-manifest
 pre-commit
 -r requirements-docs.txt
