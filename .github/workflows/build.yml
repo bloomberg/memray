@@ -103,7 +103,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -qy clang-format npm libunwind-dev liblz4-dev pkg-config
-          npm install -g prettier
       - name: Install Python dependencies
         run: |
           python3 -m pip install -r requirements-extra.txt
