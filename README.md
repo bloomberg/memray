@@ -102,6 +102,14 @@ python3 -m pip install -e . -r requirements-test.txt -r requirements-extra.txt
 
 This will install Memray in the virtual environment in development mode (the `-e` of the last `pip install` command).
 
+If you plan to contribute back, you should install the pre-commit hooks:
+
+```shell
+pre-commit install
+```
+
+This will ensure that your contribution passes our linting checks.
+
 # Documentation
 
 You can find the latest documentation available [here](https://bloomberg.github.io/memray/).
