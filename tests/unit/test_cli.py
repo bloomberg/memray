@@ -10,6 +10,7 @@ from memray import SocketDestination
 from memray.commands import main
 from memray.commands.flamegraph import FlamegraphCommand
 from memray.commands.run import RunCommand
+from memray.commands.stats import StatsCommand
 from memray.commands.summary import SummaryCommand
 from memray.commands.table import TableCommand
 from memray.commands.transform import TransformCommand
@@ -732,6 +733,54 @@ class TestSummarySubCommand:
         assert namespace.results == "results.txt"
         assert namespace.sort_column == 1
         assert namespace.max_rows == 2
+
+
+class TestStatsSubCommand:
+    @staticmethod
+    def get_prepared_parser():
+        parser = argparse.ArgumentParser()
+        command = StatsCommand()
+        command.prepare_parser(parser)
+
+        return command, parser
+
+    def test_parser_rejects_no_arguments(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args([])
+
+    def test_parser_accepts_single_argument(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.num_largest == 5
+
+    def test_parser_accepts_valid_num_largest_allocators(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN
+        namespace = parser.parse_args(["-n", "3", "results.txt"])
+
+        # THEN
+        assert namespace.results == "results.txt"
+        assert namespace.num_largest == 3
+
+    def test_parser_rejects_invalid_num_largest_allocators(self):
+        # GIVEN
+        _, parser = self.get_prepared_parser()
+
+        # WHEN / THEN
+        with pytest.raises(SystemExit):
+            parser.parse_args(["-n", "-1", "results.txt"])
 
 
 class TestTransformSubCommand:
