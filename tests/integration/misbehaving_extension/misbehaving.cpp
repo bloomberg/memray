@@ -106,4 +106,3 @@ initmisbehaving(void)
     Py_InitModule("misbehaving", methods);
 }
 #endif
-

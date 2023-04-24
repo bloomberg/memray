@@ -73,7 +73,7 @@ specify the program to be profiled in live mode using ``run --live-remote``:
   Run 'memray live <port>' in another shell to see live results
 
 As you can see, Memray is now waiting on a connection to the live tracking server. You can now attach to
-the server using running the ``live`` command in a separate shell.  
+the server using running the ``live`` command in a separate shell.
 
 .. code:: shell-session
 

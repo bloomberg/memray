@@ -32,4 +32,3 @@ Memray can help with the following problems:
 
 .. note::
     Memray only works on Linux and MacOS, and cannot be installed on other platforms.
-

@@ -117,7 +117,7 @@ especially when tracking down memory leaks.
 
   memray run --trace-python-allocators example.py
 
-.. caution:: 
+.. caution::
   Tracking the Python allocators will result in much larger report files and
   slower profiling due to the larger amount of data that needs to be collected.
 

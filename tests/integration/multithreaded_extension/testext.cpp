@@ -117,4 +117,3 @@ inittestext(void)
     Py_InitModule("testext", methods);
 }
 #endif
-
