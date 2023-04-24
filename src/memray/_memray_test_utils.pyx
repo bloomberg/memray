@@ -162,7 +162,7 @@ cdef class PymallocMemoryAllocator:
             self.ptr = PyObject_Malloc(size)
         else:
             raise RuntimeError("Invlid pymalloc domain")
- 
+
         return self.ptr != NULL
 
     @cython.profile(True)
@@ -175,7 +175,7 @@ cdef class PymallocMemoryAllocator:
             self.ptr = PyObject_Calloc(1, size)
         else:
             raise RuntimeError("Invlid pymalloc domain")
- 
+
         return self.ptr != NULL
 
     @cython.profile(True)
@@ -188,7 +188,7 @@ cdef class PymallocMemoryAllocator:
             self.ptr = PyObject_Realloc(self.ptr, size)
         else:
             raise RuntimeError("Invlid pymalloc domain")
- 
+
         return self.ptr != NULL
 
 cdef do_not_optimize_ptr(void* ptr):
