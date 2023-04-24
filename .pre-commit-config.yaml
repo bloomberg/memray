@@ -1,38 +1,51 @@
+default_install_hook_types: [pre-commit, pre-push]
 exclude: "^(src/memray/reporters/templates/assets|src/vendor|benchmarks|docs/_static/flamegraphs)/"
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
       - id: check-added-large-files
+        stages: [pre-commit]
       - id: check-json
         exclude: "^asv\\.conf\\.json$"
+        stages: [pre-commit]
       - id: check-merge-conflict
+        stages: [pre-commit]
       - id: check-toml
+        stages: [pre-commit]
       - id: check-yaml
+        stages: [pre-commit]
       - id: end-of-file-fixer
+        stages: [pre-commit]
       - id: trailing-whitespace
+        stages: [pre-commit]
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
     hooks:
       - id: rst-directive-colons
+        stages: [pre-commit]
       - id: rst-inline-touching-normal
+        stages: [pre-commit]
 
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
       - id: black
+        stages: [pre-commit]
 
   - repo: https://github.com/pycqa/flake8
     rev: 6.0.0
     hooks:
       - id: flake8
         types: [file, python]
+        stages: [pre-commit]
 
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
+        stages: [pre-commit]
 
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v2.7.1
@@ -41,6 +54,7 @@ repos:
         args: [--no-editorconfig]
         exclude: "^asv\\.conf\\.json$"
         exclude_types: [html]
+        stages: [pre-commit]
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v16.0.2
@@ -48,6 +62,7 @@ repos:
       - id: clang-format
         args: [--Werror, -i]
         types_or: [c++, c, cuda]
+        stages: [pre-commit]
 
   - repo: https://github.com/mgedmin/check-manifest
     rev: "0.49"
