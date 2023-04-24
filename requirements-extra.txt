@@ -5,4 +5,5 @@ mypy
 bump2version
 towncrier
 check-manifest
+pre-commit
 -r requirements-docs.txt
