@@ -1,0 +1,33 @@
+name: Pre-commit update
+
+on:
+  schedule:
+    # At 12:00 on every Monday
+    - cron: "0 12 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  pre_commit_autoupdate:
+    name: Update pre-commit hooks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - uses: pre-commit/action@v3.0.0
+      - name: Look for updates
+        run: |
+          pre-commit autoupdate
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v5
+        commit-message: |
+          ci: pre-commit autoupdate
+        signoff: true
+        branch: pre-commit-autoupdate
+        delete-branch: true
+        title: |
+          Pre-commit hook update
+        body: |
+          Pre-commit autoupdates.
