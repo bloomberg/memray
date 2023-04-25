@@ -61,6 +61,16 @@ program by pressing the left and right arrow keys.
 
 .. image:: _static/images/live_different_thread.png
 
+Using with native tracking
+--------------------------
+
+It is possible to use :ref:`native tracking` along with the live mode. This can be achieved by passing ``--native``
+to the ``run`` command.
+
+.. code:: shell-session
+
+  $ memray run --live --native application.py
+
 Remote mode
 -----------
 
@@ -104,21 +114,10 @@ It is possible to make ``run --live-remote`` start the server on a user-specifie
   ``run`` command *before* your script/module. Otherwise, they will be treated as arguments for the script and will not
   be used by Memray.
 
-  For example, the following invocation will pass ``--live-remote`` and ``--live-port 12345`` to ``application.py``,
-  instead of having them be used by ``memray run``:
+  For example, the following invocation will pass ``--live-port 12345`` to ``application.py``,
+  instead of having it be used by ``memray run``:
 
   .. code:: shell-session
 
     $ memray run --live-remote application.py --live-port 12345
     Run 'memray live 60125' in another shell to see live results
-
-Using with native tracking
---------------------------
-
-It is possible to use :ref:`native tracking` along with the live mode. This can be achieved by passing ``--native``
-to the ``run`` command.
-
-.. code:: shell-session
-
-  $ memray run --live --native application.py
-  Run 'memray live 60125' in another shell to see live results
