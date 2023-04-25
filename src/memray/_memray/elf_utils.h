@@ -241,7 +241,8 @@ struct SymbolTable
             const auto* sym_name = string_table.table + sym->st_name;
             const uint32_t hash = chain[symbol_index - symbol_offset];
             if ((namehash | 1) == (hash | 1) && isDefinedGlobalSymbol(sym)
-                && strcmp(sym_name, name) == 0) {
+                && strcmp(sym_name, name) == 0)
+            {
                 return base + sym->st_value;
             }
 

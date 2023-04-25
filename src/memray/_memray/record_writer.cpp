@@ -235,7 +235,8 @@ RecordWriter::writeMappingsCommon(const std::vector<ImageSegments>& mappings)
 
         for (const auto& segment : image.segments) {
             if (!writeSimpleType(segment_token) || !writeSimpleType(segment.vaddr)
-                || !writeVarint(segment.memsz)) {
+                || !writeVarint(segment.memsz))
+            {
                 return false;
             }
         }
