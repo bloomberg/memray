@@ -186,8 +186,8 @@ Non-relevant frame hiding
 The flame graph exposes a button to show or hide frames which might be
 distracting when interpreting the results, either because they were
 injected by Memray or because they are low-level implementation
-details of CPython. By default, frames tagged as non-relevant are
-hidden. You can reveal them with the "Show Non-Relevant Frames"
+details of CPython. By default, frames tagged as irrelevant are
+hidden. You can reveal them by unchecking the *Hide Irrelevant Frames*
 checkbox:
 
 .. image:: _static/images/non_relevant_checkbox.png
@@ -195,6 +195,21 @@ checkbox:
 
 Note that allocations in these frames will still be accounted for
 in parent frames, even if they're hidden.
+
+Inverted View
+-----------------
+
+Although the flame graphs explained above show the calling functions below
+and memory allocating functions above, flame graphs can be inverted
+so that the calling functions are at the top, while memory allocating
+functions are at the bottom. In this view, look for wide ceilings
+instead of wide plateaus to find functions with the largest allocation
+of memory.
+
+To invert the flame graph, press the *Invert* button:
+
+.. image:: _static/images/invert_button.png
+    :align: center
 
 .. _memory-leaks-view:
 
@@ -238,7 +253,7 @@ select a specific thread to display a flame graph for that one thread:
 To go back to the merged view, the "Reset" entry can be used in the
 dropdown menu.
 
-Note that the root node (displayed as **memray**) is always present
+Note that the root node (displayed as **<root>**) is always present
 and is displayed as thread 0.
 
 Conclusion
