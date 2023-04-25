@@ -58,7 +58,7 @@ exclude="tests/integration/(native_extension|multithreaded_extension)/"
 
 [tool.cibuildwheel]
 build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
-skip = "*musllinux*"
+skip = "*musllinux*i686*"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
 
@@ -102,3 +102,11 @@ omit = [
 [tool.coverage.report]
 skip_covered = true
 show_missing = true
+
+
+# Override the default linux before-all for musl linux
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+before-all = [
+  "apk add --update libunwind-dev lz4-dev gdb lldb",
+]

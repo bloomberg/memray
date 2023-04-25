@@ -280,8 +280,11 @@ void*
 dlopen(const char* filename, int flag) noexcept
 {
     assert(hooks::dlopen);
-
-    void* ret = hooks::dlopen(filename, flag);
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::dlopen(filename, flag);
+    }
     if (ret) {
         tracking_api::Tracker::invalidate_module_cache();
         if (filename && nullptr != strstr(filename, "/_greenlet.")) {
