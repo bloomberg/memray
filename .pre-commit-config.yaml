@@ -72,6 +72,14 @@ repos:
         stages: [pre-commit]
         types_or: [c++, c, cuda]
 
+  - repo: https://github.com/rstcheck/rstcheck
+    rev: v6.1.2
+    hooks:
+      - id: rstcheck
+        files: ^news/
+        stages: [pre-commit]
+        types: [rst]
+
   - repo: https://github.com/mgedmin/check-manifest
     rev: "0.49"
     hooks:
