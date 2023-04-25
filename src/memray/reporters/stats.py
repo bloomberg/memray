@@ -1,5 +1,10 @@
+import datetime
+import json
 import math
+import re
 from collections import Counter
+from dataclasses import asdict
+from pathlib import Path
 from typing import Dict
 from typing import Iterator
 from typing import List
@@ -9,6 +14,8 @@ import rich
 
 from memray._memray import size_fmt
 from memray._stats import Stats
+
+PythonStackElement = Tuple[str, str, int]
 
 
 def get_histogram_databins(data: Dict[int, int], bins: int) -> List[Tuple[int, int]]:
@@ -89,7 +96,21 @@ class StatsReporter:
             raise ValueError(f"Invalid input num_largest={num_largest}, should be >=1")
         self.num_largest = num_largest
 
-    def render(self) -> None:
+    def render(self, to_json: bool = False, result_path: Path = Path(".")) -> None:
+        histogram_params = dict(
+            num_bins=10,
+            histogram_scale_factor=25,
+        )
+        if to_json:
+            # appends suffix (works better with --follow-fork)
+            out_name = result_path.with_suffix(result_path.suffix + ".json").name
+            out_name = re.sub("^memray-", "", out_name)
+            out_path = result_path.parent / f"memray-stats-{out_name}"
+            self._render_to_json(histogram_params, out_path)
+        else:
+            self._render_to_terminal(histogram_params)
+
+    def _render_to_terminal(self, histogram_params: Dict[str, int]) -> None:
         rich.print("📏 [bold]Total allocations:[/]")
         print(f"\t{self._stats.total_num_allocations}")
 
@@ -98,35 +119,66 @@ class StatsReporter:
         print(f"\t{size_fmt(self._stats.total_memory_allocated)}")
 
         print()
-        num_bins = 10
-        histogram_scale_factor = 25
+
         rich.print("📊 [bold]Histogram of allocation size:[/]")
         histogram = draw_histogram(
             self._stats.allocation_count_by_size,
-            num_bins,
-            hist_scale_factor=histogram_scale_factor,
+            histogram_params["num_bins"],
+            hist_scale_factor=histogram_params["histogram_scale_factor"],
         )
         print(f"\t{histogram}")
 
         print()
         rich.print("📂 [bold]Allocator type distribution:[/]")
-        for entry in self._get_allocator_type_distribution():
-            print(f"\t {entry}")
+        for allocator_name, count in self._get_allocator_type_distribution():
+            print(f"\t {allocator_name}: {count}")
 
         print()
         rich.print(
             f"🥇 [bold]Top {self.num_largest} largest allocating locations (by size):[/]"
         )
-        for entry in self._get_top_allocations_by_size():
-            print(f"\t- {entry}")
+        for location, size in self._get_top_allocations_by_size():
+            print(f"\t- {self._format_location(location)} -> {size_fmt(size)}")
 
         print()
         rich.print(
             f"🥇 [bold]Top {self.num_largest} largest allocating "
             "locations (by number of allocations):[/]"
         )
-        for entry in self._get_top_allocations_by_count():
-            print(f"\t- {entry}")
+        for location, count in self._get_top_allocations_by_count():
+            print(f"\t- {self._format_location(location)} -> {count}")
+
+    def _render_to_json(self, histogram_params: Dict[str, int], out_path: Path) -> None:
+        alloc_size_hist = get_histogram_databins(
+            self._stats.allocation_count_by_size, bins=histogram_params["num_bins"]
+        )
+
+        metadata = asdict(self._stats.metadata)
+        for name, val in metadata.items():
+            if isinstance(val, datetime.datetime):
+                metadata[name] = str(val)
+
+        data = dict(
+            total_num_allocations=self._stats.total_num_allocations,
+            total_bytes_allocated=self._stats.total_memory_allocated,
+            allocation_size_histogram=alloc_size_hist,
+            allocator_type_distribution=[
+                (allocation_type, count)
+                for allocation_type, count in self._get_allocator_type_distribution()
+            ],
+            top_allocations_by_size=[
+                {"location": self._format_location(location), "size": size}
+                for location, size in self._get_top_allocations_by_size()
+            ],
+            top_allocations_by_count=[
+                {"location": self._format_location(location), "count": count}
+                for location, count in self._get_top_allocations_by_count()
+            ],
+            metadata=metadata,
+        )
+
+        with open(out_path, "w") as f:
+            json.dump(data, f, indent=2)
 
     @staticmethod
     def _format_location(loc: Tuple[str, str, int]) -> str:
@@ -135,18 +187,18 @@ class StatsReporter:
             return "<stack trace unavailable>"
         return f"{function}:{file}:{line}"
 
-    def _get_top_allocations_by_size(self) -> Iterator[str]:
+    def _get_top_allocations_by_size(self) -> Iterator[Tuple[PythonStackElement, int]]:
         for location, size in self._stats.top_locations_by_size:
-            yield f"{self._format_location(location)} -> {size_fmt(size)}"
+            yield (location, size)
 
-    def _get_top_allocations_by_count(self) -> Iterator[str]:
+    def _get_top_allocations_by_count(self) -> Iterator[Tuple[PythonStackElement, int]]:
         for location, count in self._stats.top_locations_by_count:
-            yield f"{self._format_location(location)} -> {count}"
+            yield (location, count)
 
-    def _get_allocator_type_distribution(self) -> Iterator[str]:
+    def _get_allocator_type_distribution(self) -> Iterator[Tuple[str, int]]:
         for allocator_name, count in sorted(
             self._stats.allocation_count_by_allocator.items(),
             key=lambda item: item[1],
             reverse=True,
         ):
-            yield f"{allocator_name}: {count}"
+            yield (allocator_name, count)

@@ -1,0 +1,1 @@
+Allow ``memray stats`` to output a JSON report via ``--json`` flag.
