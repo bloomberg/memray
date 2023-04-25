@@ -40,7 +40,7 @@ jobs:
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_arch }}
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
-          CIBW_TEST_COMMAND: pytest {package}/tests
+          CIBW_TEST_COMMAND: python -m pytest {package}/tests
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
