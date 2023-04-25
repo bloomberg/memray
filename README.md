@@ -89,6 +89,12 @@ export CFLAGS="-I$(brew --prefix lz4)/include" LDFLAGS="-L$(brew --prefix lz4)/l
 before installing `memray`. Check the documentation of your package manager to know the location of the header and library
 files for more detailed information.
 
+If you are building on MacOS, you will also need to set the deployment target.
+
+```shell
+export MACOSX_DEPLOYMENT_TARGET=10.14
+```
+
 Once you have the binary dependencies installed, you can clone the repository and follow with the normal building process:
 
 ```shell

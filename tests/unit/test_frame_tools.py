@@ -12,21 +12,21 @@ class TestFrameFiltering:
             [
                 (
                     "_PyEval_EvalFrameDefault",
-                    "/opt/bb/src/python/python3.8/Python/ceval.c",
+                    "/src/python/python3.8/Python/ceval.c",
                     100,
                 ),
                 True,
             ],
             [
-                ("_PyEvalSomeFunc", "/opt/bb/src/python/python3.8/Python/ceval.c", 100),
+                ("_PyEvalSomeFunc", "/src/python/python3.8/Python/ceval.c", 100),
                 True,
             ],
-            [("VectorCall", "/opt/bb/src/python/python3.8/Python/ceval.c", 100), True],
-            [("proxy_call", "/opt/bb/src/python/python3.8/Python/ceval.c", 100), True],
+            [("VectorCall", "/src/python/python3.8/Python/ceval.c", 100), True],
+            [("proxy_call", "/src/python/python3.8/Python/ceval.c", 100), True],
             [
                 (
                     "function_code_fastcall",
-                    "/opt/bb/src/python/python3.8/Modules/gcmodule.c",
+                    "/src/python/python3.8/Modules/gcmodule.c",
                     100,
                 ),
                 True,
@@ -46,7 +46,7 @@ class TestFrameFiltering:
             [
                 (
                     "_PyEval_EvalFrameDefault",
-                    "/opt/bb/src/python/python3.8/Python/ceval.c",
+                    "/src/python/python3.8/Python/ceval.c",
                     100,
                 ),
                 False,
@@ -54,7 +54,7 @@ class TestFrameFiltering:
             [
                 (
                     "PyArg_ParseTuple",
-                    "/opt/bb/src/python/python3.8/Python/ceval.c",
+                    "/src/python/python3.8/Python/ceval.c",
                     100,
                 ),
                 True,
@@ -63,7 +63,7 @@ class TestFrameFiltering:
             [
                 (
                     "_PyEval_CompileCode",
-                    "/opt/bb/src/python/python3.8/Include/code.h",
+                    "/src/python/python3.8/Include/code.h",
                     100,
                 ),
                 False,
@@ -81,7 +81,7 @@ class TestFrameFiltering:
             [
                 (
                     "_PyEval_EvalFrameDefault",
-                    "/opt/bb/src/python/python3.8/Python/ceval.c",
+                    "/src/python/python3.8/Python/ceval.c",
                     100,
                 ),
                 False,
