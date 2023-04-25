@@ -33,6 +33,13 @@ class StatsCommand:
             default=5,
         )
 
+        parser.add_argument(
+            "--json",
+            help="Exports stats to a JSON file",
+            action="store_true",
+            default=False,
+        )
+
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
@@ -50,4 +57,4 @@ class StatsCommand:
             )
 
         reporter = StatsReporter(stats, args.num_largest)
-        reporter.render()
+        reporter.render(to_json=args.json, result_path=result_path)

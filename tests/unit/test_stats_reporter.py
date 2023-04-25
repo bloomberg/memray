@@ -1,11 +1,16 @@
 from collections import Counter
+from datetime import datetime
 from typing import List
 from typing import Optional
 from typing import Tuple
+from unittest.mock import patch
 
 import pytest
 
 from memray import AllocatorType as AT
+from memray._metadata import Metadata
+from memray._stats import Stats
+from memray.reporters.stats import StatsReporter
 from memray.reporters.stats import draw_histogram
 from memray.reporters.stats import get_histogram_databins
 from tests.utils import MockAllocationRecord
@@ -60,6 +65,62 @@ def _generate_mock_allocations(
         )
 
     return snapshot
+
+
+# data generator for tests
+@pytest.fixture(scope="module")
+def fake_stats():
+    mem_allocation_list = [
+        2500,
+        11000,
+        11000,
+        12000,
+        60000,
+        65000,
+        120000,
+        125000,
+        125000,
+        160000,
+        170000,
+        180000,
+        800000,
+        1500000,
+    ]
+
+    s = Stats(
+        metadata=Metadata(
+            start_time=datetime(2023, 1, 1, 1),
+            end_time=datetime(2023, 1, 1, 2),
+            total_allocations=sum(mem_allocation_list),
+            total_frames=10,
+            peak_memory=max(mem_allocation_list),
+            command_line="fake stats",
+            pid=123456,
+            python_allocator="pymalloc",
+            has_native_traces=False,
+        ),
+        total_num_allocations=20,
+        total_memory_allocated=sum(mem_allocation_list),
+        peak_memory_allocated=max(mem_allocation_list),
+        allocation_count_by_size=Counter(mem_allocation_list),
+        allocation_count_by_allocator={
+            AT.MALLOC.name: 1013,
+            AT.REALLOC.name: 797,
+            AT.CALLOC.name: 152,
+            AT.MMAP.name: 4,
+        },
+        top_locations_by_count=[
+            (("fake_func", "fake.py", 5), 20),
+            (("fake_func2", "fake.py", 10), 50),
+            (("__main__", "fake.py", 15), 1),
+        ],
+        top_locations_by_size=[
+            (("fake_func", "fake.py", 5), 5 * 2**20),
+            (("fake_func2", "fake.py", 10), 3 * 2**10),
+            (("__main__", "fake.py", 15), 4),
+        ],
+    )
+    return s
 
 
 # tests begin here
@@ -279,3 +340,102 @@ def test_draw_histogram_invalid_input():
     # test#3 - Invalid hist_scale_factor value
     with pytest.raises(ValueError):
         _ = draw_histogram([100, 200, 300], bins=5, hist_scale_factor=0)
+
+
+def test_stats_output(fake_stats):
+    reporter = StatsReporter(fake_stats, 5)
+    with patch("builtins.print") as mocked_print:
+        with patch("rich.print", print):
+            reporter.render()
+    expected = (
+        "📏 [bold]Total allocations:[/]\n"
+        "\t20\n"
+        "\n"
+        "📦 [bold]Total memory allocated:[/]\n"
+        "\t3.187MB\n"
+        "\n"
+        "📊 [bold]Histogram of allocation size:[/]\n"
+        "\tmin: 2.441KB\n"
+        "\t----------------------------------------\n"
+        "\t< 4.628KB  : 1 ▇▇▇▇▇\n"
+        "\t< 8.775KB  : 0 \n"
+        "\t< 16.637KB : 3 ▇▇▇▇▇▇▇▇▇▇▇▇▇\n"
+        "\t< 31.542KB : 0 \n"
+        "\t< 59.802KB : 1 ▇▇▇▇▇\n"
+        "\t< 113.378KB: 1 ▇▇▇▇▇\n"
+        "\t< 214.954KB: 6 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\n"
+        "\t< 407.531KB: 0 \n"
+        "\t< 772.638KB: 0 \n"
+        "\t<=1.431MB  : 2 ▇▇▇▇▇▇▇▇▇\n"
+        "\t----------------------------------------\n"
+        "\tmax: 1.431MB\n"
+        "\n"
+        "📂 [bold]Allocator type distribution:[/]\n"
+        "\t MALLOC: 1013\n"
+        "\t REALLOC: 797\n"
+        "\t CALLOC: 152\n"
+        "\t MMAP: 4\n"
+        "\n"
+        "🥇 [bold]Top 5 largest allocating locations (by size):[/]\n"
+        "\t- fake_func:fake.py:5 -> 5.000MB\n"
+        "\t- fake_func2:fake.py:10 -> 3.000KB\n"
+        "\t- __main__:fake.py:15 -> 4.000B\n"
+        "\n"
+        "🥇 [bold]Top 5 largest allocating locations (by number of allocations):[/]\n"
+        "\t- fake_func:fake.py:5 -> 20\n"
+        "\t- fake_func2:fake.py:10 -> 50\n"
+        "\t- __main__:fake.py:15 -> 1"
+    )
+    printed = "\n".join(" ".join(x[0]) for x in mocked_print.call_args_list)
+    assert expected == printed
+
+
+def test_stats_output_json(fake_stats, tmp_path):
+    reporter = StatsReporter(fake_stats, 5)
+    with patch("json.dump") as json_dump:
+        reporter.render(to_json=True, result_path=tmp_path)
+    expected = {
+        "total_num_allocations": 20,
+        "total_bytes_allocated": 3341500,
+        "allocation_size_histogram": [
+            (4739, 1),
+            (8986, 0),
+            (17036, 3),
+            (32299, 0),
+            (61237, 1),
+            (116099, 1),
+            (220113, 6),
+            (417312, 0),
+            (791181, 0),
+            (1500000, 2),
+        ],
+        "allocator_type_distribution": [
+            ("MALLOC", 1013),
+            ("REALLOC", 797),
+            ("CALLOC", 152),
+            ("MMAP", 4),
+        ],
+        "top_allocations_by_size": [
+            {"location": "fake_func:fake.py:5", "size": 5242880},
+            {"location": "fake_func2:fake.py:10", "size": 3072},
+            {"location": "__main__:fake.py:15", "size": 4},
+        ],
+        "top_allocations_by_count": [
+            {"location": "fake_func:fake.py:5", "count": 20},
+            {"location": "fake_func2:fake.py:10", "count": 50},
+            {"location": "__main__:fake.py:15", "count": 1},
+        ],
+        "metadata": {
+            "start_time": "2023-01-01 01:00:00",
+            "end_time": "2023-01-01 02:00:00",
+            "total_allocations": 3341500,
+            "total_frames": 10,
+            "peak_memory": 1500000,
+            "command_line": "fake stats",
+            "pid": 123456,
+            "python_allocator": "pymalloc",
+            "has_native_traces": False,
+        },
+    }
+    actual = json_dump.call_args[0][0]
+    assert expected == actual

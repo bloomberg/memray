@@ -20,6 +20,8 @@ The output includes the following:
 
 * Stack trace and **count** of the top 'n' largest allocating locations by number of allocations (*default: 5*, configurable with the ``-n`` command line param)
 
+* (for JSON output only) Metadata about the tracked process
+
 Basic Usage
 -----------
 
