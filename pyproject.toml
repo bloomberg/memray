@@ -8,6 +8,16 @@ requires = [
 
 build-backend = 'setuptools.build_meta'
 
+[tool.ruff]
+line-length = 95
+select = ["F", "E", "W", "I001"]
+fix = true
+
+[tool.ruff.isort]
+force-single-line = true
+known-first-party = ["memray"]
+known-third-party=["rich", "elftools", "pytest"]
+
 [tool.isort]
 force_single_line = true
 multi_line_output = 3
