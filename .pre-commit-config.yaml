@@ -1,3 +1,6 @@
+ci:
+  autofix_prs: false
+  autoupdate_schedule: weekly
 default_install_hook_types: [pre-commit, pre-push]
 exclude: "^(src/memray/reporters/templates/assets|src/vendor|benchmarks|docs/_static/flamegraphs)/"
 repos:
