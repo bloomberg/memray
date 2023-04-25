@@ -514,7 +514,8 @@ RecordReader::nextRecordFromAllAllocationsFile()
         RecordTypeAndFlags record_type_and_flags;
         if (!d_input->read(
                     reinterpret_cast<char*>(&record_type_and_flags),
-                    sizeof(record_type_and_flags))) {
+                    sizeof(record_type_and_flags)))
+        {
             return RecordResult::END_OF_FILE;
         }
 
@@ -533,7 +534,8 @@ RecordReader::nextRecordFromAllAllocationsFile()
             case RecordType::ALLOCATION: {
                 AllocationRecord record;
                 if (!parseAllocationRecord(&record, record_type_and_flags.flags)
-                    || !processAllocationRecord(record)) {
+                    || !processAllocationRecord(record))
+                {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process allocation record";
                     return RecordResult::ERROR;
                 }
@@ -649,7 +651,8 @@ RecordReader::nextRecordFromAggregatedAllocationsFile()
             case AggregatedRecordType::AGGREGATED_ALLOCATION: {
                 AggregatedAllocation record;
                 if (!parseAggregatedAllocationRecord(&record)
-                    || !processAggregatedAllocationRecord(record)) {
+                    || !processAggregatedAllocationRecord(record))
+                {
                     if (d_input->is_open()) {
                         LOG(ERROR) << "Failed to process aggregated allocation record";
                     }
@@ -971,7 +974,8 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
         RecordTypeAndFlags record_type_and_flags;
         if (!d_input->read(
                     reinterpret_cast<char*>(&record_type_and_flags),
-                    sizeof(record_type_and_flags))) {
+                    sizeof(record_type_and_flags)))
+        {
             Py_RETURN_NONE;
         }
 
