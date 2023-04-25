@@ -150,11 +150,17 @@ use ``run --live-remote``:
 
   memray3.9 run --live-remote application.py
 
-In this mode it will choose an unused port and bind to it, waiting for you to run:
+In this mode, Memray will choose an unused port, bind to it, and display a message saying:
+
+.. code:: text
+
+  Run 'memray live <port>' in another shell to see live results
+
+It will wait for you to run:
 
 .. code:: shell
 
-   memray3.9 live $port
+   memray3.9 live <port>
 
 in another terminal window to attach to it. Regardless of whether you choose to use one terminal or two, the resulting
 TUI is exactly the same. See :doc:`live` for details on how to interpret and control the TUI.
