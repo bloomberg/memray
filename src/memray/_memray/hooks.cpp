@@ -190,7 +190,11 @@ realloc(void* ptr, size_t size) noexcept
 {
     assert(hooks::realloc);
 
-    void* ret = hooks::realloc(ptr, size);
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::realloc(ptr, size);
+    }
     if (ret) {
         if (ptr != nullptr) {
             tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
@@ -310,7 +314,11 @@ aligned_alloc(size_t alignment, size_t size) noexcept
 {
     assert(hooks::aligned_alloc);
 
-    void* ret = hooks::aligned_alloc(alignment, size);
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::aligned_alloc(alignment, size);
+    }
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
     }
