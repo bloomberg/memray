@@ -36,6 +36,18 @@ previously generated using :doc:`the run subcommand <run>`.
 
 The output will be printed directly to the standard output of the terminal.
 
+JSON Output
+-----------
+
+If you supply the ``--json`` flag, the ``stats`` subcommand will write its
+output to a JSON file, rather than to the terminal. Like other commands that
+output to files, the default output file name is based on the name of your
+capture file, but it can be overridden with the ``-o`` / ``--output`` option.
+By default Memray will refuse to overwrite an existing file, but you can force
+it to by supplying the ``-f`` / ``--force`` option.
+
+Note that new fields may be added to the JSON output over time, though we'll
+try to avoid removing existing fields.
 
 CLI Reference
 -------------
