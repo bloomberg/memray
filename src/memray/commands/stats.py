@@ -1,6 +1,7 @@
 import argparse
 import os
 from pathlib import Path
+from typing import Optional
 
 from memray._errors import MemrayCommandError
 from memray._memray import compute_statistics
@@ -39,6 +40,19 @@ class StatsCommand:
             action="store_true",
             default=False,
         )
+        parser.add_argument(
+            "-o",
+            "--output",
+            help="Output file name for JSON output",
+            default=None,
+        )
+        parser.add_argument(
+            "-f",
+            "--force",
+            help="If the JSON output file already exists, overwrite it",
+            action="store_true",
+            default=False,
+        )
 
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         result_path = Path(args.results)
@@ -56,5 +70,24 @@ class StatsCommand:
                 exit_code=1,
             )
 
+        json_output_file: Optional[Path] = None
+        if args.json:
+            if args.output:
+                json_output_file = Path(args.output)
+            else:
+                filename = str(result_path.name) + ".json"
+                if filename.startswith("memray-"):
+                    filename = filename[len("memray-") :]
+                filename = "memray-stats-" + filename
+                json_output_file = result_path.with_name(filename)
+
+            if not args.force and json_output_file.exists():
+                raise MemrayCommandError(
+                    f"File already exists, will not overwrite: {json_output_file}",
+                    exit_code=1,
+                )
+
         reporter = StatsReporter(stats, args.num_largest)
-        reporter.render(to_json=args.json, result_path=result_path)
+        reporter.render(json_output_file=json_output_file)
+        if json_output_file is not None:
+            print(f"Wrote {json_output_file}")

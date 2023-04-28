@@ -1,3 +1,4 @@
+import json
 from collections import Counter
 from datetime import datetime
 from typing import List
@@ -391,9 +392,9 @@ def test_stats_output(fake_stats):
 
 
 def test_stats_output_json(fake_stats, tmp_path):
+    output_file = tmp_path / "json.out"
     reporter = StatsReporter(fake_stats, 5)
-    with patch("json.dump") as json_dump:
-        reporter.render(to_json=True, result_path=tmp_path)
+    reporter.render(json_output_file=output_file)
     expected = {
         "total_num_allocations": 20,
         "total_bytes_allocated": 3341500,
@@ -437,5 +438,5 @@ def test_stats_output_json(fake_stats, tmp_path):
             "has_native_traces": False,
         },
     }
-    actual = json_dump.call_args[0][0]
+    actual = json.loads(output_file.read_text())
     assert expected == actual

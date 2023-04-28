@@ -1,7 +1,6 @@
 import datetime
 import json
 import math
-import re
 from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
@@ -9,6 +8,7 @@ from typing import Any
 from typing import Dict
 from typing import Iterator
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 import rich
@@ -110,17 +110,13 @@ class StatsReporter:
             raise ValueError(f"Invalid input num_largest={num_largest}, should be >=1")
         self.num_largest = num_largest
 
-    def render(self, to_json: bool = False, result_path: Path = Path(".")) -> None:
+    def render(self, json_output_file: Optional[Path] = None) -> None:
         histogram_params = dict(
             num_bins=10,
             histogram_scale_factor=25,
         )
-        if to_json:
-            # appends suffix (works better with --follow-fork)
-            out_name = result_path.with_suffix(result_path.suffix + ".json").name
-            out_name = re.sub("^memray-", "", out_name)
-            out_path = result_path.parent / f"memray-stats-{out_name}"
-            self._render_to_json(histogram_params, out_path)
+        if json_output_file:
+            self._render_to_json(histogram_params, json_output_file)
         else:
             self._render_to_terminal(histogram_params)
 

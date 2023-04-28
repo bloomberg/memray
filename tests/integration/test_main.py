@@ -1,4 +1,5 @@
 import contextlib
+import json
 import os
 import platform
 import pty
@@ -862,6 +863,138 @@ class TestStatsSubCommand:
 
         # THEN
         assert "VALLOC" in output
+
+    def test_json_generated(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        json_file = tmp_path / "memray-stats-result.bin.json"
+
+        # WHEN
+        subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "stats",
+                "--json",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            text=True,
+        )
+
+        # THEN
+        assert json_file.exists()
+        assert isinstance(json.loads(json_file.read_text()), dict)
+
+    def test_json_generated_to_pretty_file_name(self, tmp_path, simple_test_file):
+        # GIVEN
+        orig_results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        results_file = orig_results_file.with_name("memray-foobar.bin")
+        orig_results_file.rename(results_file)
+        json_file = tmp_path / "memray-stats-foobar.bin.json"
+
+        # WHEN
+        subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "stats",
+                "--json",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            text=True,
+        )
+
+        # THEN
+        assert json_file.exists()
+        assert isinstance(json.loads(json_file.read_text()), dict)
+
+    def test_json_generated_to_known_file(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        json_file = tmp_path / "output.json"
+
+        # WHEN
+        subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "stats",
+                "--json",
+                "-o",
+                str(json_file),
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            text=True,
+        )
+
+        # THEN
+        assert json_file.exists()
+        assert isinstance(json.loads(json_file.read_text()), dict)
+
+    def test_json_generated_to_existing_known_file(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        json_file = tmp_path / "output.json"
+        json_file.write_text("oops")
+
+        # WHEN
+        try:
+            exc = None
+            subprocess.check_output(
+                [
+                    sys.executable,
+                    "-m",
+                    "memray",
+                    "stats",
+                    "--json",
+                    "-o",
+                    str(json_file),
+                    str(results_file),
+                ],
+                cwd=str(tmp_path),
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            exc = e
+
+        # THEN
+        assert exc is not None
+        assert "File already exists, will not overwrite" in exc.stderr
+
+    def test_json_overwrites_existing_known_file(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        json_file = tmp_path / "output.json"
+        json_file.write_text("oops")
+
+        # WHEN
+        subprocess.check_output(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "stats",
+                "--json",
+                "--force",
+                "--output",
+                str(json_file),
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        # THEN
+        assert json_file.exists()
+        assert isinstance(json.loads(json_file.read_text()), dict)
 
     def test_report_detects_corrupt_input(self, tmp_path):
         # GIVEN
