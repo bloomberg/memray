@@ -5,6 +5,7 @@ import re
 from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 from typing import Dict
 from typing import Iterator
 from typing import List
@@ -35,6 +36,19 @@ def get_histogram_databins(data: Dict[int, int], bins: int) -> List[Tuple[int, i
         bucket = min(int((math.log(size) - low) // step), bins - 1) if size else 0
         dist[bucket] += count
     return [(steps[b], dist[b]) for b in range(bins)]
+
+
+def describe_histogram_databins(
+    databins: List[Tuple[int, int]]
+) -> List[Dict[str, int]]:
+    ret: List[Dict[str, int]] = []
+    start = 0
+    for i, (end, count) in enumerate(databins):
+        # The max size for the last bucket is inclusive, not exclusive
+        adjustment = 1 if i != len(databins) - 1 else 0
+        ret.append(dict(min_bytes=start, max_bytes=end - adjustment, count=count))
+        start = end
+    return ret
 
 
 def draw_histogram(
@@ -149,8 +163,10 @@ class StatsReporter:
             print(f"\t- {self._format_location(location)} -> {count}")
 
     def _render_to_json(self, histogram_params: Dict[str, int], out_path: Path) -> None:
-        alloc_size_hist = get_histogram_databins(
-            self._stats.allocation_count_by_size, bins=histogram_params["num_bins"]
+        alloc_size_hist = describe_histogram_databins(
+            get_histogram_databins(
+                self._stats.allocation_count_by_size, bins=histogram_params["num_bins"]
+            )
         )
 
         metadata = asdict(self._stats.metadata)
@@ -158,14 +174,14 @@ class StatsReporter:
             if isinstance(val, datetime.datetime):
                 metadata[name] = str(val)
 
-        data = dict(
+        data: Dict[str, Any] = dict(
             total_num_allocations=self._stats.total_num_allocations,
             total_bytes_allocated=self._stats.total_memory_allocated,
             allocation_size_histogram=alloc_size_hist,
-            allocator_type_distribution=[
-                (allocation_type, count)
+            allocator_type_distribution={
+                allocation_type: count
                 for allocation_type, count in self._get_allocator_type_distribution()
-            ],
+            },
             top_allocations_by_size=[
                 {"location": self._format_location(location), "size": size}
                 for location, size in self._get_top_allocations_by_size()
