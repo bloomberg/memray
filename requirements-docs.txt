@@ -1,5 +1,4 @@
 IPython
-IPython < 8.13; python_version < '3.9'
 sphinx
 sphinx-autobuild
 sphinx-argparse
