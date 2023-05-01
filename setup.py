@@ -94,7 +94,6 @@ install_requires = [
 ]
 docs_requires = [
     "IPython",
-    "IPython < 8.13; python_version < '3.9'",
     "bump2version",
     "sphinx",
     "furo",
@@ -116,7 +115,6 @@ test_requires = [
     "pytest",
     "pytest-cov",
     "ipython",
-    "ipython < 8.13; python_version < '3.9'",
 ]
 
 benchmark_requires = [

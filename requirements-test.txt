@@ -4,4 +4,3 @@ greenlet; python_version < '3.11'
 pytest
 pytest-cov
 ipython
-ipython < 8.13; python_version < '3.9'
