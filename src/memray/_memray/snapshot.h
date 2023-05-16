@@ -282,12 +282,33 @@ struct Contribution
     size_t allocations;
 };
 
+bool
+operator==(const Contribution& lhs, const Contribution& rhs);
+
+bool
+operator!=(const Contribution& lhs, const Contribution& rhs);
+
+struct HistoricalContribution
+{
+    size_t as_of_snapshot;
+    size_t peak_index;
+    Contribution contrib;
+};
+
 class UsageHistory
 {
   public:
-    void recordUsageDelta(size_t current_peak, size_t count_delta, size_t bytes_delta);
-    Contribution highWaterMarkContribution(size_t current_peak) const;
-    Contribution leaksContribution(size_t current_peak) const;
+    void recordUsageDelta(
+            const std::vector<size_t>& highest_peak_by_snapshot,
+            size_t current_peak,
+            size_t count_delta,
+            size_t bytes_delta);
+
+    Contribution highWaterMarkContribution(size_t highest_peak) const;
+    Contribution leaksContribution() const;
+    std::vector<HistoricalContribution> contributionsBySnapshot(
+            const std::vector<size_t>& highest_peak_by_snapshot,
+            size_t current_peak) const;
 
   private:
     // This class represents allocations observed at some location over time.
@@ -301,6 +322,7 @@ class UsageHistory
     // allocations or deallocations since the current peak.
     struct UsageHistoryImpl
     {
+        uint64_t last_known_snapshot;
         uint64_t last_known_peak;
         size_t allocations_contributed_to_last_known_peak;
         size_t bytes_contributed_to_last_known_peak;
@@ -318,19 +340,49 @@ class UsageHistory
     };
 
     UsageHistoryImpl d_history{};
+    std::vector<HistoricalContribution> d_heap_contribution_by_snapshot;
+
+    // Append records for already-completed snapshots to the given vector.
+    UsageHistoryImpl recordContributionsToCompletedSnapshots(
+            const std::vector<size_t>& highest_peak_by_snapshot,
+            std::vector<HistoricalContribution>& heap_contribution_by_snapshot) const;
+};
+
+struct AllocationLifetime
+{
+    size_t allocatedBeforeSnapshot;
+    size_t deallocatedBeforeSnapshot;  // SIZE_MAX if never deallocated
+    HighWaterMarkLocationKey key;
+    size_t n_allocations;
+    size_t n_bytes;
 };
 
 class HighWaterMarkAggregator
 {
   public:
+    using Index = std::vector<AllocationLifetime>;
+
     void addAllocation(const Allocation& allocation);
+    void captureSnapshot();
+
     size_t getCurrentHeapSize() const noexcept;
+    const std::vector<size_t>& highWaterMarkBytesBySnapshot() const;
+    Index generateIndex() const;
 
     using allocation_callback_t = std::function<bool(const AggregatedAllocation&)>;
     bool visitAllocations(const allocation_callback_t& callback) const;
 
   private:
-    // Number of high water marks found (incremented on the falling edge)
+    // For each call to captureSnapshot(), record the index of the highest
+    // high water mark found since the last snapshot was taken.
+    std::vector<size_t> d_high_water_mark_index_by_snapshot;
+
+    // For each call to captureSnapshot(), record the heap size at the highest
+    // high water mark found since the last snapshot was taken.
+    std::vector<size_t> d_high_water_mark_bytes_by_snapshot;
+
+    // Number of high water marks found (incremented on the falling edge,
+    // as well as on a new snapshot being taken).
     uint64_t d_peak_count{};
     size_t d_heap_size_at_last_peak{};
     size_t d_current_heap_size{};
@@ -349,15 +401,6 @@ class HighWaterMarkAggregator
     UsageHistory& getUsageHistory(const Allocation& allocation);
     void recordUsageDelta(const Allocation& allocation, size_t count_delta, size_t bytes_delta);
     reduced_snapshot_map_t getAllocations(bool merge_threads, bool stop_at_high_water_mark) const;
-};
-
-struct AllocationLifetime
-{
-    size_t allocatedBeforeSnapshot;
-    size_t deallocatedBeforeSnapshot;  // SIZE_MAX if never deallocated
-    HighWaterMarkLocationKey key;
-    size_t n_allocations;
-    size_t n_bytes;
 };
 
 class AllocationLifetimeAggregator
