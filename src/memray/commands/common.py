@@ -121,7 +121,7 @@ class HighWatermarkCommand:
         show_memory_leaks: bool,
         temporary_allocation_threshold: int,
         merge_threads: Optional[bool] = None,
-        temporal_leaks: bool = False,
+        temporal: bool = False,
     ) -> None:
         try:
             reader = FileReader(os.fspath(result_path), report_progress=True)
@@ -130,8 +130,9 @@ class HighWatermarkCommand:
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
 
-            if temporal_leaks:
+            if temporal:
                 assert self.temporal_reporter_factory is not None
+                assert show_memory_leaks
                 temporal_snapshot = reader.get_temporal_allocation_records(
                     merge_threads=merge_threads
                 )
@@ -140,7 +141,6 @@ class HighWatermarkCommand:
                     memory_records=tuple(reader.get_memory_snapshots()),
                     native_traces=reader.metadata.has_native_traces,
                 )
-                show_memory_leaks = True
             else:
                 if show_memory_leaks:
                     snapshot = reader.get_leaked_allocation_records(
@@ -188,6 +188,17 @@ class HighWatermarkCommand:
             action="store_true",
             default=False,
         )
+        if self.temporal_reporter_factory:
+            parser.add_argument(
+                "--temporal",
+                help=(
+                    "Generate a dynamic flame graph that can analyze"
+                    " allocations in a user-selected time range."
+                ),
+                action="store_true",
+                default=False,
+            )
+
         alloc_type_group = parser.add_mutually_exclusive_group()
         alloc_type_group.add_argument(
             "--leaks",
@@ -196,17 +207,6 @@ class HighWatermarkCommand:
             dest="show_memory_leaks",
             default=False,
         )
-        if self.temporal_reporter_factory:
-            alloc_type_group.add_argument(
-                "--temporal-leaks",
-                help=(
-                    "Generate a dynamic flame graph showing allocations performed"
-                    " in a user-selected time range and not freed before the end"
-                    " of that time range."
-                ),
-                action="store_true",
-                default=False,
-            )
         alloc_type_group.add_argument(
             "--temporary-allocation-threshold",
             metavar="N",
@@ -234,6 +234,14 @@ class HighWatermarkCommand:
         parser.add_argument("results", help="Results of the tracker run")
 
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+        temporal = getattr(args, "temporal", False)
+        if temporal and args.temporary_allocation_threshold >= 0:
+            parser.error("Can't create a temporal flame graph of temporary allocations")
+        if temporal and not args.show_memory_leaks:
+            parser.error(
+                "Can't create a temporal flame graph of high water mark allocations"
+            )
+
         result_path, output_file = self.validate_filenames(
             output=args.output,
             results=args.results,
@@ -249,7 +257,7 @@ class HighWatermarkCommand:
             output_file,
             args.show_memory_leaks,
             args.temporary_allocation_threshold,
-            temporal_leaks=getattr(args, "temporal_leaks", False),
+            temporal=temporal,
             **kwargs,
         )
 
