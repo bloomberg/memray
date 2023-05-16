@@ -1121,6 +1121,51 @@ cdef class FileReader:
         gen.setup(move(aggregator.generateIndex()), reader_sp)
         yield from gen
 
+    def get_temporal_high_water_mark_allocation_records(self, merge_threads=True):
+        self._ensure_not_closed()
+        if self._header["file_format"] == FileFormat.AGGREGATED_ALLOCATIONS:
+            raise NotImplementedError(
+                "Can't get allocation history using a pre-aggregated capture file."
+            )
+
+        cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(self._path))
+        )
+        cdef RecordReader* reader = reader_sp.get()
+
+        cdef size_t records_to_process = self._header["stats"]["n_allocations"]
+        cdef ProgressIndicator progress_indicator = ProgressIndicator(
+            "Processing allocation records",
+            total=records_to_process,
+            report_progress=self._report_progress
+        )
+
+        cdef HighWaterMarkAggregator aggregator
+        cdef _Allocation allocation
+
+        with progress_indicator:
+            while records_to_process > 0:
+                PyErr_CheckSignals()
+                ret = reader.nextRecord()
+                if ret == RecordResult.RecordResultAllocationRecord:
+                    allocation = reader.getLatestAllocation()
+                    if merge_threads:
+                        allocation.tid = 0
+                    aggregator.addAllocation(allocation)
+                    records_to_process -= 1
+                    progress_indicator.update(1)
+                elif ret == RecordResult.RecordResultMemoryRecord:
+                    aggregator.captureSnapshot()
+                else:
+                    assert ret != RecordResult.RecordResultMemorySnapshot
+                    assert ret != RecordResult.RecordResultAggregatedAllocationRecord
+                    break
+
+        cdef TemporalAllocationGenerator gen = TemporalAllocationGenerator()
+        gen.setup(move(aggregator.generateIndex()), reader_sp)
+        hwm_by_snapshot = aggregator.highWaterMarkBytesBySnapshot()
+        return gen, hwm_by_snapshot
+
     def get_allocation_records(self):
         self._ensure_not_closed()
         if self._header["file_format"] == FileFormat.AGGREGATED_ALLOCATIONS:
