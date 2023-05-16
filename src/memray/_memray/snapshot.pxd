@@ -46,11 +46,6 @@ cdef extern from "snapshot.h" namespace "memray::api":
     cdef cppclass index_thread_pair_hash:
         pass
 
-    cdef cppclass HighWaterMarkAggregator:
-        void addAllocation(const Allocation& allocation) except+
-        size_t getCurrentHeapSize()
-        bool visitAllocations[T](const T& callback) except+
-
     cdef cppclass HighWaterMarkLocationKey:
         unsigned long thread_id
         size_t python_frame_id
@@ -71,6 +66,15 @@ cdef extern from "snapshot.h" namespace "memray::api":
     cdef cppclass AllocationLifetimeAggregator:
         void addAllocation(const Allocation& allocation) except+
         void captureSnapshot()
+        vector[AllocationLifetime] generateIndex() except+
+
+    cdef cppclass HighWaterMarkAggregator:
+        void addAllocation(const Allocation& allocation) except+
+        void captureSnapshot() except+
+
+        size_t getCurrentHeapSize()
+        bool visitAllocations[T](const T& callback) except+
+        vector[size_t] highWaterMarkBytesBySnapshot() except+
         vector[AllocationLifetime] generateIndex() except+
 
     cdef cppclass AllocationStatsAggregator:

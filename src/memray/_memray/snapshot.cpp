@@ -274,6 +274,18 @@ AggregatedCaptureReaggregator::getSnapshotAllocations(bool merge_threads)
     return stack_to_allocation;
 }
 
+bool
+operator==(const Contribution& lhs, const Contribution& rhs)
+{
+    return lhs.allocations == rhs.allocations && lhs.bytes == rhs.bytes;
+}
+
+bool
+operator!=(const Contribution& lhs, const Contribution& rhs)
+{
+    return !(lhs == rhs);
+}
+
 UsageHistory&
 HighWaterMarkAggregator::getUsageHistory(const Allocation& allocation)
 {
@@ -308,9 +320,74 @@ UsageHistory::UsageHistoryImpl::rebase(size_t new_peak)
     }
 }
 
-void
-UsageHistory::recordUsageDelta(size_t current_peak, size_t count_delta, size_t bytes_delta)
+UsageHistory::UsageHistoryImpl
+UsageHistory::recordContributionsToCompletedSnapshots(
+        const std::vector<size_t>& highest_peak_by_snapshot,
+        std::vector<HistoricalContribution>& heap_contribution_by_snapshot) const
 {
+    size_t current_snapshot = highest_peak_by_snapshot.size();
+    auto history = d_history;
+
+    // If any snapshots have completed since this location's last allocation
+    // or deallocation, we need to record the final amount we contributed to
+    // their HWMs in `heap_contribution_by_snapshot`. This loop will fire:
+    // - 0 times if no snapshots are newly completed.
+    // - 1 time if only 1 snapshot is newly completed.
+    // - 1 time if more than 1 snapshot is newly completed but we contributed
+    //   the same amount to the HWM of each of them.
+    // - 2 times if at least 2 snapshots are newly completed and we contributed
+    //   different amounts to the HWM of the first than the rest. This means we
+    //   had (de)allocations during the first snapshot but after its HWM, which
+    //   we need to record as contributions to the HWM of the rest.
+    while (history.last_known_snapshot != current_snapshot) {
+        assert(history.last_known_snapshot < current_snapshot);
+        size_t last_snapshot_peak = highest_peak_by_snapshot.at(history.last_known_snapshot);
+        history.rebase(last_snapshot_peak);
+
+        HistoricalContribution hc{
+                history.last_known_snapshot,
+                last_snapshot_peak,
+                {history.bytes_contributed_to_last_known_peak,
+                 history.allocations_contributed_to_last_known_peak}};
+
+        bool changed;
+        if (!heap_contribution_by_snapshot.empty()) {
+            // See if the amount contributed has changed since the last record.
+            changed = heap_contribution_by_snapshot.back().contrib != hc.contrib;
+        } else {
+            // An empty vector implicitly no contributed bytes/allocations.
+            changed = Contribution{0, 0} != hc.contrib;
+        }
+
+        if (changed) {
+            // Only record amounts that differ from the last recorded amount.
+            // We represent "runs" of the same value implicitly.
+            heap_contribution_by_snapshot.push_back(hc);
+        }
+
+        if (history.count_since_last_peak) {
+            history.last_known_snapshot++;
+        } else {
+            history.last_known_snapshot = current_snapshot;
+        }
+    }
+    return history;
+}
+
+void
+UsageHistory::recordUsageDelta(
+        const std::vector<size_t>& highest_peak_by_snapshot,
+        size_t current_peak,
+        size_t count_delta,
+        size_t bytes_delta)
+{
+    size_t current_snapshot = highest_peak_by_snapshot.size();
+    if (d_history.last_known_snapshot < current_snapshot) {
+        d_history = recordContributionsToCompletedSnapshots(
+                highest_peak_by_snapshot,
+                d_heap_contribution_by_snapshot);
+    }
+
     if (d_history.last_known_peak != current_peak) {
         d_history.rebase(current_peak);
     }
@@ -322,6 +399,23 @@ UsageHistory::recordUsageDelta(size_t current_peak, size_t count_delta, size_t b
 Contribution
 UsageHistory::highWaterMarkContribution(size_t highest_peak) const
 {
+    // If the highest peak was in a snapshot we've already moved past, return
+    // our last contribution to a peak <= highest_peak, or an empty
+    // contribution if no allocations occurred here before that highest peak.
+    if (highest_peak < d_history.last_known_peak) {
+        auto it = std::lower_bound(
+                d_heap_contribution_by_snapshot.rbegin(),
+                d_heap_contribution_by_snapshot.rend(),
+                highest_peak,
+                [](const HistoricalContribution& hc, size_t highest_peak) {
+                    return hc.peak_index > highest_peak;
+                });
+        if (it == d_heap_contribution_by_snapshot.rend()) {
+            return {0, 0};
+        }
+        return it->contrib;
+    }
+
     auto total = d_history;
     total.rebase(highest_peak);
     Contribution ret;
@@ -331,13 +425,50 @@ UsageHistory::highWaterMarkContribution(size_t highest_peak) const
 }
 
 Contribution
-UsageHistory::leaksContribution(size_t current_peak) const
+UsageHistory::leaksContribution() const
 {
-    auto total = d_history;
-    total.rebase(current_peak);
     Contribution ret;
-    ret.bytes = total.bytes_contributed_to_last_known_peak + total.bytes_since_last_peak;
-    ret.allocations = total.allocations_contributed_to_last_known_peak + total.count_since_last_peak;
+    ret.bytes = d_history.bytes_contributed_to_last_known_peak + d_history.bytes_since_last_peak;
+    ret.allocations =
+            d_history.allocations_contributed_to_last_known_peak + d_history.count_since_last_peak;
+    return ret;
+}
+
+std::vector<HistoricalContribution>
+UsageHistory::contributionsBySnapshot(
+        const std::vector<size_t>& highest_peak_by_snapshot,
+        size_t current_peak) const
+{
+    size_t current_snapshot = highest_peak_by_snapshot.size();
+    auto ret = d_heap_contribution_by_snapshot;
+
+    auto final = d_history;
+    if (final.last_known_snapshot < current_snapshot) {
+        final = recordContributionsToCompletedSnapshots(highest_peak_by_snapshot, ret);
+    }
+
+    if (final.last_known_peak != current_peak) {
+        final.rebase(current_peak);
+    }
+    final.last_known_snapshot = current_snapshot;
+
+    Contribution hwm{
+            final.bytes_contributed_to_last_known_peak,
+            final.allocations_contributed_to_last_known_peak};
+
+    Contribution leaks = hwm;
+    leaks.allocations += final.count_since_last_peak;
+    leaks.bytes += final.bytes_since_last_peak;
+
+    if (ret.empty() || ret.back().contrib != hwm) {
+        ret.emplace_back(HistoricalContribution{final.last_known_snapshot, current_peak, hwm});
+    }
+
+    if (ret.empty() || ret.back().contrib != leaks) {
+        ret.emplace_back(
+                HistoricalContribution{final.last_known_snapshot + 1, static_cast<size_t>(-1), leaks});
+    }
+
     return ret;
 }
 
@@ -356,7 +487,11 @@ HighWaterMarkAggregator::recordUsageDelta(
     d_current_heap_size = new_heap_size;
 
     auto& history = getUsageHistory(allocation);
-    history.recordUsageDelta(d_peak_count, count_delta, bytes_delta);
+    history.recordUsageDelta(
+            d_high_water_mark_index_by_snapshot,
+            d_peak_count,
+            count_delta,
+            bytes_delta);
 }
 
 void
@@ -406,19 +541,105 @@ HighWaterMarkAggregator::addAllocation(const Allocation& allocation_or_deallocat
     }
 }
 
+void
+HighWaterMarkAggregator::captureSnapshot()
+{
+    if (d_current_heap_size >= d_heap_size_at_last_peak) {
+        // We're currently on the rising edge of a new peak.
+        d_high_water_mark_index_by_snapshot.push_back(d_peak_count + 1);
+        d_high_water_mark_bytes_by_snapshot.push_back(d_current_heap_size);
+    } else {
+        d_high_water_mark_index_by_snapshot.push_back(d_peak_count);
+        d_high_water_mark_bytes_by_snapshot.push_back(d_heap_size_at_last_peak);
+    }
+
+    // Count the start of a snapshot as a "peak", even though heap utilization
+    // may in fact be lower than at a previous peak.
+    d_peak_count++;
+    d_heap_size_at_last_peak = d_current_heap_size;
+}
+
 size_t
 HighWaterMarkAggregator::getCurrentHeapSize() const noexcept
 {
     return d_current_heap_size;
 }
 
-bool
-HighWaterMarkAggregator::visitAllocations(const allocation_callback_t& callback) const
+const std::vector<size_t>&
+HighWaterMarkAggregator::highWaterMarkBytesBySnapshot() const
 {
+    return d_high_water_mark_bytes_by_snapshot;
+}
+
+HighWaterMarkAggregator::Index
+HighWaterMarkAggregator::generateIndex() const
+{
+    std::vector<AllocationLifetime> index;
+
     uint64_t final_peak_count = d_peak_count;
     if (d_current_heap_size >= d_heap_size_at_last_peak) {
         // We're currently at a new peak that we haven't yet fallen from.
         final_peak_count++;
+    }
+
+    for (const auto& [location, history] : d_usage_history_by_location) {
+        auto contribs =
+                history.contributionsBySnapshot(d_high_water_mark_index_by_snapshot, final_peak_count);
+
+        // Loop over all but the last historical contribution.
+        for (size_t i = 0; i + 1 < contribs.size(); ++i) {
+            auto& curr = contribs[i];
+            auto& next = contribs[i + 1];
+
+            index.emplace_back(AllocationLifetime{
+                    curr.as_of_snapshot,
+                    next.as_of_snapshot,
+                    location,
+                    curr.contrib.allocations,
+                    curr.contrib.bytes});
+        }
+
+        if (!contribs.empty()) {
+            // The last one is special because there's no end snapshot.
+            auto& curr = contribs.back();
+
+            index.emplace_back(AllocationLifetime{
+                    curr.as_of_snapshot,
+                    static_cast<size_t>(-1),
+                    location,
+                    curr.contrib.allocations,
+                    curr.contrib.bytes});
+        }
+    }
+
+    // Finally, sort the vector we're returning, so that our callers can count
+    // on all intervals for a given location being contiguous.
+    std::sort(index.begin(), index.end());
+    return index;
+}
+
+bool
+HighWaterMarkAggregator::visitAllocations(const allocation_callback_t& callback) const
+{
+    // Find true peak: max(highest snapshot peak, latest peak, current usage)
+    uint64_t final_peak_count = 0;
+    uint64_t final_peak_bytes = 0;
+    for (size_t i = 0; i < d_high_water_mark_index_by_snapshot.size(); ++i) {
+        if (d_high_water_mark_bytes_by_snapshot[i] > final_peak_bytes) {
+            final_peak_bytes = d_high_water_mark_bytes_by_snapshot[i];
+            final_peak_count = d_high_water_mark_index_by_snapshot[i];
+        }
+    }
+
+    if (d_heap_size_at_last_peak > final_peak_bytes) {
+        final_peak_count = d_peak_count;
+        final_peak_bytes = d_heap_size_at_last_peak;
+    }
+
+    if (d_current_heap_size >= final_peak_bytes) {
+        // We're currently at a new peak that we haven't yet fallen from.
+        final_peak_count = d_peak_count + 1;
+        final_peak_bytes = d_current_heap_size;
     }
 
     return std::all_of(
@@ -427,7 +648,7 @@ HighWaterMarkAggregator::visitAllocations(const allocation_callback_t& callback)
             [&](const auto& entry) {
                 const auto& [loc, usage] = entry;
                 Contribution hwm = usage.highWaterMarkContribution(final_peak_count);
-                Contribution leaks = usage.leaksContribution(final_peak_count);
+                Contribution leaks = usage.leaksContribution();
                 AggregatedAllocation alloc{
                         loc.thread_id,
                         loc.allocator,
