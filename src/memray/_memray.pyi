@@ -140,6 +140,10 @@ class FileReader:
         self,
         merge_threads: bool,
     ) -> Iterable[TemporalAllocationRecord]: ...
+    def get_temporal_high_water_mark_allocation_records(
+        self,
+        merge_threads: bool,
+    ) -> Tuple[List[TemporalAllocationRecord], List[int]]: ...
     def get_high_watermark_allocation_records(
         self,
         merge_threads: bool = ...,

@@ -228,13 +228,16 @@ class FlameGraphReporter:
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
+        high_water_mark_by_snapshot: Optional[List[int]],
     ) -> "FlameGraphReporter":
-        return cls._from_any_snapshot(
+        ret = cls._from_any_snapshot(
             allocations,
             memory_records=memory_records,
             native_traces=native_traces,
             temporal=True,
         )
+        ret.data["high_water_mark_by_snapshot"] = high_water_mark_by_snapshot
+        return ret
 
     def render(
         self,

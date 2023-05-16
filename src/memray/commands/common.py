@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 from typing import Iterable
+from typing import List
 from typing import Optional
 from typing import Tuple
 
@@ -43,6 +44,7 @@ class TemporalReporterFactory(Protocol):
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
+        high_water_mark_by_snapshot: Optional[List[int]],
     ) -> BaseReporter:
         ...
 
@@ -132,15 +134,26 @@ class HighWatermarkCommand:
 
             if temporal:
                 assert self.temporal_reporter_factory is not None
-                assert show_memory_leaks
-                temporal_snapshot = reader.get_temporal_allocation_records(
-                    merge_threads=merge_threads
-                )
-                reporter = self.temporal_reporter_factory(
-                    temporal_snapshot,
-                    memory_records=tuple(reader.get_memory_snapshots()),
-                    native_traces=reader.metadata.has_native_traces,
-                )
+                if show_memory_leaks:
+                    temporal_snapshot = reader.get_temporal_allocation_records(
+                        merge_threads=merge_threads
+                    )
+                    reporter = self.temporal_reporter_factory(
+                        temporal_snapshot,
+                        memory_records=tuple(reader.get_memory_snapshots()),
+                        native_traces=reader.metadata.has_native_traces,
+                        high_water_mark_by_snapshot=None,
+                    )
+                else:
+                    recs, hwms = reader.get_temporal_high_water_mark_allocation_records(
+                        merge_threads=merge_threads
+                    )
+                    reporter = self.temporal_reporter_factory(
+                        recs,
+                        memory_records=tuple(reader.get_memory_snapshots()),
+                        native_traces=reader.metadata.has_native_traces,
+                        high_water_mark_by_snapshot=hwms,
+                    )
             else:
                 if show_memory_leaks:
                     snapshot = reader.get_leaked_allocation_records(
@@ -237,10 +250,6 @@ class HighWatermarkCommand:
         temporal = getattr(args, "temporal", False)
         if temporal and args.temporary_allocation_threshold >= 0:
             parser.error("Can't create a temporal flame graph of temporary allocations")
-        if temporal and not args.show_memory_leaks:
-            parser.error(
-                "Can't create a temporal flame graph of high water mark allocations"
-            )
 
         result_path, output_file = self.validate_filenames(
             output=args.output,
