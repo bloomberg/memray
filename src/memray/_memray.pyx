@@ -1399,8 +1399,20 @@ cdef class HighWaterMarkAggregatorTestHarness:
         allocation.n_allocations = 1
         self.aggregator.addAllocation(allocation)
 
+    def capture_snapshot(self):
+        return self.aggregator.captureSnapshot()
+
+    def high_water_mark_bytes_by_snapshot(self):
+        return self.aggregator.highWaterMarkBytesBySnapshot()
+
     def get_current_heap_size(self):
         return self.aggregator.getCurrentHeapSize()
+
+    def get_temporal_allocations(self):
+        cdef shared_ptr[RecordReader] reader
+        cdef TemporalAllocationGenerator gen = TemporalAllocationGenerator()
+        gen.setup(move(self.aggregator.generateIndex()), reader)
+        yield from gen
 
     def get_allocations(self):
         ret = []
