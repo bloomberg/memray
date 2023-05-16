@@ -502,7 +502,7 @@ cdef class TemporalAllocationGenerator:
     cdef vector[AllocationLifetime] lifetimes
     cdef shared_ptr[RecordReader] reader
 
-    cdef object curr_record
+    cdef TemporalAllocationRecord curr_record
     cdef HighWaterMarkLocationKey last_key
     cdef size_t idx
 
