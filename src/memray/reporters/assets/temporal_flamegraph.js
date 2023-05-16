@@ -51,28 +51,84 @@ function packedDataToTree(packedData, rangeStart, rangeEnd) {
     node["children"] = node["children"].map((idx) => node_objects[idx]);
   }
 
-  // We could binary search rather than using a linear scan...
-  console.log("finding leaked allocations");
-  packedData.intervals.forEach((interval) => {
-    let [allocBefore, deallocBefore, nodeIndex, count, bytes] = interval;
-
-    if (
-      allocBefore >= rangeStart &&
-      allocBefore <= rangeEnd &&
-      (deallocBefore === null || deallocBefore > rangeEnd)
-    ) {
-      while (nodeIndex !== undefined) {
-        node_objects[nodeIndex].n_allocations += count;
-        node_objects[nodeIndex].value += bytes;
-        nodeIndex = parent_index_by_child_index[nodeIndex];
+  const hwms = packedData.high_water_mark_by_snapshot;
+  if (hwms) {
+    console.log("finding highest high water mark in range");
+    let hwmSnapshot = rangeStart;
+    let hwmBytes = hwms[rangeStart];
+    for (let i = rangeStart; i <= rangeEnd; ++i) {
+      if (hwms[i] > hwmBytes) {
+        hwmBytes = hwms[i];
+        hwmSnapshot = i;
       }
     }
-  });
+    console.log(
+      "highest water mark between " +
+        rangeStart +
+        " and " +
+        rangeEnd +
+        " is " +
+        hwmBytes +
+        " at " +
+        hwmSnapshot
+    );
+    Plotly.relayout("plot", {
+      shapes: [
+        {
+          type: "rect",
+          xref: "x",
+          yref: "paper",
+          x0: new Date(memory_records[hwmSnapshot - 1][0]),
+          y0: 0,
+          x1: new Date(memory_records[hwmSnapshot][0]),
+          y1: 1,
+          fillcolor: "#fbff00",
+          opacity: 0.2,
+          line: {
+            width: 0,
+          },
+        },
+      ],
+    });
 
-  console.log(
-    "total leaked allocations in range: " + node_objects[0].n_allocations
-  );
-  console.log("total leaked bytes in range: " + node_objects[0].value);
+    // We could binary search rather than using a linear scan...
+    console.log("finding hwm allocations");
+    packedData.intervals.forEach((interval) => {
+      let [allocBefore, deallocBefore, nodeIndex, count, bytes] = interval;
+
+      if (
+        allocBefore <= hwmSnapshot &&
+        (deallocBefore === null || deallocBefore > hwmSnapshot)
+      ) {
+        while (nodeIndex !== undefined) {
+          node_objects[nodeIndex].n_allocations += count;
+          node_objects[nodeIndex].value += bytes;
+          nodeIndex = parent_index_by_child_index[nodeIndex];
+        }
+      }
+    });
+  } else {
+    // We could binary search rather than using a linear scan...
+    console.log("finding leaked allocations");
+    packedData.intervals.forEach((interval) => {
+      let [allocBefore, deallocBefore, nodeIndex, count, bytes] = interval;
+
+      if (
+        allocBefore >= rangeStart &&
+        allocBefore <= rangeEnd &&
+        (deallocBefore === null || deallocBefore > rangeEnd)
+      ) {
+        while (nodeIndex !== undefined) {
+          node_objects[nodeIndex].n_allocations += count;
+          node_objects[nodeIndex].value += bytes;
+          nodeIndex = parent_index_by_child_index[nodeIndex];
+        }
+      }
+    });
+  }
+
+  console.log("total allocations in range: " + node_objects[0].n_allocations);
+  console.log("total bytes in range: " + node_objects[0].value);
 
   node_objects.forEach((node) => {
     node.children = node.children.filter((node) => node.n_allocations > 0);
