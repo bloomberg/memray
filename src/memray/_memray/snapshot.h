@@ -276,6 +276,50 @@ struct HighWaterMarkLocationKeyHash
     }
 };
 
+struct Contribution
+{
+    size_t bytes;
+    size_t allocations;
+};
+
+class UsageHistory
+{
+  public:
+    void recordUsageDelta(size_t current_peak, size_t count_delta, size_t bytes_delta);
+    Contribution highWaterMarkContribution(size_t current_peak) const;
+    Contribution leaksContribution(size_t current_peak) const;
+
+  private:
+    // This class represents allocations observed at some location over time.
+    // When an allocation or deallocation is observed, we first check if a new
+    // peak was discovered after the last time an allocation or deallocation
+    // was performed here. If so, the counters tracking what happened since the
+    // last peak must be merged into allocations_contributed_to_last_known_peak
+    // and bytes_contributed_to_last_known_peak and reset: they didn't
+    // contribute to the previous peak, but they are accounted for in the newly
+    // discovered peak. Finally, we update those counters to account for
+    // allocations or deallocations since the current peak.
+    struct UsageHistoryImpl
+    {
+        uint64_t last_known_peak;
+        size_t allocations_contributed_to_last_known_peak;
+        size_t bytes_contributed_to_last_known_peak;
+        // NOTE: We may have more deallocations than allocations since the last
+        // peak, or more bytes deallocated than allocated. These 2 size_t's
+        // may represent negative counts as large positive numbers. That's OK:
+        // they represent deltas since the last known peak, and are always
+        // added to the values from the last known peak. Unsigned integers use
+        // modular arithmetic, and addition will overflow to the correct value.
+        size_t count_since_last_peak;
+        size_t bytes_since_last_peak;
+
+        // Update so that `last_known_peak == new_peak`.
+        void rebase(size_t new_peak);
+    };
+
+    UsageHistoryImpl d_history{};
+};
+
 class HighWaterMarkAggregator
 {
   public:
@@ -291,30 +335,6 @@ class HighWaterMarkAggregator
     size_t d_heap_size_at_last_peak{};
     size_t d_current_heap_size{};
 
-    // This class represents allocations observed at some location over time.
-    // When an allocation or deallocation is observed, we first check if a new
-    // peak was discovered after the last time an allocation or deallocation
-    // was performed here. If so, the counters tracking what happened since the
-    // last peak must be merged into allocations_contributed_to_last_known_peak
-    // and bytes_contributed_to_last_known_peak and reset: they didn't
-    // contribute to the previous peak, but they are accounted for in the newly
-    // discovered peak. Finally, we update those counters to account for
-    // allocations or deallocations since the current peak.
-    struct UsageHistory
-    {
-        uint64_t last_known_peak;
-        size_t allocations_contributed_to_last_known_peak;
-        size_t bytes_contributed_to_last_known_peak;
-        // NOTE: We may have more deallocations than allocations since the last
-        // peak, or more bytes deallocated than allocated. These 2 size_t's
-        // may represent negative counts as large positive numbers. That's OK:
-        // they represent deltas since the last known peak, and are always
-        // added to the values from the last known peak. Unsigned integers use
-        // modular arithmetic, and addition will overflow to the correct value.
-        size_t count_since_last_peak;
-        size_t bytes_since_last_peak;
-    };
-
     // Information about allocations and deallocations, aggregated by location.
     using UsageHistoryByLocation =
             std::unordered_map<HighWaterMarkLocationKey, UsageHistory, HighWaterMarkLocationKeyHash>;
@@ -327,7 +347,6 @@ class HighWaterMarkAggregator
     IntervalTree<Allocation> d_mmap_intervals;
 
     UsageHistory& getUsageHistory(const Allocation& allocation);
-    void refreshUsageHistory(UsageHistory& history);
     void recordUsageDelta(const Allocation& allocation, size_t count_delta, size_t bytes_delta);
     reduced_snapshot_map_t getAllocations(bool merge_threads, bool stop_at_high_water_mark) const;
 };
