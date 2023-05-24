@@ -60,6 +60,7 @@ check-python:
 
 .PHONY: check-js  ## Run the Javascript tests
 check-js:
+	$(NPM) install jest --save-dev
 	$(NPM) run-script test
 
 .PHONY: pycoverage
