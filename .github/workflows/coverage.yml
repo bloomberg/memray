@@ -57,6 +57,9 @@ jobs:
       - name: Compute Python + Cython coverage
         run: |
           make pycoverage
+      - name: Add ./node_modules/.bin to PATH
+        run: |
+          export PATH="./node_modules/.bin:$PATH"
       - name: Compute C++ coverage
         run: |
           make ccoverage
