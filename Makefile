@@ -150,7 +150,6 @@ clean:  ## Clean any built/generated artifacts
 	rm -f src/memray/_memray.*.so
 	rm -f src/memray/_inject.*.so
 	rm -f src/memray/_memray.cpp
-	rm -f cppcoverage.lcov
 	rm -rf memray-coverage
 	rm -rf node_modules
 
