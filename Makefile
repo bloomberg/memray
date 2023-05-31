@@ -60,6 +60,7 @@ check-python:
 
 .PHONY: check-js  ## Run the Javascript tests
 check-js:
+	$(NPM) install jest --save-dev
 	$(NPM) run-script test
 
 .PHONY: pycoverage
@@ -102,9 +103,9 @@ ccoverage:  ## Run the test suite, with C++ code coverage
 	CFLAGS="$(CFLAGS) -O0 -pg --coverage" $(MAKE) build
 	$(MAKE) check
 	gcov -i build/*/src/memray/_memray -i -d
-	lcov --capture --directory .  --output-file memray.info
-	lcov --extract memray.info '*/src/memray/*' --output-file memray.info
-	genhtml memray.info --output-directory memray-coverage
+	lcov --capture --directory .  --output-file cppcoverage.lcov
+	lcov --extract cppcoverage.lcov '*/src/memray/_memray/*' --output-file cppcoverage.lcov
+	genhtml *coverage.lcov --branch-coverage --output-directory memray-coverage
 	find . | grep -E '(\.gcda|\.gcno|\.gcov\.json\.gz)' | xargs rm -rf
 
 .PHONY: format
@@ -149,9 +150,9 @@ clean:  ## Clean any built/generated artifacts
 	rm -f src/memray/_memray.*.so
 	rm -f src/memray/_inject.*.so
 	rm -f src/memray/_memray.cpp
-	rm -f memray.info
 	rm -rf memray-coverage
 	rm -rf node_modules
+	rm -f cppcoverage.lcov
 
 .PHONY: bump_version
 bump_version:
