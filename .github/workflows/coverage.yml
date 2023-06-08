@@ -1,0 +1,68 @@
+name: Coverage
+
+permissions:
+  pull-requests: write
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "CONTRIBUTING.md"
+  release:
+    types:
+      - published
+  schedule:
+    # At 12:00 on every day-of-month
+    - cron: "0 12 */1 * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -qy \
+            libunwind-dev \
+            liblz4-dev \
+            gdb \
+            lcov \
+            libdw-dev \
+            libelf-dev \
+            python3.10-dev \
+            python3.10-dbg
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip cython
+          make test-install
+      - name: Disable ptrace security restrictions
+        run: |
+          echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+      - name: Add ./node_modules/.bin to PATH
+        run: |
+          export PATH="./node_modules/.bin:$PATH"
+      - name: Compute C++ coverage
+        run: |
+          make ccoverage
+      - name: Upload C++ report to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: cppcoverage.lcov
+          flags: cpp
