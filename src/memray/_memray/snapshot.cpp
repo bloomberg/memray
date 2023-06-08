@@ -421,26 +421,26 @@ HighWaterMarkAggregator::visitAllocations(const allocation_callback_t& callback)
         final_peak_count++;
     }
 
-    for (const auto& [loc, usage] : d_usage_history_by_location) {
-        Contribution hwm = usage.highWaterMarkContribution(final_peak_count);
-        Contribution leaks = usage.leaksContribution(final_peak_count);
-        AggregatedAllocation alloc{
-                loc.thread_id,
-                loc.allocator,
-                loc.native_frame_id,
-                loc.python_frame_id,
-                loc.native_segment_generation,
-                hwm.allocations,
-                leaks.allocations,
-                hwm.bytes,
-                leaks.bytes,
-        };
+    return std::all_of(
+            d_usage_history_by_location.begin(),
+            d_usage_history_by_location.end(),
+            [&](const auto& entry) {
+                const auto& [loc, usage] = entry;
+                Contribution hwm = usage.highWaterMarkContribution(final_peak_count);
+                Contribution leaks = usage.leaksContribution(final_peak_count);
+                AggregatedAllocation alloc{
+                        loc.thread_id,
+                        loc.allocator,
+                        loc.native_frame_id,
+                        loc.python_frame_id,
+                        loc.native_segment_generation,
+                        hwm.allocations,
+                        leaks.allocations,
+                        hwm.bytes,
+                        leaks.bytes};
 
-        if (!callback(alloc)) {
-            return false;
-        }
-    }
-    return true;
+                return callback(alloc);
+            });
 }
 
 void
