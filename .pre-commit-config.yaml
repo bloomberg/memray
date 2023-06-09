@@ -18,6 +18,7 @@ repos:
       - id: end-of-file-fixer
         stages: [pre-commit]
       - id: trailing-whitespace
+        exclude: "^[.]bumpversion[.]cfg"
         stages: [pre-commit]
 
   - repo: https://github.com/pre-commit/pygrep-hooks
