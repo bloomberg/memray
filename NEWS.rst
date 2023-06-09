@@ -8,6 +8,26 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.8.0 (2023-06-09)
+-------------------------
+
+Features
+~~~~~~~~
+
+- Allow ``memray stats`` to output a JSON report via ``--json`` flag. (#377)
+- We now publish x86-64 musllinux_1_1 wheels, compatible with Alpine Linux. (#379)
+- We now support :ref:`temporal flame graphs`, which provide an exciting new way of analyzing your process's memory usage over time. (#391)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a bug where a non-import call on the same line as an ``import`` statement would be hidden by the "Hide Import System Frames" checkbox of a flame graph. (#329)
+- Fixed a bug that was hitting an assert when constructing hybrid stack frames in Python 3.11 when no eval symbols are available. (#334)
+- Change the font color used by the ``%%memray_flamegraph`` Jupyter magic's progress updates for better contrast on the JupyterLab dark theme. (#344)
+- Fix a bug that could result in a deadlock when tracking a process linked against an old version of musl libc. (#379)
+
+
 memray 1.7.0 (2023-02-21)
 -------------------------
 
