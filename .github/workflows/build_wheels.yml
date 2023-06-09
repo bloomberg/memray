@@ -18,7 +18,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: dist/*.tar.gz
+
   build_wheels:
+    needs: [build_sdist]
     name: Wheel for Linux-${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -29,7 +43,12 @@ jobs:
         cibw_arch: ["x86_64", "i686"]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: artifact
+      - name: Extract sdist
+        run: |
+          tar zxvf *.tar.gz --strip-components=1
       - name: Disable ptrace security restrictions
         run: |
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
@@ -76,19 +95,6 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
-
-  build_sdist:
-    name: Build source distribution
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Build sdist
-        run: pipx run build --sdist
-
-      - uses: actions/upload-artifact@v3
-        with:
-          path: dist/*.tar.gz
 
   upload_pypi:
     needs: [build_wheels, build_wheels_macos, build_sdist]
