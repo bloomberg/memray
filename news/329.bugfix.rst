@@ -1,1 +1,1 @@
-Fix a bug where a non-import call on the same line as an `import` statement would be hidden by the "Hide Import System Frames" checkbox of a flame graph.
+Fix a bug where a non-import call on the same line as an ``import`` statement would be hidden by the "Hide Import System Frames" checkbox of a flame graph.
