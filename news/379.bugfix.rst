@@ -1,0 +1,1 @@
+Fix a bug that could result in a deadlock when tracking a process linked against an old version of musl libc.
