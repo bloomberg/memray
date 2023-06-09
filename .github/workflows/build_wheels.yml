@@ -29,7 +29,9 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          path: dist/*.tar.gz
+          path: |
+            dist/*.tar.gz
+            tests/
 
   build_wheels:
     needs: [build_sdist]
@@ -48,7 +50,7 @@ jobs:
           name: artifact
       - name: Extract sdist
         run: |
-          tar zxvf *.tar.gz --strip-components=1
+          tar zxvf dist/*.tar.gz --strip-components=1
       - name: Disable ptrace security restrictions
         run: |
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
