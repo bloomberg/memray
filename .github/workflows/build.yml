@@ -119,6 +119,7 @@ jobs:
           python3 -m pre_commit run --all-files --hook-stage pre-push
       - name: Build docs
         run: |
+          towncrier build --version 99.99 --name memray --keep
           make docs
 
   valgrind:

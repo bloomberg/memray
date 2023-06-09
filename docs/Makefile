@@ -4,9 +4,9 @@
 SPHINXAUTOBUILD = sphinx-autobuild
 
 # You can set these variables from the command line.
-SPHINXOPTS    = -n
+SPHINXOPTS    = -n -W --keep-going
 SPHINXBUILD   = sphinx-build
-SPHINXPROJ    = bloombergdmp
+SPHINXPROJ    = memray
 SOURCEDIR     = .
 BUILDDIR      = _build
 
