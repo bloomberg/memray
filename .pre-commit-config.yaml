@@ -79,6 +79,7 @@ repos:
         files: ^news/
         stages: [pre-commit]
         types: [rst]
+        additional_dependencies: ["sphinx"]
 
   - repo: https://github.com/mgedmin/check-manifest
     rev: "0.49"
