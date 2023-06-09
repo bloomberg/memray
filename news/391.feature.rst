@@ -1,1 +1,0 @@
-We now support :ref:`temporal flame graphs`, which provide an exciting new way of analyzing your process's memory usage over time.
