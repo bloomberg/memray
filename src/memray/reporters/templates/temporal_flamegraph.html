@@ -38,6 +38,6 @@
 
 {% block flamegraph_script %}
 <script type="text/javascript">
-  {%- include "assets/temporal_flamegraph.js" -%}
+  {{ include_file("assets/temporal_flamegraph.js") }}
 </script>
 {% endblock %}

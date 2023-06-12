@@ -11,6 +11,28 @@ const FILTER_UNINTERESTING = "filter_uninteresting";
 const FILTER_IMPORT_SYSTEM = "filter_import_system";
 const FILTER_THREAD = "filter_thread";
 
+class FilteredChart {
+  constructor() {
+    this.filters = {};
+  }
+  registerFilter(name, func) {
+    this.filters[name] = func;
+  }
+  unRegisterFilter(name) {
+    delete this.filters[name];
+  }
+
+  drawChart(data) {
+    let filtered = data;
+    _.forOwn(this.filters, (func) => {
+      filtered = func(filtered);
+    });
+    drawChart(filtered);
+    // Merge 0 additional elements, triggering a redraw
+    chart.merge([]);
+  }
+}
+
 var chart = null;
 let filteredChart = new FilteredChart();
 
@@ -65,28 +87,6 @@ export function onResetZoom() {
 function getChartWidth() {
   // Return the display width of the div we're drawing into
   return document.getElementById("chart").clientWidth;
-}
-
-class FilteredChart {
-  constructor() {
-    this.filters = {};
-  }
-  registerFilter(name, func) {
-    this.filters[name] = func;
-  }
-  unRegisterFilter(name) {
-    delete this.filters[name];
-  }
-
-  drawChart(data) {
-    let filtered = data;
-    _.forOwn(this.filters, (func) => {
-      filtered = func(filtered);
-    });
-    drawChart(filtered);
-    // Merge 0 additional elements, triggering a redraw
-    chart.merge([]);
-  }
 }
 
 export function onResize() {
