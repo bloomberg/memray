@@ -6,6 +6,7 @@ from typing import Iterable
 from typing import Union
 
 import jinja2
+from markupsafe import Markup
 
 from memray import MemorySnapshot
 from memray import Metadata
@@ -13,9 +14,16 @@ from memray import Metadata
 
 @lru_cache(maxsize=1)
 def get_render_environment() -> jinja2.Environment:
-    env = jinja2.Environment(
-        loader=jinja2.PackageLoader("memray.reporters"),
-    )
+    loader = jinja2.PackageLoader("memray.reporters")
+    env = jinja2.Environment(loader=loader)
+
+    def include_file(name: str) -> Markup:
+        """Include a file from the templates directory without
+        interpolating its contents"""
+        source, *_ = loader.get_source(env, name)
+        return Markup(source)
+
+    env.globals["include_file"] = include_file
     env.policies["json.dumps_kwargs"] = {"sort_keys": True, "separators": (",", ":")}
     return env
 
