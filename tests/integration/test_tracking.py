@@ -1684,9 +1684,11 @@ class TestMemorySnapshots:
 
         # THEN
         reader = FileReader(output)
-        temporary_allocations = list(
-            reader.get_temporary_allocation_records(threshold=1)
-        )
+        temporary_allocations = [
+            alloc
+            for alloc in reader.get_temporary_allocation_records(threshold=1)
+            if __file__ in alloc.stack_trace()[0][1]
+        ]
         assert elements == 512
         assert len(temporary_allocations) == 1
         (record,) = temporary_allocations
@@ -1706,9 +1708,11 @@ class TestMemorySnapshots:
 
         # THEN
         reader = FileReader(output)
-        temporary_allocations = list(
-            reader.get_temporary_allocation_records(threshold=0)
-        )
+        temporary_allocations = [
+            alloc
+            for alloc in reader.get_temporary_allocation_records(threshold=0)
+            if __file__ in alloc.stack_trace()[0][1]
+        ]
         assert elements == 512
         assert len(temporary_allocations) == 1
         (record,) = temporary_allocations
