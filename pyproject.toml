@@ -70,7 +70,7 @@ manylinux-i686-image = "manylinux2010"
 [tool.cibuildwheel.linux]
 before-all = [
   "yum install -y libunwind-devel lz4-devel gdb",
-  "yum install -y lldb || echo 'lldb is not available'",
+  "if ! yum install -y lldb; then echo lldb is not available; fi",
 ]
 
 [tool.cibuildwheel.macos]
