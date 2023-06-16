@@ -341,6 +341,7 @@ class Tracker
         // Methods
         size_t getRSS() const;
         static unsigned long int timeElapsed();
+        bool captureMemorySnapshot();
     };
 
     // Data members
