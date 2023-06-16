@@ -156,3 +156,34 @@ jobs:
         with:
           skip_existing: true
           password: ${{ secrets.PYPI_PASSWORD }}
+
+  publish_docs:
+    name: Publish docs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -qy clang-format npm libunwind-dev liblz4-dev pkg-config
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install -r requirements-extra.txt
+      - name: Install Package
+        run: |
+          python3 -m pip install -e .
+      - name: Build docs
+        run: |
+          make docs
+      - name: Publish docs to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs/_build/html
+          single-commit: true
