@@ -72,24 +72,44 @@ function packedDataToTree(packedData, rangeStart, rangeEnd) {
         " at " +
         hwmSnapshot
     );
-    Plotly.relayout("plot", {
-      shapes: [
-        {
-          type: "rect",
-          xref: "x",
-          yref: "paper",
-          x0: new Date(memory_records[hwmSnapshot - 1][0]),
-          y0: 0,
-          x1: new Date(memory_records[hwmSnapshot][0]),
-          y1: 1,
-          fillcolor: "#fbff00",
-          opacity: 0.2,
-          line: {
-            width: 0,
-          },
+
+    let plotUpdate = { shapes: [] };
+    let startTime, endTime;
+    if (hwmSnapshot == memory_records.length) {
+      // HWM was after the last snapshot. Highlight 10ms past it.
+      // Widen the x-axis range so the highlight is shown.
+      plotUpdate["xaxis.range[1]"] = new Date(memory_records.at(-1)[0] + 10);
+      startTime = new Date(memory_records.at(-1)[0]);
+      endTime = new Date(memory_records.at(-1)[0] + 10);
+    } else if (hwmSnapshot == 0) {
+      // HWM was before the first snapshot. Highlight 10ms before it.
+      // Widen the x-axis range so the highlight is shown.
+      plotUpdate["xaxis.range[0]"] = new Date(memory_records[0][0] - 10);
+      startTime = new Date(memory_records[0][0] - 10);
+      endTime = new Date(memory_records[0][0]);
+    } else {
+      // HWM was between two snapshots. Highlight from one to the other.
+      startTime = new Date(memory_records[hwmSnapshot - 1][0]);
+      endTime = new Date(memory_records[hwmSnapshot][0]);
+    }
+
+    plotUpdate["shapes"] = [
+      {
+        type: "rect",
+        xref: "x",
+        yref: "paper",
+        x0: startTime,
+        y0: 0,
+        x1: endTime,
+        y1: 1,
+        fillcolor: "#fbff00",
+        opacity: 0.2,
+        line: {
+          width: 0,
         },
-      ],
-    });
+      },
+    ];
+    Plotly.relayout("plot", plotUpdate);
 
     // We could binary search rather than using a linear scan...
     console.log("finding hwm allocations");
