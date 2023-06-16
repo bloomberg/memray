@@ -142,18 +142,19 @@ function initMemoryGraph(memory_records) {
   const time = memory_records.map((a) => new Date(a[0]));
   const resident_size = memory_records.map((a) => a[1]);
   const heap_size = memory_records.map((a) => a[2]);
+  const mode = memory_records.length > 1 ? "lines" : "markers";
 
   var resident_size_plot = {
     x: time,
     y: resident_size,
-    mode: "lines",
+    mode: mode,
     name: "Resident size",
   };
 
   var heap_size_plot = {
     x: time,
     y: heap_size,
-    mode: "lines",
+    mode: mode,
     name: "Heap size",
   };
 
