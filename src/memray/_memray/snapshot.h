@@ -366,7 +366,7 @@ class HighWaterMarkAggregator
     void captureSnapshot();
 
     size_t getCurrentHeapSize() const noexcept;
-    const std::vector<size_t>& highWaterMarkBytesBySnapshot() const;
+    std::vector<size_t> highWaterMarkBytesBySnapshot() const;
     Index generateIndex() const;
 
     using allocation_callback_t = std::function<bool(const AggregatedAllocation&)>;

@@ -565,10 +565,12 @@ HighWaterMarkAggregator::getCurrentHeapSize() const noexcept
     return d_current_heap_size;
 }
 
-const std::vector<size_t>&
+std::vector<size_t>
 HighWaterMarkAggregator::highWaterMarkBytesBySnapshot() const
 {
-    return d_high_water_mark_bytes_by_snapshot;
+    auto ret = d_high_water_mark_bytes_by_snapshot;
+    ret.push_back(d_heap_size_at_last_peak);
+    return ret;
 }
 
 HighWaterMarkAggregator::Index
