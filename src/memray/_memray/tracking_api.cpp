@@ -678,10 +678,36 @@ Tracker::BackgroundThread::getRSS() const
 #endif
 }
 
+bool
+Tracker::BackgroundThread::captureMemorySnapshot()
+{
+    auto now = timeElapsed();
+    size_t rss = getRSS();
+    if (rss == 0) {
+        std::cerr << "Failed to detect RSS, deactivating tracking" << std::endl;
+        Tracker::deactivate();
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(*s_mutex);
+    if (!d_writer->writeRecord(MemoryRecord{now, rss})) {
+        std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+        Tracker::deactivate();
+        return false;
+    }
+
+    return true;
+}
+
 void
 Tracker::BackgroundThread::start()
 {
     assert(d_thread.get_id() == std::thread::id());
+
+    if (!captureMemorySnapshot()) {
+        return;
+    }
+
     d_thread = std::thread([&]() {
         RecursionGuard::isActive = true;
         while (true) {
@@ -689,23 +715,12 @@ Tracker::BackgroundThread::start()
                 std::unique_lock<std::mutex> lock(d_mutex);
                 d_cv.wait_for(lock, d_memory_interval * 1ms, [this]() { return d_stop; });
                 if (d_stop) {
-                    break;
+                    return;
                 }
             }
 
-            size_t rss = getRSS();
-            if (rss == 0) {
-                Tracker::deactivate();
-                break;
-            }
-
-            {
-                std::lock_guard<std::mutex> lock(*s_mutex);
-                if (!d_writer->writeRecord(MemoryRecord{timeElapsed(), rss})) {
-                    std::cerr << "Failed to write output, deactivating tracking" << std::endl;
-                    Tracker::deactivate();
-                    break;
-                }
+            if (!captureMemorySnapshot()) {
+                return;
             }
         }
     });
