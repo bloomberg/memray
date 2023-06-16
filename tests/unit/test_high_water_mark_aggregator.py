@@ -49,7 +49,7 @@ def test_no_allocations_at_start():
     # THEN
     assert 0 == tester.get_current_heap_size()
     assert [] == tester.get_allocations()
-    assert [] == list(tester.high_water_mark_bytes_by_snapshot())
+    assert [0] == list(tester.high_water_mark_bytes_by_snapshot())
     assert [] == list(tester.get_temporal_allocations())
 
 

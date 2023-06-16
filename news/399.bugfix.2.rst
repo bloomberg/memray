@@ -1,0 +1,1 @@
+Fix a bug that prevented the temporal high water mark flame graph from showing the flame graph of a high water mark that occurred after the final periodic memory snapshot was captured.
