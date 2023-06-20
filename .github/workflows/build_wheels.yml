@@ -29,9 +29,13 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          path: |
-            dist/*.tar.gz
-            tests/
+          name: dist
+          path: dist
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: tests
+          path: tests
 
   build_wheels:
     needs: [build_sdist]
@@ -47,7 +51,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v3
         with:
-          name: artifact
+          name: dist
+          path: dist
+      - uses: actions/download-artifact@v3
+        with:
+          name: tests
+          path: tests
       - name: Extract sdist
         run: |
           tar zxvf dist/*.tar.gz --strip-components=1
@@ -64,6 +73,7 @@ jobs:
           CIBW_TEST_COMMAND: python -m pytest {package}/tests
       - uses: actions/upload-artifact@v3
         with:
+          name: dist
           path: ./wheelhouse/*.whl
 
   build_wheels_macos:
@@ -96,6 +106,7 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
+          name: dist
           path: ./wheelhouse/*.whl
 
   upload_pypi:
@@ -105,9 +116,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v3
         with:
-          name: artifact
+          name: dist
           path: dist
-
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip_existing: true
