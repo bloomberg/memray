@@ -326,9 +326,7 @@ class TUI:
 
         sorted_allocations = sorted(
             allocation_entries.items(),
-            key=lambda item: getattr(  # type: ignore[no-any-return]
-                item[1], self._sort_field_name
-            ),
+            key=lambda item: getattr(item[1], self._sort_field_name),
             reverse=True,
         )[:max_rows]
         for location, result in sorted_allocations:
