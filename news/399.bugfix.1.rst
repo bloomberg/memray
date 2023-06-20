@@ -1,1 +1,0 @@
-Prevent a totally empty memory plot from being shown on flame graphs when the tracked process completes before any periodic memory snapshots are captured.

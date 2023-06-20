@@ -1,1 +1,0 @@
-Fix a bug that prevented Memray from intercepting functions in shared objects that are part of the dyld shared cache in macOS Ventura.

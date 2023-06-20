@@ -8,6 +8,23 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.8.1 (2023-06-20)
+-------------------------
+
+Features
+~~~~~~~~
+
+- When the high water mark being shown by a temporal flame graph is before the first memory snapshot or after the last one, tell the user so by highlighting a region beyond the end of the memory usage plot. (#399)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Prevent a totally empty memory plot from being shown on flame graphs when the tracked process completes before any periodic memory snapshots are captured. (#399)
+- Fix a bug that prevented the temporal high water mark flame graph from showing the flame graph of a high water mark that occurred after the final periodic memory snapshot was captured. (#399)
+- Fix a bug that prevented Memray from intercepting functions in shared objects that are part of the dyld shared cache in macOS Ventura. (#401)
+
+
 memray 1.8.0 (2023-06-09)
 -------------------------
 

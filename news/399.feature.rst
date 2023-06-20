@@ -1,1 +1,0 @@
-When the high water mark being shown by a temporal flame graph is before the first memory snapshot or after the last one, tell the user so by highlighting a region beyond the end of the memory usage plot.
