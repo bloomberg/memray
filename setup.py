@@ -115,6 +115,7 @@ test_requires = [
     "pytest",
     "pytest-cov",
     "ipython",
+    "setuptools; python_version >= '3.12'",
 ]
 
 benchmark_requires = [

@@ -4,3 +4,4 @@ greenlet; python_version < '3.11'
 pytest
 pytest-cov
 ipython
+setuptools; python_version >= '3.12'
