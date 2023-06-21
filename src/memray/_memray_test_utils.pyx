@@ -14,7 +14,6 @@ from posix.mman cimport munmap
 from posix.unistd cimport read
 from posix.unistd cimport write
 
-cimport cython
 from _memray.alloc cimport PyMem_Calloc
 from _memray.alloc cimport PyMem_Free
 from _memray.alloc cimport PyMem_Malloc
@@ -66,55 +65,45 @@ cdef class MemoryAllocator:
     def __cinit__(self):
         self.ptr = NULL
 
-    @cython.profile(True)
     def free(self):
         if self.ptr == NULL:
             raise RuntimeError("Pointer cannot be NULL")
         free(self.ptr)
         self.ptr = NULL
 
-    @cython.profile(True)
     def malloc(self, size_t size):
         self.ptr = malloc(size)
         return self.ptr != NULL
 
-    @cython.profile(True)
     def calloc(self, size_t size):
         self.ptr = calloc(1, size)
         return self.ptr != NULL
 
-    @cython.profile(True)
     def realloc(self, size_t size):
         self.ptr = malloc(1)
         self.ptr = realloc(self.ptr, size)
         return self.ptr != NULL
 
-    @cython.profile(True)
     def posix_memalign(self, size_t size):
         rc = posix_memalign(&self.ptr, sizeof(void*), size)
         return rc == 0 and self.ptr != NULL
 
-    @cython.profile(True)
     def aligned_alloc(self, size_t size):
         self.ptr = aligned_alloc(sizeof(void*), size)
         return self.ptr != NULL
 
-    @cython.profile(True)
     def memalign(self, size_t size):
         self.ptr = memalign(sizeof(void*), size)
         return self.ptr != NULL
 
-    @cython.profile(True)
     def valloc(self, size_t size):
         self.ptr = valloc(size)
         return self.ptr != NULL
 
-    @cython.profile(True)
     def pvalloc(self, size_t size):
         self.ptr = pvalloc(size)
         return self.ptr != NULL
 
-    @cython.profile(True)
     def run_in_pthread(self, callback):
         cdef pthread_t thread
         cdef int ret = pthread_create(&thread, NULL, &_pthread_worker, <void*>callback)
@@ -138,7 +127,6 @@ cdef class PymallocMemoryAllocator:
         self.ptr = NULL
         self.domain = domain
 
-    @cython.profile(True)
     def free(self):
         if self.ptr == NULL:
             raise RuntimeError("Pointer cannot be NULL")
@@ -152,7 +140,6 @@ cdef class PymallocMemoryAllocator:
             raise RuntimeError("Invlid pymalloc domain")
         self.ptr = NULL
 
-    @cython.profile(True)
     def malloc(self, size_t size):
         if self.domain == PYMALLOC_RAW:
             self.ptr = PyMem_RawMalloc(size)
@@ -165,7 +152,6 @@ cdef class PymallocMemoryAllocator:
 
         return self.ptr != NULL
 
-    @cython.profile(True)
     def calloc(self, size_t size):
         if self.domain == PYMALLOC_RAW:
             self.ptr = PyMem_RawCalloc(1, size)
@@ -178,7 +164,6 @@ cdef class PymallocMemoryAllocator:
 
         return self.ptr != NULL
 
-    @cython.profile(True)
     def realloc(self, size_t size):
         if self.domain == PYMALLOC_RAW:
             self.ptr = PyMem_RawRealloc(self.ptr, size)
@@ -194,7 +179,6 @@ cdef class PymallocMemoryAllocator:
 cdef do_not_optimize_ptr(void* ptr):
     return ptr == <void*>(1)
 
-@cython.profile(True)
 def _cython_nested_allocation(allocator_fn, size):
     allocator_fn(size)
     cdef void* p = valloc(size);
@@ -204,7 +188,6 @@ def _cython_nested_allocation(allocator_fn, size):
 cdef class MmapAllocator:
     cdef uintptr_t _address
 
-    @cython.profile(True)
     def __cinit__(self, size, address=0):
         cdef uintptr_t start_address = address
 
@@ -216,18 +199,15 @@ cdef class MmapAllocator:
     def address(self):
         return self._address
 
-    @cython.profile(True)
     def munmap(self, length, offset=0):
         cdef uintptr_t addr = self._address + <uintptr_t> offset
         cdef int ret = munmap(<void *>addr, length)
         if ret != 0:
             raise MemoryError(f"munmap rcode: {ret} errno: {errno}")
 
-@cython.profile(True)
 cdef void* _pthread_worker(void* arg) with gil:
     (<object> arg)()
 
-@cython.profile(False)
 def _cython_allocate_in_two_places(size_t size):
     cdef void* a = allocation_place_a(size)
     do_not_optimize_ptr(a)
@@ -236,19 +216,15 @@ def _cython_allocate_in_two_places(size_t size):
     free(a)
     free(b)
 
-@cython.profile(False)
 cdef void* allocation_place_a(size_t size):
     return valloc(size)
 
-@cython.profile(False)
 cdef void* allocation_place_b(size_t size):
     return valloc(size)
 
-@cython.profile(True)
 def function_caller(func):
     func()
 
-@cython.profile(False)
 def allocate_without_gil_held(int wake_up_main_fd, int wake_up_thread_fd):
     cdef char buf = 0
     cdef int write_rc = 0
@@ -266,7 +242,6 @@ def allocate_without_gil_held(int wake_up_main_fd, int wake_up_thread_fd):
     do_not_optimize_ptr(p)
     free(p)
 
-@cython.profile(True)
 def allocate_cpp_vector(size_t size):
     cdef vector[int] v;
     cdef size_t nelems = <size_t>(size / sizeof(int))
@@ -274,7 +249,6 @@ def allocate_cpp_vector(size_t size):
     return v.size()
 
 
-@cython.profile(True)
 def fill_cpp_vector(size_t size):
     cdef vector[int] v
     cdef size_t nelems = <size_t>(size / sizeof(int))

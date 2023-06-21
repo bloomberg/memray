@@ -1147,6 +1147,8 @@ PyTraceFunction(
     }
 
     if (frame != PyEval_GetFrame()) {
+        // This should only happen for the phony frames produced by Cython
+        // extension modules that were compiled with `profile=True`.
         return 0;
     }
 
