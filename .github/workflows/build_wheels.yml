@@ -119,6 +119,10 @@ jobs:
         with:
           name: dist
           path: dist
+      - name: Avoid publishing Python 3.12 wheels
+        run: |
+          rm -f dist/*cp312*
+          ls -l dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip_existing: true
