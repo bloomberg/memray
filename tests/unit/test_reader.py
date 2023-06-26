@@ -60,7 +60,7 @@ def test_filereader_fails_to_open_file(tmp_path):
         test_file.read_text()
     except OSError:
         pass
-    else:
+    else:  # pragma: no cover
         pytest.skip("The current user can ignore file permissions")
 
     # WHEN/THEN

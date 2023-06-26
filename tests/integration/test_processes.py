@@ -23,14 +23,14 @@ def set_multiprocessing_to_fork():
     multiprocessing.set_start_method(current_method, force=True)
 
 
-def multiproc_func(repetitions):
+def multiproc_func(repetitions):  # pragma: no cover
     allocator = MemoryAllocator()
     for _ in range(repetitions):
         allocator.valloc(1234)
         allocator.free()
 
 
-def pymalloc_multiproc_func():
+def pymalloc_multiproc_func():  # pragma: no cover
     allocator = PymallocMemoryAllocator(PymallocDomain.PYMALLOC_RAW)
     allocator.calloc(1234)
     allocator.free()

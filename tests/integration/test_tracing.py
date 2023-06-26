@@ -1018,7 +1018,7 @@ class TestMmap:
         # GIVEN / WHEN
         output = Path(tmpdir) / "test.bin"
 
-        def custom_trace_fn():
+        def custom_trace_fn():  # pragma: no cover
             pass
 
         threading.setprofile(custom_trace_fn)

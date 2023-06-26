@@ -24,7 +24,7 @@ def _generate_mock_allocations(
     allocators: Optional[List[AT]] = None,
     n_allocations: Optional[List[int]] = None,
     stacks: Optional[List[List[Tuple[str, str, int]]]] = None,
-):
+):  # pragma: no cover
     if sizes is None:
         sizes = []
     if allocators is None:
