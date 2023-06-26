@@ -49,7 +49,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm gdb lldb
+          sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm gdb lldb lcov
       - name: Create virtual environment
         run: |
           python3 -m venv venv
