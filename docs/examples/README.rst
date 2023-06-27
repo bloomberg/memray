@@ -40,3 +40,4 @@ You can see sample outputs of the resulting flame graphs:
 - `Mandelbrot <../_static/flamegraphs/memray-flamegraph-mandelbrot.html>`_
 - `Nbody <../_static/flamegraphs/memray-flamegraph-nbody.html>`_
 - `SQLite <../_static/flamegraphs/memray-flamegraph-sqlite.html>`_
+- `Fibonacci <../_static/flamegraphs/memray-flamegraph-fib.html>`_
