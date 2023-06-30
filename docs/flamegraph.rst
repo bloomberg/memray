@@ -313,6 +313,9 @@ for understanding its memory usage patterns.
     about allocations over time. They also can't be used for finding
     :doc:`temporary allocations </temporary_allocations>`.
 
+You can see an example of a temporal flamegraph
+`here <_static/flamegraphs/memray-flamegraph-fib.html>`_.
+
 Conclusion
 ----------
 
