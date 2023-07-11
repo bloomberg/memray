@@ -37,8 +37,22 @@ jobs:
           name: tests
           path: tests
 
+  choose_architectures:
+    name: Decide which architectures to build wheels for
+    runs-on: ubuntu-latest
+    steps:
+      - id: x86_64
+        run: echo "cibw_arch=x86_64" >> $GITHUB_OUTPUT
+      - id: i686
+        run: echo "cibw_arch=i686" >> $GITHUB_OUTPUT
+      - id: aarch64
+        if: github.event_name == 'release' && github.event.action == 'published'
+        run: echo "cibw_arch=aarch64" >> $GITHUB_OUTPUT
+    outputs:
+      cibw_arches: ${{ toJSON(steps.*.outputs.cibw_arch) }}
+
   build_wheels:
-    needs: [build_sdist]
+    needs: [build_sdist, choose_architectures]
     name: Wheel for Linux-${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -47,7 +61,7 @@ jobs:
         os: [ubuntu-latest]
         cibw_python:
           ["cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
-        cibw_arch: ["x86_64", "i686"]
+        cibw_arch: ${{ fromJSON(needs.choose_architectures.outputs.cibw_arches) }}
 
     steps:
       - uses: actions/download-artifact@v3
@@ -58,6 +72,9 @@ jobs:
         with:
           name: tests
           path: tests
+      - uses: docker/setup-qemu-action@v1
+        if: runner.os == 'Linux'
+        name: Set up QEMU
       - name: Extract sdist
         run: |
           tar zxvf dist/*.tar.gz --strip-components=1
@@ -72,6 +89,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -m pytest {package}/tests
+          CIBW_TEST_SKIP: "*aarch64*"
       - uses: actions/upload-artifact@v3
         with:
           name: dist
