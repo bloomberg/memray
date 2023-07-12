@@ -18,6 +18,8 @@ KEYS = {
     "O": "o",
     "T": "t",
     "A": "a",
+    "P": "p",
+    "U": "u",
 }
 
 
@@ -108,10 +110,14 @@ class LiveCommand:
                     char = readkey()
                     if char == KEYS["LEFT"]:
                         tui.previous_thread()
-                    if char == KEYS["RIGHT"]:
+                    elif char == KEYS["RIGHT"]:
                         tui.next_thread()
                     elif char in {"q", KEYS["ESC"]}:
                         break
+                    elif char == KEYS["P"]:
+                        tui.pause()
+                    elif char == KEYS["U"]:
+                        tui.unpause()
                     elif char.lower() in TUI.KEY_TO_COLUMN_ID.keys():
                         col_number = tui.KEY_TO_COLUMN_ID[char.lower()]
                         tui.update_sort_key(col_number)
