@@ -226,7 +226,8 @@ class TUI:
     def __init__(self, pid: Optional[int], cmd_line: Optional[str], native: bool):
         self.live_data = TUIData(pid, cmd_line, native)
         self.paused_data = None
-        self.current_data = self.live_data
+        self.display_data = self.live_data
+
         self.active = True
         self._thread_idx = 0
         self._seen_threads: Set[int] = set()
@@ -263,11 +264,11 @@ class TUI:
 
     def pause(self) -> None:
         self.paused_data = deepcopy(self.live_data)
-        self.current_data = self.paused_data
+        self.display_data = self.paused_data
         self.footer_dict["pause"] = self.footer_paused_str
 
     def unpause(self) -> None:
-        self.current_data = self.live_data
+        self.display_data = self.live_data
         self.footer_dict["pause"] = self.footer_running_str
 
     def get_header(self) -> Table:
@@ -285,21 +286,21 @@ class TUI:
         metadata.add_column(justify="left", ratio=5)
         metadata.add_row("")
         metadata.add_row(
-            f"[b]PID[/]: {self.current_data.pid}",
-            f"[b]CMD[/]: {self.current_data.command_line}",
+            f"[b]PID[/]: {self.display_data.pid}",
+            f"[b]CMD[/]: {self.display_data.command_line}",
         )
         metadata.add_row(
             f"[b]TID[/]: {hex(self.current_thread)}",
             f"[b]Thread[/] {self._thread_idx + 1} of {len(self._threads)}",
         )
         metadata.add_row(
-            f"[b]Samples[/]: {self.current_data.n_samples}",
+            f"[b]Samples[/]: {self.display_data.n_samples}",
             f"[b]Duration[/]: "
-            f"{(self.current_data.last_update - self.current_data.start).total_seconds()}"
+            f"{(self.display_data.last_update - self.display_data.start).total_seconds()}"
             f" seconds",
         )
 
-        graph = "\n".join(self.current_data.stream.graph)
+        graph = "\n".join(self.display_data.stream.graph)
         plot = Panel(
             f"[color({2})]{graph}[/]",
             title="Memory",
@@ -324,13 +325,13 @@ class TUI:
         metadata.add_column(justify="left", ratio=5)
         metadata.add_column(justify="right", ratio=5)
         metadata.add_row(
-            f"[bold]Current heap size[/]: {size_fmt(self.current_data.current_memory_size)}",
-            f"[bold]Max heap size seen[/]: {size_fmt(self.current_data.max_memory_seen)}",
+            f"[bold]Current heap size[/]: {size_fmt(self.display_data.current_memory_size)}",
+            f"[bold]Max heap size seen[/]: {size_fmt(self.display_data.max_memory_seen)}",
         )
         heap_grid.add_row(metadata)
         bar = ProgressBar(
-            completed=self.current_data.current_memory_size,
-            total=self.current_data.max_memory_seen + 1,
+            completed=self.display_data.current_memory_size,
+            total=self.display_data.max_memory_seen + 1,
             complete_style="blue",
         )
         heap_grid.add_row(bar)
@@ -351,7 +352,7 @@ class TUI:
         sort_column.header = f"<{sort_column.header}>"
 
         sorted_allocations = sorted(
-            self.current_data.snapshot_data.items(),
+            self.display_data.snapshot_data.items(),
             key=lambda item: getattr(item[1], self._sort_field_name),
             reverse=True,
         )[:max_rows]
@@ -363,19 +364,19 @@ class TUI:
                 f"[cyan]{escape(location.file)}[/]"
             )
             total_color = _size_to_color(
-                result.total_memory / self.current_data.current_memory_size
+                result.total_memory / self.display_data.current_memory_size
             )
             own_color = _size_to_color(
-                result.own_memory / self.current_data.current_memory_size
+                result.own_memory / self.display_data.current_memory_size
             )
             allocation_colors = _size_to_color(
-                result.n_allocations / self.current_data.total_allocations
+                result.n_allocations / self.display_data.total_allocations
             )
             percent_total = (
-                result.total_memory / self.current_data.current_memory_size * 100
+                result.total_memory / self.display_data.current_memory_size * 100
             )
             percent_own = (
-                result.own_memory / self.current_data.current_memory_size * 100
+                result.own_memory / self.display_data.current_memory_size * 100
             )
             table.add_row(
                 color_location,
@@ -389,11 +390,11 @@ class TUI:
 
     @property
     def message(self) -> str:
-        return self.current_data.message
+        return self.display_data.message
 
     @message.setter
     def message(self, message: str) -> None:
-        self.current_data.message = message
+        self.display_data.message = message
 
     @property
     def current_thread(self) -> int:
