@@ -110,6 +110,30 @@ jobs:
           name: dist
           path: ./wheelhouse/*.whl
 
+
+  test_wheels_macos_arm64:
+    needs: [build_wheels_macos]
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: dist
+          path: dist
+      - name: Install Python dependencies
+        run: |
+          python3 -m venv venv
+          venv/bin/python3 -m pip install --upgrade pip
+          venv/bin/python3 -m pip install -r requirements-test.txt
+          venv/bin/python3 -m pip install --no-index --find-links=dist/ --only-binary=memray memray
+      - name: Run pytest
+        env:
+          PYTHON_TEST_VERSION: "auto"
+        run: venv/bin/python3 -m pytest tests -vvv
+
+
   upload_pypi:
     needs: [build_wheels, build_wheels_macos, build_sdist]
     runs-on: ubuntu-latest
