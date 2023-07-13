@@ -90,7 +90,7 @@ def get_argument_parser() -> argparse.ArgumentParser:
         "--version",
         action="version",
         version=__version__,
-        help="Displays memray version",
+        help="Displays the current version of Memray",
     )
 
     subparsers = parser.add_subparsers(

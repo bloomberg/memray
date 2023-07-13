@@ -1,0 +1,1 @@
+Allow to report the current version of Memray via a ``--version/-V`` command line parameter
