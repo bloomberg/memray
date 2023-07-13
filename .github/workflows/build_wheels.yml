@@ -72,7 +72,7 @@ jobs:
         with:
           name: tests
           path: tests
-      - uses: docker/setup-qemu-action@v1
+      - uses: docker/setup-qemu-action@v2
         if: runner.os == 'Linux'
         name: Set up QEMU
       - name: Extract sdist
