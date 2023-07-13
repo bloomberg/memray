@@ -225,9 +225,10 @@ class TUI:
 
     def __init__(self, pid: Optional[int], cmd_line: Optional[str], native: bool):
         self.live_data = TUIData(pid, cmd_line, native)
-        self.paused_data = None
+        self.paused_data: Optional[TUIData] = None
         self.display_data = self.live_data
 
+        self.is_paused = False
         self.active = True
         self._thread_idx = 0
         self._seen_threads: Set[int] = set()
@@ -263,13 +264,17 @@ class TUI:
         return "".join(self.footer_dict.values())
 
     def pause(self) -> None:
-        self.paused_data = deepcopy(self.live_data)
-        self.display_data = self.paused_data
-        self.footer_dict["pause"] = self.footer_paused_str
+        if not self.is_paused:
+            self.paused_data = deepcopy(self.live_data)
+            self.display_data = self.paused_data
+            self.footer_dict["pause"] = self.footer_paused_str
+            self.is_paused = True
 
     def unpause(self) -> None:
-        self.display_data = self.live_data
-        self.footer_dict["pause"] = self.footer_running_str
+        if self.is_paused:
+            self.display_data = self.live_data
+            self.footer_dict["pause"] = self.footer_running_str
+            self.is_paused = False
 
     def get_header(self) -> Table:
         header = Table.grid(expand=True)
