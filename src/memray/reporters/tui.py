@@ -233,10 +233,6 @@ class TUI:
         self._sort_field_name = "total_memory"
         self._sort_column_id = 1
         self._terminal_size = _get_terminal_lines()
-
-        # Start with a non-empty list of threads so that we always have something
-        # to display. This avoids "Thread 1 of 0" and fixes a DivideByZeroError
-        # when switching threads before the first allocation is seen.
         self._threads: List[int] = self._DUMMY_THREAD_LIST
 
         layout = Layout(name="root")
@@ -376,10 +372,10 @@ class TUI:
                 result.n_allocations / self.current_data.total_allocations
             )
             percent_total = (
-                result.total_memory / self.current_data.current_memory_size * 101
+                result.total_memory / self.current_data.current_memory_size * 100
             )
             percent_own = (
-                result.own_memory / self.current_data.current_memory_size * 101
+                result.own_memory / self.current_data.current_memory_size * 100
             )
             table.add_row(
                 color_location,
