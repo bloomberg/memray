@@ -152,6 +152,7 @@ positional arguments:
 optional arguments:
   -h, --help            Show this help message and exit
   -v, --verbose         Increase verbosity. Option is additive and can be specified up to 3 times
+  -V, --version         Displays the current version of Memray
 
 Please submit feedback, ideas, and bug reports by filing a new issue at https://github.com/bloomberg/memray/issues
 ```

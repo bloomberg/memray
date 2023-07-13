@@ -5,6 +5,8 @@ import textwrap
 from typing import List
 from typing import Optional
 
+from memray._version import __version__
+
 try:
     from typing import Protocol
 except ImportError:
@@ -82,6 +84,13 @@ def get_argument_parser() -> argparse.ArgumentParser:
         action="count",
         default=0,
         help="Increase verbosity. Option is additive and can be specified up to 3 times",
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=__version__,
+        help="Displays the current version of Memray",
     )
 
     subparsers = parser.add_subparsers(
