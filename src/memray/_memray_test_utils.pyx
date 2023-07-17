@@ -205,7 +205,7 @@ cdef class MmapAllocator:
         if ret != 0:
             raise MemoryError(f"munmap rcode: {ret} errno: {errno}")
 
-cdef void* _pthread_worker(void* arg) with gil:
+cdef void* _pthread_worker(void* arg) noexcept with gil:
     (<object> arg)()
 
 def _cython_allocate_in_two_places(size_t size):
