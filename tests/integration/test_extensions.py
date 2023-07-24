@@ -77,7 +77,7 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
         capture_output=True,
     )
 
-    def allocating_function():
+    def allocating_function():  # pragma: no cover
         allocator = MemoryAllocator()
         allocator.valloc(1234)
         allocator.free()

@@ -216,7 +216,7 @@ def test_pthread_tracking(tmp_path):
     # GIVEN
     allocator = MemoryAllocator()
 
-    def tracking_function():
+    def tracking_function():  # pragma: no cover
         allocator.valloc(ALLOC_SIZE)
         allocator.free()
 

@@ -82,14 +82,16 @@ def test_no_destination_arg():
         TypeError,
         match="Exactly one of 'file_name' or 'destination' argument must be specified",
     ):
-        with Tracker():
+        with Tracker():  # pragma: no cover
             pass
 
 
 def test_follow_fork_with_socket_destination():
     # GIVEN
     with pytest.raises(RuntimeError, match="follow_fork requires an output file"):
-        with Tracker(destination=SocketDestination(server_port=1234), follow_fork=True):
+        with Tracker(
+            destination=SocketDestination(server_port=1234), follow_fork=True
+        ):  # pragma: no cover
             pass
 
 
@@ -101,5 +103,5 @@ def test_aggregated_capture_with_socket_destination():
         with Tracker(
             destination=SocketDestination(server_port=1234),
             file_format=FileFormat.AGGREGATED_ALLOCATIONS,
-        ):
+        ):  # pragma: no cover
             pass
