@@ -1,0 +1,1 @@
+Add pause/unpause keybindings to the live reporter that allows the user to pause the live reporter to analyse the current results without pausing the running program

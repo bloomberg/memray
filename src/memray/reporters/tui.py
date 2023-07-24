@@ -1,6 +1,7 @@
 import os
 from collections import defaultdict
 from collections import deque
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from math import ceil
@@ -183,6 +184,26 @@ def aggregate_allocations(
     return processed_allocations
 
 
+class TUIData:
+    def __init__(self, pid: Optional[int], cmd_line: Optional[str], native: bool):
+        self.pid = pid or "???"
+        if not cmd_line:
+            cmd_line = "???"
+        if len(cmd_line) > 50:
+            cmd_line = cmd_line[:50] + "..."
+        self.command_line = escape(cmd_line)
+        self.native = native
+        self.n_samples = 0
+        self.start = datetime.now()
+        self.last_update = datetime.now()
+        self.snapshot_data: Dict[Location, AllocationEntry] = {}
+        self.current_memory_size = 0
+        self.max_memory_seen = 0
+        self.message = ""
+        self.stream = MemoryGraph(50, 4, 0.0, 1024.0)
+        self.total_allocations = 0
+
+
 class TUI:
     KEY_TO_COLUMN_NAME = {
         1: "total_memory",
@@ -203,28 +224,18 @@ class TUI:
     _DUMMY_THREAD_LIST = [0]
 
     def __init__(self, pid: Optional[int], cmd_line: Optional[str], native: bool):
-        self.pid = pid or "???"
-        if not cmd_line:
-            cmd_line = "???"
-        if len(cmd_line) > 50:
-            cmd_line = cmd_line[:50] + "..."
-        self.command_line = escape(cmd_line)
-        self._native = native
+        self.live_data = TUIData(pid, cmd_line, native)
+        self.paused_data: Optional[TUIData] = None
+        self.display_data = self.live_data
+
+        self.is_paused = False
+        self.active = True
         self._thread_idx = 0
         self._seen_threads: Set[int] = set()
-        self._threads: List[int] = self._DUMMY_THREAD_LIST
-        self.n_samples = 0
-        self.start = datetime.now()
-        self._last_update = datetime.now()
-        self._snapshot: Tuple[AllocationRecord, ...] = tuple()
-        self._current_memory_size = 0
-        self._max_memory_seen = 0
-        self._message = ""
-        self.active = True
         self._sort_field_name = "total_memory"
         self._sort_column_id = 1
         self._terminal_size = _get_terminal_lines()
-        self.stream = MemoryGraph(50, 4, 0.0, 1024.0)
+        self._threads: List[int] = self._DUMMY_THREAD_LIST
 
         layout = Layout(name="root")
         layout.split(
@@ -234,15 +245,36 @@ class TUI:
             Layout(name="message", size=1),
             Layout(name="footer", size=1),
         )
-        layout["footer"].update(
-            "[bold grey93 on dodger_blue1] Q [/] Quit "
-            "[bold grey93 on dodger_blue1] ←  [/] Previous Thread "
-            "[bold grey93 on dodger_blue1] →  [/] Next Thread "
-            "[bold grey93 on dodger_blue1] T [/] Sort By Total "
-            "[bold grey93 on dodger_blue1] O [/] Sort By Own "
-            "[bold grey93 on dodger_blue1] A [/] Sort By Allocations "
-        )
         self.layout = layout
+
+        self.footer_paused_str = "[bold grey93 on dodger_blue1] U [/] Unpause View "
+        self.footer_running_str = "[bold grey93 on dodger_blue1] P [/] Pause View "
+
+        self.footer_dict = {
+            "quit": "[bold grey93 on dodger_blue1] Q [/] Quit ",
+            "prev_thread": "[bold grey93 on dodger_blue1] ←  [/] Previous Thread ",
+            "next_thread": "[bold grey93 on dodger_blue1] →  [/] Next Thread ",
+            "sort_tot": "[bold grey93 on dodger_blue1] T [/] Sort By Total ",
+            "sort_own": "[bold grey93 on dodger_blue1] O [/] Sort By Own ",
+            "sort_alloc": "[bold grey93 on dodger_blue1] A [/] Sort By Allocations ",
+            "pause": self.footer_running_str,
+        }
+
+    def footer(self) -> str:
+        return "".join(self.footer_dict.values())
+
+    def pause(self) -> None:
+        if not self.is_paused:
+            self.paused_data = deepcopy(self.live_data)
+            self.display_data = self.paused_data
+            self.footer_dict["pause"] = self.footer_paused_str
+            self.is_paused = True
+
+    def unpause(self) -> None:
+        if self.is_paused:
+            self.display_data = self.live_data
+            self.footer_dict["pause"] = self.footer_running_str
+            self.is_paused = False
 
     def get_header(self) -> Table:
         header = Table.grid(expand=True)
@@ -258,17 +290,22 @@ class TUI:
         metadata.add_column(justify="left", ratio=5)
         metadata.add_column(justify="left", ratio=5)
         metadata.add_row("")
-        metadata.add_row(f"[b]PID[/]: {self.pid}", f"[b]CMD[/]: {self.command_line}")
+        metadata.add_row(
+            f"[b]PID[/]: {self.display_data.pid}",
+            f"[b]CMD[/]: {self.display_data.command_line}",
+        )
         metadata.add_row(
             f"[b]TID[/]: {hex(self.current_thread)}",
             f"[b]Thread[/] {self._thread_idx + 1} of {len(self._threads)}",
         )
         metadata.add_row(
-            f"[b]Samples[/]: {self.n_samples}",
-            f"[b]Duration[/]: {(self._last_update - self.start).total_seconds()} seconds",
+            f"[b]Samples[/]: {self.display_data.n_samples}",
+            f"[b]Duration[/]: "
+            f"{(self.display_data.last_update - self.display_data.start).total_seconds()}"
+            f" seconds",
         )
 
-        graph = "\n".join(self.stream.graph)
+        graph = "\n".join(self.display_data.stream.graph)
         plot = Panel(
             f"[color({2})]{graph}[/]",
             title="Memory",
@@ -293,13 +330,13 @@ class TUI:
         metadata.add_column(justify="left", ratio=5)
         metadata.add_column(justify="right", ratio=5)
         metadata.add_row(
-            f"[bold]Current heap size[/]: {size_fmt(self._current_memory_size)}",
-            f"[bold]Max heap size seen[/]: {size_fmt(self._max_memory_seen)}",
+            f"[bold]Current heap size[/]: {size_fmt(self.display_data.current_memory_size)}",
+            f"[bold]Max heap size seen[/]: {size_fmt(self.display_data.max_memory_seen)}",
         )
         heap_grid.add_row(metadata)
         bar = ProgressBar(
-            completed=self._current_memory_size,
-            total=self._max_memory_seen + 1,
+            completed=self.display_data.current_memory_size,
+            total=self.display_data.max_memory_seen + 1,
             complete_style="blue",
         )
         heap_grid.add_row(bar)
@@ -319,13 +356,8 @@ class TUI:
         sort_column = table.columns[self._sort_column_id]
         sort_column.header = f"<{sort_column.header}>"
 
-        total_allocations = sum(record.n_allocations for record in self._snapshot)
-        allocation_entries = aggregate_allocations(
-            self._snapshot, MAX_MEMORY_RATIO * self._current_memory_size, self._native
-        )
-
         sorted_allocations = sorted(
-            allocation_entries.items(),
+            self.display_data.snapshot_data.items(),
             key=lambda item: getattr(item[1], self._sort_field_name),
             reverse=True,
         )[:max_rows]
@@ -337,12 +369,20 @@ class TUI:
                 f"[cyan]{escape(location.file)}[/]"
             )
             total_color = _size_to_color(
-                result.total_memory / self._current_memory_size
+                result.total_memory / self.display_data.current_memory_size
             )
-            own_color = _size_to_color(result.own_memory / self._current_memory_size)
-            allocation_colors = _size_to_color(result.n_allocations / total_allocations)
-            percent_total = result.total_memory / self._current_memory_size * 100
-            percent_own = result.own_memory / self._current_memory_size * 100
+            own_color = _size_to_color(
+                result.own_memory / self.display_data.current_memory_size
+            )
+            allocation_colors = _size_to_color(
+                result.n_allocations / self.display_data.total_allocations
+            )
+            percent_total = (
+                result.total_memory / self.display_data.current_memory_size * 100
+            )
+            percent_own = (
+                result.own_memory / self.display_data.current_memory_size * 100
+            )
             table.add_row(
                 color_location,
                 f"[{total_color}]{size_fmt(result.total_memory)}[/{total_color}]",
@@ -355,11 +395,11 @@ class TUI:
 
     @property
     def message(self) -> str:
-        return self._message
+        return self.display_data.message
 
     @message.setter
     def message(self, message: str) -> None:
-        self._message = message
+        self.display_data.message = message
 
     @property
     def current_thread(self) -> int:
@@ -376,24 +416,36 @@ class TUI:
         self.layout["heap_size"].update(self.get_heap_size())
         self.layout["table"].update(self.get_body())
         self.layout["message"].update(self.message)
+        self.layout["footer"].update(self.footer())
         return self.layout
 
     def update_snapshot(self, snapshot: Iterable[AllocationRecord]) -> None:
-        self._snapshot = tuple(snapshot)
-        for record in self._snapshot:
+        for record in snapshot:
             if record.tid in self._seen_threads:
                 continue
             if self._threads is self._DUMMY_THREAD_LIST:
                 self._threads = []
             self._threads.append(record.tid)
             self._seen_threads.add(record.tid)
-        self.n_samples += 1
-        self._last_update = datetime.now()
-        self._current_memory_size = sum(record.size for record in self._snapshot)
-        if self._current_memory_size > self._max_memory_seen:
-            self._max_memory_seen = self._current_memory_size
-            self.stream.reset_max(self._max_memory_seen)
-        self.stream.add_value(self._current_memory_size)
+
+        self.live_data.n_samples += 1
+        self.live_data.last_update = datetime.now()
+        self.live_data.current_memory_size = sum(record.size for record in snapshot)
+
+        if self.live_data.current_memory_size > self.live_data.max_memory_seen:
+            self.live_data.max_memory_seen = self.live_data.current_memory_size
+            self.live_data.stream.reset_max(self.live_data.max_memory_seen)
+        self.live_data.stream.add_value(self.live_data.current_memory_size)
+
+        self.live_data.total_allocations = sum(
+            record.n_allocations for record in snapshot
+        )
+        allocation_entries = aggregate_allocations(
+            snapshot,
+            MAX_MEMORY_RATIO * self.live_data.current_memory_size,
+            self.live_data.native,
+        )
+        self.live_data.snapshot_data = allocation_entries
 
     def update_sort_key(self, col_number: int) -> None:
         self._sort_column_id = col_number
