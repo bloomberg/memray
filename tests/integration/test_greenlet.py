@@ -10,7 +10,7 @@ from memray import FileReader
 from tests.utils import filter_relevant_allocations
 
 pytestmark = pytest.mark.skipif(
-    sys.version_info >= (3, 11), reason="Greenlet does not yet support Python 3.11"
+    sys.version_info >= (3, 12), reason="Greenlet does not yet support Python 3.12"
 )
 
 
