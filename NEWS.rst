@@ -8,6 +8,22 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.9.0 (2023-07-28)
+-------------------------
+
+Features
+~~~~~~~~
+
+- Allow to report the current version of Memray via a ``--version/-V`` command line parameter (#420)
+- Add pause/unpause keybindings to the live reporter that allows the user to pause the live reporter to analyse the current results without pausing the running program (#418)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Support building with Cython 3 (#425)
+
+
 memray 1.8.1 (2023-06-20)
 -------------------------
 
