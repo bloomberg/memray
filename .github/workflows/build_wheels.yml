@@ -96,6 +96,7 @@ jobs:
           path: ./wheelhouse/*.whl
 
   build_wheels_macos:
+    needs: [build_sdist]
     name: Wheel for MacOS-${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -106,7 +107,17 @@ jobs:
         cibw_arch: ["x86_64", "arm64"]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: dist
+          path: dist
+      - uses: actions/download-artifact@v3
+        with:
+          name: tests
+          path: tests
+      - name: Extract sdist
+        run: |
+          tar zxvf dist/*.tar.gz --strip-components=1
       - name: Sets env vars for compilation
         if: matrix.cibw_arch == 'arm64'
         run: |
