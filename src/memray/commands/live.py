@@ -15,11 +15,10 @@ KEYS = {
     "CTRL_C": "\x03",
     "LEFT": "\x1b\x5b\x44",
     "RIGHT": "\x1b\x5b\x43",
+    "SPACEBAR": "\x20",
     "O": "o",
     "T": "t",
     "A": "a",
-    "P": "p",
-    "U": "u",
 }
 
 
@@ -114,10 +113,8 @@ class LiveCommand:
                         tui.next_thread()
                     elif char in {"q", KEYS["ESC"]}:
                         break
-                    elif char == KEYS["P"]:
-                        tui.pause()
-                    elif char == KEYS["U"]:
-                        tui.unpause()
+                    elif char == KEYS["SPACEBAR"]:
+                        tui.toggle_pause_state()
                     elif char.lower() in TUI.KEY_TO_COLUMN_ID.keys():
                         col_number = tui.KEY_TO_COLUMN_ID[char.lower()]
                         tui.update_sort_key(col_number)

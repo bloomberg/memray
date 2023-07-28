@@ -247,8 +247,12 @@ class TUI:
         )
         self.layout = layout
 
-        self.footer_paused_str = "[bold grey93 on dodger_blue1] U [/] Unpause View "
-        self.footer_running_str = "[bold grey93 on dodger_blue1] P [/] Pause View "
+        self.footer_paused_str = (
+            "[bold grey93 on dodger_blue1] SPACEBAR [/] Unpause View "
+        )
+        self.footer_running_str = (
+            "[bold grey93 on dodger_blue1] SPACEBAR [/] Pause View "
+        )
 
         self.footer_dict = {
             "quit": "[bold grey93 on dodger_blue1] Q [/] Quit ",
@@ -275,6 +279,9 @@ class TUI:
             self.display_data = self.live_data
             self.footer_dict["pause"] = self.footer_running_str
             self.is_paused = False
+
+    def toggle_pause_state(self) -> None:
+        self.unpause() if self.is_paused else self.pause()
 
     def get_header(self) -> Table:
         header = Table.grid(expand=True)
