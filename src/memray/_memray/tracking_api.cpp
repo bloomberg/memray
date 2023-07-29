@@ -340,7 +340,11 @@ PythonStackTracker::installGreenletTraceFunctionIfNeeded()
     // `greenlet._greenlet` has already been imported.
     PyObject* _greenlet = PyDict_GetItemString(modules, "greenlet._greenlet");
     if (!_greenlet) {
-        return;
+        // Before greenlet 1.0, the extension module was just named "greenlet"
+        _greenlet = PyDict_GetItemString(modules, "greenlet");
+        if (!_greenlet) {
+            return;
+        }
     }
 
     // Borrowed reference

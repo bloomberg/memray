@@ -691,7 +691,7 @@ cdef class Tracker:
         self._previous_thread_profile_func = threading._profile_hook
         threading.setprofile(start_thread_trace)
 
-        if "greenlet._greenlet" in sys.modules:
+        if "greenlet" in sys.modules:
             NativeTracker.beginTrackingGreenlets()
 
         NativeTracker.createTracker(
