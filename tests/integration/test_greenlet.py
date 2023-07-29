@@ -20,10 +20,6 @@ def test_integration_with_greenlet(tmpdir):
     output = Path(tmpdir) / "test.bin"
     subprocess_code = textwrap.dedent(
         f"""
-        import mmap
-        import sys
-        import gc
-
         import greenlet
 
         from memray import Tracker
@@ -112,10 +108,6 @@ def test_importing_greenlet_after_tracking_starts(tmpdir):
     output = Path(tmpdir) / "test.bin"
     subprocess_code = textwrap.dedent(
         f"""
-        import mmap
-        import sys
-        import gc
-
         from memray import Tracker
         from memray._test import MemoryAllocator
 
@@ -155,6 +147,7 @@ def test_importing_greenlet_after_tracking_starts(tmpdir):
 
         with Tracker(output):
             import greenlet
+
             fruit = greenlet.greenlet(apple)
             animal = greenlet.greenlet(ant)
             test()
