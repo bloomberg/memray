@@ -166,8 +166,14 @@ malloc(size_t size) noexcept
 {
     assert(hooks::malloc);
 
-    void* ptr = hooks::malloc(size);
-    tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::MALLOC);
+    void* ptr;
+    {
+        tracking_api::RecursionGuard guard;
+        ptr = hooks::malloc(size);
+    }
+    if (ptr) {
+        tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::MALLOC);
+    }
     return ptr;
 }
 
@@ -182,7 +188,10 @@ free(void* ptr) noexcept
         tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
     }
 
-    hooks::free(ptr);
+    {
+        tracking_api::RecursionGuard guard;
+        hooks::free(ptr);
+    }
 }
 
 void*
@@ -224,8 +233,14 @@ void*
 mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexcept
 {
     assert(hooks::mmap);
-    void* ptr = hooks::mmap(addr, length, prot, flags, fd, offset);
-    tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
+    void* ptr;
+    {
+        tracking_api::RecursionGuard guard;
+        ptr = hooks::mmap(addr, length, prot, flags, fd, offset);
+    }
+    if (ptr != MAP_FAILED) {
+        tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
+    }
     return ptr;
 }
 
@@ -234,8 +249,14 @@ void*
 mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept
 {
     assert(hooks::mmap64);
-    void* ptr = hooks::mmap64(addr, length, prot, flags, fd, offset);
-    tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
+    void* ptr;
+    {
+        tracking_api::RecursionGuard guard;
+        ptr = hooks::mmap64(addr, length, prot, flags, fd, offset);
+    }
+    if (ptr != MAP_FAILED) {
+        tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
+    }
     return ptr;
 }
 #endif
@@ -245,7 +266,10 @@ munmap(void* addr, size_t length) noexcept
 {
     assert(hooks::munmap);
     tracking_api::Tracker::trackDeallocation(addr, length, hooks::Allocator::MUNMAP);
-    return hooks::munmap(addr, length);
+    {
+        tracking_api::RecursionGuard guard;
+        return hooks::munmap(addr, length);
+    }
 }
 
 void*
@@ -303,7 +327,11 @@ dlclose(void* handle) noexcept
 {
     assert(hooks::dlclose);
 
-    int ret = hooks::dlclose(handle);
+    int ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::dlclose(handle);
+    }
     tracking_api::NativeTrace::flushCache();
     if (!ret) tracking_api::Tracker::invalidate_module_cache();
     return ret;
@@ -349,7 +377,11 @@ pvalloc(size_t size) noexcept
 {
     assert(hooks::pvalloc);
 
-    void* ret = hooks::pvalloc(size);
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = hooks::pvalloc(size);
+    }
     if (ret) {
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::PVALLOC);
     }
