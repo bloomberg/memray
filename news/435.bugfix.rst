@@ -1,1 +1,0 @@
-Fix a bug causing the ``summary`` reporter to generate empty reports.

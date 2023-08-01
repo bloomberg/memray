@@ -1,1 +1,0 @@
-Fix an issue that stopped Memray's experimental support for ``greenlet`` from working with versions of the ``greenlet`` module older than 1.0.
