@@ -194,3 +194,24 @@ jobs:
         with:
           skip_existing: true
           password: ${{ secrets.PYPI_PASSWORD }}
+
+  upload_docs:
+    needs: [build_docs]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        name: Unstash docs tarball
+        with:
+          name: github-pages
+      - name: Extract docs tarball
+        run: |
+          mkdir -p docs/_build/html
+          tar xvf artifact.tar --directory docs/_build/html
+      - name: Publish docs to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs/_build/html
+          single-commit: true
