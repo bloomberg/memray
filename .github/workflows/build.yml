@@ -101,37 +101,21 @@ jobs:
         run: |
           make dev-install pycoverage
 
-  lint_and_docs:
-    name: "Lint and Docs"
+  lint:
+    name: "Lint"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      - name: Set up dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -qy clang-format npm libunwind-dev liblz4-dev pkg-config
-      - name: Install Python dependencies
+      - name: Install linting dependencies
         run: |
           python3 -m pip install -r requirements-extra.txt
-      - name: Install Package
-        run: |
-          python3 -m pip install -e .
       - name: Lint sources
         run: |
-          make lint
-          python3 -m pre_commit run --all-files --hook-stage pre-push
-      - name: Build docs
-        run: |
-          towncrier build --version 99.99 --name memray --keep
-          make docs
+          make lint MYPYPATH=src
 
   valgrind:
     name: "Valgrind & Helgrind"

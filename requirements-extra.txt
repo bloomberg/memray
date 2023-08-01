@@ -1,4 +1,6 @@
 mypy
+jinja2 >= 2.9
+ipython
 bump2version
 towncrier
 pre-commit
