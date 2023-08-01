@@ -15,7 +15,7 @@ class SummaryReporter:
         super().__init__()
         self.data = data
         self._tui = TUI(pid=None, cmd_line=None, native=native)
-        self._tui.update_snapshot(data)
+        self._tui.update_snapshot(tuple(data))
 
     @classmethod
     def from_snapshot(

@@ -11,6 +11,7 @@ from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import Optional
+from typing import Sequence
 from typing import Set
 from typing import Tuple
 
@@ -426,7 +427,7 @@ class TUI:
         self.layout["footer"].update(self.footer())
         return self.layout
 
-    def update_snapshot(self, snapshot: Iterable[AllocationRecord]) -> None:
+    def update_snapshot(self, snapshot: Sequence[AllocationRecord]) -> None:
         for record in snapshot:
             if record.tid in self._seen_threads:
                 continue
