@@ -1,1 +1,0 @@
-Fix a bug leading to a deadlock when Memray is used to profile an application that uses the jemalloc implementation of ``malloc``.

@@ -8,6 +8,17 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.9.1 (2023-08-01)
+-------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix an issue that stopped Memray's experimental support for ``greenlet`` from working with versions of the ``greenlet`` module older than 1.0. (#432)
+- Fix a bug leading to a deadlock when Memray is used to profile an application that uses the jemalloc implementation of ``malloc``. (#433)
+- Fix a bug causing the ``summary`` reporter to generate empty reports. (#435)
+
+
 memray 1.9.0 (2023-07-28)
 -------------------------
 
