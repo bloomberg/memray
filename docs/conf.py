@@ -40,6 +40,7 @@ templates_path = ["_templates"]
 html_additional_pages = {
     "index": "index.html",
 }
+html_favicon = "favicon.ico"
 
 # -- Options for smartquotes ----------------------------------------------------------
 
