@@ -90,6 +90,16 @@ def argument_parser() -> argparse.ArgumentParser:
         default=False,
     )
 
+    parser.add_argument(
+        "--inverted",
+        help=(
+            "Invert the flame graph: "
+            "use allocators as roots instead of thread entry points"
+        ),
+        action="store_true",
+        default=False,
+    )
+
     return parser
 
 
@@ -148,6 +158,7 @@ class FlamegraphMagics(Magics):
                 snapshot,
                 memory_records=memory_records,
                 native_traces=options.native,
+                inverted=options.inverted,
             )
         assert reporter is not None
         flamegraph_path = Path(tempdir) / "flamegraph.html"
@@ -157,6 +168,7 @@ class FlamegraphMagics(Magics):
                 metadata=reader.metadata,
                 show_memory_leaks=options.show_memory_leaks,
                 merge_threads=merge_threads,
+                inverted=options.inverted,
             )
         dump_file.unlink()
         pprint(f"Results saved to [bold cyan]{flamegraph_path}")

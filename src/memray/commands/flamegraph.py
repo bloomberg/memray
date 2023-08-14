@@ -22,3 +22,10 @@ class FlamegraphCommand(HighWatermarkCommand):
             action="store_true",
             default=False,
         )
+
+        parser.add_argument(
+            "--inverted",
+            help="Invert flame graph",
+            action="store_true",
+            default=False,
+        )

@@ -42,9 +42,29 @@ function packedDataToTree(packedData) {
   return root;
 }
 
+function initTrees(packedData) {
+  const { strings, nodes, inverted_no_imports_nodes, unique_threads } =
+    packedData;
+  flamegraphData = packedDataToTree({
+    strings: strings,
+    nodes: nodes,
+    unique_threads: unique_threads,
+  });
+
+  invertedNoImportsData = inverted
+    ? packedDataToTree({
+        strings: strings,
+        nodes: inverted_no_imports_nodes,
+        unique_threads: unique_threads,
+      })
+    : null;
+
+  data = flamegraphData;
+}
+
 // Main entrypoint
 function main() {
-  data = packedDataToTree(packed_data);
+  initTrees(packed_data);
   initMemoryGraph(memory_records);
   initThreadsDropdown(data, merge_threads);
 

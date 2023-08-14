@@ -140,12 +140,19 @@ export function onFilterImportSystem() {
   }
   if (this.hideImportSystemFrames === true) {
     this.hideImportSystemFrames = true;
-
-    filteredChart.registerFilter(FILTER_IMPORT_SYSTEM, (data) => {
-      return filterImportSystem(data);
-    });
+    if (!inverted) {
+      filteredChart.registerFilter(FILTER_IMPORT_SYSTEM, (data) => {
+        return filterImportSystem(data);
+      });
+    } else {
+      data = invertedNoImportsData;
+    }
   } else {
     filteredChart.unRegisterFilter(FILTER_IMPORT_SYSTEM);
+    if (inverted) {
+      //We can remove this check when we add ``flamegraphData`` to the temporal flamegraph
+      data = flamegraphData;
+    }
   }
   this.hideImportSystemFrames = !this.hideImportSystemFrames;
   filteredChart.drawChart(data);
