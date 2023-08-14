@@ -30,6 +30,7 @@ class TableReporter:
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
+        **kwargs: Any,
     ) -> "TableReporter":
         result = []
         for record in allocations:
@@ -62,9 +63,14 @@ class TableReporter:
         metadata: Metadata,
         show_memory_leaks: bool,
         merge_threads: bool,
+        inverted: bool,
     ) -> None:
         if not merge_threads:
             raise NotImplementedError("TableReporter only supports merged threads.")
+        if inverted:
+            raise NotImplementedError(
+                "TableReporter does not support inverted argument"
+            )
         html_code = render_report(
             kind="table",
             data=self.data,
@@ -72,5 +78,6 @@ class TableReporter:
             memory_records=self.memory_records,
             show_memory_leaks=show_memory_leaks,
             merge_threads=merge_threads,
+            inverted=inverted,
         )
         print(html_code, file=outfile)

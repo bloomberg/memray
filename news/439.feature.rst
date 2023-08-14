@@ -1,0 +1,4 @@
+Add a new ``--inverted`` flag to ``memray flamegraph``. In an inverted flame graph, the roots are the functions that allocated memory,
+and the children of any given node represent the percentage of that node's
+allocations that can be attributed to a particular caller. The inverted flame graph is very helpful in analyzing where memory is being
+spent in aggregate.
