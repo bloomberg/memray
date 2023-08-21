@@ -279,6 +279,92 @@ dropdown menu.
 Note that the root node (displayed as **<root>**) is always present
 and is displayed as thread 0.
 
+.. _inverted flame graphs:
+
+Inverted flame graphs
+---------------------
+
+In a normal flame graph, the children of any given node are the functions
+called by that node, so the children of the root are thread entry points, and
+leaf nodes are functions that allocated memory but did not call any functions
+that allocated memory. This means that, if multiple distinct call stacks led to
+the same function allocating memory, there will be several leaf nodes for that
+same function (one per distinct call stack by which it was reached).
+
+Memray also supports generating inverted flame graphs. In an inverted flame
+graph, the children of any given node are the functions that called that node,
+instead of the functions called by that node. This means that every function
+that allocated memory is a child of the root node, and the leaf nodes are
+thread entry points. If one thread entry point led to multiple distinct
+allocations, there will be several leaf nodes for that same entry point (one
+per distinct call stack by which an allocation was reached from it).
+
+The inverted flame graph is very helpful in analyzing where memory is being
+spent in aggregate. If a function that allocates memory is called from multiple
+places, in the normal flame graph it will show up multiple times in the leaves,
+but in the inverted flame graph, all calls to one function will be aggregated
+and you'll see the total amount allocated by it in one place.
+
+You can supply the ``--inverted`` option when generating a flame graph to ask
+Memray to produce an inverted flame graph.
+
+Simple inverted flame graph example
+-----------------------------------
+
+.. code:: python
+
+  def a():
+      return 1000000 * "a"
+
+  def a1():
+      return 1000000 * "a"
+
+  def b():
+      return a()
+
+  def c():
+      return b()
+
+  def d():
+      return b()
+
+  def f():
+      return g()
+
+  def e():
+      return g()
+
+  def g():
+      return c()
+
+  def main():
+      a = a1()
+      x = d()
+      y = e()
+      z = f()
+      return (x,y,z,a)
+
+  main()
+
+
+This code allocates memory from the system allocator in just 2 places: ``a()``,
+and ``a1()``. This is how the normal frame graph looks:
+
+.. image:: _static/images/normal_flamegraph_for_inverted_example.png
+
+Here you can see that ``a()`` allocated memory three times when it was called
+from ``b()``, and ``a1()`` allocated memory when it was called from ``main()``.
+
+If you generate the inverted flame graph with ``--inverted``, you'll instead
+see something like:
+
+.. image:: _static/images/inverted_flame_graph_for_inverted_example.png
+
+Here you can see that we have ``return 1000000 * "a"`` two times at the root.
+The block for one of those calls is three times wider than the other because
+``a()`` was called three times from ``b()``, while ``a1()`` was called only
+once from ``main()``.
+
 .. _temporal flame graphs:
 
 Temporal Flame Graphs
