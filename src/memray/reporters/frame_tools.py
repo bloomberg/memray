@@ -62,7 +62,7 @@ def is_cpython_internal(frame: StackFrame) -> bool:
 def is_frame_interesting(frame: StackFrame) -> bool:
     function, file, _ = frame
 
-    if file.endswith("runpy.py"):
+    if file.endswith("runpy.py") or file == "<frozen runpy>":
         return False
 
     return not _is_cpython_internal_symbol(function, file)
