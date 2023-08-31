@@ -1,78 +1,104 @@
 TUI {
-    layout: grid;
-    grid-size: 1 6;
-    grid-rows: 2fr 7fr 3fr 70% 1fr 1fr;
-    padding: 0 1;
+  layout: vertical;
 }
 
-/* Head */
 #head {
-    layout: horizontal;
-}
-
-#head_title {
-    width: 30%;
+  layout: horizontal;
+  height: 1;
 }
 
 #head_time_display {
-    width: 70%;
-    text-align: right;
+  width: 30;
+  text-align: right;
+  dock: right;
 }
 
-/* Header */
+Header {
+  height: 7;
+}
+
+.narrow Header {
+  height: 11;
+}
+
 #header_container {
-    height: 100%;
-    layout: grid;
-    grid-size: 3 1;
-    grid-columns: 2fr 5fr 3fr;
-    text-align: left;
+  layout: horizontal;
+}
+
+.narrow #header_container {
+  layout: vertical;
 }
 
 #header_metadata {
-    height: auto;
-    layout: horizontal;
-    padding: 0 0 0 4;
+  layout: vertical;
+  width: 100%;
+  height: 7;
+  border: blank;
+  border-title-align: right;
+  border-title-color: $success-lighten-1;
+  overflow: auto auto;
 }
 
-#header_metadata_col_1 {
-    height: auto;
-    width: auto;
+.narrow #header_metadata {
+  border: none;
+  height: 5;
 }
 
-#header_metadata_col_2 {
-    height: auto;
-    width: auto;
-    margin-left: 5;
+#header_metadata_grid {
+  layout: grid;
+  height: 3;
+  width: auto;
+  grid-size: 2;
+  grid-columns: auto auto;
+  grid-gutter: 0 3;
+  overflow: hidden hidden;
 }
 
-/* Heap size */
-#heap_size {
-    layout: horizontal;
+#header_metadata > #status_message {
+  column-span: 2;
+  width: auto;
+  height: 1;
 }
 
-#current_memory_size {
-    width: 30%;
+MemoryGraph {
+  dock: right;
+  border: round $success-lighten-1;
+  box-sizing: content-box;
+  height: 4;
+  max-width: 50;
 }
 
-#max_memory_seen {
-    width: 70%;
-    text-align: right;
+#memory_graph_container {
+  dock: right;
+  box-sizing: content-box;
+  width: 30%;
+  max-width: 52;
 }
 
-#progress_bar {
-    height: 1fr;
+.narrow #memory_graph_container {
+  dock: bottom;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 6;
 }
 
-/* Override default footer styling */
 Footer {
-    background: transparent;
+  background: transparent;
 }
 
 Footer > .footer--key {
-    background: rgb(30, 144, 255);
+  background: rgb(30, 144, 255);
 }
 
-/* Override default table styling */
-DataTable {
-    border: solid white;
+AllocationTable {
+  height: 1fr;
+}
+
+.narrow AllocationTable {
+  height: 100%;
+}
+
+AllocationTable > ScrollView {
+  height: 100%;
 }

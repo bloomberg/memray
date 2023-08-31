@@ -177,3 +177,6 @@ node_modules/
 
 # Vendored files
 src/vendor/libbacktrace/install
+
+# pytest-textual-snapshot
+snapshot_report.html

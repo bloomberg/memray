@@ -175,7 +175,10 @@ class TestRunSubCommand:
             stdout=-3,
             text=True,
         )
-        live_command_mock().start_live_interface.assert_called_with(1234)
+        live_command_mock().start_live_interface.assert_called_with(
+            1234,
+            cmdline_override="./directory/foobar.py arg1 arg2",
+        )
 
     @patch("memray.commands.run.subprocess.Popen")
     @patch("memray.commands.run.LiveCommand")
@@ -213,7 +216,10 @@ class TestRunSubCommand:
             stdout=-3,
             text=True,
         )
-        live_command_mock().start_live_interface.assert_called_with(1234)
+        live_command_mock().start_live_interface.assert_called_with(
+            1234,
+            cmdline_override="./directory/foobar.py arg1 arg2",
+        )
 
     def test_run_with_live_remote(
         self, getpid_mock, runpy_mock, tracker_mock, validate_mock

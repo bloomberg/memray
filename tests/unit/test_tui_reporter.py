@@ -1,409 +1,304 @@
+import asyncio
 import datetime
+import sys
 from io import StringIO
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from typing import Awaitable
+from typing import Callable
+from typing import Dict
+from typing import Iterable
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import cast
 
 import pytest
 from rich import print as rprint
 from textual.app import App
+from textual.coordinate import Coordinate
+from textual.pilot import Pilot
+from textual.widget import Widget
+from textual.widgets import DataTable
+from textual.widgets import Label
 
+import memray.reporters.tui
+from memray import AllocationRecord
 from memray import AllocatorType
-from memray.reporters.tui import TUI
 from memray.reporters.tui import Location
 from memray.reporters.tui import MemoryGraph
+from memray.reporters.tui import Snapshot
+from memray.reporters.tui import SnapshotFetched
+from memray.reporters.tui import TUIApp
 from memray.reporters.tui import aggregate_allocations
 from tests.utils import MockAllocationRecord
 
 
-class FakeDate(MagicMock):
-    @classmethod
-    def now(cls):
-        return datetime.datetime(2021, 1, 1)
+def async_run(coro):
+    # This technique shamelessly cribbed from Textual itself...
+    # `asyncio.get_event_loop()` is deprecated since Python 3.10:
+    asyncio_get_event_loop_is_deprecated = sys.version_info >= (3, 10, 0)
+
+    if asyncio_get_event_loop_is_deprecated:
+        # N.B. This doesn't work with Python<3.10, as we end up with 2 event loops:
+        asyncio.run(coro)
+    else:
+        # pragma: no cover
+        # However, this works with Python<3.10:
+        event_loop = asyncio.get_event_loop()
+        event_loop.run_until_complete(coro)
 
 
-class MockTUIApp(App):
-    def __init__(self, pid, cmd_line, native):
-        self.pid = pid
-        self.cmd_line = cmd_line
-        self.native = native
-        super().__init__()
+class MockApp(TUIApp):
+    CSS_PATH = None  # type: ignore
 
-    def on_mount(self):
-        self.push_screen(
-            TUI(
-                pid=self.pid,
-                cmd_line=self.cmd_line,
-                native=self.native,
+    def __init__(self, *args, disable_update_thread=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        if disable_update_thread:
+            # Make the update thread return immediately when started
+            self._update_thread.cancel()
+
+    def add_mock_snapshot(
+        self,
+        snapshot: List[MockAllocationRecord],
+        disconnected: bool = False,
+        native: bool = True,
+    ) -> None:
+        records = cast(List[AllocationRecord], snapshot)
+        self.post_message(
+            SnapshotFetched(
+                Snapshot(
+                    heap_size=sum(record.size for record in records),
+                    records=records,
+                    records_by_location=aggregate_allocations(
+                        cast(List[AllocationRecord], records), native_traces=native
+                    ),
+                ),
+                disconnected,
             )
         )
 
+    def add_mock_snapshots(
+        self,
+        snapshots: List[List[MockAllocationRecord]],
+        disconnect_after_last: bool = True,
+        native: bool = True,
+    ) -> None:
+        for i, snapshot in enumerate(snapshots):
+            disconnected = i == len(snapshots) - 1 and disconnect_after_last
+            self.add_mock_snapshot(snapshot, disconnected=disconnected, native=native)
 
-def make_tui(pid=123, cmd="python3 some_program.py", native=False):
-    tui_app = MockTUIApp(pid=pid, cmd_line=cmd, native=native)
-    tui_app.run()
-    return tui_app
+
+class MockReader:
+    def __init__(
+        self,
+        snapshots: List[List[MockAllocationRecord]],
+        has_native_traces: bool = True,
+        pid: Optional[int] = None,
+        command_line: Optional[str] = None,
+    ):
+        self._snapshots = cast(List[List[AllocationRecord]], snapshots)
+        self._next_snapshot = 0
+        self.is_active = True
+        self.command_line = command_line
+        self.pid = pid
+        self.has_native_traces = has_native_traces
+
+    def get_current_snapshot(
+        self, *, merge_threads: bool
+    ) -> Iterable[AllocationRecord]:
+        assert isinstance(merge_threads, bool)  # ignore unused argument
+        assert self.is_active
+        snapshot = self._snapshots[self._next_snapshot]
+        self._next_snapshot += 1
+        self.is_active = self._next_snapshot < len(self._snapshots)
+        return snapshot
 
 
-@patch("memray.reporters.tui.datetime", FakeDate)
-class TestTUIHeader:
-    @pytest.mark.parametrize(
-        "pid, out_str",
-        [
-            pytest.param(999, 999, id="Valid PID"),
-            pytest.param(None, "???", id="Missing PID"),
-        ],
+@pytest.fixture
+def compare(monkeypatch, tmp_path, snap_compare):
+    monkeypatch.setattr(memray.reporters.tui, "datetime", FakeDatetime)
+
+    def compare_impl(
+        cmdline_override: Optional[str] = None,
+        press: Iterable[str] = (),
+        terminal_size: Tuple[int, int] = (80, 24),
+        run_before: Optional[Callable[[Pilot], Optional[Awaitable[None]]]] = None,
+        native: bool = True,
+    ):
+        async def run_before_wrapper(pilot) -> None:
+            if run_before is not None:
+                result = run_before(pilot)
+                if result is not None:
+                    await result
+
+            await pilot.pause()
+            header = pilot.app.query_one("Header")
+            header.last_update = header.start + datetime.timedelta(seconds=42)
+
+        app = MockApp(
+            MockReader([], has_native_traces=native),
+            cmdline_override=cmdline_override,
+        )
+        app_global = "_CURRENT_APP_"
+        tmp_main = tmp_path / "main.py"
+        with monkeypatch.context() as app_patch:
+            app_patch.setitem(globals(), app_global, app)
+            tmp_main.write_text(f"from {__name__} import {app_global} as app")
+            return snap_compare(
+                str(tmp_main),
+                press=press,
+                terminal_size=terminal_size,
+                run_before=run_before_wrapper,
+            )
+
+    yield compare_impl
+
+
+def render_widget(widget: Widget) -> str:
+    output = StringIO()
+    rprint(widget.render(), file=output)
+    return output.getvalue()
+
+
+def extract_label_text(app: App) -> Dict[str, str]:
+    return {
+        label.id: render_widget(label)
+        for label in app.query(Label)
+        if label.id is not None
+    }
+
+
+def mock_allocation(
+    stack: Optional[List[Tuple[str, str, int]]] = None,
+    tid: int = 1,
+    address: int = 0,
+    size: int = 1024,
+    allocator: AllocatorType = AllocatorType.MALLOC,
+    stack_id: int = 0,
+    n_allocations: int = 1,
+):
+    hybrid_stack = stack
+
+    if hybrid_stack is not None:
+        stack = [
+            (func, filename, lineno)
+            for func, filename, lineno in hybrid_stack
+            if filename.endswith(".py")
+        ]
+
+    return MockAllocationRecord(
+        tid=tid,
+        address=address,
+        size=size,
+        allocator=allocator,
+        stack_id=stack_id,
+        n_allocations=n_allocations,
+        _stack=stack,
+        _hybrid_stack=hybrid_stack,
     )
-    def test_pid(self, pid, out_str):
-        # GIVEN
-        snapshot = []
-        output = StringIO()
-        tui_app = make_tui(pid=pid, cmd="")
-        tui = tui_app.query_one(TUI)
 
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_header(), file=output)
 
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ─╮",
-            f"(∩｀-´)⊃━☆ﾟ.*…PID: {out_str}      CMD: ???           │          │",
-            "              TID: 0x0      Thread 1 of 1      │          │",
-            "              Samples: 1    Duration: 0.0      │          │",
-            "                            seconds            │          │",
-            "                                               ╰──────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
+SHORT_SNAPSHOTS = [
+    [
+        mock_allocation(
+            stack=[
+                ("malloc", "malloc.c", 1234),
+                ("f1", "f.py", 16),
+                ("parent", "fun.py", 8),
+                ("grandparent", "fun.py", 4),
+            ],
+        ),
+    ],
+    [
+        mock_allocation(
+            stack=[
+                ("malloc", "malloc.c", 1234),
+                ("f1", "f.py", 16),
+                ("parent", "fun.py", 8),
+                ("grandparent", "fun.py", 4),
+            ],
+        ),
+        mock_allocation(
+            stack=[
+                ("malloc", "malloc.c", 1234),
+                ("f2", "f.py", 32),
+                ("parent", "fun.py", 8),
+                ("grandparent", "fun.py", 4),
+            ],
+        ),
+        mock_allocation(
+            stack=[
+                ("malloc", "malloc.c", 1234),
+                ("f2", "f.py", 32),
+                ("parent", "fun.py", 8),
+                ("grandparent", "fun.py", 4),
+            ],
+        ),
+    ],
+]
 
-    def test_command_line(self):
-        # GIVEN
-        snapshot = []
-        output = StringIO()
-        tui = make_tui(cmd="python3 some_command_to_test.py")
 
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_header(), file=output)
+LONG_SNAPSHOTS = [
+    [
+        mock_allocation(
+            stack=[
+                ("malloc", "malloc.c", 1234),
+                ("f1", "f.py", 16),
+                ("parent", "fun.py", 8),
+                ("grandparent", "fun.py", 4),
+            ],
+        ),
+    ],
+    [
+        mock_allocation(
+            stack=[
+                ("malloc", "malloc.c", 1234),
+                ("f1", "f.py", 16),
+                ("parent", "fun.py", 8),
+                ("grandparent", "fun.py", 4),
+            ],
+        ),
+        mock_allocation(
+            stack=[
+                ("malloc", "malloc.c", 1234),
+                ("f2", "f.py", 32),
+                ("parent", "fun.py", 8),
+                ("grandparent", "fun.py", 4),
+            ],
+        ),
+        mock_allocation(
+            size=333,
+            stack=[
+                ("malloc", "malloc.c", 1234),
+                *[(f"something{i}", "something.py", i) for i in range(20)],
+                ("f2", "f.py", 32),
+                ("parent", "fun.py", 8),
+                ("grandparent", "fun.py", 4),
+            ],
+        ),
+    ],
+]
 
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ─╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
-            "                            some_command_to_te…│          │",
-            "              TID: 0x0      Thread 1 of 1      │          │",
-            "              Samples: 1    Duration: 0.0      │          │",
-            "                            seconds            ╰──────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
 
-    def test_too_long_command_line_is_trimmed(self):
-        # GIVEN
-        snapshot = []
-        output = StringIO()
-        tui = make_tui(cmd="python3 " + "a" * 100)
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_header(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ─╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
-            "                            aaaaaaaaaaaaaaaaaa…│          │",
-            "              TID: 0x0      Thread 1 of 1      │          │",
-            "              Samples: 1    Duration: 0.0      │          │",
-            "                            seconds            ╰──────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_with_no_allocations(self):
-        # GIVEN
-        snapshot = []
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_header(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ─╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │          │",
-            "                            some_program.py    │          │",
-            "              TID: 0x0      Thread 1 of 1      │          │",
-            "              Samples: 1    Duration: 0.0      │          │",
-            "                            seconds            ╰──────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_with_one_allocation(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_header(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ──────────────────────╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
-            "                            some_program.py    │                             … │",
-            "              TID: 0x1      Thread 1 of 1      │                             … │",
-            "              Samples: 1    Duration: 0.0      │                             … │",
-            "                            seconds            ╰───────────────────────────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_with_many_allocations_same_thread(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024 * (i + 1),
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    (f"function{i}", "/src/lel.py", 18),
-                ],
-            )
-            for i in range(3)
-        ]
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_header(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ──────────────────────╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
-            "                            some_program.py    │                             … │",
-            "              TID: 0x1      Thread 1 of 1      │                             … │",
-            "              Samples: 1    Duration: 0.0      │                             … │",
-            "                            seconds            ╰───────────────────────────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_with_many_threads_allocation(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=i,
-                address=0x1000000,
-                size=1024 * (i + 1),
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    (f"function{i}", "/src/lel.py", 18),
-                ],
-            )
-            for i in range(3)
-        ]
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_header(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ──────────────────────╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
-            "                            some_program.py    │                             … │",
-            "              TID: 0x0      Thread 1 of 3      │                             … │",
-            "              Samples: 1    Duration: 0.0      │                             … │",
-            "                            seconds            ╰───────────────────────────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_with_many_threads_and_change_current_thread(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=i,
-                address=0x1000000,
-                size=1024 * (i + 1),
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    (f"function{i}", "/src/lel.py", 18),
-                ],
-            )
-            for i in range(3)
-        ]
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        tui.next_thread()
-        rprint(tui.get_header(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ──────────────────────╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
-            "                            some_program.py    │                             … │",
-            "              TID: 0x1      Thread 2 of 3      │                             … │",
-            "              Samples: 1    Duration: 0.0      │                             … │",
-            "                            seconds            ╰───────────────────────────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_samples(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        for _ in range(10):
-            tui.update_snapshot(snapshot)
-        rprint(tui.get_header(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ──────────────────────╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123       CMD: python3      │                             … │",
-            "                             some_program.py   │                             … │",
-            "              TID: 0x1       Thread 1 of 1     │                             … │",
-            "              Samples: 10    Duration: 0.0     │                             … │",
-            "                             seconds           ╰───────────────────────────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_plot_with_increasing_allocations(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        for _ in range(50):
-            snapshot.append(
-                MockAllocationRecord(
-                    tid=1,
-                    address=0x1000000,
-                    size=1024,
-                    allocator=AllocatorType.MALLOC,
-                    stack_id=1,
-                    n_allocations=1,
-                    _stack=[
-                        ("function1", "/src/lel.py", 18),
-                    ],
-                )
-            )
-            tui.update_snapshot(snapshot)
-
-        rprint(tui.get_header(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 "
-            "2021",
-            "                                               ╭─ Memory ──────────────────────╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123       CMD: python3      │                             … │",
-            "                             some_program.py   │                         ⢀⣀⣀⣠… │",
-            "              TID: 0x1       Thread 1 of 1     │            ⢀⣀⣀⣠⣤⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿… │",
-            "              Samples: 50    Duration: 0.0     │ ⢀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿… │",
-            "                             seconds           ╰───────────────────────────────╯",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
+class FakeDatetime(datetime.datetime):
+    @classmethod
+    def now(cls):
+        return cls(2023, 10, 13, 12)
 
 
 class TestGraph:
     def test_empty(self):
         # GIVEN
 
-        plot = MemoryGraph(50, 4, 0.0, 100.0)
+        plot = MemoryGraph(max_data_points=50)
 
         # WHEN
 
-        graph = plot.graph
+        graph = tuple(plot.render_line(i).text for i in range(plot._height))
 
         # THEN
 
-        assert plot.maxval == 100.0
-        assert plot.minval == 0
+        assert plot._maxval == 1.0
+        assert plot._minval == 0.0
         assert graph == ("", "", "", "")
 
     def test_size_of_graph(self):
@@ -411,13 +306,13 @@ class TestGraph:
         size = 36
         rows = 10
 
-        plot = MemoryGraph(size, rows, 0.0, 100.0)
+        plot = MemoryGraph(max_data_points=size, height=rows)
 
         # WHEN
 
         for point in range(50):
             plot.add_value(point)
-        graph = plot.graph
+        graph = plot._graph
 
         # THEN
 
@@ -427,50 +322,36 @@ class TestGraph:
     def test_one_point_lower_than_max(self):
         # GIVEN
 
-        plot = MemoryGraph(50, 4, 0.0, 100.0)
+        plot = MemoryGraph(max_data_points=50)
 
         # WHEN
 
-        plot.add_value(50.0)
+        plot.add_value(0.5)
+        graph = tuple(plot.render_line(i).text for i in range(plot._height))
 
         # THEN
 
-        assert plot.maxval == 100.0
-        assert plot.minval == 0
-        assert plot.graph == (" ", " ", "⢸", "⢸")
+        assert plot._maxval == 1.0
+        assert plot._minval == 0.0
+        assert graph == (" ", " ", "⢸", "⢸")
 
     def test_one_point_bigger_than_max(self):
         # GIVEN
 
-        plot = MemoryGraph(50, 4, 0.0, 100.0)
+        plot = MemoryGraph(max_data_points=50)
 
         # WHEN
 
         plot.add_value(500.0)
+        graph = tuple(plot.render_line(i).text for i in range(plot._height))
 
         # THEN
 
-        assert plot.maxval == 100.0
-        assert plot.minval == 0
-        assert plot.graph == ("⢸", "⢸", "⢸", "⢸")
-
-    def test_one_point_bigger_than_max_before_resize(self):
-        # GIVEN
-
-        plot = MemoryGraph(50, 4, 0.0, 100.0)
-
-        # WHEN
-
-        plot.reset_max(1000)
-        plot.add_value(500.0)
-
-        # THEN
-
-        assert plot.maxval == 1000.0
-        assert plot.minval == 0
-        assert plot.graph == (
-            "                                                  ",
-            "                                                  ",
+        assert plot._maxval == 500.0
+        assert plot._minval == 0
+        assert graph == (
+            "                                                 ⢸",
+            "                                                 ⢸",
             "                                                 ⢸",
             "                                                 ⢸",
         )
@@ -478,18 +359,19 @@ class TestGraph:
     def test_one_point_bigger_than_max_after_resize(self):
         # GIVEN
 
-        plot = MemoryGraph(50, 4, 0.0, 100.0)
+        plot = MemoryGraph(max_data_points=50)
 
         # WHEN
 
         plot.add_value(500.0)
-        plot.reset_max(1000)
+        plot._reset_max(1000)
+        graph = tuple(plot.render_line(i).text for i in range(plot._height))
 
         # THEN
 
-        assert plot.maxval == 1000.0
-        assert plot.minval == 0
-        assert plot.graph == (
+        assert plot._maxval == 1000.0
+        assert plot._minval == 0
+        assert graph == (
             "                                                  ",
             "                                                  ",
             "                                                 ⢸",
@@ -499,18 +381,22 @@ class TestGraph:
     def test_multiple_points(self):
         # GIVEN
 
-        plot = MemoryGraph(50, 4, 0.0, 100.0)
+        plot = MemoryGraph(max_data_points=50)
 
         # WHEN
 
+        plot.add_value(100.0)
+        plot.add_value(0)
         for point in range(50):
             plot.add_value(point)
 
+        graph = tuple(plot.render_line(i).text for i in range(plot._height))
+
         # THEN
 
-        assert plot.maxval == 100.0
-        assert plot.minval == 0
-        assert plot.graph == (
+        assert plot._maxval == 100.0
+        assert plot._minval == 0
+        assert graph == (
             "                                                  ",
             "                                                  ",
             "                          ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿",
@@ -520,576 +406,338 @@ class TestGraph:
     def test_multiple_points_with_resize(self):
         # GIVEN
 
-        plot = MemoryGraph(50, 4, 0.0, 40.0)
+        plot = MemoryGraph(max_data_points=50)
 
         # WHEN
 
         for point in range(50):
             plot.add_value(point)
-        plot_before_resize = plot.graph
-        plot.reset_max(100.0)
-        plot_after_resize = plot.graph
+        plot._reset_max(100)
+
+        graph = tuple(plot.render_line(i).text for i in range(plot._height))
 
         # THEN
-        assert plot_before_resize == (
-            "                               ⢀⣀⣠⣤⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-            "                     ⢀⣀⣠⣤⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-            "           ⢀⣀⣠⣤⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-            " ⢀⣀⣠⣤⣤⣴⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-        )
-        assert plot.maxval == 100.0
-        assert plot.minval == 0
-        assert plot_after_resize == (
+        assert plot._maxval == 100.0
+        assert plot._minval == 0
+        assert graph == (
             "                                                  ",
             "                                                  ",
             "                          ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿",
             " ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
         )
 
-    def test_multiple_points_with_resize_with_more_additions(self):
-        # GIVEN
 
-        plot = MemoryGraph(50, 4, 0.0, 15.0)
+@pytest.mark.parametrize("native_traces", [False, True])
+def test_update_thread(native_traces):
+    """Test that our update thread posts the expected messages to our app."""
+    # GIVEN
+    snapshots = SHORT_SNAPSHOTS
+    reader = MockReader(snapshots, native_traces)
+    messages = []
+    all_messages_received = asyncio.Event()
 
-        # WHEN
+    class MessageInterceptingApp(MockApp):
+        def __init__(self, reader):
+            super().__init__(reader, poll_interval=0.01, disable_update_thread=False)
 
-        for point in range(25):
-            plot.add_value(point)
-        plot_before_resize = plot.graph
-        plot.reset_max(50.0)
-        for point in range(25, 50):
-            plot.add_value(point)
-        plot_after_resize = plot.graph
+        def on_snapshot_fetched(self, message):
+            messages.append(message)
+            if message.disconnected:
+                all_messages_received.set()
 
-        # THEN
-        assert plot_before_resize == (
-            "            ⢀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-            "        ⢀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-            "    ⢀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-            " ⢠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+    app = MessageInterceptingApp(reader)
+
+    # WHEN
+    async def run_test():
+        async with app.run_test():
+            await all_messages_received.wait()
+
+    async_run(run_test())
+
+    # THEN
+    assert len(messages) == len(snapshots)
+    for i, message in enumerate(messages):
+        last_message = i == len(messages) - 1
+        assert message.disconnected is last_message
+        assert message.snapshot.heap_size == sum(a.size for a in snapshots[i])
+        assert message.snapshot.records == snapshots[i]
+        assert message.snapshot.records_by_location == aggregate_allocations(
+            message.snapshot.records,
+            native_traces=native_traces,
         )
-        assert plot.maxval == 50.0
-        assert plot.minval == 0
-        assert plot_after_resize == (
-            "                                      ⢀⣀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿",
-            "                          ⢀⣀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-            "             ⢀⣀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-            " ⢀⣀⣀⣠⣤⣤⣴⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+
+
+@pytest.mark.parametrize(
+    "pid, display_val",
+    [
+        pytest.param(999, "PID: 999", id="Known PID"),
+        pytest.param(None, "PID: ???", id="Unknown PID"),
+    ],
+)
+def test_pid_display(pid, display_val):
+    # GIVEN
+    reader = MockReader([], pid=pid)
+    app = MockApp(reader)
+    labels = {}
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            labels.update(extract_label_text(pilot.app))
+
+    async_run(run_test())
+
+    # THEN
+    assert labels["pid"].rstrip() == display_val
+
+
+@pytest.mark.parametrize(
+    "command_line, display_val",
+    [
+        pytest.param("foo bar baz", "CMD: foo bar baz", id="Known command"),
+        pytest.param(None, "CMD: ???", id="Unknown command"),
+    ],
+)
+def test_command_line_display(command_line, display_val):
+    # GIVEN
+    reader = MockReader([], command_line=command_line)
+    app = MockApp(reader)
+    labels = {}
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            labels.update(extract_label_text(pilot.app))
+
+    async_run(run_test())
+
+    # THEN
+    assert labels["cmd"].rstrip() == display_val
+
+
+def test_header_with_no_snapshots():
+    # GIVEN
+    reader = MockReader([])
+    app = MockApp(reader)
+    labels = {}
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            labels.update(extract_label_text(pilot.app))
+
+    async_run(run_test())
+
+    # THEN
+    assert labels["tid"].split() == "TID: 0x0".split()
+    assert labels["thread"].split() == "Thread 1 of 1".split()
+    assert labels["samples"].split() == "Samples: 0".split()
+
+
+def test_header_with_empty_snapshot():
+    # GIVEN
+    reader = MockReader([])
+    app = MockApp(reader)
+    labels = {}
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            app.add_mock_snapshot([])
+            await pilot.pause()
+            labels.update(extract_label_text(pilot.app))
+
+    async_run(run_test())
+
+    # THEN
+    assert labels["tid"].split() == "TID: 0x0".split()
+    assert labels["thread"].split() == "Thread 1 of 1".split()
+    assert labels["samples"].split() == "Samples: 1".split()
+
+
+def test_sorting():
+    """Test that our sort keys correctly sort the data table"""
+    # GIVEN
+    snapshot = [
+        mock_allocation(
+            size=10,
+            n_allocations=5,
+            stack=[("a", "a.py", 1)],
+        ),
+        mock_allocation(
+            size=50,
+            n_allocations=1,
+            stack=[("b", "b.py", 1)],
+        ),
+        mock_allocation(
+            size=100,
+            n_allocations=2,
+            stack=[("c", "c.py", 1), ("b", "b.py", 1)],
+        ),
+        mock_allocation(
+            size=25,
+            n_allocations=4,
+            stack=[("d", "d.py", 1)],
+        ),
+    ]
+
+    own_order = "cbda"
+    total_order = "bcda"
+    allocations_order = "adbc"
+
+    reader = MockReader([])
+    app = MockApp(reader)
+    order_by_key = {}
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            app.add_mock_snapshot(snapshot)
+            await pilot.pause()
+
+            datatable = pilot.app.query_one(DataTable)
+            function_col_key = datatable.ordered_columns[0].key
+
+            for key in ("", "o", "a", "t"):
+                await pilot.press(key)
+                order_by_key[key] = "".join(
+                    datatable.get_cell(row.key, function_col_key).plain
+                    for row in datatable.ordered_rows
+                )
+
+    async_run(run_test())
+
+    # THEN
+    assert order_by_key[""] == total_order
+    assert order_by_key["o"] == own_order
+    assert order_by_key["a"] == allocations_order
+    assert order_by_key["t"] == total_order
+
+
+def test_switching_threads():
+    """Test that we can switch which thread is displayed"""
+    # GIVEN
+    snapshot = [
+        mock_allocation(
+            tid=1,
+            stack=[("a", "a.py", 1)],
+        ),
+        mock_allocation(
+            tid=2,
+            stack=[("b", "b.py", 1)],
+        ),
+        mock_allocation(
+            tid=3,
+            stack=[("c", "c.py", 1)],
+        ),
+    ]
+
+    reader = MockReader([])
+    app = MockApp(reader)
+    functions = []
+    tids = []
+    threads = []
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            app.add_mock_snapshot(snapshot)
+            await pilot.pause()
+
+            datatable = pilot.app.query_one(DataTable)
+
+            for key in ("", ">", ">", ">", "<", "<", "<"):
+                await pilot.press(key)
+                functions.append(datatable.get_cell_at(Coordinate(0, 0)).plain)
+                labels = extract_label_text(app)
+                tids.append(" ".join(labels["tid"].split()))
+                threads.append(" ".join(labels["thread"].split()))
+
+    async_run(run_test())
+
+    # THEN
+    order = [0, 1, 2, 0, 2, 1, 0]
+    assert functions == ["abc"[i] for i in order]
+    assert tids == [f"TID: {hex(i+1)}" for i in order]
+    assert threads == [f"Thread {i+1} of 3" for i in order]
+
+
+@pytest.mark.parametrize(
+    "terminal_size, press, snapshots",
+    [
+        pytest.param(
+            (80, 24), [], SHORT_SNAPSHOTS, id="narrow-terminal-short-snapshots"
+        ),
+        pytest.param(
+            (80, 24),
+            ["tab"],
+            LONG_SNAPSHOTS,
+            id="narrow-terminal-focus-header-long-snapshots",
+        ),
+        pytest.param((120, 24), [], LONG_SNAPSHOTS, id="wide-terminal-long-snapshots"),
+        pytest.param(
+            (200, 24), [], SHORT_SNAPSHOTS, id="very-wide-terminal-short-snapshots"
+        ),
+    ],
+)
+def test_tui_basic(terminal_size, press, snapshots, compare):
+    async def run_before(pilot) -> None:
+        pilot.app.add_mock_snapshots(snapshots)
+
+    assert compare(
+        press=press,
+        run_before=run_before,
+        terminal_size=terminal_size,
+    )
+
+
+@pytest.mark.parametrize(
+    "terminal_size, disconnected",
+    [
+        pytest.param((50, 24), False, id="narrow-terminal-connected"),
+        pytest.param((50, 24), True, id="narrow-terminal-disconnected"),
+        pytest.param((81, 24), True, id="wider-terminal"),
+    ],
+)
+def test_tui_pause(terminal_size, disconnected, compare):
+    async def run_before(pilot: Pilot) -> None:
+        app = cast(MockApp, pilot.app)
+        app.add_mock_snapshot(SHORT_SNAPSHOTS[0])
+        await pilot.pause()
+        await pilot.press("space")
+        await pilot.press("tab")
+        await pilot.pause()
+        app.add_mock_snapshot(SHORT_SNAPSHOTS[1], disconnected=disconnected)
+
+    assert compare(
+        run_before=run_before,
+        terminal_size=terminal_size,
+    )
+
+
+def test_tui_gradient(compare):
+    snapshot = [
+        mock_allocation(
+            stack=[(f"function{j}", f"/abc/lel_{j}.py", i) for j in range(i, -1, -1)],
+            size=1024 + 10 * i,
+            n_allocations=1,
         )
+        for i in range(0, 30)
+    ]
 
+    async def run_before(pilot) -> None:
+        pilot.app.add_mock_snapshots([snapshot], native=False)
 
-class TestTUIHeapBar:
-    def test_single_allocation(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_heap_size(), file=output)
-
-        # THEN
-        expected = [
-            "Current heap size: 1.000KB                           Max heap size seen: 1.000KB",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_lowering_value(self):
-        # GIVEN
-        snapshot1 = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=2048,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        snapshot2 = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        output1 = StringIO()
-        output2 = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot1)
-        rprint(tui.get_heap_size(), file=output1)
-        tui.update_snapshot(snapshot2)
-        rprint(tui.get_heap_size(), file=output2)
-
-        # THEN
-        expected = [
-            "Current heap size: 2.000KB                           Max heap size seen: 2.000KB",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
-        ]
-        actual = [line.rstrip() for line in output1.getvalue().splitlines()]
-        assert actual == expected
-
-        expected = [
-            "Current heap size: 1.000KB                           Max heap size seen: 2.000KB",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
-        ]
-        actual = [line.rstrip() for line in output2.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_raising_value(self):
-        # GIVEN
-        snapshot1 = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        snapshot2 = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=2048,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        output1 = StringIO()
-        output2 = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot1)
-        rprint(tui.get_heap_size(), file=output1)
-        tui.update_snapshot(snapshot2)
-        rprint(tui.get_heap_size(), file=output2)
-
-        # THEN
-        expected = [
-            "Current heap size: 1.000KB                           Max heap size seen: 1.000KB",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
-        ]
-        actual = [line.rstrip() for line in output1.getvalue().splitlines()]
-        assert actual == expected
-
-        expected = [
-            "Current heap size: 2.000KB                           Max heap size seen: 2.000KB",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
-        ]
-        actual = [line.rstrip() for line in output2.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_allocations_in_multiple_threads(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=i,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-            for i in range(10)
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_heap_size(), file=output)
-
-        # THEN
-        expected = [
-            "Current heap size: 10.000KB                         Max heap size seen: 10.000KB",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-
-class TestTUITable:
-    def test_no_allocation(self):
-        # GIVEN
-        snapshot = []
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_body(), file=output)
-
-        # THEN
-        expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
-            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
-            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_with_one_allocation(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("function1", "/src/lel.py", 18),
-                ],
-            )
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_body(), file=output)
-
-        # THEN
-        expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
-            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
-            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function1 at /src/lel.py            │ 1.000… │ 100.… │ 1.00… │ 100.… │     1 │",
-            "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_multiple_allocations_same_thread(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024 * (1 + i),
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    (f"function{i}", f"/src/lel_{i}.py", i),
-                ],
-            )
-            for i in range(5)
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_body(), file=output)
-
-        # THEN
-        expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
-            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
-            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     1 │",
-            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     1 │",
-            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │     1 │",
-            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │     1 │",
-            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
-            "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_multiple_allocations_different_threads(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=i,
-                address=0x1000000,
-                size=1024 * (1 + i),
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    (f"function{i}", f"/src/lel_{i}.py", i),
-                ],
-            )
-            for i in range(5)
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_body(), file=output)
-
-        # THEN
-        expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
-            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
-            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
-            "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_multiple_allocations_different_threads_change_thread(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=i,
-                address=0x1000000,
-                size=1024 * (1 + i),
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    (f"function{i}", f"/src/lel_{i}.py", i),
-                ],
-            )
-            for i in range(5)
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        for _ in range(3):
-            tui.next_thread()
-        rprint(tui.get_body(), file=output)
-
-        # THEN
-        expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
-            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
-            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     1 │",
-            "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_multiple_allocations_different_n_allocations(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024 * (1 + i),
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=i + 1,
-                _stack=[
-                    (f"function{i}", f"/src/lel_{i}.py", i),
-                ],
-            )
-            for i in range(5)
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        for _ in range(3):
-            tui.next_thread()
-        rprint(tui.get_body(), file=output)
-
-        # THEN
-        expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
-            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
-            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     5 │",
-            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     4 │",
-            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │     3 │",
-            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │     2 │",
-            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
-            "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-    def test_parent_frame_totals(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=10,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=2,
-                _stack=[
-                    ("me", "fun.py", 12),
-                    ("parent", "fun.py", 8),
-                    ("grandparent", "fun.py", 4),
-                ],
-            ),
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=20,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("sibling", "fun.py", 16),
-                    ("parent", "fun.py", 8),
-                    ("grandparent", "fun.py", 4),
-                ],
-            ),
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        rprint(tui.get_body(), file=output)
-
-        # THEN
-        expected = [
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
-            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
-            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ parent at fun.py                    │ 30.00… │ 100.… │ 0.00… │ 0.00% │     3 │",
-            "│ grandparent at fun.py               │ 30.00… │ 100.… │ 0.00… │ 0.00% │     3 │",
-            "│ sibling at fun.py                   │ 20.00… │ 66.6… │ 20.0… │ 66.6… │     1 │",
-            "│ me at fun.py                        │ 10.00… │ 33.3… │ 10.0… │ 33.3… │     2 │",
-            "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
-        ]
-        actual = [line.rstrip() for line in output.getvalue().splitlines()]
-        assert actual == expected
-
-
-@patch("memray.reporters.tui.datetime", FakeDate)
-class TestTUILayout:
-    def test_with_multiple_allocations(self):
-        # GIVEN
-        snapshot = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024 * (1 + i),
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=i + 1,
-                _stack=[
-                    (f"function{i}", f"/src/lel_{i}.py", i),
-                ],
-            )
-            for i in range(5)
-        ]
-
-        output = StringIO()
-        tui = make_tui()
-
-        # WHEN
-        tui.update_snapshot(snapshot)
-        for _ in range(3):
-            tui.next_thread()
-        rprint(tui.generate_layout(), file=output)
-
-        # THEN
-        expected = [
-            "Memray live tracking                                    Fri Jan  1 00:00:00 2021",
-            "                                               ╭─ Memory ──────────────────────╮",
-            "(∩｀-´)⊃━☆ﾟ.*…PID: 123      CMD: python3       │                             … │",
-            "                            some_program.py    │                             … │",
-            "              TID: 0x1      Thread 1 of 1      │                             … │",
-            "              Samples: 1    Duration: 0.0      │                             … │",
-            "                            seconds            ╰───────────────────────────────╯",
-            "Current heap size: 15.000KB                         Max heap size seen: 15.000KB",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸",
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┓",
-            "┃                                     ┃        ┃ Total ┃       ┃   Own ┃       ┃",
-            "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
-            "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
-            "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-            "│ function4 at /src/lel_4.py          │ 5.000… │ 33.3… │ 5.00… │ 33.3… │     5 │",
-            "│ function3 at /src/lel_3.py          │ 4.000… │ 26.6… │ 4.00… │ 26.6… │     4 │",
-            "│ function2 at /src/lel_2.py          │ 3.000… │ 20.0… │ 3.00… │ 20.0… │     3 │",
-            "│ function1 at /src/lel_1.py          │ 2.000… │ 13.3… │ 2.00… │ 13.3… │     2 │",
-            "│ function0 at /src/lel_0.py          │ 1.000… │ 6.67% │ 1.00… │ 6.67% │     1 │",
-            "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
-            " Q  Quit  ←   Previous Thread  →   Next Thread  T  Sort By Total  O  Sort By Own",
-        ]
-        actual = [
-            line.rstrip() for line in output.getvalue().splitlines() if line.rstrip()
-        ]
-        assert actual == expected
+    assert compare(run_before=run_before, terminal_size=(125, 40), native=False)
 
 
 class TestAggregateResults:
     def test_simple_allocations(self):
         # GIVEN
-        allocation_records = [
+        mock_allocation_records = [
             MockAllocationRecord(
                 tid=1,
                 address=0x1000000,
@@ -1117,6 +765,8 @@ class TestAggregateResults:
                 ],
             ),
         ]
+        allocation_records = cast(List[AllocationRecord], mock_allocation_records)
+
         # WHEN
         result = aggregate_allocations(allocation_records)
 
@@ -1138,7 +788,7 @@ class TestAggregateResults:
 
     def test_missing_frames(self):
         # GIVEN
-        allocation_records = [
+        mock_allocation_records = [
             MockAllocationRecord(
                 tid=1,
                 address=0x1000000,
@@ -1171,6 +821,8 @@ class TestAggregateResults:
                 _stack=[],
             ),
         ]
+        allocation_records = cast(List[AllocationRecord], mock_allocation_records)
+
         # WHEN
         result = aggregate_allocations(allocation_records)
 
@@ -1187,7 +839,7 @@ class TestAggregateResults:
 
     def test_native_frames(self):
         # GIVEN
-        allocation_records = [
+        mock_allocation_records = [
             MockAllocationRecord(
                 tid=1,
                 address=0x1000000,
@@ -1221,6 +873,8 @@ class TestAggregateResults:
                 _hybrid_stack=[],
             ),
         ]
+        allocation_records = cast(List[AllocationRecord], mock_allocation_records)
+
         # WHEN
         result = aggregate_allocations(allocation_records, native_traces=True)
 
@@ -1234,64 +888,3 @@ class TestAggregateResults:
         assert me.own_memory == 40
         assert me.total_memory == 40
         assert me.n_allocations == 3
-
-
-def test_pausing():
-    tui = TUI(pid=123, cmd_line="python3 some_program.py", native=False)
-    snapshot = []
-
-    snapshot.append(
-        MockAllocationRecord(
-            tid=1,
-            address=0x1000000,
-            size=1024,
-            allocator=AllocatorType.MALLOC,
-            stack_id=1,
-            n_allocations=1,
-            _stack=[
-                ("function1", "/src/lel.py", 18),
-            ],
-        )
-    )
-    tui.update_snapshot(snapshot)
-
-    # CHECK DEFAULT DATA
-    # User hasn't paused, display data should equal live data
-    assert tui.display_data.n_samples == 1
-    assert tui.display_data.current_memory_size == 1024
-    assert tui.live_data.n_samples == 1
-    assert tui.live_data.current_memory_size == 1024
-
-    tui.pause()
-
-    snapshot.append(
-        MockAllocationRecord(
-            tid=1,
-            address=0x1000000,
-            size=1024,
-            allocator=AllocatorType.MALLOC,
-            stack_id=1,
-            n_allocations=1,
-            _stack=[
-                ("function1", "/src/lel.py", 18),
-            ],
-        )
-    )
-    tui.update_snapshot(snapshot)
-
-    # CHECK DATA AFTER PAUSE ACTION
-    # Display data shouldn't include last write, but we should still see latest data
-    # in live_data field
-    assert tui.display_data.n_samples == 1
-    assert tui.display_data.current_memory_size == 1024
-    assert tui.live_data.n_samples == 2
-    assert tui.live_data.current_memory_size == 2048
-
-    tui.unpause()
-
-    # CHECK DATA AFTER UNPAUSE ACTION
-    # Display should be back in sync with live data
-    assert tui.display_data.n_samples == 2
-    assert tui.display_data.current_memory_size == 2048
-    assert tui.live_data.n_samples == 2
-    assert tui.live_data.current_memory_size == 2048
