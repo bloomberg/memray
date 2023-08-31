@@ -11,7 +11,7 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        exclude: "^[.]bumpversion[.]cfg"
+        exclude: "^([.]bumpversion[.]cfg|.*/__snapshots__/)"
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0

@@ -91,7 +91,7 @@ install_requires = [
     "jinja2 >= 2.9",
     "typing_extensions; python_version < '3.8.0'",
     "rich >= 11.2.0",
-    "textual >= 0.23.0",
+    "textual >= 0.34.0",
 ]
 docs_requires = [
     "IPython",
@@ -117,6 +117,7 @@ test_requires = [
     "pytest-cov",
     "ipython",
     "setuptools; python_version >= '3.12'",
+    "pytest-textual-snapshot",
 ]
 
 benchmark_requires = [

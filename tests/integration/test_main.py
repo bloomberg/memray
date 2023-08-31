@@ -1558,6 +1558,7 @@ class TestLiveSubcommand:
                     "--live",
                     str(program_file),
                 ],
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 env={"PYTHONUNBUFFERED": "1"},

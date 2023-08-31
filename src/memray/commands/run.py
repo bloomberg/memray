@@ -118,7 +118,9 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
             text=True,
         ) as process:
             try:
-                LiveCommand().start_live_interface(port)
+                LiveCommand().start_live_interface(
+                    port, cmdline_override=" ".join(sys.argv)
+                )
             except (Exception, KeyboardInterrupt) as error:
                 process.terminate()
                 raise error from None
