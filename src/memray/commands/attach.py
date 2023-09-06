@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import os
 import pathlib
+import platform
 import shlex
 import shutil
 import signal
@@ -298,10 +299,16 @@ class AttachCommand:
         verbose = args.verbose
 
         if args.method == "auto":
-            if debugger_available("lldb", verbose=verbose):
-                args.method = "lldb"
-            elif debugger_available("gdb", verbose=verbose):
-                args.method = "gdb"
+            # Prefer gdb on Linux but lldb on macOS
+            if platform.system() == "Linux":
+                debuggers = ("gdb", "lldb")
+            else:
+                debuggers = ("lldb", "gdb")
+
+            for debugger in debuggers:
+                if debugger_available(debugger, verbose=verbose):
+                    args.method = debugger
+                    break
             else:
                 raise MemrayCommandError(
                     "Cannot find a supported lldb or gdb executable.",
