@@ -255,6 +255,7 @@ class FlameGraphReporter:
             inverted_no_imports_frames = [cls._create_root_node()]
 
         interval_list: List[Tuple[int, Optional[int], int, int, int]] = []
+        no_imports_interval_list: List[Tuple[int, Optional[int], int, int, int]] = []
 
         NodeKey = Tuple[int, StackFrame, str]
         node_index_by_key: Dict[NodeKey, int] = {}
@@ -316,7 +317,7 @@ class FlameGraphReporter:
                     node_index_by_key=inverted_no_imports_node_index_by_key,
                     record=record_data,
                     inverted=inverted,
-                    interval_list=interval_list,
+                    interval_list=no_imports_interval_list,
                 )
 
         all_strings = StringRegistry()
@@ -340,6 +341,8 @@ class FlameGraphReporter:
 
         if interval_list:
             data["intervals"] = interval_list
+        if no_imports_interval_list:
+            data["no_imports_interval_list"] = no_imports_interval_list
 
         return cls(data, memory_records=memory_records)
 
