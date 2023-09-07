@@ -271,9 +271,6 @@ class HighWatermarkCommand:
 
         if hasattr(args, "inverted"):
             kwargs["inverted"] = args.inverted
-            if temporal and args.inverted:
-                parser.error("Can't create an inverted temporal flame graph.")
-
         self.write_report(
             result_path,
             output_file,

@@ -146,12 +146,17 @@ export function onFilterImportSystem() {
       });
     } else {
       data = invertedNoImportsData;
+      if (temporal) {
+        hideImports = true;
+        intervals = invertedNoImportsIntervals;
+      }
     }
   } else {
     filteredChart.unRegisterFilter(FILTER_IMPORT_SYSTEM);
-    if (inverted) {
-      //We can remove this check when we add ``flamegraphData`` to the temporal flamegraph
-      data = flamegraphData;
+    data = flamegraphData;
+    if (temporal) {
+      hideImports = false;
+      intervals = flamegraphIntervals;
     }
   }
   this.hideImportSystemFrames = !this.hideImportSystemFrames;
