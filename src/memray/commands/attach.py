@@ -242,6 +242,13 @@ class AttachCommand:
         )
 
         parser.add_argument(
+            "--aggregate",
+            help="Write aggregated stats to the output file instead of all allocations",
+            action="store_true",
+            default=False,
+        )
+
+        parser.add_argument(
             "--native",
             help="Track native (C/C++) stack frames as well",
             action="store_true",
@@ -332,11 +339,21 @@ class AttachCommand:
             live_port = _get_free_port()
             destination = memray.SocketDestination(server_port=live_port)
 
+        if args.aggregate and not args.output:
+            parser.error("Can't use aggregated mode without an output file.")
+
+        file_format = (
+            "file_format=memray.FileFormat.AGGREGATED_ALLOCATIONS"
+            if args.aggregate
+            else ""
+        )
+
         tracker_call = (
             f"memray.Tracker(destination=memray.{destination!r},"
             f" native_traces={args.native},"
             f" follow_fork={args.follow_fork},"
-            f" trace_python_allocators={args.trace_python_allocators})"
+            f" trace_python_allocators={args.trace_python_allocators},"
+            f"{file_format})"
         )
 
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
