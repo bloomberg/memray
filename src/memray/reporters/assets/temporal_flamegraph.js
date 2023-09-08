@@ -415,7 +415,8 @@ function main() {
   }
 
   // Setup event handlers
-  document.getElementById("invertButton").onclick = onInvert;
+  document.getElementById("icicles").onchange = onInvert;
+  document.getElementById("flames").onchange = onInvert;
   document.getElementById("resetZoomButton").onclick = onResetZoom;
   document.getElementById("resetThreadFilterItem").onclick = onFilterThread;
   let hideUninterestingCheckBox = document.getElementById("hideUninteresting");

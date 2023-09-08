@@ -196,19 +196,24 @@ checkbox:
 Note that allocations in these frames will still be accounted for
 in parent frames, even if they're hidden.
 
-Inverted View
------------------
+Flames versus Icicles
+---------------------
 
-Although the flame graphs explained above show the calling functions below
-and memory allocating functions above, flame graphs can be inverted
-so that the calling functions are at the top, while memory allocating
-functions are at the bottom. In this view, look for wide ceilings
-instead of wide plateaus to find functions with the largest allocation
-of memory.
+The flame graphs explained above show each function above its caller,
+with the root at the bottom. This is what's traditionally called
+a "flame graph", because the wide base with narrowing columns above it
+looks sort of like a burning log with flames leaping into the air above
+it. Memray also supports what's sometimes called an "icicle graph",
+which has the root at the top. In an icicle graph, each function is
+below its caller, and there is a wide ceiling that thinner columns
+descend from, like icicles hanging from a roof. Whichever of these modes
+you choose, the data shown in the table is the same, just mirrored
+vertically.
 
-To invert the flame graph, press the *Invert* button:
+You can switch between showing a flame graph and an icicle graph with
+this toggle button:
 
-.. image:: _static/images/invert_button.png
+.. image:: _static/images/icicle_flame_toggle.png
     :align: center
 
 .. _memory-leaks-view:
