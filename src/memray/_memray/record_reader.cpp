@@ -1,5 +1,6 @@
 #define __STDC_FORMAT_MACROS
 #define PY_SSIZE_T_CLEAN
+
 #include <Python.h>
 
 #include <algorithm>
@@ -7,9 +8,11 @@
 #include <cstdio>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "hooks.h"
 #include "logging.h"
+#include "native_resolver.h"
 #include "record_reader.h"
 #include "records.h"
 #include "source.h"
@@ -792,13 +795,39 @@ error:
 }
 
 PyObject*
-RecordReader::Py_GetTraceInfo()
+RecordReader::Py_GetTraceInfo(PyObject* ip_generation_list)
 {
+    std::vector<std::pair<FrameTree::index_t, size_t>> cppVector;
+    if (PyList_Check(ip_generation_list)) {
+        Py_ssize_t listSize = PyList_Size(ip_generation_list);
+        for (Py_ssize_t i = 0; i < listSize; ++i) {
+            PyObject* pyItem = PyList_GetItem(ip_generation_list, i);
+            if (PyTuple_Check(pyItem)) {
+                if (PyLong_Check(PyTuple_GetItem(pyItem, 0)) && PyLong_Check(PyTuple_GetItem(pyItem, 0)))
+                {
+                    cppVector.emplace_back(
+                            uintptr_t(PyLong_AsLong(PyTuple_GetItem(pyItem, 0))),
+                            size_t(PyLong_AsLong(PyTuple_GetItem(pyItem, 0))));
+                } else {
+                    LOG(ERROR) << "ip_generation_list contains invalid pairs";
+                    return nullptr;
+                }
+            } else {
+                LOG(ERROR) << "ip_generation_list contains invalid values";
+                return nullptr;
+            }
+            Py_DECREF(pyItem);
+        }
+    } else {
+        LOG(ERROR) << "generation_list is not a python list";
+        return nullptr;
+    }
+
     PyObject* py_d_tree = d_tree.Py_GetGraphTree();
     PyObject* py_d_frame_map = PyDict_New();
 
-    PyObject* py_d_symbol_resolver = PyList_New(0);
-    PyObject* py_d_native_frames = d_symbol_resolver.Py_GetResolvedIpsCache(d_pystring_cache);
+    PyObject* py_d_symbol_resolver = Py_ListGetNativeStackFrame(cppVector);
+    PyObject* py_d_native_frames = PyList_New(0);
 
     if (py_d_frame_map != nullptr) {
         for (const auto& kv : d_frame_map) {
@@ -807,11 +836,6 @@ RecordReader::Py_GetTraceInfo()
                     PyLong_FromUnsignedLong(kv.first),
                     kv.second.toPythonObject(d_pystring_cache));
         }
-    }
-
-    for (const auto& frame : d_native_frames) {
-        d_symbol_resolver.resolve(frame.ip, d_symbol_resolver.currentSegmentGeneration());
-        // todo: change the generation
     }
 
     if (py_d_native_frames != nullptr) {
@@ -870,6 +894,64 @@ RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation
     return list;
 error:
     Py_XDECREF(list);
+    return nullptr;
+}
+
+PyObject*
+RecordReader::Py_ListGetNativeStackFrame(
+        std::vector<std::pair<FrameTree::index_t, size_t>>& index_generation_list,
+        size_t max_stacks)
+{
+    if (!d_track_stacks) {
+        PyErr_SetString(PyExc_RuntimeError, "Stack tracking is disabled");
+        return NULL;
+    }
+    std::unordered_set<FrameTree::index_t> cached_index;
+    PyObject* dict = PyDict_New();
+    for (const auto& it : index_generation_list) {
+        const auto& index = it.first;
+        const auto& generation = it.second;
+        std::lock_guard<std::mutex> lock(d_mutex);
+
+        size_t stacks_obtained = 0;
+        FrameTree::index_t current_index = index;
+        if (dict == nullptr) {
+            return nullptr;
+        }
+        while (current_index != 0 && stacks_obtained++ != max_stacks) {
+            if (cached_index.find(current_index) != cached_index.end()) {
+                continue;
+            } else {
+                cached_index.insert(current_index);
+            }
+            auto frame = d_native_frames[current_index - 1];
+            current_index = frame.index;
+            auto resolved_frames = d_symbol_resolver.resolve(frame.ip, generation);
+            PyObject* key = PyTuple_Pack(2, frame.ip, generation);
+            PyObject* node_frame_list = PyList_New(0);
+            if (!resolved_frames) {
+                continue;
+            }
+            for (auto& native_frame : resolved_frames->frames()) {
+                PyObject* pyframe = native_frame.toPythonObject(d_pystring_cache);
+                if (pyframe == nullptr) {
+                    return nullptr;
+                }
+
+                int ret = PyList_Append(node_frame_list, pyframe);
+                Py_DECREF(pyframe);
+                if (ret != 0) {
+                    goto error;
+                }
+            }
+            PyDict_SetItem(dict, key, node_frame_list);
+            Py_DECREF(key);
+            Py_DECREF(node_frame_list);
+        }
+    }
+    return dict;
+error:
+    Py_XDECREF(dict);
     return nullptr;
 }
 

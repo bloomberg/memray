@@ -47,12 +47,17 @@ class RecordReader
             FrameTree::index_t index,
             std::vector<unsigned char>* is_entry_frame,
             size_t max_stacks = std::numeric_limits<size_t>::max());
-    PyObject* Py_GetTraceInfo();
+    PyObject* Py_GetTraceInfo(PyObject* ip_generation_list);
 
     PyObject* Py_GetNativeStackFrame(
             FrameTree::index_t index,
             size_t generation,
             size_t max_stacks = std::numeric_limits<size_t>::max());
+
+    PyObject* Py_ListGetNativeStackFrame(
+            std::vector<std::pair<FrameTree::index_t, size_t>>& index_generation_list,
+            size_t max_stacks = std::numeric_limits<size_t>::max());
+
     std::optional<frame_id_t> getLatestPythonFrameId(const Allocation& allocation) const;
     PyObject* Py_GetFrame(std::optional<frame_id_t> frame);
 

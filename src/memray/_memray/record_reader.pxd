@@ -47,4 +47,4 @@ cdef extern from "record_reader.h" namespace "memray::api":
         MemoryRecord getLatestMemoryRecord()
         AggregatedAllocation getLatestAggregatedAllocation()
         MemorySnapshot getLatestMemorySnapshot()
-        object Py_GetTraceInfo()
+        object Py_GetTraceInfo(object ip_generation_list)
