@@ -246,6 +246,13 @@ cdef hybrid_stack_trace(
 
     return hybrid_stack[:max_stacks]
 
+cdef get_trace_info(
+    RecordReader* reader,
+    ip_generation_list
+):
+    result = reader.Py_GetTraceInfo(ip_generation_list)
+    return result
+
 
 @cython.freelist(1024)
 cdef class AllocationRecord:
@@ -1376,11 +1383,9 @@ cdef class SocketReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
-    def get_reader_trace_info(self):
-        if self._reader is NULL:
-            return
-
-        trace_info = self._reader.Py_GetTraceInfo()
+    def get_reader_trace_info(self, ip_generation_list):
+        trace_info = get_trace_info(self._reader.get(), ip_generation_list)
+        return trace_info
 
 cpdef enum SymbolicSupport:
     NONE = 1

@@ -49,7 +49,10 @@ class StringStorage
     {
         PyObject* interned_data = PyDict_New();
         for (const auto& it : d_interned_data) {
-            PyDict_SetItem(interned_data, it.first, PyLong_FromUnsignedLong(it.second));
+            PyDict_SetItem(
+                    interned_data,
+                    PyUnicode_DecodeUTF8(it.first.c_str(), Py_ssize_t(it.first.size()), "strict"),
+                    PyLong_FromUnsignedLong(it.second));
         }
     }
 

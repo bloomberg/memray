@@ -177,3 +177,5 @@ node_modules/
 
 # Vendored files
 src/vendor/libbacktrace/install
+
+/try/
