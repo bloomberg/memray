@@ -1,7 +1,11 @@
 #pragma once
 
+#include "hooks.h"
+#include "linker_shenanigans.h"
+#include "logging.h"
 #include <cstring>
 #include <dlfcn.h>
+#include <functional>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
@@ -10,10 +14,6 @@
 #include <mach/vm_region.h>
 #include <sys/types.h>
 #include <vector>
-
-#include "hooks.h"
-#include "linker_shenanigans.h"
-#include "logging.h"
 
 #ifndef __APPLE__
 #    error "This file can only be compiled in MacOS systems"

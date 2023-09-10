@@ -1376,6 +1376,12 @@ cdef class SocketReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
+    def get_reader_trace_info(self):
+        if self._reader is NULL:
+            return
+
+        trace_info = self._reader.Py_GetTraceInfo()
+
 cpdef enum SymbolicSupport:
     NONE = 1
     FUNCTION_NAME_ONLY = 2

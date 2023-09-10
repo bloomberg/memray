@@ -1,6 +1,7 @@
 #pragma once
 
 #define PY_SSIZE_T_CLEAN
+
 #include <Python.h>
 
 #include <algorithm>
@@ -30,14 +31,27 @@ class StringStorage
   public:
     // Constructors
     StringStorage();
+
     StringStorage(StringStorage& other) = delete;
+
     StringStorage(StringStorage&& other) = delete;
+
     void operator=(const StringStorage&) = delete;
+
     void operator=(StringStorage&&) = delete;
 
     // Methods
     size_t internString(const std::string& str, const char** interned_string = nullptr);
+
     const std::string& resolveString(size_t index) const;
+
+    PyObject* toPythonObject()
+    {
+        PyObject* interned_data = PyDict_New();
+        for (const auto& it : d_interned_data) {
+            PyDict_SetItem(interned_data, it.first, PyLong_FromUnsignedLong(it.second));
+        }
+    }
 
   private:
     // Data members
@@ -65,20 +79,28 @@ class MemorySegment
             uintptr_t end,
             backtrace_state* state,
             size_t filename_index);
+
     ExpandedFrame resolveIp(uintptr_t address) const;
+
     bool operator<(const MemorySegment& segment) const;
+
     bool operator!=(const MemorySegment& segment) const;
+
     bool isAddressInRange(uintptr_t addr) const;
 
     // Getters
     uintptr_t start() const;
+
     uintptr_t end() const;
+
     size_t filenameIndex() const;
+
     const std::string& filename() const;
 
   private:
     // Methods
     void resolveFromDebugInfo(uintptr_t address, ExpandedFrame& expanded_frame) const;
+
     void resolveFromSymbolTable(uintptr_t address, ExpandedFrame& expanded_frame) const;
 
     // Data members
@@ -102,7 +124,9 @@ class ResolvedFrame
 
     // Getters
     const std::string& Symbol() const;
+
     const std::string& File() const;
+
     int Line() const;
 
   private:
@@ -127,7 +151,25 @@ class ResolvedFrames
 
     // Getters
     const std::string& memoryMap() const;
+
     const std::vector<ResolvedFrame>& frames() const;
+
+    PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const
+    {
+        PyObject* result = PyTuple_Pack(
+                3,
+                d_memory_map_index,
+                std::for_each(
+                        d_frames.begin(),
+                        d_frames.end(),
+                        [&pystring_cache](const ResolvedFrame& it) {
+                            return it.toPythonObject(pystring_cache);
+                        }),
+                d_string_storage->toPythonObject()
+
+        );
+        return result;
+    }
 
   private:
     // Data members
@@ -146,11 +188,14 @@ class SymbolResolver
 
     // Methods
     resolved_frames_t resolve(uintptr_t ip, size_t generation);
+
     void addSegments(
             const std::string& filename,
             uintptr_t addr,
             const std::vector<tracking_api::Segment>& segments);
+
     void clearSegments();
+
     backtrace_state* findBacktraceState(const char* filename, uintptr_t address_start);
 
     // Getters
@@ -159,6 +204,7 @@ class SymbolResolver
   private:
     // Aliases and helpers
     using ips_cache_pair_t = std::pair<uintptr_t, ssize_t>;
+
     struct ips_cache_pair_hash
     {
         template<class T1, class T2>
@@ -175,7 +221,9 @@ class SymbolResolver
             size_t filename_index,
             uintptr_t address_start,
             uintptr_t address_end);
+
     std::vector<MemorySegment>& currentSegments();
+
     resolved_frames_t resolveFromSegments(uintptr_t ip, size_t generation);
 
     // Data members
@@ -185,6 +233,20 @@ class SymbolResolver
     std::shared_ptr<StringStorage> d_string_storage{std::make_shared<StringStorage>()};
     mutable std::unordered_map<ips_cache_pair_t, resolved_frames_t, ips_cache_pair_hash>
             d_resolved_ips_cache;
+
+  public:
+    PyObject* Py_GetResolvedIpsCache(python_helpers::PyUnicode_Cache& pystring_cache)
+    {
+        PyObject* result = PyDict_New();
+        if (result != nullptr) {
+            for (const auto& it : d_resolved_ips_cache) {
+                PyDict_SetItem(
+                        result,
+                        PyTuple_Pack(2, it.first.first, it.first.second),
+                        it.second->toPythonObject(pystring_cache));
+            }
+        }
+    }
 };
 
 std::vector<std::string>

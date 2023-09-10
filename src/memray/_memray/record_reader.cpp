@@ -792,6 +792,47 @@ error:
 }
 
 PyObject*
+RecordReader::Py_GetTraceInfo()
+{
+    PyObject* py_d_tree = d_tree.Py_GetGraphTree();
+    PyObject* py_d_frame_map = PyDict_New();
+
+    PyObject* py_d_symbol_resolver = PyList_New(0);
+    PyObject* py_d_native_frames = d_symbol_resolver.Py_GetResolvedIpsCache(d_pystring_cache);
+
+    if (py_d_frame_map != nullptr) {
+        for (const auto& kv : d_frame_map) {
+            PyDict_SetItem(
+                    py_d_frame_map,
+                    PyLong_FromUnsignedLong(kv.first),
+                    kv.second.toPythonObject(d_pystring_cache));
+        }
+    }
+
+    for (const auto& frame : d_native_frames) {
+        d_symbol_resolver.resolve(frame.ip, d_symbol_resolver.currentSegmentGeneration());
+        // todo: change the generation
+    }
+
+    if (py_d_native_frames != nullptr) {
+        for (const auto& it : d_native_frames) {
+            PyList_Append(py_d_native_frames, PyTuple_Pack(2, it.index, it.ip));
+        }
+    }
+
+    PyObject* stack_tuple = PyTuple_New(4);
+    if (stack_tuple == nullptr) {
+        return nullptr;
+    }
+
+    PyTuple_SET_ITEM(stack_tuple, 0, py_d_tree);
+    PyTuple_SET_ITEM(stack_tuple, 1, py_d_frame_map);
+    PyTuple_SET_ITEM(stack_tuple, 2, py_d_symbol_resolver);
+    PyTuple_SET_ITEM(stack_tuple, 3, py_d_native_frames);
+    return stack_tuple;
+}
+
+PyObject*
 RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation, size_t max_stacks)
 {
     if (!d_track_stacks) {
