@@ -4,8 +4,10 @@
 #include <Python.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cinttypes>
 #include <cstdio>
+#include <iostream>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
@@ -795,64 +797,64 @@ error:
 }
 
 PyObject*
-RecordReader::Py_GetTraceInfo(PyObject* ip_generation_list)
+RecordReader::Py_GetTraceInfo(std::vector<std::pair<FrameTree::index_t, size_t>> ip_generation_list)
 {
-    std::vector<std::pair<FrameTree::index_t, size_t>> cppVector;
-    if (PyList_Check(ip_generation_list)) {
-        Py_ssize_t listSize = PyList_Size(ip_generation_list);
-        for (Py_ssize_t i = 0; i < listSize; ++i) {
-            PyObject* pyItem = PyList_GetItem(ip_generation_list, i);
-            if (PyTuple_Check(pyItem)) {
-                if (PyLong_Check(PyTuple_GetItem(pyItem, 0)) && PyLong_Check(PyTuple_GetItem(pyItem, 0)))
-                {
-                    cppVector.emplace_back(
-                            uintptr_t(PyLong_AsLong(PyTuple_GetItem(pyItem, 0))),
-                            size_t(PyLong_AsLong(PyTuple_GetItem(pyItem, 0))));
-                } else {
-                    LOG(ERROR) << "ip_generation_list contains invalid pairs";
-                    return nullptr;
-                }
-            } else {
-                LOG(ERROR) << "ip_generation_list contains invalid values";
-                return nullptr;
-            }
-            Py_DECREF(pyItem);
-        }
-    } else {
-        LOG(ERROR) << "generation_list is not a python list";
-        return nullptr;
-    }
-
-    PyObject* py_d_tree = d_tree.Py_GetGraphTree();
-    PyObject* py_d_frame_map = PyDict_New();
-
-    PyObject* py_d_symbol_resolver = Py_ListGetNativeStackFrame(cppVector);
-    PyObject* py_d_native_frames = PyList_New(0);
-
-    if (py_d_frame_map != nullptr) {
-        for (const auto& kv : d_frame_map) {
-            PyDict_SetItem(
-                    py_d_frame_map,
-                    PyLong_FromUnsignedLong(kv.first),
-                    kv.second.toPythonObject(d_pystring_cache));
-        }
-    }
-
-    if (py_d_native_frames != nullptr) {
-        for (const auto& it : d_native_frames) {
-            PyList_Append(py_d_native_frames, PyTuple_Pack(2, it.index, it.ip));
-        }
-    }
-
-    PyObject* stack_tuple = PyTuple_New(4);
+    PyObject* stack_tuple = PyList_New(0);
     if (stack_tuple == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "stack_tuple is nullptr");
         return nullptr;
     }
 
-    PyTuple_SET_ITEM(stack_tuple, 0, py_d_tree);
-    PyTuple_SET_ITEM(stack_tuple, 1, py_d_frame_map);
-    PyTuple_SET_ITEM(stack_tuple, 2, py_d_symbol_resolver);
-    PyTuple_SET_ITEM(stack_tuple, 3, py_d_native_frames);
+    auto start_time = std::chrono::high_resolution_clock::now();
+    PyObject* py_d_tree = d_tree.Py_GetGraphTree();
+    if (py_d_tree == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "py_d_tree is nullptr");
+        return nullptr;
+    }
+    PyList_Append(stack_tuple, py_d_tree);
+    Py_XDECREF(py_d_tree);
+
+    PyObject* py_d_frame_map = PyDict_New();
+    if (py_d_frame_map == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "py_d_frame_map is nullptr");
+        return nullptr;
+    }
+    for (const auto& kv : d_frame_map) {
+        PyObject* pkey = PyLong_FromUnsignedLong(kv.first);
+        PyObject* pvalue = kv.second.toPythonObject(d_pystring_cache);
+        PyDict_SetItem(py_d_frame_map, pkey, pvalue);
+        Py_XDECREF(pkey);
+        Py_XDECREF(pvalue);
+    }
+    PyList_Append(stack_tuple, py_d_frame_map);
+    Py_XDECREF(py_d_frame_map);
+
+    PyObject* py_d_native_frames = PyList_New(0);
+    if (py_d_native_frames == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "py_d_native_frames is nullptr");
+        return nullptr;
+    }
+    for (const auto& it : d_native_frames) {
+        PyObject* pidx = PyLong_FromUnsignedLong(it.index);
+        PyObject* pip = PyLong_FromUnsignedLong(it.ip);
+        PyObject* ptuple = PyTuple_Pack(2, pidx, pip);
+        PyList_Append(py_d_native_frames, ptuple);
+        Py_XDECREF(pidx);
+        Py_XDECREF(pip);
+        Py_XDECREF(ptuple);
+    }
+
+    PyList_Append(stack_tuple, py_d_native_frames);
+    Py_XDECREF(py_d_native_frames);
+
+    PyObject* py_d_symbol_resolver = Py_ListGetNativeStackFrame(ip_generation_list);
+    if (py_d_symbol_resolver == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "py_d_symbol_resolver is nullptr");
+        return nullptr;
+    }
+    PyList_Append(stack_tuple, py_d_symbol_resolver);
+    Py_XDECREF(py_d_symbol_resolver);
+
     return stack_tuple;
 }
 
@@ -920,14 +922,18 @@ RecordReader::Py_ListGetNativeStackFrame(
         }
         while (current_index != 0 && stacks_obtained++ != max_stacks) {
             if (cached_index.find(current_index) != cached_index.end()) {
-                continue;
+                break;
             } else {
                 cached_index.insert(current_index);
             }
             auto frame = d_native_frames[current_index - 1];
             current_index = frame.index;
             auto resolved_frames = d_symbol_resolver.resolve(frame.ip, generation);
-            PyObject* key = PyTuple_Pack(2, frame.ip, generation);
+            PyObject* fip = PyLong_FromUnsignedLong(frame.ip);
+            PyObject* pger = PyLong_FromUnsignedLong(generation);
+            PyObject* key = PyTuple_Pack(2, fip, pger);
+            Py_XDECREF(fip);
+            Py_XDECREF(pger);
             PyObject* node_frame_list = PyList_New(0);
             if (!resolved_frames) {
                 continue;
@@ -939,18 +945,18 @@ RecordReader::Py_ListGetNativeStackFrame(
                 }
 
                 int ret = PyList_Append(node_frame_list, pyframe);
-                Py_DECREF(pyframe);
+                Py_XDECREF(pyframe);
                 if (ret != 0) {
-                    goto error;
+                    goto errorlist;
                 }
             }
             PyDict_SetItem(dict, key, node_frame_list);
-            Py_DECREF(key);
-            Py_DECREF(node_frame_list);
+            Py_XDECREF(key);
+            Py_XDECREF(node_frame_list);
         }
     }
     return dict;
-error:
+errorlist:
     Py_XDECREF(dict);
     return nullptr;
 }

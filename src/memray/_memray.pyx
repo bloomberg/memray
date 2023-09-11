@@ -62,6 +62,7 @@ from libcpp.memory cimport make_shared
 from libcpp.memory cimport make_unique
 from libcpp.memory cimport shared_ptr
 from libcpp.memory cimport unique_ptr
+from libcpp.pair cimport pair
 from libcpp.string cimport string as cppstring
 from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
@@ -250,8 +251,25 @@ cdef get_trace_info(
     RecordReader* reader,
     ip_generation_list
 ):
-    result = reader.Py_GetTraceInfo(ip_generation_list)
+    cdef vector[ pair[ 'unsigned int', 'long unsigned int'] ] input_vector
+    for x,y in ip_generation_list:
+        input_vector.push_back(pair['unsigned int', 'long unsigned int'](<unsigned long> x, <long unsigned int> y))
+    result = reader.Py_GetTraceInfo(input_vector)
     return result
+
+cdef get_trace_info_with_c_records(
+    RecordReader* reader,
+    records,  # AllocationRecord list
+):
+    cdef vector[pair['unsigned int', 'long unsigned int']] input_vector
+    for rc in records:
+        input_vector.push_back(pair['unsigned int', 'long unsigned int'](<unsigned long> rc[6], <long unsigned int> rc[7]))
+        # native_stack_id 6
+        # native_segment_generation 7
+    result = reader.Py_GetTraceInfo(input_vector)
+    return result
+
+
 
 
 @cython.freelist(1024)
@@ -1383,8 +1401,20 @@ cdef class SocketReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
+    def get_current_snapshot_raw_table(self, *, bool merge_threads):
+        if self._impl is NULL:
+            return
+
+        snapshot_allocations = self._impl.Py_GetSnapshotAllocationRecords(merge_threads=merge_threads)
+        return snapshot_allocations
+
     def get_reader_trace_info(self, ip_generation_list):
         trace_info = get_trace_info(self._reader.get(), ip_generation_list)
+        return trace_info
+
+
+    def get_reader_trace_info_with_c_records(self, records):
+        trace_info = get_trace_info_with_c_records(self._reader.get(), records)
         return trace_info
 
 cpdef enum SymbolicSupport:

@@ -7,6 +7,7 @@ from _memray.records cimport optional_frame_id_t
 from _memray.source cimport Source
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
+from libcpp.pair cimport pair
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 
@@ -47,4 +48,4 @@ cdef extern from "record_reader.h" namespace "memray::api":
         MemoryRecord getLatestMemoryRecord()
         AggregatedAllocation getLatestAggregatedAllocation()
         MemorySnapshot getLatestMemorySnapshot()
-        object Py_GetTraceInfo(object ip_generation_list)
+        object Py_GetTraceInfo(vector[pair['unsigned int', 'long unsigned int']] ip_generation_list)

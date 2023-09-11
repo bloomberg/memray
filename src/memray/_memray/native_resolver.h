@@ -45,17 +45,6 @@ class StringStorage
 
     const std::string& resolveString(size_t index) const;
 
-    PyObject* toPythonObject()
-    {
-        PyObject* interned_data = PyDict_New();
-        for (const auto& it : d_interned_data) {
-            PyDict_SetItem(
-                    interned_data,
-                    PyUnicode_DecodeUTF8(it.first.c_str(), Py_ssize_t(it.first.size()), "strict"),
-                    PyLong_FromUnsignedLong(it.second));
-        }
-    }
-
   private:
     // Data members
     std::unordered_map<std::string, size_t> d_interned_data;
@@ -157,23 +146,6 @@ class ResolvedFrames
 
     const std::vector<ResolvedFrame>& frames() const;
 
-    PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const
-    {
-        PyObject* result = PyTuple_Pack(
-                3,
-                d_memory_map_index,
-                std::for_each(
-                        d_frames.begin(),
-                        d_frames.end(),
-                        [&pystring_cache](const ResolvedFrame& it) {
-                            return it.toPythonObject(pystring_cache);
-                        }),
-                d_string_storage->toPythonObject()
-
-        );
-        return result;
-    }
-
   private:
     // Data members
     size_t d_memory_map_index{0};
@@ -236,20 +208,6 @@ class SymbolResolver
     std::shared_ptr<StringStorage> d_string_storage{std::make_shared<StringStorage>()};
     mutable std::unordered_map<ips_cache_pair_t, resolved_frames_t, ips_cache_pair_hash>
             d_resolved_ips_cache;
-
-  public:
-    PyObject* Py_GetResolvedIpsCache(python_helpers::PyUnicode_Cache& pystring_cache)
-    {
-        PyObject* result = PyDict_New();
-        if (result != nullptr) {
-            for (const auto& it : d_resolved_ips_cache) {
-                PyDict_SetItem(
-                        result,
-                        PyTuple_Pack(2, it.first.first, it.first.second),
-                        it.second->toPythonObject(pystring_cache));
-            }
-        }
-    }
 };
 
 std::vector<std::string>

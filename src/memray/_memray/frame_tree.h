@@ -81,34 +81,57 @@ class FrameTree
   public:
     PyObject* Py_GetGraphTree()
     {
-        PyObject* tree_nodes = PyList_New(Py_ssize_t(d_graph.size()));
-        for (auto const& node : d_graph) {
-            PyObject* result = PyTuple_New(3);  // 创建一个元组，包含三个元素
-            if (result != nullptr) {
-                // 将 Node 结构的字段添加为元组的元素
-                PyTuple_SetItem(result, 0, PyLong_FromUnsignedLong(node.frame_id));
-                PyTuple_SetItem(result, 1, PyLong_FromLong(node.parent_index));
+        PyObject* tree_nodes = PyList_New(0);
+        if (tree_nodes == nullptr) {
+            PyErr_SetString(PyExc_RuntimeError, "tree_nodes is nullptr");
+            return nullptr;
+        }
+        for (const auto& node : d_graph) {
+            PyObject* result = PyList_New(0);  // 创建一个元组，包含三个元素
+            if (result == nullptr) {
+                PyErr_SetString(PyExc_RuntimeError, "node tuple is nullptr");
+                return nullptr;
+            }
 
-                // 创建一个子元组用于表示 children 字段
-                PyObject* children_tuple = PyTuple_New(Py_ssize_t(node.children.size()));
-                if (children_tuple != nullptr) {
-                    for (size_t i = 0; i < node.children.size(); ++i) {
-                        const DescendentEdge& edge = node.children[i];
-                        PyObject* child_tuple = PyTuple_Pack(
-                                2,
-                                PyLong_FromUnsignedLong(edge.frame_id),
-                                PyLong_FromLong(edge.child_index));
-                        PyTuple_SetItem(children_tuple, Py_ssize_t(i), child_tuple);
-                    }
-                    PyTuple_SetItem(result, 2, children_tuple);
-                } else {
-                    Py_DECREF(result);  // 释放 result 并返回 NULL
-                    result = nullptr;
+            // 将 Node 结构的字段添加为元组的元素
+            PyObject* a = PyLong_FromUnsignedLong(node.frame_id);
+            PyObject* b = PyLong_FromUnsignedLong(node.parent_index);
+            PyList_Append(result, a);
+            PyList_Append(result, b);
+            Py_XDECREF(a);
+            Py_XDECREF(b);
+
+            PyObject* children_list = PyList_New(0);
+            if (children_list == nullptr) {
+                PyErr_SetString(PyExc_RuntimeError, "children list is nullptr");
+                return nullptr;
+            }
+            for (size_t i = 0; i < node.children.size(); ++i) {
+                const DescendentEdge& edge = node.children[i];
+                PyObject* pfid = PyLong_FromUnsignedLong(edge.frame_id);
+                PyObject* pchild = PyLong_FromLong(edge.child_index);
+                PyObject* child_tuple = PyTuple_Pack(2, pfid, pchild);
+                Py_XDECREF(pfid);
+                Py_XDECREF(pchild);
+                int ret = PyList_Append(children_list, child_tuple);
+                Py_XDECREF(child_tuple);
+                if (ret != 0) {
+                    goto frame_error;
                 }
             }
-            PyList_Append(tree_nodes, result);
+            PyList_Append(result, children_list);
+            Py_XDECREF(children_list);
+
+            int ret = PyList_Append(tree_nodes, result);
+            Py_XDECREF(result);
+            if (ret != 0) {
+                goto frame_error;
+            }
         }
         return tree_nodes;
+frame_error:
+        Py_XDECREF(tree_nodes);
+        return nullptr;
     }
 };
 }  // namespace memray::tracking_api
