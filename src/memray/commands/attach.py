@@ -14,7 +14,6 @@ import sys
 import threading
 
 import memray
-from memray import FileFormat
 from memray._errors import MemrayCommandError
 
 from .live import LiveCommand
@@ -340,11 +339,13 @@ class AttachCommand:
             live_port = _get_free_port()
             destination = memray.SocketDestination(server_port=live_port)
 
-        if args.aggregate and not hasattr(args, "output"):
+        if args.aggregate and not args.output:
             parser.error("Can't use aggregated mode without an output file.")
 
         file_format = (
-            f"file_format={FileFormat.AGGREGATED_ALLOCATIONS}" if args.aggregate else ""
+            "file_format=memray.FileFormat.AGGREGATED_ALLOCATIONS"
+            if args.aggregate
+            else ""
         )
 
         tracker_call = (
