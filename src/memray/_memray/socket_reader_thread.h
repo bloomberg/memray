@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "record_reader.h"
+#include "records.h"
 #include "snapshot.h"
 
 namespace memray::socket_thread {
@@ -23,6 +24,7 @@ class BackgroundSocketReader
     std::shared_ptr<api::RecordReader> d_record_reader;
 
     api::SnapshotAllocationAggregator d_aggregator;
+    api::AllocationStatsAggregator stats_aggregator;
     std::thread d_thread;
 
     void backgroundThreadWorker();
@@ -39,6 +41,12 @@ class BackgroundSocketReader
     void start();
     bool is_active() const;
     PyObject* Py_GetSnapshotAllocationRecords(bool merge_threads);
+    PyObject* Py_GetStatsData(
+            const std::unordered_map<size_t, uint64_t>& cnt_by_size,
+            const std::unordered_map<int, uint64_t>& cnt_by_alloc,
+            std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_size,
+            std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_cnt);
+    PyObject* Py_GetSnapshotAllocationRecordsAndStatsData(bool merge_threads, int largest_num);
 };
 
 }  // namespace memray::socket_thread

@@ -11,3 +11,4 @@ cdef extern from "socket_reader_thread.h" namespace "memray::socket_thread":
         void start() except+
         bool is_active()
         object Py_GetSnapshotAllocationRecords(bool merge_threads)
+        object Py_GetSnapshotAllocationRecordsAndStatsData(bool merge_threads, int largest_num)

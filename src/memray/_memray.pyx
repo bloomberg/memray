@@ -2,6 +2,7 @@ import collections
 import contextlib
 import os
 import pathlib
+import pickle
 import sys
 
 cimport cython
@@ -1401,6 +1402,8 @@ cdef class SocketReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
+
+
     def get_current_snapshot_raw_table(self, *, bool merge_threads):
         if self._impl is NULL:
             return
@@ -1408,14 +1411,27 @@ cdef class SocketReader:
         snapshot_allocations = self._impl.Py_GetSnapshotAllocationRecords(merge_threads=merge_threads)
         return snapshot_allocations
 
+    def get_current_snapshot_raw_table_with_stats(self, *, bool merge_threads, int largest_num):
+        if self._impl is NULL:
+            return
+        result  = self._impl.Py_GetSnapshotAllocationRecordsAndStatsData(merge_threads=merge_threads, largest_num=largest_num)
+        return result
     def get_reader_trace_info(self, ip_generation_list):
         trace_info = get_trace_info(self._reader.get(), ip_generation_list)
         return trace_info
 
-
     def get_reader_trace_info_with_c_records(self, records):
         trace_info = get_trace_info_with_c_records(self._reader.get(), records)
         return trace_info
+
+    def get_sum_alloc_size(self, records):
+        return sum(x[2] for x in records)
+
+    def get_serialize_records(self, records):
+        tmp = self.get_reader_trace_info_with_c_records(records)
+        index_and_whole = [records, tmp]
+        return pickle.dumps(index_and_whole)
+
 
 cpdef enum SymbolicSupport:
     NONE = 1

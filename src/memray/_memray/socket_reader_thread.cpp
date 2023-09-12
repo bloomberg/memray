@@ -21,7 +21,9 @@ BackgroundSocketReader::backgroundThreadWorker()
         switch (record_type) {
             case RecordResult::ALLOCATION_RECORD: {
                 std::lock_guard<std::mutex> lock(d_mutex);
-                d_aggregator.addAllocation(d_record_reader->getLatestAllocation());
+                const auto& it = d_record_reader->getLatestAllocation();
+                d_aggregator.addAllocation(it);
+                stats_aggregator.addAllocation(it, d_record_reader->getLatestPythonFrameId(it));
             } break;
 
             case RecordResult::MEMORY_RECORD: {
@@ -82,10 +84,114 @@ BackgroundSocketReader::Py_GetSnapshotAllocationRecords(bool merge_threads)
     return api::Py_ListFromSnapshotAllocationRecords(stack_to_allocation);
 }
 
+PyObject*
+BackgroundSocketReader::Py_GetSnapshotAllocationRecordsAndStatsData(bool merge_threads, int largest_num)
+{
+    api::reduced_snapshot_map_t stack_to_allocation;
+
+    std::unordered_map<size_t, uint64_t> cnt_by_size;
+    std::unordered_map<int, uint64_t> cnt_by_alloc;
+    std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>> top_size;
+    std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>> top_cnt;
+    {
+        std::lock_guard<std::mutex> lock(d_mutex);
+        stack_to_allocation = d_aggregator.getSnapshotAllocations(merge_threads);
+        cnt_by_size = stats_aggregator.allocationCountBySize();
+        cnt_by_alloc = stats_aggregator.allocationCountByAllocator();
+        top_size = stats_aggregator.topLocationsBySize(largest_num);
+        top_cnt = stats_aggregator.topLocationsByCount(largest_num);
+    }
+    PyObject* snaps = api::Py_ListFromSnapshotAllocationRecords(stack_to_allocation);
+    PyObject* stats = Py_GetStatsData(cnt_by_size, cnt_by_alloc, top_size, top_cnt);
+    PyObject* result = PyTuple_Pack(2, snaps, stats);
+    Py_XDECREF(snaps);
+    Py_XDECREF(stats);
+    return result;
+}
+
 bool
 BackgroundSocketReader::is_active() const
 {
     return !d_stop_thread;
+}
+
+PyObject*
+BackgroundSocketReader::Py_GetStatsData(
+        const std::unordered_map<size_t, uint64_t>& cnt_by_size,
+        const std::unordered_map<int, uint64_t>& cnt_by_alloc,
+        std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_size,
+        std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_cnt)
+{
+    PyObject* result = PyList_New(0);
+    if (result == nullptr) {
+        return nullptr;
+    }
+
+    PyObject* py_cnt_by_size = PyDict_New();
+    if (py_cnt_by_size == nullptr) {
+        Py_XDECREF(result);
+        return nullptr;
+    }
+    for (const auto& it : cnt_by_size) {
+        PyObject* pk = PyLong_FromSize_t(it.first);
+        PyObject* pv = PyLong_FromUnsignedLong(it.second);
+        PyDict_SetItem(py_cnt_by_size, pk, pv);
+        Py_XDECREF(pk);
+        Py_XDECREF(pv);
+    }
+    PyList_Append(result, py_cnt_by_size);
+    Py_XDECREF(py_cnt_by_size);
+
+    PyObject* py_cnt_by_alloc = PyDict_New();
+    if (py_cnt_by_alloc == nullptr) {
+        Py_XDECREF(result);
+        return nullptr;
+    }
+    for (const auto& it : cnt_by_alloc) {
+        PyObject* pk = PyLong_FromLong(it.first);
+        PyObject* pv = PyLong_FromUnsignedLong(it.second);
+        PyDict_SetItem(py_cnt_by_alloc, pk, pv);
+        Py_XDECREF(pk);
+        Py_XDECREF(pv);
+    }
+    PyList_Append(result, py_cnt_by_alloc);
+    Py_XDECREF(py_cnt_by_alloc);
+
+    PyObject* py_top_size = PyList_New(0);
+    if (py_top_size == nullptr) {
+        Py_XDECREF(result);
+        return nullptr;
+    }
+    for (const auto& it : top_size) {
+        PyObject* pk = PyLong_FromSize_t(it.first);
+        PyObject* pv = PyLong_FromSize_t(it.second.value_or(-1));
+        PyObject* pair = PyTuple_Pack(2, pk, pv);
+        PyList_Append(py_top_size, pair);
+        Py_XDECREF(pk);
+        Py_XDECREF(pv);
+        Py_XDECREF(pair);
+    }
+    PyList_Append(result, py_top_size);
+    Py_XDECREF(py_top_size);
+
+    PyObject* py_top_cnt = PyList_New(0);
+    if (py_top_cnt == nullptr) {
+        Py_XDECREF(result);
+        return nullptr;
+    }
+    for (const auto& it : top_cnt) {
+        PyObject* pk = PyLong_FromSize_t(it.first);
+        PyObject* pv = PyLong_FromSize_t(it.second.value_or(-1));
+        PyObject* pair = PyTuple_Pack(2, pk, pv);
+        PyList_Append(py_top_cnt, pair);
+        Py_XDECREF(pk);
+        Py_XDECREF(pv);
+        Py_XDECREF(pair);
+    }
+    PyList_Append(result, py_top_cnt);
+    Py_XDECREF(py_top_cnt);
+
+    return result;
 }
 
 }  // namespace memray::socket_thread

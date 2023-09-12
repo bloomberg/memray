@@ -805,7 +805,6 @@ RecordReader::Py_GetTraceInfo(std::vector<std::pair<FrameTree::index_t, size_t>>
         return nullptr;
     }
 
-    auto start_time = std::chrono::high_resolution_clock::now();
     PyObject* py_d_tree = d_tree.Py_GetGraphTree();
     if (py_d_tree == nullptr) {
         PyErr_SetString(PyExc_RuntimeError, "py_d_tree is nullptr");
