@@ -11,6 +11,7 @@ import signal
 import socket
 import subprocess
 import sys
+import textwrap
 import threading
 
 import memray
@@ -23,38 +24,7 @@ GDB_SCRIPT = pathlib.Path(__file__).parent / "_attach.gdb"
 LLDB_SCRIPT = pathlib.Path(__file__).parent / "_attach.lldb"
 RTLD_DEFAULT = memray._memray.RTLD_DEFAULT
 RTLD_NOW = memray._memray.RTLD_NOW
-PAYLOAD = """
-import atexit
-
-import memray
-
-
-def deactivate_last_tracker():
-    tracker = getattr(memray, "_last_tracker", None)
-    if not tracker:
-        return
-
-    memray._last_tracker = None
-    tracker.__exit__(None, None, None)
-
-
-if not hasattr(memray, "_last_tracker"):
-    # This only needs to be registered the first time we attach.
-    atexit.register(deactivate_last_tracker)
-
-deactivate_last_tracker()
-
-tracker = {tracker_call}
-try:
-    tracker.__enter__()
-except:
-    # Prevent the exception from keeping the tracker alive.
-    # This way resources are cleaned up ASAP.
-    del tracker
-    raise
-
-memray._last_tracker = tracker
-"""
+PAYLOAD = "import memray._attach_callback; memray._attach_callback.callback({args})"
 
 
 def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
@@ -345,15 +315,21 @@ class AttachCommand:
         file_format = (
             "file_format=memray.FileFormat.AGGREGATED_ALLOCATIONS"
             if args.aggregate
-            else ""
+            else "file_format=memray.FileFormat.ALL_ALLOCATIONS"
         )
 
-        tracker_call = (
-            f"memray.Tracker(destination=memray.{destination!r},"
-            f" native_traces={args.native},"
-            f" follow_fork={args.follow_fork},"
-            f" trace_python_allocators={args.trace_python_allocators},"
-            f"{file_format})"
+        PAYLOAD = textwrap.dedent(
+            f"""
+            import memray._attach_callback
+
+            memray._attach_callback.callback(
+                destination=memray.{destination!r},
+                native_traces={args.native},
+                follow_fork={args.follow_fork},
+                trace_python_allocators={args.trace_python_allocators},
+                {file_format},
+            )
+            """
         )
 
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -368,7 +344,7 @@ class AttachCommand:
 
             client = server.accept()[0]
 
-        client.sendall(PAYLOAD.format(tracker_call=tracker_call).encode("utf-8"))
+        client.sendall(PAYLOAD.encode("utf-8"))
         client.shutdown(socket.SHUT_WR)
 
         if not live_port:
