@@ -52,7 +52,7 @@ for line in sys.stdin:
 """
 
 
-def generate_command(method, output, aggregate):
+def generate_command(method, output, *args):
     cmd = [
         sys.executable,
         "-m",
@@ -66,17 +66,19 @@ def generate_command(method, output, aggregate):
         str(output),
     ]
 
-    if aggregate:
-        cmd.append("--aggregate")
+    if args:
+        cmd.extend(args)
 
     return cmd
 
 
-def run_process(cmd):
+def run_process(cmd, wait_for_stderr=False):
+    process_stderr = ""
     tracked_process = subprocess.Popen(
         [sys.executable, "-uc", PROGRAM],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
     )
 
@@ -92,6 +94,9 @@ def run_process(cmd):
     try:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
     except subprocess.CalledProcessError as exc:
+        # The test has failed; we'd just wait forever.
+        wait_for_stderr = False
+
         if "Couldn't write extended state status" in exc.output:
             # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=898048
             pytest.xfail("gdb < 8 does not support this CPU")
@@ -100,12 +105,17 @@ def run_process(cmd):
             raise
     finally:
         tracked_process.stdin.write("1\n")
+        if wait_for_stderr:
+            process_stderr = tracked_process.stderr.readline()
+            while "WARNING" in process_stderr:
+                process_stderr = tracked_process.stderr.readline()
         tracked_process.stdin.close()
         tracked_process.wait()
 
     # THEN
     assert "" == tracked_process.stdout.read()
     assert tracked_process.returncode == 0
+    return process_stderr
 
 
 def get_call_stack(allocation):
@@ -127,7 +137,7 @@ def test_basic_attach(tmp_path, method):
 
     # GIVEN
     output = tmp_path / "test.bin"
-    attach_cmd = generate_command(method, output, aggregate=False)
+    attach_cmd = generate_command(method, output)
 
     # WHEN
     run_process(attach_cmd)
@@ -145,7 +155,7 @@ def test_aggregated_attach(tmp_path, method):
 
     # GIVEN
     output = tmp_path / "test.bin"
-    attach_cmd = generate_command(method, output, aggregate=True)
+    attach_cmd = generate_command(method, output, "--aggregate")
 
     # WHEN
     run_process(attach_cmd)
@@ -160,3 +170,37 @@ def test_aggregated_attach(tmp_path, method):
 
     (valloc,) = get_relevant_vallocs(reader.get_high_watermark_allocation_records())
     assert get_call_stack(valloc) == ["valloc", "baz", "bar", "foo", "<module>"]
+
+
+@pytest.mark.parametrize("method", ["lldb", "gdb"])
+def test_attach_heap(tmp_path, method):
+    if not debugger_available(method):
+        pytest.skip(f"a supported {method} debugger isn't installed")
+
+    # GIVEN
+    limit = 50 * 1024 * 1024
+    output = tmp_path / "test.bin"
+    attach_cmd = generate_command(method, output, "--heap-limit", str(limit))
+
+    # WHEN
+    process_stderr = run_process(attach_cmd, wait_for_stderr=True)
+
+    # THEN
+    assert "memray: Deactivating tracking: heap size has reached" in process_stderr
+    assert f" the limit was {limit}" in process_stderr
+
+
+@pytest.mark.parametrize("method", ["lldb", "gdb"])
+def test_attach_time(tmp_path, method):
+    if not debugger_available(method):
+        pytest.skip(f"a supported {method} debugger isn't installed")
+
+    # GIVEN
+    output = tmp_path / "test.bin"
+    attach_cmd = generate_command(method, output, "--duration", "1")
+
+    # WHEN
+    process_stderr = run_process(attach_cmd, wait_for_stderr=True)
+
+    # THEN
+    assert "memray: Deactivating tracking: 1 seconds have elapsed" in process_stderr
