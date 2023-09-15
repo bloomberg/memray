@@ -112,4 +112,38 @@ Frame::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const
     PyTuple_SET_ITEM(tuple, 2, pylineno);
     return tuple;
 }
+
+PyObject*
+Frame::toPythonObjectWithEntry(python_helpers::PyUnicode_Cache& pystring_cache) const
+{
+    PyObject* pyfunction_name = pystring_cache.getUnicodeObject(function_name);
+    if (pyfunction_name == nullptr) {
+        return nullptr;
+    }
+    PyObject* pyfilename = pystring_cache.getUnicodeObject(filename);
+    if (pyfilename == nullptr) {
+        return nullptr;
+    }
+    PyObject* pylineno = PyLong_FromLong(this->lineno);
+    if (pylineno == nullptr) {
+        return nullptr;
+    }
+    PyObject* pyisentry = PyBool_FromLong(this->is_entry_frame);
+    if (pyisentry == nullptr) {
+        return nullptr;
+    }
+    PyObject* tuple = PyTuple_New(4);
+    if (tuple == nullptr) {
+        Py_DECREF(pylineno);
+        Py_XDECREF(pyisentry);
+        return nullptr;
+    }
+    Py_INCREF(pyfunction_name);
+    Py_INCREF(pyfilename);
+    PyTuple_SET_ITEM(tuple, 0, pyfunction_name);
+    PyTuple_SET_ITEM(tuple, 1, pyfilename);
+    PyTuple_SET_ITEM(tuple, 2, pylineno);
+    PyTuple_SET_ITEM(tuple, 3, pyisentry);
+    return tuple;
+}
 }  // namespace memray::tracking_api

@@ -93,6 +93,8 @@ BackgroundSocketReader::Py_GetSnapshotAllocationRecordsAndStatsData(bool merge_t
     std::unordered_map<int, uint64_t> cnt_by_alloc;
     std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>> top_size;
     std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>> top_cnt;
+    std::uint64_t total_size;
+    std::uint64_t total_cnt;
     {
         std::lock_guard<std::mutex> lock(d_mutex);
         stack_to_allocation = d_aggregator.getSnapshotAllocations(merge_threads);
@@ -100,9 +102,12 @@ BackgroundSocketReader::Py_GetSnapshotAllocationRecordsAndStatsData(bool merge_t
         cnt_by_alloc = stats_aggregator.allocationCountByAllocator();
         top_size = stats_aggregator.topLocationsBySize(largest_num);
         top_cnt = stats_aggregator.topLocationsByCount(largest_num);
+        total_cnt = stats_aggregator.totalAllocations();
+        total_size = stats_aggregator.totalBytesAllocated();
     }
     PyObject* snaps = api::Py_ListFromSnapshotAllocationRecords(stack_to_allocation);
-    PyObject* stats = Py_GetStatsData(cnt_by_size, cnt_by_alloc, top_size, top_cnt);
+    PyObject* stats =
+            Py_GetStatsData(cnt_by_size, cnt_by_alloc, top_size, top_cnt, total_size, total_cnt);
     PyObject* result = PyTuple_Pack(2, snaps, stats);
     Py_XDECREF(snaps);
     Py_XDECREF(stats);
@@ -120,7 +125,9 @@ BackgroundSocketReader::Py_GetStatsData(
         const std::unordered_map<size_t, uint64_t>& cnt_by_size,
         const std::unordered_map<int, uint64_t>& cnt_by_alloc,
         std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_size,
-        std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_cnt)
+        std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_cnt,
+        std::uint64_t total_size,
+        std::uint64_t total_cnt)
 {
     PyObject* result = PyList_New(0);
     if (result == nullptr) {
@@ -163,8 +170,21 @@ BackgroundSocketReader::Py_GetStatsData(
         return nullptr;
     }
     for (const auto& it : top_size) {
-        PyObject* pk = PyLong_FromSize_t(it.first);
-        PyObject* pv = PyLong_FromSize_t(it.second.value_or(-1));
+        //        PyObject* pk = PyLong_FromSize_t(it.second.value_or(0));
+        //        PyObject * pk = d_record_reader ->Py_GetFrame(it.second.value_or(0));
+        PyObject* pk;
+        try {  // todo: optimize
+            pk = d_record_reader->Py_GetFrame(it.second.value_or(0));
+        } catch (std::exception& e) {
+            PyObject* function = PyUnicode_FromString("");
+            PyObject* file = PyUnicode_FromString("");
+            PyObject* line = PyLong_FromLong(0);
+            pk = PyTuple_Pack(3, function, file, line);
+            Py_XDECREF(function);
+            Py_XDECREF(file);
+            Py_XDECREF(line);
+        };
+        PyObject* pv = PyLong_FromSize_t(it.first);
         PyObject* pair = PyTuple_Pack(2, pk, pv);
         PyList_Append(py_top_size, pair);
         Py_XDECREF(pk);
@@ -180,8 +200,21 @@ BackgroundSocketReader::Py_GetStatsData(
         return nullptr;
     }
     for (const auto& it : top_cnt) {
-        PyObject* pk = PyLong_FromSize_t(it.first);
-        PyObject* pv = PyLong_FromSize_t(it.second.value_or(-1));
+        //        PyObject* pk = PyLong_FromSize_t(it.second.value_or(0));
+        //        PyObject * pk = d_record_reader ->Py_GetFrame(it.second.value_or(0));
+        PyObject* pk;
+        try {  // todo: optimize
+            pk = d_record_reader->Py_GetFrame(it.second.value_or(0));
+        } catch (std::exception& e) {
+            PyObject* function = PyUnicode_FromString("");
+            PyObject* file = PyUnicode_FromString("");
+            PyObject* line = PyLong_FromLong(0);
+            pk = PyTuple_Pack(3, function, file, line);
+            Py_XDECREF(function);
+            Py_XDECREF(file);
+            Py_XDECREF(line);
+        };
+        PyObject* pv = PyLong_FromSize_t(it.first);
         PyObject* pair = PyTuple_Pack(2, pk, pv);
         PyList_Append(py_top_cnt, pair);
         Py_XDECREF(pk);
@@ -190,6 +223,13 @@ BackgroundSocketReader::Py_GetStatsData(
     }
     PyList_Append(result, py_top_cnt);
     Py_XDECREF(py_top_cnt);
+
+    PyObject* py_total_size = PyLong_FromUnsignedLong(total_size);
+    PyObject* py_total_cnt = PyLong_FromUnsignedLong(total_cnt);
+    PyList_Append(result, py_total_size);
+    PyList_Append(result, py_total_cnt);
+    Py_XDECREF(py_total_size);
+    Py_XDECREF(py_total_cnt);
 
     return result;
 }

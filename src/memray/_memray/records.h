@@ -246,6 +246,8 @@ struct Frame
 
     PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;
 
+    PyObject* toPythonObjectWithEntry(python_helpers::PyUnicode_Cache& pystring_cache) const;
+
     auto operator==(const Frame& other) const -> bool
     {
         return (function_name == other.function_name && filename == other.filename

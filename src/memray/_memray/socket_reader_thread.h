@@ -45,7 +45,9 @@ class BackgroundSocketReader
             const std::unordered_map<size_t, uint64_t>& cnt_by_size,
             const std::unordered_map<int, uint64_t>& cnt_by_alloc,
             std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_size,
-            std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_cnt);
+            std::vector<std::pair<uint64_t, std::optional<memray::tracking_api::frame_id_t>>>& top_cnt,
+            std::uint64_t total_size,
+            std::uint64_t total_cnt);
     PyObject* Py_GetSnapshotAllocationRecordsAndStatsData(bool merge_threads, int largest_num);
 };
 

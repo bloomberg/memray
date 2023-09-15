@@ -820,7 +820,7 @@ RecordReader::Py_GetTraceInfo(std::vector<std::pair<FrameTree::index_t, size_t>>
     }
     for (const auto& kv : d_frame_map) {
         PyObject* pkey = PyLong_FromUnsignedLong(kv.first);
-        PyObject* pvalue = kv.second.toPythonObject(d_pystring_cache);
+        PyObject* pvalue = kv.second.toPythonObjectWithEntry(d_pystring_cache);
         PyDict_SetItem(py_d_frame_map, pkey, pvalue);
         Py_XDECREF(pkey);
         Py_XDECREF(pvalue);

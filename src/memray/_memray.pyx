@@ -1402,7 +1402,11 @@ cdef class SocketReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
+    def get_main_thread_id(self):
+        return self._reader.get().getMainThreadTid()
 
+    def get_skipped_frames_on_main_thread(self):
+        return self._reader.get().getSkippedFramesOnMainThread()
 
     def get_current_snapshot_raw_table(self, *, bool merge_threads):
         if self._impl is NULL:
