@@ -1415,6 +1415,19 @@ cdef class SocketReader:
         snapshot_allocations = self._impl.Py_GetSnapshotAllocationRecords(merge_threads=merge_threads)
         return snapshot_allocations
 
+    def get_both_current_snapshot_and_raw_table_and_stats(self, *, bool merge_threads, int largest_num):
+        # for debug and compare
+        if self._impl is NULL:
+            return
+
+        snapshot_allocations, stats = self._impl.Py_GetSnapshotAllocationRecordsAndStatsData(merge_threads=merge_threads,  largest_num=largest_num)
+        result_snaps = []
+        for elem in snapshot_allocations:
+            alloc = AllocationRecord(elem)
+            (<AllocationRecord> alloc)._reader = self._reader
+            result_snaps.append(alloc)
+        return result_snaps, snapshot_allocations, stats
+
     def get_current_snapshot_raw_table_with_stats(self, *, bool merge_threads, int largest_num):
         if self._impl is NULL:
             return

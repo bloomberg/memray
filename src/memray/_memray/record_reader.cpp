@@ -772,7 +772,6 @@ RecordReader::Py_GetStackFrameAndEntryInfo(
     if (list == nullptr) {
         return nullptr;
     }
-
     while (current_index != 0 && stacks_obtained++ != max_stacks) {
         auto [frame_id, next_index] = d_tree.nextNode(current_index);
         const auto& frame = d_frame_map.at(frame_id);
@@ -872,7 +871,6 @@ RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation
     if (list == nullptr) {
         return nullptr;
     }
-
     while (current_index != 0 && stacks_obtained++ != max_stacks) {
         auto frame = d_native_frames[current_index - 1];
         current_index = frame.index;
@@ -898,6 +896,18 @@ error:
     return nullptr;
 }
 
+struct hash_native_index_and_generation
+{
+    std::size_t operator()(std::pair<FrameTree::index_t, size_t> data) const
+    {
+        // Reduce the risk of the Python frame ID and native frame ID hashing
+        // to the same value and cancelling each other out by adding a fixed
+        // offset to one of them. Don't worry about collisions with the TID:
+        // it's of a fundamentally different type and collisions are unlikely.
+        return std::hash<FrameTree::index_t>{}(data.first) xor std::hash<size_t>{}(data.second);
+    }
+};
+
 PyObject*
 RecordReader::Py_ListGetNativeStackFrame(
         std::vector<std::pair<FrameTree::index_t, size_t>>& index_generation_list,
@@ -907,7 +917,8 @@ RecordReader::Py_ListGetNativeStackFrame(
         PyErr_SetString(PyExc_RuntimeError, "Stack tracking is disabled");
         return NULL;
     }
-    std::unordered_set<FrameTree::index_t> cached_index;
+    using cache_t = std::pair<FrameTree::index_t, size_t>;
+    std::unordered_set<cache_t, hash_native_index_and_generation> cached_index;
     PyObject* dict = PyDict_New();
     for (const auto& it : index_generation_list) {
         const auto& index = it.first;
@@ -920,10 +931,10 @@ RecordReader::Py_ListGetNativeStackFrame(
             return nullptr;
         }
         while (current_index != 0 && stacks_obtained++ != max_stacks) {
-            if (cached_index.find(current_index) != cached_index.end()) {
+            if (cached_index.find(cache_t{current_index, generation}) != cached_index.end()) {
                 break;
             } else {
-                cached_index.insert(current_index);
+                cached_index.insert(cache_t{current_index, generation});
             }
             auto frame = d_native_frames[current_index - 1];
             current_index = frame.index;
