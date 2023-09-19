@@ -75,8 +75,11 @@ export function handleFragments() {
 
 // For the invert button
 export function onInvert() {
-  chart.inverted(!chart.inverted());
+  chart.inverted(this === document.getElementById("icicles"));
   chart.resetZoom(); // calls onClick
+
+  // Hide the tooltip for the radio button that was just clicked.
+  $('[data-toggle="tooltip"]').tooltip("hide");
 }
 
 export function onResetZoom() {
@@ -140,12 +143,24 @@ export function onFilterImportSystem() {
   }
   if (this.hideImportSystemFrames === true) {
     this.hideImportSystemFrames = true;
-
-    filteredChart.registerFilter(FILTER_IMPORT_SYSTEM, (data) => {
-      return filterImportSystem(data);
-    });
+    if (!inverted) {
+      filteredChart.registerFilter(FILTER_IMPORT_SYSTEM, (data) => {
+        return filterImportSystem(data);
+      });
+    } else {
+      data = invertedNoImportsData;
+      if (temporal) {
+        hideImports = true;
+        intervals = invertedNoImportsIntervals;
+      }
+    }
   } else {
     filteredChart.unRegisterFilter(FILTER_IMPORT_SYSTEM);
+    data = flamegraphData;
+    if (temporal) {
+      hideImports = false;
+      intervals = flamegraphIntervals;
+    }
   }
   this.hideImportSystemFrames = !this.hideImportSystemFrames;
   filteredChart.drawChart(data);

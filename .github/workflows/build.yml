@@ -17,7 +17,7 @@ jobs:
     name: "Check if generated files are up to date"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up dependencies
         run: |
           sudo apt-get update
@@ -41,7 +41,7 @@ jobs:
     name: "Test with coverage"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -73,7 +73,7 @@ jobs:
       image: alpine
       options: --cap-add=SYS_PTRACE
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up dependencies
         run: |
           apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev python3-dbg gdb lldb git bash perl perl-datetime build-base perl-app-cpanminus
@@ -105,7 +105,7 @@ jobs:
     name: "Lint and Docs"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Node
         uses: actions/setup-node@v3
         with:
@@ -136,7 +136,7 @@ jobs:
     name: "Valgrind & Helgrind"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:

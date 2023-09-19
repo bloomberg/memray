@@ -5,6 +5,7 @@ import {
   sumAllocations,
   filterUninteresting,
   filterImportSystem,
+  filterMergeNodesInverted,
 } from "./common";
 
 test("handlesSmallValues", () => {

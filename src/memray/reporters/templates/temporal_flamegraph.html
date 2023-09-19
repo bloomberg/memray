@@ -39,5 +39,9 @@
 {% block flamegraph_script %}
 <script type="text/javascript">
   {{ include_file("assets/temporal_flamegraph.js") }}
+  var hideImports = false;
+  var intervals = null;
+  var flamegraphIntervals = null;
+  var invertedNoImportsIntervals = null;
 </script>
 {% endblock %}

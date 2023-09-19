@@ -21,8 +21,29 @@
           title="Hide frames related to the Python import system" >
     <label class="form-check-label text-white bg-dark">Hide Import System Frames</label>
 </div>
+<div class="btn-group btn-group-toggle mr-3" data-toggle="buttons">
+  <label class="btn btn-outline-light shadow-none" data-container="body" data-toggle="tooltip" title="Enable flame graph mode: functions above their callers with the root at the bottom">
+    <input type="radio" name="flames/icicles" id="flames" autocomplete="off">
+    <div class="flamegraph-icon flipped">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 1 1 h 22 Z M 11 6 h 10 Z M 1 6 h 7 Z M 11 11 h 7 Z M 1 11 h 4 Z M 11 16 h 4 Z M 1 16 h 2 Z M 11 21 h 2 Z"/>
+      </svg>
+    </div>
+    &nbsp;
+    Flames
+  </label>
+  <label class="btn btn-outline-light active shadow-none" data-container="body" data-toggle="tooltip" title="Enable icicle graph mode: functions below their callers with the root at the top">
+    <input type="radio" name="flames/icicles" id="icicles" autocomplete="off" checked/>
+    Icicles
+    &nbsp;
+    <div class="flamegraph-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 1 1 h 22 Z M 11 6 h 10 Z M 1 6 h 7 Z M 11 11 h 7 Z M 1 11 h 4 Z M 11 16 h 4 Z M 1 16 h 2 Z M 11 21 h 2 Z"/>
+      </svg>
+    </div>
+  </label>
+</div>
 <button id="resetZoomButton" class="btn btn-outline-light mr-3">Reset Zoom</button>
-<button id="invertButton" class="btn btn-outline-light mr-3">Invert</button>
 {% endblock %}
 
 {% block content %}

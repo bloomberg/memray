@@ -139,8 +139,12 @@
   <script type="text/javascript">
     const packed_data = {{ data|tojson }};
     var data = null;
+    var flamegraphData = null;
+    var invertedNoImportsData = null;
     const merge_threads = {{ merge_threads|tojson }};
     const memory_records = {{ memory_records|tojson }};
+    const inverted = {{ inverted|tojson }};
+    const temporal = packed_data.intervals != null;
   </script>
   {% endblock scripts %}
 </body>

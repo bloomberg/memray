@@ -1,0 +1,1 @@
+Update ``memray attach`` on Linux to prefer GDB over LLDB for injecting itself into the process being attached to. We've had several reports of problems with the Linux LLDB, and hope this change will help give Linux users a better experience by default. You can still explicitly use LLDB on Linux even when GDB is detected by running ``memray attach --method=lldb``.

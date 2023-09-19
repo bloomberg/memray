@@ -1,0 +1,1 @@
+``memray attach`` now supports ``--aggregate`` to produce :ref:`aggregated capture files <aggregated capture files>`.

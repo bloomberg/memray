@@ -88,3 +88,11 @@
   background-color: rgba(0, 0, 0, 0.5); /* semi-transparent black */
   z-index: 99; /* make sure it's on top of other elements */
 }
+
+.flamegraph-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flipped svg { transform: scale(1,-1); }

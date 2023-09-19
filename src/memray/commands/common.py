@@ -33,6 +33,7 @@ class ReporterFactory(Protocol):
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
+        inverted: bool,
     ) -> BaseReporter:
         ...
 
@@ -45,6 +46,7 @@ class TemporalReporterFactory(Protocol):
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
         high_water_mark_by_snapshot: Optional[List[int]],
+        inverted: bool,
     ) -> BaseReporter:
         ...
 
@@ -123,11 +125,13 @@ class HighWatermarkCommand:
         show_memory_leaks: bool,
         temporary_allocation_threshold: int,
         merge_threads: Optional[bool] = None,
+        inverted: Optional[bool] = None,
         temporal: bool = False,
     ) -> None:
         try:
             reader = FileReader(os.fspath(result_path), report_progress=True)
             merge_threads = True if merge_threads is None else merge_threads
+            inverted = False if inverted is None else inverted
 
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
@@ -143,6 +147,7 @@ class HighWatermarkCommand:
                         memory_records=tuple(reader.get_memory_snapshots()),
                         native_traces=reader.metadata.has_native_traces,
                         high_water_mark_by_snapshot=None,
+                        inverted=inverted,
                     )
                 else:
                     recs, hwms = reader.get_temporal_high_water_mark_allocation_records(
@@ -153,6 +158,7 @@ class HighWatermarkCommand:
                         memory_records=tuple(reader.get_memory_snapshots()),
                         native_traces=reader.metadata.has_native_traces,
                         high_water_mark_by_snapshot=hwms,
+                        inverted=inverted,
                     )
             else:
                 if show_memory_leaks:
@@ -172,6 +178,7 @@ class HighWatermarkCommand:
                     snapshot,
                     memory_records=tuple(reader.get_memory_snapshots()),
                     native_traces=reader.metadata.has_native_traces,
+                    inverted=inverted,
                 )
         except OSError as e:
             raise MemrayCommandError(
@@ -185,6 +192,7 @@ class HighWatermarkCommand:
                 metadata=reader.metadata,
                 show_memory_leaks=show_memory_leaks,
                 merge_threads=merge_threads,
+                inverted=inverted,
             )
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
@@ -261,6 +269,8 @@ class HighWatermarkCommand:
         if hasattr(args, "split_threads"):
             kwargs["merge_threads"] = not args.split_threads
 
+        if hasattr(args, "inverted"):
+            kwargs["inverted"] = args.inverted
         self.write_report(
             result_path,
             output_file,

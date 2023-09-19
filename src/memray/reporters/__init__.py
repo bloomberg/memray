@@ -16,5 +16,6 @@ class BaseReporter(Protocol):
         metadata: Metadata,
         show_memory_leaks: bool,
         merge_threads: bool,
+        inverted: bool,
     ) -> None:
         ...
