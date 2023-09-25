@@ -5,54 +5,87 @@ The flame graph reporter generates an HTML file containing a flame graph
 representation of the allocations contributing to the tracked process's peak
 memory usage.
 
-Flame graphs are a way to visualize how your program is spending its time.
-A few important things about flame graphs:
+Flame graphs are a way to visualize where your program is spending its
+memory. A few important things about flame graphs:
 
 - The flame graph displays the superposition of all stack traces that
-  lead to memory allocations at a given time (normally the time when the
-  total amount of allocated memory was highest).
+  led to all memory allocations active at a given time (normally the
+  time when the total amount of allocated memory was highest).
+
+- A stack trace is represented as a column of boxes, where each box
+  represents one function call in that call stack.
+
+- The y-axis shows the stack depth. One special row represents the root,
+  the next row represents the top level function calls that eventually
+  led to memory being allocated, the next row represents things directly
+  called by each of those top level calls, and so on. The furthest box
+  from the root in any given vertical slice of the flame graph is the
+  function that actually allocated the memory, and all of the boxes
+  between it and the root tell you the full call stack that led to that
+  allocation.
+
+- The x-axis **does not show the passage of time**, so the left-to-right
+  ordering has no special meaning. Two functions called by the same
+  caller will appear side by side in the flame graph, but can appear in
+  either order.
+
+- The width of each box represents how much memory was allocated by that
+  function call or its children. Wider boxes led to more memory being
+  allocated than narrower ones, in proportion to their width.
 
 - A flame graph can't tell you how many times a function was called,
   only how much memory that function allocated.
 
-- A stack trace is represented as a column of boxes, where each box
-  represents a function call.
+Flames versus Icicles
+---------------------
 
-- The x-axis **does not show the passage of time**, so the left-to-right
-  ordering has no special meaning: every level just shows the collection
-  of functions that were called by the nodes immediately under them.
+In what's traditionally called a flame graph, each function in a call
+stack is shown directly above its caller, with the root at the bottom.
+This is called a "flame graph" because the wide base with narrowing
+columns above it looks sort of like a burning log with flames leaping
+into the air above it.
 
-- The y-axis shows the stack depth, ordered from root at the bottom to
-  leaf at the top. The top box shows the function that made a memory
-  allocation and everything beneath that is its ancestry. The function
-  beneath a function is its parent.
+By default, Memray instead generates what's sometimes called an "icicle
+graph", which instead has the root at the top. In an icicle graph, each
+function is below its caller, and there is a wide ceiling that thinner
+columns descend from, like icicles hanging from a roof. We default to
+the icicle representation because it plays more nicely with the
+browser's scroll bar: the most information-dense portion of an icicle
+graph is at the top of the screen, and the further down the page you
+scroll, the sparser the graphed data becomes, as shallower call stacks
+drop off.
 
-- The width of each function box represents how much memory was
-  allocated by that function or its children. Functions with wider boxes
-  allocated more bytes of memory than those with narrower boxes, in
-  proportion to their width.
+You can switch between the flame graph orientation and the icicle graph
+orientation with this toggle button:
+
+.. image:: _static/images/icicle_flame_toggle.png
+    :align: center
+
+Whichever of these modes you choose, the data shown in the table is the
+same, just mirrored vertically.
 
 Interpreting flame graphs
 -------------------------
 
-Flame graphs can be interpreted as follows:
+Memray's default (icicle mode) flame graphs can be interpreted as
+follows:
 
-- The nodes at the bottom of the flame graph represent functions that
+- The nodes at the bottom of the graph represent functions that
   allocated memory.
 
 - For quickly identifying the functions that allocated more memory
   directly, look for large plateaus along the bottom edge, as these show
   a single stack trace was responsible for a large chunk of the total
-  memory of the snapshot that the flame graph represents.
+  memory of the snapshot that the graph represents.
 
-- Reading flame graphs from the bottom up shows ancestry relationships.
-  Every function is called by its parent, which is shown directly above
+- Reading from the bottom up shows ancestry relationships.
+  Every function was called by its parent, which is shown directly above
   it; the parent was called by its parent shown above it, and so on.
   A quick scan upward from a function identifies how it was called.
 
-- Reading flame graphs from the top down shows code flow and the bigger
-  picture. A function calls all child functions shown below it, which,
-  in turn, call functions shown below them. Reading top down also shows
+- Reading from the top down shows code flow and the bigger picture.
+  A function called every child function shown below it, which,
+  in turn, called functions shown below them. Reading top down shows
   the big picture of code flow before various forks split execution into
   smaller shafts.
 
@@ -60,15 +93,19 @@ Flame graphs can be interpreted as follows:
   mean more memory was allocated by the given node, so those are the
   most important to understand first.
 
-- Major forks in the flame graph (when a node splits into several ones in
+- Major forks in the graph (when a node splits into several nodes in
   the next level) can be useful to study: these nodes can indicate
   a logical grouping of code, where a function processes work in stages,
   each with its own function. It can also be caused by a conditional
   statement, which chooses which function to call.
 
 - If the application is multi-threaded, the stacks of all the threads
-  that contribute to the memory peak will appear commingled in the flame
+  that contribute to the memory peak will appear commingled in the
   graph by default.
+
+And of course, if you switch from the "icicle" view to the "flame" view,
+the root jumps to the bottom of the page, and call stacks grow upwards
+from it instead of downwards.
 
 Simple example
 --------------
@@ -90,7 +127,8 @@ Simple example
    a(100000)
 
 This code allocates memory from the system allocator in just 2 places:
-``c()``, and ``d()``. This is how the flame graph looks:
+``c()``, and ``d()``. This is how a flame graph (with the root at the
+bottom) looks:
 
 .. image:: _static/images/simple_example.png
 
@@ -138,7 +176,7 @@ A more complete example
    a(100000)
 
 This code allocates memory from the system allocator in 5 places:
-``e()``, ``d()``, ``g()``, ``i()`` and ``missing()``. The associated
+``d()``, ``e()``, ``g()``, ``i()`` and ``missing()``. The associated
 flame graph looks like this:
 
 .. image:: _static/images/complex_example.png
@@ -163,7 +201,7 @@ and ``h()``. Understanding why the code does this may be a major clue to
 its logical organization. This may be the result of a conditional (if
 conditional, call ``b()``, else call ``h()``) or a logical grouping of
 stages (where ``a()`` is processed in two parts: ``b()`` and ``h()``).
-In our case we know is the second case, as ``a()`` is creating a list
+In our case we know it's the second case, as ``a()`` is creating a list
 with the result of ``b()`` and ``h()``.
 
 If you look carefully you can notice that ``missing()`` allocates
@@ -195,26 +233,6 @@ checkbox:
 
 Note that allocations in these frames will still be accounted for
 in parent frames, even if they're hidden.
-
-Flames versus Icicles
----------------------
-
-The flame graphs explained above show each function above its caller,
-with the root at the bottom. This is what's traditionally called
-a "flame graph", because the wide base with narrowing columns above it
-looks sort of like a burning log with flames leaping into the air above
-it. Memray also supports what's sometimes called an "icicle graph",
-which has the root at the top. In an icicle graph, each function is
-below its caller, and there is a wide ceiling that thinner columns
-descend from, like icicles hanging from a roof. Whichever of these modes
-you choose, the data shown in the table is the same, just mirrored
-vertically.
-
-You can switch between showing a flame graph and an icicle graph with
-this toggle button:
-
-.. image:: _static/images/icicle_flame_toggle.png
-    :align: center
 
 .. _memory-leaks-view:
 
