@@ -106,7 +106,7 @@ def get_argument_parser() -> argparse.ArgumentParser:
 
         # Add the subcommand
         command_parser = subparsers.add_parser(
-            name, help=command.__doc__, epilog=_EPILOG
+            name, help=command.__doc__, description=command.__doc__, epilog=_EPILOG
         )
         command_parser.set_defaults(entrypoint=command.run)
         command.prepare_parser(command_parser)
