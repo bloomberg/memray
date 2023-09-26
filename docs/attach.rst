@@ -103,12 +103,26 @@ or ``thread backtrace all`` in lldb.
 
 .. _file a bug report: https://github.com/bloomberg/memray/issues/new?assignees=&labels=bug&template=---bug-report.yaml
 
-.. _memray attach cli reference:
-
 CLI Reference
 -------------
+
+.. _memray attach cli reference:
+
+memray attach
+^^^^^^^^^^^^^
 
 .. argparse::
     :ref: memray.commands.get_argument_parser
     :path: attach
     :prog: memray
+    :nodefaultconst:
+    :noepilog:
+
+memray detach
+^^^^^^^^^^^^^
+
+.. argparse::
+    :ref: memray.commands.get_argument_parser
+    :path: detach
+    :prog: memray
+    :nodefaultconst:

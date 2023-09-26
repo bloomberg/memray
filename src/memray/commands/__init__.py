@@ -68,6 +68,7 @@ _COMMANDS: List[Command] = [
     stats.StatsCommand(),
     transform.TransformCommand(),
     attach.AttachCommand(),
+    attach.DetachCommand(),
 ]
 
 

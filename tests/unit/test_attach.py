@@ -24,35 +24,8 @@ class TestAttachSubCommand:
 
 class TestAttachSubCommandOptions:
     @pytest.mark.parametrize(
-        "option",
-        [
-            ["--output", "foo"],
-            ["-o", "foo"],
-            ["--native"],
-            ["--force"],
-            ["-f"],
-            ["--aggregate"],
-            ["--follow-fork"],
-            ["--trace-python-allocators"],
-            ["--no-compress"],
-        ],
-    )
-    def test_memray_attach_stop_tracking_option_with_other_options(
-        self, option, capsys
-    ):
-        # WHEN
-        with pytest.raises(SystemExit):
-            main(["attach", "1234", "--stop-tracking", *option])
-
-        captured = capsys.readouterr()
-        assert "Can't use --stop-tracking with" in captured.err
-        assert option[0] in captured.err.split()
-
-    @pytest.mark.parametrize(
         "arg1,arg2",
         [
-            ("--stop-tracking", "--heap-limit=10"),
-            ("--stop-tracking", "--duration=10"),
             ("--heap-limit=10", "--duration=10"),
         ],
     )
