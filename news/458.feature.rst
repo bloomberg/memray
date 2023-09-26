@@ -1,3 +1,2 @@
 ``memray attach`` has been enhanced to allow tracking for only a set period of
-time, or until a set heap size is reached. You can also manually deactivate
-tracking that was started by a previous call to ``memray attach``.
+time, or until a set heap size is reached.
