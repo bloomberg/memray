@@ -48,6 +48,11 @@ def _get_current_heap_size() -> int:
     return rss_bytes
 
 
+class BareExceptionMessage(Exception):
+    def __repr__(self):
+        return self.args[0]
+
+
 class RepeatingTimer(threading.Thread):
     def __init__(self, interval, function):
         self._interval = interval
@@ -143,6 +148,8 @@ if not hasattr(memray, "_last_tracker"):
 if {mode!r} == "ACTIVATE":
     activate_tracker()
 elif {mode!r} == "DEACTIVATE":
+    if not getattr(memray, "_last_tracker", None):
+        raise BareExceptionMessage("no previous `memray attach` call detected")
     deactivate_last_tracker()
 elif {mode!r} == "UNTIL_HEAP_SIZE":
     track_until_heap_size({heap_size})

@@ -52,7 +52,7 @@ for line in sys.stdin:
 """
 
 
-def generate_command(method, output, *args):
+def generate_attach_command(method, output, *args):
     cmd = [
         sys.executable,
         "-m",
@@ -64,6 +64,23 @@ def generate_command(method, output, *args):
         method,
         "-o",
         str(output),
+    ]
+
+    if args:
+        cmd.extend(args)
+
+    return cmd
+
+
+def generate_detach_command(method, *args):
+    cmd = [
+        sys.executable,
+        "-m",
+        "memray",
+        "detach",
+        "--verbose",
+        "--method",
+        method,
     ]
 
     if args:
@@ -137,7 +154,7 @@ def test_basic_attach(tmp_path, method):
 
     # GIVEN
     output = tmp_path / "test.bin"
-    attach_cmd = generate_command(method, output)
+    attach_cmd = generate_attach_command(method, output)
 
     # WHEN
     run_process(attach_cmd)
@@ -155,7 +172,7 @@ def test_aggregated_attach(tmp_path, method):
 
     # GIVEN
     output = tmp_path / "test.bin"
-    attach_cmd = generate_command(method, output, "--aggregate")
+    attach_cmd = generate_attach_command(method, output, "--aggregate")
 
     # WHEN
     run_process(attach_cmd)
@@ -180,7 +197,7 @@ def test_attach_heap(tmp_path, method):
     # GIVEN
     limit = 50 * 1024 * 1024
     output = tmp_path / "test.bin"
-    attach_cmd = generate_command(method, output, "--heap-limit", str(limit))
+    attach_cmd = generate_attach_command(method, output, "--heap-limit", str(limit))
 
     # WHEN
     process_stderr = run_process(attach_cmd, wait_for_stderr=True)
@@ -197,10 +214,29 @@ def test_attach_time(tmp_path, method):
 
     # GIVEN
     output = tmp_path / "test.bin"
-    attach_cmd = generate_command(method, output, "--duration", "1")
+    attach_cmd = generate_attach_command(method, output, "--duration", "1")
 
     # WHEN
     process_stderr = run_process(attach_cmd, wait_for_stderr=True)
 
     # THEN
     assert "memray: Deactivating tracking: 1 seconds have elapsed" in process_stderr
+
+
+@pytest.mark.parametrize("method", ["lldb", "gdb"])
+def test_detach_without_attach(method):
+    if not debugger_available(method):
+        pytest.skip(f"a supported {method} debugger isn't installed")
+
+    # GIVEN
+    detach_cmd = generate_detach_command(method)
+
+    # WHEN
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        run_process(detach_cmd)
+
+    # THEN
+    assert (
+        "Failed to stop tracking in remote process:"
+        " no previous `memray attach` call detected"
+    ) in exc_info.value.stdout
