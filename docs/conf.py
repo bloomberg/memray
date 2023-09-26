@@ -1,5 +1,7 @@
 """Sphinx configuration file for memray's documentation."""
 
+import os
+
 # -- General configuration ------------------------------------------------------------
 
 # The name of a reST role (builtin or Sphinx extension) to use as the default role,
@@ -57,3 +59,10 @@ intersphinx_mapping = {
         (None,),
     ),
 }
+
+# -- Options for sphinx-argparse ------------------------------------------------------
+
+# Limit the width of usage messages. argparse defaults to the terminal width,
+# but we don't want different output depending on the terminal width where the
+# docs were built.
+os.environ["COLUMNS"] = "88"
