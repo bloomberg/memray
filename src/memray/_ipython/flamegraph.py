@@ -47,7 +47,7 @@ def argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trace-python-allocators",
         action="store_true",
-        help="Record allocations made by the Pymalloc allocator",
+        help="Record allocations made by the pymalloc allocator",
         default=False,
     )
     alloc_type_group = parser.add_mutually_exclusive_group()

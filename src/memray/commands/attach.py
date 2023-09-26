@@ -264,7 +264,7 @@ class AttachCommand:
         parser.add_argument(
             "--trace-python-allocators",
             action="store_true",
-            help="Record allocations made by the Pymalloc allocator",
+            help="Record allocations made by the pymalloc allocator",
             default=False,
         )
         compression = parser.add_mutually_exclusive_group()
