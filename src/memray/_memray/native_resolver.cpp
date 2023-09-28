@@ -14,53 +14,46 @@ static const logLevel RESOLVE_LIB_LOG_LEVEL = DEBUG;
 static const logLevel RESOLVE_LIB_LOG_LEVEL = WARNING;
 #endif
 
-StringStorage::StringStorage()
+std::unordered_set<std::string> InternedString::s_interned_data = []() {
+    std::unordered_set<std::string> ret;
+    ret.reserve(4096);
+    return ret;
+}();
+
+std::mutex InternedString::s_mutex;
+
+InternedString::InternedString(const std::string& orig)
+: d_ref(internString(orig))
 {
-    d_interned_data.reserve(4096);
-    d_interned_data_storage.reserve(4096);
-}
-
-size_t
-StringStorage::internString(const std::string& str, const char** interned_string)
-{
-    if (str.empty()) {
-        return 0;
-    }
-
-    const size_t id = d_interned_data.size() + 1;
-    auto inserted = d_interned_data.insert({str, id});
-    if (interned_string) {
-        *interned_string = inserted.first->first.c_str();
-    }
-
-    if (!inserted.second) {
-        return inserted.first->second;
-    }
-    //  C++11 standard § 23.2.5/8: Rehashing the elements of an unordered associative container
-    //  invalidates iterators, changes ordering between elements, and changes which buckets elements
-    //  appear in, but does not invalidate pointers or references to elements.
-    d_interned_data_storage.push_back(&inserted.first->first);
-
-    return id;
 }
 
 const std::string&
-StringStorage::resolveString(size_t index) const
+InternedString::get() const
 {
-    assert(index != 0);
-    return *d_interned_data_storage.at(index - 1);
+    return d_ref.get();
+}
+
+InternedString::operator const std::string&() const
+{
+    return d_ref.get();
+}
+
+std::reference_wrapper<const std::string>
+InternedString::internString(const std::string& orig)
+{
+    std::lock_guard<std::mutex> lock(s_mutex);
+    auto inserted = s_interned_data.insert(orig);
+    return *inserted.first;
 }
 
 MemorySegment::MemorySegment(
-        std::string filename,
+        InternedString filename,
         uintptr_t start,
         uintptr_t end,
-        backtrace_state* state,
-        size_t filename_index)
-: d_filename(std::move(filename))
+        backtrace_state* state)
+: d_filename(filename)
 , d_start(start)
 , d_end(end)
-, d_index(filename_index)
 , d_state(state)
 {
 }
@@ -107,7 +100,7 @@ MemorySegment::resolveFromSymbolTable(uintptr_t address, MemorySegment::Expanded
     auto error_callback = [](void* _data, const char* msg, int errnum) {
         auto* data = reinterpret_cast<const CallbackData*>(_data);
         LOG(ERROR) << "Error getting backtrace for address " << std::hex << data->address << std::dec
-                   << " in segment " << data->segment->d_filename << " (errno " << errnum
+                   << " in segment " << data->segment->d_filename.get() << " (errno " << errnum
                    << "): " << msg;
     };
     backtrace_syminfo(d_state, address, callback, error_callback, &data);
@@ -157,14 +150,15 @@ MemorySegment::resolveIp(uintptr_t address) const
 bool
 MemorySegment::operator<(const MemorySegment& segment) const
 {
-    return std::tie(d_start, d_end, d_index) < std::tie(segment.d_start, segment.d_end, segment.d_index);
+    return std::tie(d_start, d_end, d_filename.get())
+           < std::tie(segment.d_start, segment.d_end, segment.d_filename.get());
 }
 
 bool
 MemorySegment::operator!=(const MemorySegment& segment) const
 {
-    return std::tie(d_start, d_end, d_index)
-           != std::tie(segment.d_start, segment.d_end, segment.d_index);
+    return std::tie(d_start, d_end, d_filename.get())
+           != std::tie(segment.d_start, segment.d_end, segment.d_filename.get());
 }
 
 bool
@@ -185,38 +179,29 @@ MemorySegment::end() const
     return d_end;
 }
 
-uintptr_t
-MemorySegment::filenameIndex() const
-{
-    return d_index;
-}
-
-const std::string&
+InternedString
 MemorySegment::filename() const
 {
     return d_filename;
 }
 
-ResolvedFrame::ResolvedFrame(
-        const MemorySegment::Frame& frame,
-        const std::shared_ptr<StringStorage>& d_string_storage)
-: d_string_storage(d_string_storage)
-, d_symbol_index(d_string_storage->internString(frame.symbol))
-, d_file_index(d_string_storage->internString(frame.filename))
-, d_line(frame.lineno)
+ResolvedFrame::ResolvedFrame(InternedString symbol, InternedString filename, int lineno)
+: d_symbol(symbol)
+, d_filename(filename)
+, d_line(lineno)
 {
 }
 
 const std::string&
 ResolvedFrame::Symbol() const
 {
-    return d_string_storage->resolveString(d_symbol_index);
+    return d_symbol;
 }
 
 const std::string&
 ResolvedFrame::File() const
 {
-    return d_string_storage->resolveString(d_file_index);
+    return d_filename;
 }
 
 int
@@ -224,6 +209,7 @@ ResolvedFrame::Line() const
 {
     return d_line;
 }
+
 PyObject*
 ResolvedFrame::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const
 {
@@ -255,7 +241,7 @@ ResolvedFrame::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) c
 const std::string&
 ResolvedFrames::memoryMap() const
 {
-    return d_string_storage->resolveString(d_memory_map_index);
+    return d_interned_memory_map_name;
 }
 
 const std::vector<ResolvedFrame>&
@@ -315,27 +301,28 @@ SymbolResolver::resolveFromSegments(uintptr_t ip, size_t generation)
     if (expanded_frame.empty()) {
         return nullptr;
     }
-    auto segment_index = segment->filenameIndex();
     std::transform(
             expanded_frame.begin(),
             expanded_frame.end(),
             std::back_inserter(frames),
-            [this](const auto& frame) {
-                return ResolvedFrame{frame, d_string_storage};
+            [](const auto& frame) {
+                return ResolvedFrame{
+                        InternedString(frame.symbol),
+                        InternedString(frame.filename),
+                        frame.lineno,
+                };
             });
-    return std::make_shared<ResolvedFrames>(segment_index, std::move(frames), d_string_storage);
+    return std::make_shared<ResolvedFrames>(segment->filename(), std::move(frames));
 }
 
 void
 SymbolResolver::addSegment(
-        const std::string& filename,
+        InternedString filename,
         backtrace_state* backtrace_state,
-        const size_t filename_index,
         const uintptr_t address_start,
         const uintptr_t address_end)
 {
-    currentSegments()
-            .emplace_back(filename, address_start, address_end, backtrace_state, filename_index);
+    currentSegments().emplace_back(filename, address_start, address_end, backtrace_state);
     d_are_segments_dirty = true;
 }
 
@@ -347,10 +334,8 @@ SymbolResolver::addSegments(
 {
     // We use a char* for the filename to reduce the memory footprint and
     // because the libbacktrace callback in findBacktraceState operates on char*
-    const char* interned_filename = nullptr;
-    auto filename_index = d_string_storage->internString(filename, &interned_filename);
-
-    auto state = findBacktraceState(interned_filename, addr);
+    InternedString interned_filename(filename);
+    auto state = findBacktraceState(interned_filename.get().c_str(), addr);
     if (state == nullptr) {
         LOG(RESOLVE_LIB_LOG_LEVEL) << "Failed to prepare a backtrace state for " << filename;
         return;
@@ -359,7 +344,7 @@ SymbolResolver::addSegments(
     for (const auto& segment : segments) {
         const uintptr_t segment_start = addr + segment.vaddr;
         const uintptr_t segment_end = addr + segment.vaddr + segment.memsz;
-        addSegment(filename, state, filename_index, segment_start, segment_end);
+        addSegment(interned_filename, state, segment_start, segment_end);
     }
 }
 

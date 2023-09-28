@@ -9,6 +9,7 @@
 #include <tuple>
 #include <unistd.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -25,24 +26,20 @@ namespace memray::native_resolver {
 static constexpr int PREALLOCATED_BACKTRACE_STATES = 64;
 static constexpr int PREALLOCATED_IPS_CACHE_ITEMS = 32768;
 
-class StringStorage
+class InternedString
 {
   public:
-    // Constructors
-    StringStorage();
-    StringStorage(StringStorage& other) = delete;
-    StringStorage(StringStorage&& other) = delete;
-    void operator=(const StringStorage&) = delete;
-    void operator=(StringStorage&&) = delete;
-
-    // Methods
-    size_t internString(const std::string& str, const char** interned_string = nullptr);
-    const std::string& resolveString(size_t index) const;
+    explicit InternedString(const std::string& orig);
+    const std::string& get() const;
+    operator const std::string&() const;
 
   private:
-    // Data members
-    std::unordered_map<std::string, size_t> d_interned_data;
-    std::vector<const std::string*> d_interned_data_storage;
+    static std::reference_wrapper<const std::string> internString(const std::string& orig);
+
+    std::reference_wrapper<const std::string> d_ref;
+
+    static std::mutex s_mutex;
+    static std::unordered_set<std::string> s_interned_data;
 };
 
 class MemorySegment
@@ -59,12 +56,8 @@ class MemorySegment
     using ExpandedFrame = std::vector<Frame>;
 
     // Constructors
-    MemorySegment(
-            std::string filename,
-            uintptr_t start,
-            uintptr_t end,
-            backtrace_state* state,
-            size_t filename_index);
+    MemorySegment(InternedString filename, uintptr_t start, uintptr_t end, backtrace_state* state);
+
     ExpandedFrame resolveIp(uintptr_t address) const;
     bool operator<(const MemorySegment& segment) const;
     bool operator!=(const MemorySegment& segment) const;
@@ -73,8 +66,7 @@ class MemorySegment
     // Getters
     uintptr_t start() const;
     uintptr_t end() const;
-    size_t filenameIndex() const;
-    const std::string& filename() const;
+    InternedString filename() const;
 
   private:
     // Methods
@@ -82,10 +74,9 @@ class MemorySegment
     void resolveFromSymbolTable(uintptr_t address, ExpandedFrame& expanded_frame) const;
 
     // Data members
-    std::string d_filename;
+    InternedString d_filename;
     uintptr_t d_start;
     uintptr_t d_end;
-    size_t d_index;
     backtrace_state* d_state;
 };
 
@@ -93,9 +84,7 @@ class ResolvedFrame
 {
   public:
     // Constructors
-    ResolvedFrame(
-            const MemorySegment::Frame& frame,
-            const std::shared_ptr<StringStorage>& string_storage);
+    ResolvedFrame(InternedString symbol, InternedString filename, int lineno);
 
     // Methods
     PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;
@@ -107,9 +96,8 @@ class ResolvedFrame
 
   private:
     // Data members
-    std::shared_ptr<StringStorage> d_string_storage;
-    size_t d_symbol_index;
-    size_t d_file_index;
+    InternedString d_symbol;
+    InternedString d_filename;
     int d_line;
 };
 
@@ -118,10 +106,9 @@ class ResolvedFrames
   public:
     // Constructors
     template<typename T>
-    ResolvedFrames(size_t memory_map_index, T&& frames, std::shared_ptr<StringStorage> strings_storage)
-    : d_memory_map_index(memory_map_index)
+    ResolvedFrames(InternedString interned_memory_map_name, T&& frames)
+    : d_interned_memory_map_name(interned_memory_map_name)
     , d_frames(std::forward<T>(frames))
-    , d_string_storage(std::move(strings_storage))
     {
     }
 
@@ -131,9 +118,8 @@ class ResolvedFrames
 
   private:
     // Data members
-    size_t d_memory_map_index{0};
+    InternedString d_interned_memory_map_name;
     std::vector<ResolvedFrame> d_frames{};
-    std::shared_ptr<StringStorage> d_string_storage{nullptr};
 };
 
 class SymbolResolver
@@ -170,9 +156,8 @@ class SymbolResolver
 
     // Methods
     void addSegment(
-            const std::string& filename,
+            InternedString filename,
             backtrace_state* backtrace_state,
-            size_t filename_index,
             uintptr_t address_start,
             uintptr_t address_end);
     std::vector<MemorySegment>& currentSegments();
@@ -182,7 +167,6 @@ class SymbolResolver
     std::unordered_map<size_t, std::vector<MemorySegment>> d_segments;
     bool d_are_segments_dirty = false;
     std::unordered_map<const char*, backtrace_state*> d_backtrace_states;
-    std::shared_ptr<StringStorage> d_string_storage{std::make_shared<StringStorage>()};
     mutable std::unordered_map<ips_cache_pair_t, resolved_frames_t, ips_cache_pair_hash>
             d_resolved_ips_cache;
 };
