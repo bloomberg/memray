@@ -137,7 +137,8 @@ class SymbolResolver
             uintptr_t addr,
             const std::vector<tracking_api::Segment>& segments);
     void clearSegments();
-    backtrace_state* findBacktraceState(const char* filename, uintptr_t address_start);
+
+    static backtrace_state* getBacktraceState(InternedString filename, uintptr_t address_start);
 
     // Getters
     size_t currentSegmentGeneration() const;
@@ -145,7 +146,8 @@ class SymbolResolver
   private:
     // Aliases and helpers
     using ips_cache_pair_t = std::pair<uintptr_t, ssize_t>;
-    struct ips_cache_pair_hash
+
+    struct pair_hash
     {
         template<class T1, class T2>
         std::size_t operator()(const std::pair<T1, T2>& pair) const
@@ -153,6 +155,9 @@ class SymbolResolver
             return std::hash<T1>()(pair.first) ^ std::hash<T2>()(pair.second);
         }
     };
+
+    using BacktraceStateCache =
+            std::unordered_map<std::pair<const char*, uintptr_t>, backtrace_state*, pair_hash>;
 
     // Methods
     void addSegment(
@@ -166,9 +171,10 @@ class SymbolResolver
     // Data members
     std::unordered_map<size_t, std::vector<MemorySegment>> d_segments;
     bool d_are_segments_dirty = false;
-    std::unordered_map<const char*, backtrace_state*> d_backtrace_states;
-    mutable std::unordered_map<ips_cache_pair_t, resolved_frames_t, ips_cache_pair_hash>
-            d_resolved_ips_cache;
+    mutable std::unordered_map<ips_cache_pair_t, resolved_frames_t, pair_hash> d_resolved_ips_cache;
+
+    static std::mutex s_backtrace_states_mutex;
+    static BacktraceStateCache s_backtrace_states;
 };
 
 std::vector<std::string>
