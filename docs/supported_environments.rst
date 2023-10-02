@@ -11,7 +11,7 @@ Supported Python versions
 
 Every Python version that hasn't reached end of life is supported.
 
-Currently that's Python 3.7 through 3.11.
+Currently that's Python 3.7 through 3.12.
 
 Supported operating systems
 ---------------------------
