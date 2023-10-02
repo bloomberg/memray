@@ -22,6 +22,14 @@ std::unordered_set<std::string> InternedString::s_interned_data = []() {
 
 std::mutex InternedString::s_mutex;
 
+SymbolResolver::BacktraceStateCache SymbolResolver::s_backtrace_states = []() {
+    SymbolResolver::BacktraceStateCache ret;
+    ret.reserve(PREALLOCATED_BACKTRACE_STATES);
+    return ret;
+}();
+
+std::mutex SymbolResolver::s_backtrace_states_mutex;
+
 InternedString::InternedString(const std::string& orig)
 : d_ref(internString(orig))
 {
@@ -252,7 +260,6 @@ ResolvedFrames::frames() const
 
 SymbolResolver::SymbolResolver()
 {
-    d_backtrace_states.reserve(PREALLOCATED_BACKTRACE_STATES);
     d_resolved_ips_cache.reserve(PREALLOCATED_IPS_CACHE_ITEMS);
 }
 
@@ -332,10 +339,8 @@ SymbolResolver::addSegments(
         uintptr_t addr,
         const std::vector<tracking_api::Segment>& segments)
 {
-    // We use a char* for the filename to reduce the memory footprint and
-    // because the libbacktrace callback in findBacktraceState operates on char*
     InternedString interned_filename(filename);
-    auto state = findBacktraceState(interned_filename.get().c_str(), addr);
+    auto state = getBacktraceState(interned_filename, addr);
     if (state == nullptr) {
         LOG(RESOLVE_LIB_LOG_LEVEL) << "Failed to prepare a backtrace state for " << filename;
         return;
@@ -363,13 +368,17 @@ SymbolResolver::clearSegments()
 }
 
 backtrace_state*
-SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start)
+SymbolResolver::getBacktraceState(InternedString interned_filename, uintptr_t address_start)
 {
-    // We hash into "d_backtrace_states" using a char* as it's safe on the condition that every
-    // const char* used as a key in the map is one that was returned by "d_string_storage",
-    // and it's safe because no pointer that's returned by "d_string_storage" is ever invalidated.
-    auto it = d_backtrace_states.find(filename);
-    if (it != d_backtrace_states.end()) {
+    // We hash into "s_backtrace_states" using a `const char*`. This is safe
+    // because every `const char*` we save is owned by an interned string.
+    const char* filename = interned_filename.get().c_str();
+    auto key = std::make_pair(filename, address_start);
+
+    std::lock_guard<std::mutex> lock(s_backtrace_states_mutex);
+
+    auto it = s_backtrace_states.find(key);
+    if (it != s_backtrace_states.end()) {
         return it->second;
     }
 
@@ -385,7 +394,7 @@ SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start
                                    << "(errno " << errnum << "): " << msg;
     };
 
-    auto state = backtrace_create_state(data.fileName, false, errorHandler, &data);
+    auto state = backtrace_create_state(data.fileName, true, errorHandler, &data);
 
     if (!state) {
         return nullptr;
@@ -432,7 +441,8 @@ SymbolResolver::findBacktraceState(const char* filename, uintptr_t address_start
         return nullptr;
 #endif
     }
-    d_backtrace_states.insert(it, {filename, state});
+
+    s_backtrace_states.insert(it, {key, state});
     return state;
 }
 
