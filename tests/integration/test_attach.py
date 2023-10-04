@@ -121,7 +121,7 @@ def run_process(cmd, wait_for_stderr=False):
             print(exc.output)
             raise
     finally:
-        tracked_process.stdin.write("1\n")
+        print("1", file=tracked_process.stdin, flush=True)
         if wait_for_stderr:
             process_stderr = tracked_process.stderr.readline()
             while "WARNING" in process_stderr:
