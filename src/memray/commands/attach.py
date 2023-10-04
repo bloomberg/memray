@@ -24,7 +24,7 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
-TrackingMode = Literal["ACTIVATE", "DEACTIVATE", "UNTIL_HEAP_SIZE", "FOR_DURATION"]
+TrackingMode = Literal["ACTIVATE", "DEACTIVATE", "FOR_DURATION"]
 
 
 GDB_SCRIPT = pathlib.Path(__file__).parent / "_attach.gdb"
@@ -40,12 +40,6 @@ import sys
 from contextlib import suppress
 
 import memray
-
-
-def _get_current_heap_size() -> int:
-    usage = resource.getrusage(resource.RUSAGE_SELF)
-    rss_bytes = usage.ru_maxrss * 1024  # Convert from KB to bytes
-    return rss_bytes
 
 
 class BareExceptionMessage(Exception):
@@ -102,28 +96,6 @@ def activate_tracker():
     memray._attach_event_threads = []
 
 
-def track_until_heap_size(heap_size):
-    activate_tracker()
-
-    def check_heap_size() -> bool:
-        current_heap_size = _get_current_heap_size()
-        if current_heap_size >= heap_size:
-            print(
-                "memray: Deactivating tracking: heap size has reached",
-                current_heap_size,
-                "bytes, the limit was",
-                heap_size,
-                file=sys.stderr,
-            )
-            deactivate_last_tracker()
-            return True  # Condition we were waiting for has happened
-        return False  # Keep polling
-
-    thread = RepeatingTimer(1, check_heap_size)
-    thread.start()
-    memray._attach_event_threads.append(thread)
-
-
 def track_for_duration(duration=5):
     activate_tracker()
 
@@ -151,8 +123,6 @@ elif {mode!r} == "DEACTIVATE":
     if not getattr(memray, "_last_tracker", None):
         raise BareExceptionMessage("no previous `memray attach` call detected")
     deactivate_last_tracker()
-elif {mode!r} == "UNTIL_HEAP_SIZE":
-    track_until_heap_size({heap_size})
 elif {mode!r} == "FOR_DURATION":
     track_for_duration({duration})
 """
@@ -443,12 +413,7 @@ class AttachCommand(_DebuggerCommand):
             action="store_true",
         )
 
-        mode = parser.add_mutually_exclusive_group()
-        mode.add_argument(
-            "--heap-limit", type=int, help="Heap size to track until (in bytes)"
-        )
-
-        mode.add_argument(
+        parser.add_argument(
             "--duration", type=int, help="Duration to track for (in seconds)"
         )
 
@@ -458,12 +423,8 @@ class AttachCommand(_DebuggerCommand):
         verbose = args.verbose
         mode: TrackingMode = "ACTIVATE"
         duration = None
-        heap_size = None
 
-        if args.heap_limit:
-            mode = "UNTIL_HEAP_SIZE"
-            heap_size = args.heap_limit
-        elif args.duration:
+        if args.duration:
             mode = "FOR_DURATION"
             duration = args.duration
 
@@ -503,7 +464,6 @@ class AttachCommand(_DebuggerCommand):
             PAYLOAD.format(
                 tracker_call=tracker_call,
                 mode=mode,
-                heap_size=heap_size,
                 duration=duration,
             ).encode("utf-8")
         )
@@ -561,7 +521,6 @@ class DetachCommand(_DebuggerCommand):
             PAYLOAD.format(
                 tracker_call=None,
                 mode=mode,
-                heap_size=None,
                 duration=None,
             ).encode("utf-8")
         )

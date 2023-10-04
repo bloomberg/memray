@@ -190,24 +190,6 @@ def test_aggregated_attach(tmp_path, method):
 
 
 @pytest.mark.parametrize("method", ["lldb", "gdb"])
-def test_attach_heap(tmp_path, method):
-    if not debugger_available(method):
-        pytest.skip(f"a supported {method} debugger isn't installed")
-
-    # GIVEN
-    limit = 50 * 1024 * 1024
-    output = tmp_path / "test.bin"
-    attach_cmd = generate_attach_command(method, output, "--heap-limit", str(limit))
-
-    # WHEN
-    process_stderr = run_process(attach_cmd, wait_for_stderr=True)
-
-    # THEN
-    assert "memray: Deactivating tracking: heap size has reached" in process_stderr
-    assert f" the limit was {limit}" in process_stderr
-
-
-@pytest.mark.parametrize("method", ["lldb", "gdb"])
 def test_attach_time(tmp_path, method):
     if not debugger_available(method):
         pytest.skip(f"a supported {method} debugger isn't installed")
