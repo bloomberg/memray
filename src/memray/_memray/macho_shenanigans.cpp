@@ -309,6 +309,15 @@ patch_symbols_in_shared_object(
                                << section->sectname << ")";
                     continue;
                 }
+                // MacOS has some memory interposition libraries that can make us crash (via
+                // stackoverflow when initializing TLS variables) if we patch them. This is because these
+                // libraries interact in a way we cannot avoid with libdyld, which in turn sets the TLS
+                // on first init.
+                if (strstr(image_name, "MallocStackLogging")) {
+                    LOG(DEBUG) << "Skipping section " << i << " (" << section->segname << ":"
+                               << section->sectname << ")";
+                    continue;
+                }
                 LOG(DEBUG) << "Patching section " << i << " (" << section->segname << ":"
                            << section->sectname << ")";
                 patch_stubs(section, slide, dyninfo_table, restore_original);
