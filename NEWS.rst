@@ -8,6 +8,34 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.10.0 (2023-10-05)
+--------------------------
+
+Features
+~~~~~~~~
+
+- Add support for :ref:`inverted flame graphs`. In an inverted flame graph, the
+  roots are the functions that allocated memory, and the children of any given
+  node represent the percentage of that node's allocations that can be attributed
+  to a particular caller. The inverted flame graph is very helpful in analyzing
+  where memory is being spent in aggregate. You can generate one by passing the
+  ``--inverted`` flag to ``memray flamegraph``. (#439)
+- ``memray attach`` now supports ``--aggregate`` to produce :ref:`aggregated capture files <aggregated capture files>`. (#455)
+- ``memray attach`` has been enhanced to allow tracking for only a set period of
+  time. (#458)
+- A new ``memray detach`` command allows you to manually deactivate tracking that
+  was started by a previous call to ``memray attach``. (#458)
+- Python 3.12 is now supported. (#474)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Update ``memray attach`` on Linux to prefer GDB over LLDB for injecting itself into the process being attached to. We've had several reports of problems with the Linux LLDB, and hope this change will help give Linux users a better experience by default. You can still explicitly use LLDB on Linux even when GDB is detected by running ``memray attach --method=lldb``. (#449)
+- Fix a memory leak in Memray itself when many different capture files are opened by a single Memray process and native stacks are being reported. This issue primarily affected ``pytest-memray``. (#473)
+- Fix a crash in MacOS Sonoma when using system Framework libraries, like when using the ``pyobjc`` library. (#477)
+
+
 memray 1.9.1 (2023-08-01)
 -------------------------
 
