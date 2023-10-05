@@ -1,2 +1,0 @@
-A new ``memray detach`` command allows you to manually deactivate tracking that
-was started by a previous call to ``memray attach``.

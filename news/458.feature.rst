@@ -1,2 +1,0 @@
-``memray attach`` has been enhanced to allow tracking for only a set period of
-time.
