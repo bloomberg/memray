@@ -1021,14 +1021,19 @@ class TestMmap:
         def custom_trace_fn():  # pragma: no cover
             pass
 
-        threading.setprofile(custom_trace_fn)
-        t = threading.Thread(target=TestMmap.allocating_function)
-        with Tracker(output):
-            t.start()
-            t.join()
+        try:
+            threading.setprofile(custom_trace_fn)
+            t = threading.Thread(target=TestMmap.allocating_function)
+            with Tracker(output):
+                t.start()
+                t.join()
+        finally:
+            profile_hook = threading._profile_hook
+            threading.setprofile(None)
 
         # THEN
-        assert threading._profile_hook == custom_trace_fn
+        assert threading._profile_hook is None
+        assert profile_hook == custom_trace_fn
         records = list(FileReader(output).get_allocation_records())
 
         assert len(records) >= 2
