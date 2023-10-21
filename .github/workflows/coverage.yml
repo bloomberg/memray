@@ -10,9 +10,6 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - "docs/**"
-      - "CONTRIBUTING.md"
   release:
     types:
       - published
