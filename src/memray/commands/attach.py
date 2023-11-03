@@ -192,7 +192,10 @@ def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
         print(f"debugger return code: {returncode}")
         print(f"debugger output:\n{output}")
 
-    if returncode == 0 and ' = "SUCCESS"' in output:
+    command_output_lines = (
+        line for line in output.splitlines() if not line.startswith(f"({debugger})")
+    )
+    if returncode == 0 and any(' "SUCCESS"' in line for line in command_output_lines):
         return None
 
     # An error occurred. Give the best message we can. This is hacky; we don't
