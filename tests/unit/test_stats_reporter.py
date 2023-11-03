@@ -99,6 +99,7 @@ def fake_stats():
             pid=123456,
             python_allocator="pymalloc",
             has_native_traces=False,
+            trace_python_allocators=True,
         ),
         total_num_allocations=20,
         total_memory_allocated=sum(mem_allocation_list),
@@ -436,6 +437,7 @@ def test_stats_output_json(fake_stats, tmp_path):
             "pid": 123456,
             "python_allocator": "pymalloc",
             "has_native_traces": False,
+            "trace_python_allocators": True,
         },
     }
     actual = json.loads(output_file.read_text())

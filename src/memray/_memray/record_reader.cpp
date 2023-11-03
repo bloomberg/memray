@@ -87,7 +87,10 @@ RecordReader::readHeader(HeaderRecord& header)
                 sizeof(header.skipped_frames_on_main_tid))
         || !d_input->read(
                 reinterpret_cast<char*>(&header.python_allocator),
-                sizeof(header.python_allocator)))
+                sizeof(header.python_allocator))
+        || !d_input->read(
+                reinterpret_cast<char*>(&header.trace_python_allocators),
+                sizeof(header.trace_python_allocators)))
     {
         throw std::ios_base::failure("Failed to read input file header.");
     }
@@ -936,7 +939,7 @@ RecordReader::dumpAllRecords()
     printf("HEADER magic=%.*s version=%d native_traces=%s file_format=%s"
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
            " pid=%d main_tid=%lu skipped_frames_on_main_tid=%zd"
-           " command_line=%s python_allocator=%s\n",
+           " command_line=%s python_allocator=%s trace_python_allocators=%s\n",
            (int)sizeof(d_header.magic),
            d_header.magic,
            d_header.version,
@@ -950,7 +953,8 @@ RecordReader::dumpAllRecords()
            d_header.main_tid,
            d_header.skipped_frames_on_main_tid,
            d_header.command_line.c_str(),
-           python_allocator.c_str());
+           python_allocator.c_str(),
+           d_header.trace_python_allocators ? "true" : "false");
 
     switch (d_header.file_format) {
         case FileFormat::ALL_ALLOCATIONS:

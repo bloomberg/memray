@@ -673,6 +673,7 @@ cdef class Tracker:
                 command_line,
                 native_traces,
                 file_format,
+                trace_python_allocators,
             )
         )
 
@@ -753,6 +754,7 @@ cdef _create_metadata(header, peak_memory):
         pid=header["pid"],
         python_allocator=allocator_id_to_name[header["python_allocator"]],
         has_native_traces=header["native_traces"],
+        trace_python_allocators=header["trace_python_allocators"],
     )
 
 

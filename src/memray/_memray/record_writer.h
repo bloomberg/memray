@@ -62,7 +62,8 @@ createRecordWriter(
         std::unique_ptr<memray::io::Sink> sink,
         const std::string& command_line,
         bool native_traces,
-        FileFormat file_format);
+        FileFormat file_format,
+        bool trace_python_allocators);
 
 template<typename T>
 bool inline RecordWriter::writeSimpleType(const T& item)

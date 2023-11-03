@@ -18,7 +18,7 @@
 namespace memray::tracking_api {
 
 extern const char MAGIC[7];  // Value assigned in records.cpp
-const int CURRENT_HEADER_VERSION = 10;
+const int CURRENT_HEADER_VERSION = 11;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
@@ -118,6 +118,7 @@ struct HeaderRecord
     thread_id_t main_tid{};
     size_t skipped_frames_on_main_tid{};
     PythonAllocatorType python_allocator{};
+    bool trace_python_allocators{};
 };
 
 struct MemoryRecord
