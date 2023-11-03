@@ -1,0 +1,1 @@
+When generating a ``--leaks`` flamegraph, don't show a warning that the ``pymalloc`` allocator is in use if ``--trace-python-allocators`` was used when generating the capture file.

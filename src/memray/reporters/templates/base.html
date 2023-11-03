@@ -55,16 +55,21 @@
   <main class="container-fluid">
     <div class="row">
       <div class="col bg-light py-3">
-        {% if show_memory_leaks and metadata.python_allocator == "pymalloc" %}
+        {% if show_memory_leaks and metadata.python_allocator == "pymalloc" and not metadata.trace_python_allocators %}
         <div class="alert alert-warning alert-dismissible fade show" role="alert">
-          <p><strong>Report generated using "--leaks" using pymalloc
-              allocator</strong></p>
-          <p>This report for memory leaks was generated with the
-            pymalloc allocator active. This can show confusing results because
-            the Python allocator doesn't necessarily release memory to
-            the system when Python objects are deallocated and these can still
-            appear as "leaks". If you want to exclude these, you can run your
-            application with the `PYTHONMALLOC=malloc` environment variable set.
+          <p><strong>Report generated using "--leaks" using pymalloc allocator</strong></p>
+          <p>
+            This report for memory leaks was generated with the pymalloc
+            allocator active, but without tracking enabled for calls to the
+            pymalloc allocator. This will show confusing results because the
+            pymalloc allocator will retain memory in memory pools even after
+            the objects that requested that memory are deallocated, and Memray
+            won't be able to distinguish memory set aside for reuse from leaked
+            memory. You should rerun your application with the
+            `PYTHONMALLOC=malloc` environment variable set or pass the
+            `--trace-python-allocators` flag when profiling your application.
+            <a href="https://bloomberg.github.io/memray/python_allocators.html">
+            Click here</a> for more information.
           </p>
           <button type="button" class="close" data-dismiss="alert" aria-label="Close">
             <span aria-hidden="true">&times;</span>

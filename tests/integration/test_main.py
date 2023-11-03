@@ -112,8 +112,17 @@ def _wait_until_process_blocks(pid: int) -> None:
         time.sleep(0.1)
 
 
-def generate_sample_results(tmp_path, code, *, native=False):
+def generate_sample_results(
+    tmp_path,
+    code,
+    *,
+    native=False,
+    trace_python_allocators=False,
+    disable_pymalloc=False,
+):
     results_file = tmp_path / "result.bin"
+    env = os.environ.copy()
+    env["PYTHONMALLOC"] = "malloc" if disable_pymalloc else "pymalloc"
     subprocess.run(
         [
             sys.executable,
@@ -121,6 +130,7 @@ def generate_sample_results(tmp_path, code, *, native=False):
             "memray",
             "run",
             *(["--native"] if native else []),
+            *(["--trace-python-allocators"] if trace_python_allocators else []),
             "--output",
             str(results_file),
             str(code),
@@ -129,6 +139,7 @@ def generate_sample_results(tmp_path, code, *, native=False):
         check=True,
         capture_output=True,
         text=True,
+        env=env,
     )
     return results_file, code
 
@@ -749,6 +760,48 @@ class TestFlamegraphSubCommand:
         # THEN
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
+
+    @pytest.mark.parametrize("trace_python_allocators", [True, False])
+    @pytest.mark.parametrize("disable_pymalloc", [True, False])
+    def test_leaks_with_pymalloc_warning(
+        self,
+        tmp_path,
+        simple_test_file,
+        trace_python_allocators,
+        disable_pymalloc,
+    ):
+        results_file, _ = generate_sample_results(
+            tmp_path,
+            simple_test_file,
+            native=True,
+            trace_python_allocators=trace_python_allocators,
+            disable_pymalloc=disable_pymalloc,
+        )
+        output_file = tmp_path / "output.html"
+        warning_expected = not trace_python_allocators and not disable_pymalloc
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "flamegraph",
+                "--leaks",
+                str(results_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        output_file = tmp_path / "memray-flamegraph-result.html"
+        assert output_file.exists()
+        assert warning_expected == (
+            'Report generated using "--leaks" using pymalloc allocator'
+            in output_file.read_text()
+        )
 
 
 class TestSummarySubCommand:
