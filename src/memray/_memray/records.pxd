@@ -34,6 +34,7 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        size_t main_tid
        size_t skipped_frames_on_main_tid
        int python_allocator
+       bool trace_python_allocators
 
    cdef cppclass Allocation:
        thread_id_t tid

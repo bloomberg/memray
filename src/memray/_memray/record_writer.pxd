@@ -13,4 +13,5 @@ cdef extern from "record_writer.h" namespace "memray::api":
         string command_line,
         bool native_trace,
         FileFormat file_format,
+        bool trace_python_allocators,
     ) except+
