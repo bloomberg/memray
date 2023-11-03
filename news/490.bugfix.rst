@@ -1,1 +1,1 @@
-Fixed a bug that was caussing attaching to fail in macOS Sonoma.
+Fixed a bug that caused ``memray attach`` to fail with newer LLDB versions, including on macOS Sonoma.
