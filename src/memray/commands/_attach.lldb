@@ -21,7 +21,7 @@ expr auto $dlerror = $dlsym($rtld_default, "dlerror")
 expr auto $dll = ((void*(*)(const char*, int))$dlopen)($libpath, $rtld_now)
 p ((char*(*)(void))$dlerror)()
 expr auto $spawn = $dlsym($dll, "memray_spawn_client")
-p ((int(*)(int))$spawn)($port) ? "FAILURE" : "SUCCESS"
+p ((int(*)(int))$spawn)($port)?"FAILURE":"SUCCESS"
 DONE
 
 continue
