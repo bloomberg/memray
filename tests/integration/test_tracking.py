@@ -1672,6 +1672,34 @@ class TestMemorySnapshots:
             for prev, _next in zip(memory_snapshots, memory_snapshots[1:])
         )
 
+    def test_memory_snapshots_limit_when_reading(self, tmp_path):
+        # GIVEN
+        allocator = MemoryAllocator()
+        output = tmp_path / "test.bin"
+
+        # WHEN
+        with Tracker(output):
+            for _ in range(2):
+                allocator.valloc(ALLOC_SIZE)
+                time.sleep(0.11)
+                allocator.free()
+
+        reader = FileReader(output)
+        memory_snapshots = list(reader.get_memory_snapshots())
+        temporal_records = list(reader.get_temporal_allocation_records())
+
+        assert memory_snapshots
+        n_snapshots = len(memory_snapshots)
+        n_temporal_records = len(temporal_records)
+
+        reader = FileReader(output, max_memory_records=n_snapshots // 2)
+        memory_snapshots = list(reader.get_memory_snapshots())
+        temporal_records = list(reader.get_temporal_allocation_records())
+
+        assert memory_snapshots
+        assert len(memory_snapshots) <= n_snapshots // 2 + 1
+        assert len(temporal_records) <= n_temporal_records // 2 + 1
+
     def test_temporary_allocations_when_filling_vector_without_preallocating(
         self, tmp_path
     ):

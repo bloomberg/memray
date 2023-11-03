@@ -127,9 +127,13 @@ class HighWatermarkCommand:
         merge_threads: Optional[bool] = None,
         inverted: Optional[bool] = None,
         temporal: bool = False,
+        max_memory_records: Optional[int] = None,
     ) -> None:
         try:
-            reader = FileReader(os.fspath(result_path), report_progress=True)
+            kwargs = {}
+            if max_memory_records is not None:
+                kwargs["max_memory_records"] = max_memory_records
+            reader = FileReader(os.fspath(result_path), report_progress=True, **kwargs)
             merge_threads = True if merge_threads is None else merge_threads
             inverted = False if inverted is None else inverted
 
@@ -271,6 +275,10 @@ class HighWatermarkCommand:
 
         if hasattr(args, "inverted"):
             kwargs["inverted"] = args.inverted
+
+        if hasattr(args, "max_memory_records"):
+            kwargs["max_memory_records"] = args.max_memory_records
+
         self.write_report(
             result_path,
             output_file,
