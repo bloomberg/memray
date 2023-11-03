@@ -133,7 +133,11 @@ class FileReader:
     @property
     def metadata(self) -> Metadata: ...
     def __init__(
-        self, file_name: Union[str, Path], *, report_progress: bool = False
+        self,
+        file_name: Union[str, Path],
+        *,
+        report_progress: bool = False,
+        max_memory_records: int = 10000,
     ) -> None: ...
     def get_allocation_records(self) -> Iterable[AllocationRecord]: ...
     def get_temporal_allocation_records(

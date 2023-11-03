@@ -55,6 +55,7 @@ from _memray.source cimport SocketSource
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport install_trace_function
 from cpython cimport PyErr_CheckSignals
+from libc.math cimport ceil
 from libc.stdint cimport uint64_t
 from libcpp cimport bool
 from libcpp.limits cimport numeric_limits
@@ -855,8 +856,9 @@ cdef class FileReader:
     cdef HighWatermark _high_watermark
     cdef object _header
     cdef bool _report_progress
+    cdef size_t _memory_snapshot_stride
 
-    def __cinit__(self, object file_name, *, bool report_progress=False):
+    def __cinit__(self, object file_name, *, bool report_progress=False, int max_memory_records=10000):
         try:
             self._file = open(file_name)
         except OSError as exc:
@@ -881,6 +883,9 @@ cdef class FileReader:
         n_memory_snapshots_approx = 2048
         if 0 < stats["start_time"] < stats["end_time"]:
             n_memory_snapshots_approx = (stats["end_time"] - stats["start_time"]) / 10
+
+        if n_memory_snapshots_approx > max_memory_records:
+            n_memory_snapshots_approx = max_memory_records
         self._memory_snapshots.reserve(n_memory_snapshots_approx)
 
         cdef object total = stats['n_allocations'] or None
@@ -891,6 +896,7 @@ cdef class FileReader:
             total=total,
             report_progress=self._report_progress
         )
+        self._memory_snapshot_stride = 0
         cdef MemoryRecord memory_record
         with progress_indicator:
             while True:
@@ -917,6 +923,10 @@ cdef class FileReader:
                     self._memory_snapshots.push_back(reader.getLatestMemorySnapshot())
                 else:
                     break
+
+        if len(self._memory_snapshots) > max_memory_records:
+            self._memory_snapshot_stride = int(ceil(<double>len(self._memory_snapshots) / max_memory_records))
+            self._memory_snapshots = self._memory_snapshots[::self._memory_snapshot_stride]
         self._high_watermark = finder.getHighWatermark()
         stats["n_allocations"] = progress_indicator.num_processed
 
@@ -1100,6 +1110,7 @@ cdef class FileReader:
 
         cdef AllocationLifetimeAggregator aggregator
         cdef _Allocation allocation
+        cdef int memory_records_seen = 0
 
         with progress_indicator:
             while records_to_process > 0:
@@ -1113,6 +1124,9 @@ cdef class FileReader:
                     records_to_process -= 1
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
+                    memory_records_seen += 1
+                    if self._memory_snapshot_stride and memory_records_seen % self._memory_snapshot_stride != 0:
+                        continue
                     aggregator.captureSnapshot()
                 else:
                     assert ret != RecordResult.RecordResultMemorySnapshot
