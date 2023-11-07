@@ -808,6 +808,7 @@ cdef class ProgressIndicator:
     def __exit__(self, type, value, traceback):
         if not self._report_progress:
             return
+        self._context_manager.update(self._task, completed=self._cumulative_num_processed)
         return self._context_manager.__exit__(type, value, traceback)
 
     cdef bool _time_for_refresh(self):
