@@ -496,6 +496,21 @@ def test_pid_display(pid, display_val):
     "command_line, display_val",
     [
         pytest.param("foo bar baz", "CMD: foo bar baz", id="Known command"),
+        pytest.param(
+            "/path/to/foo bar baz",
+            "CMD: /path/to/foo bar baz",
+            id="Known command with path",
+        ),
+        pytest.param(
+            "/path/to/memray bar baz",
+            "CMD: memray bar baz",
+            id="Memray script with path",
+        ),
+        pytest.param(
+            "/path/to/memray/__main__.py bar baz",
+            "CMD: memray bar baz",
+            id="Memray module with path",
+        ),
         pytest.param(None, "CMD: ???", id="Unknown command"),
     ],
 )
