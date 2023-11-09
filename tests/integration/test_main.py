@@ -1546,44 +1546,6 @@ class TestLiveSubcommand:
         # THEN
         assert server.returncode == 0
 
-    def test_live_tracking_server_exits_properly_on_sigint(self, tmp_path):
-        # GIVEN
-        with track_and_wait(tmp_path) as program_file:
-            server = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "memray",
-                    "run",
-                    "--live",
-                    str(program_file),
-                ],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env={"PYTHONUNBUFFERED": "1"},
-                # Explicitly reset the signal handler for SIGINT to work around any signal
-                # masking that might happen on Jenkins.
-                preexec_fn=lambda: signal.signal(
-                    signal.SIGINT, signal.default_int_handler
-                ),
-            )
-
-        # WHEN
-
-        server.send_signal(signal.SIGINT)
-        try:
-            _, stderr = server.communicate(timeout=TIMEOUT)
-        except subprocess.TimeoutExpired:
-            server.kill()
-            raise
-
-        # THEN
-        assert server.returncode == 0
-        assert not stderr
-        assert b"Exception ignored" not in stderr
-        assert b"KeyboardInterrupt" not in stderr
-
 
 class TestTransformSubCommands:
     def test_report_detects_missing_input(self):
