@@ -751,6 +751,13 @@ class TUIApp(App[None]):
             if self._cmdline_override is not None
             else self._reader.command_line
         )
+
+        if cmd_line is not None and "/memray" in cmd_line:
+            cmd_args = cmd_line.split()
+            if any(cmd_args[0].endswith(p) for p in ("/memray", "/memray/__main__.py")):
+                cmd_args[0] = "memray"
+                cmd_line = " ".join(cmd_args)
+
         self.tui = TUI(
             pid=self._reader.pid,
             cmd_line=cmd_line,
