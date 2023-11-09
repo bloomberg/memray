@@ -1307,6 +1307,7 @@ class TestLiveRemoteSubcommand:
                 "live",
                 str(free_port),
             ],
+            stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
         )
 
@@ -1429,6 +1430,7 @@ class TestLiveRemoteSubcommand:
                 str(free_port),
             ],
             stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
         )
 
         # WHEN
