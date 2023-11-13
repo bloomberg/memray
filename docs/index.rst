@@ -5,6 +5,7 @@
    getting_started
    run
    python_allocators
+   memory
    temporary_allocations
    attach
    native_mode
