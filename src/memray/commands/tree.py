@@ -3,11 +3,8 @@ import os
 from pathlib import Path
 from textwrap import dedent
 
-from rich import print as rprint
-
 from memray import FileReader
 from memray._errors import MemrayCommandError
-from memray._memray import size_fmt
 from memray.commands.common import warn_if_not_enough_symbols
 from memray.reporters.tree import TreeReporter
 
@@ -80,14 +77,4 @@ class TreeCommand:
                 f"Failed to parse allocation records in {result_path}\nReason: {e}",
                 exit_code=1,
             )
-        print()
-        header = "Allocation metadata"
-        rprint(f"{header}\n{'-'*len(header)}")
-        rprint(f"Command line arguments: '{reader.metadata.command_line}'")
-        rprint(f"Peak memory size: {size_fmt(reader.metadata.peak_memory)}")
-        rprint(f"Number of allocations: {reader.metadata.total_allocations}")
-        print()
-        header = f"Biggest {args.biggest_allocs} allocations:"
-        rprint(header)
-        rprint("-" * len(header))
         reporter.render()

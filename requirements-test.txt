@@ -7,3 +7,4 @@ ipython
 setuptools; python_version >= '3.12'
 pkgconfig
 pytest-textual-snapshot
+textual >= '0.43'

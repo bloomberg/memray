@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import sys
 from io import StringIO
 from typing import Awaitable
 from typing import Callable
@@ -30,21 +29,7 @@ from memray.reporters.tui import SnapshotFetched
 from memray.reporters.tui import TUIApp
 from memray.reporters.tui import aggregate_allocations
 from tests.utils import MockAllocationRecord
-
-
-def async_run(coro):
-    # This technique shamelessly cribbed from Textual itself...
-    # `asyncio.get_event_loop()` is deprecated since Python 3.10:
-    asyncio_get_event_loop_is_deprecated = sys.version_info >= (3, 10, 0)
-
-    if asyncio_get_event_loop_is_deprecated:
-        # N.B. This doesn't work with Python<3.10, as we end up with 2 event loops:
-        asyncio.run(coro)
-    else:
-        # pragma: no cover
-        # However, this works with Python<3.10:
-        event_loop = asyncio.get_event_loop()
-        event_loop.run_until_complete(coro)
+from tests.utils import async_run
 
 
 class MockApp(TUIApp):
