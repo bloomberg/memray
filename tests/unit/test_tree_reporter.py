@@ -1,240 +1,26 @@
-import sys
-from io import StringIO
+from dataclasses import dataclass
+from textwrap import dedent
+from typing import Awaitable
+from typing import Callable
+from typing import Iterable
+from typing import Iterator
+from typing import List
+from typing import Optional
+from typing import Tuple
+from unittest.mock import patch
 
+import pytest
+from textual.pilot import Pilot
+from textual.widgets import Tree
+from textual.widgets.tree import TreeNode
+
+from memray import AllocationRecord
 from memray import AllocatorType
 from memray.reporters.tree import MAX_STACKS
-from memray.reporters.tree import ROOT_NODE
 from memray.reporters.tree import Frame
 from memray.reporters.tree import TreeReporter
 from tests.utils import MockAllocationRecord
-
-
-class TestCollapseTree:
-    def test_single_node(self):
-        location_1 = ("A", "A", 1)
-        node_1 = Frame(location=location_1, value=10, children={})
-
-        # WHEN
-
-        tree = node_1.collapse_tree()
-
-        # THEN
-
-        assert tree == Frame(
-            location=("A", "A", 1),
-            value=10,
-            children={},
-            n_allocations=0,
-            thread_id="",
-            interesting=True,
-            group=[],
-        )
-
-    def test_many_nodes(self):
-        # GIVEN
-        location_1 = ("A", "A", 1)
-        node_1 = Frame(location=location_1, value=10, children={})
-        location_2 = ("B", "B", 1)
-        node_2 = Frame(location=location_2, value=10, children={})
-        location_3 = ("C", "C", 1)
-        node_3 = Frame(location=location_3, value=10, children={})
-        root = Frame(
-            location=("<ROOT>", "", 0),
-            value=10,
-            children={location_1: node_1, location_2: node_2, location_3: node_3},
-        )
-        # WHEN
-
-        tree = root.collapse_tree()
-
-        # THEN
-
-        assert tree.location == ("<ROOT>", "", 0)
-        assert tree.value == 10
-        assert [node.location for node in tree.children.values()] == [
-            location_1,
-            location_2,
-            location_3,
-        ]
-        assert tree.group == []
-
-    def test_collapse_line(self):
-        # GIVEN
-
-        location_1 = ("A", "A", 1)
-        node_1 = Frame(location=location_1, value=10, children={})
-        location_2 = ("B", "B", 1)
-        node_2 = Frame(location=location_2, value=10, children={location_1: node_1})
-        location_3 = ("C", "C", 1)
-        node_3 = Frame(location=location_3, value=10, children={location_2: node_2})
-        # WHEN
-
-        tree = node_3.collapse_tree()
-
-        # THEN
-
-        assert tree.location == location_1
-        assert tree.value == 10
-        assert tree.children == {}
-        assert tree.group == [node_2, node_3]
-
-    def test_root_is_not_collapsed(self):
-        # GIVEN
-
-        location_1 = ("A", "A", 1)
-        node_1 = Frame(location=location_1, value=10, children={})
-        location_2 = ("B", "B", 1)
-        node_2 = Frame(location=location_2, value=10, children={location_1: node_1})
-        location_3 = ("C", "C", 1)
-        node_3 = Frame(location=location_3, value=10, children={location_2: node_2})
-        root = Frame(location=ROOT_NODE, value=10, children={location_3: node_3})
-        # WHEN
-
-        tree = root.collapse_tree()
-
-        # THEN
-
-        assert tree.location == ROOT_NODE
-        assert tree.value == 10
-        assert len(tree.children) == 1
-        assert not tree.group
-
-        (child,) = tree.children.values()
-        assert child.location == location_1
-        assert child.group == [node_2, node_3]
-        assert child.value == 10
-
-    def test_collapse_line_with_branching_root(self):
-        # GIVEN
-
-        location_1 = ("A", "A", 1)
-        node_1 = Frame(location=location_1, value=10, children={})
-        location_2 = ("B", "B", 1)
-        node_2 = Frame(location=location_2, value=10, children={location_1: node_1})
-        location_3 = ("C", "C", 1)
-        node_3 = Frame(location=location_3, value=10, children={location_2: node_2})
-        location_4 = ("D", "D", 1)
-        node_4 = Frame(location=location_4, value=10, children={})
-        root = Frame(
-            location=("<ROOT>", "", 0),
-            value=10,
-            children={location_3: node_3, location_4: node_4},
-        )
-        # WHEN
-
-        tree = root.collapse_tree()
-
-        # THEN
-
-        assert tree.location == ("<ROOT>", "", 0)
-        assert tree.value == 10
-        assert len(tree.children) == 2
-        assert tree.group == []
-        assert [node.location for node in tree.children.values()] == [
-            location_1,
-            location_4,
-        ]
-
-        branch1, branch2 = tree.children.values()
-        assert branch1.location == location_1
-        assert branch1.value == 10
-        assert branch1.children == {}
-        assert branch1.group == [node_2, node_3]
-
-        assert branch2.location == location_4
-        assert branch2.value == 10
-        assert branch2.children == {}
-        assert branch2.group == []
-
-    def test_no_lines(self):
-        location_1 = ("A", "A", 1)
-        node_1 = Frame(location=location_1, value=10, children={})
-        location_2 = ("B", "B", 1)
-        node_2 = Frame(location=location_2, value=10, children={})
-        location_3 = ("C", "C", 1)
-        node_3 = Frame(
-            location=location_3,
-            value=10,
-            children={location_1: node_1, location_2: node_2},
-        )
-        location_4 = ("D", "D", 1)
-        node_4 = Frame(location=location_4, value=10, children={})
-        root = Frame(
-            location=("<ROOT>", "", 0),
-            value=10,
-            children={location_3: node_3, location_4: node_4},
-        )
-        # WHEN
-
-        tree = root.collapse_tree()
-
-        # THEN
-
-        assert tree.location == ("<ROOT>", "", 0)
-        assert tree.value == 10
-        assert len(tree.children) == 2
-        assert tree.group == []
-        assert [node.location for node in tree.children.values()] == [
-            location_3,
-            location_4,
-        ]
-
-        branch1, branch2 = tree.children.values()
-        assert branch1.location == location_3
-        assert branch1.value == 10
-        assert [node.location for node in branch1.children.values()] == [
-            location_1,
-            location_2,
-        ]
-
-        assert branch2.location == location_4
-        assert branch2.value == 10
-        assert branch2.children == {}
-        assert branch2.group == []
-
-    def test_two_lines(self):
-        location_a1 = ("A1", "A1", 1)
-        node_a1 = Frame(location=location_a1, value=10, children={})
-        location_a2 = ("B1", "B1", 1)
-        node_a2 = Frame(location=location_a2, value=10, children={location_a1: node_a1})
-        location_a3 = ("C1", "C1", 1)
-        node_a3 = Frame(location=location_a3, value=10, children={location_a2: node_a2})
-        location_b1 = ("A2", "A2", 1)
-        node_b1 = Frame(location=location_b1, value=10, children={})
-        location_b2 = ("B2", "B2", 1)
-        node_b2 = Frame(location=location_b2, value=10, children={location_b1: node_b1})
-        location_b3 = ("C2", "C2", 1)
-        node_b3 = Frame(location=location_b3, value=10, children={location_b2: node_b2})
-        root = Frame(
-            location=("<ROOT>", "", 0),
-            value=10,
-            children={location_a3: node_a3, location_b3: node_b3},
-        )
-
-        # WHEN
-
-        tree = root.collapse_tree()
-
-        # THEN
-
-        assert tree.location == ("<ROOT>", "", 0)
-        assert tree.value == 10
-        assert [node.location for node in tree.children.values()] == [
-            location_a1,
-            location_b1,
-        ]
-        assert tree.group == []
-
-        branch1, branch2 = tree.children.values()
-        assert branch1.location == location_a1
-        assert branch1.value == 10
-        assert branch1.children == {}
-        assert branch1.group == [node_a2, node_a3]
-
-        assert branch2.location == location_b1
-        assert branch2.value == 10
-        assert branch2.children == {}
-        assert branch2.group == [node_b2, node_b3]
+from tests.utils import async_run
 
 
 class TestTreeReporter:
@@ -247,7 +33,6 @@ class TestTreeReporter:
             n_allocations=0,
             thread_id="",
             interesting=True,
-            group=[],
         )
 
     def test_biggest_allocations(self):
@@ -284,7 +69,7 @@ class TestTreeReporter:
                     n_allocations=1,
                     thread_id="0x1",
                     interesting=True,
-                    group=[],
+                    import_system=False,
                 ),
                 ("function_998", "fun.py", 12): Frame(
                     location=("function_998", "fun.py", 12),
@@ -293,7 +78,7 @@ class TestTreeReporter:
                     n_allocations=1,
                     thread_id="0x1",
                     interesting=True,
-                    group=[],
+                    import_system=False,
                 ),
                 ("function_997", "fun.py", 12): Frame(
                     location=("function_997", "fun.py", 12),
@@ -302,13 +87,13 @@ class TestTreeReporter:
                     n_allocations=1,
                     thread_id="0x1",
                     interesting=True,
-                    group=[],
+                    import_system=False,
                 ),
             },
             n_allocations=3,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_works_with_single_call(self):
@@ -340,38 +125,39 @@ class TestTreeReporter:
             value=1024,
             children={
                 ("grandparent", "fun.py", 4): Frame(
-                    location=("me", "fun.py", 12),
+                    location=("grandparent", "fun.py", 4),
                     value=1024,
-                    children={},
+                    children={
+                        ("parent", "fun.py", 8): Frame(
+                            location=("parent", "fun.py", 8),
+                            value=1024,
+                            children={
+                                ("me", "fun.py", 12): Frame(
+                                    location=("me", "fun.py", 12),
+                                    value=1024,
+                                    children={},
+                                    n_allocations=1,
+                                    thread_id="0x1",
+                                    interesting=True,
+                                    import_system=False,
+                                )
+                            },
+                            n_allocations=1,
+                            thread_id="0x1",
+                            interesting=True,
+                            import_system=False,
+                        )
+                    },
                     n_allocations=1,
                     thread_id="0x1",
                     interesting=True,
-                    group=[
-                        Frame(
-                            location=("parent", "fun.py", 8),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("grandparent", "fun.py", 4),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                    ],
+                    import_system=False,
                 )
             },
             n_allocations=1,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_uses_hybrid_stack_for_native_traces(self):
@@ -401,38 +187,39 @@ class TestTreeReporter:
             value=1024,
             children={
                 ("grandparent", "fun.c", 4): Frame(
-                    location=("me", "fun.py", 12),
+                    location=("grandparent", "fun.c", 4),
                     value=1024,
-                    children={},
+                    children={
+                        ("parent", "fun.pyx", 8): Frame(
+                            location=("parent", "fun.pyx", 8),
+                            value=1024,
+                            children={
+                                ("me", "fun.py", 12): Frame(
+                                    location=("me", "fun.py", 12),
+                                    value=1024,
+                                    children={},
+                                    n_allocations=1,
+                                    thread_id="0x1",
+                                    interesting=True,
+                                    import_system=False,
+                                )
+                            },
+                            n_allocations=1,
+                            thread_id="0x1",
+                            interesting=True,
+                            import_system=False,
+                        )
+                    },
                     n_allocations=1,
                     thread_id="0x1",
                     interesting=True,
-                    group=[
-                        Frame(
-                            location=("parent", "fun.pyx", 8),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("grandparent", "fun.c", 4),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                    ],
+                    import_system=False,
                 )
             },
             n_allocations=1,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_works_with_multiple_stacks_from_same_caller(self):
@@ -475,48 +262,48 @@ class TestTreeReporter:
             value=2048,
             children={
                 ("grandparent", "fun.py", 4): Frame(
-                    location=("parent", "fun.py", 8),
+                    location=("grandparent", "fun.py", 4),
                     value=2048,
                     children={
-                        ("me", "fun.py", 12): Frame(
-                            location=("me", "fun.py", 12),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
+                        ("parent", "fun.py", 8): Frame(
+                            location=("parent", "fun.py", 8),
+                            value=2048,
+                            children={
+                                ("me", "fun.py", 12): Frame(
+                                    location=("me", "fun.py", 12),
+                                    value=1024,
+                                    children={},
+                                    n_allocations=1,
+                                    thread_id="0x1",
+                                    interesting=True,
+                                    import_system=False,
+                                ),
+                                ("sibling", "fun.py", 16): Frame(
+                                    location=("sibling", "fun.py", 16),
+                                    value=1024,
+                                    children={},
+                                    n_allocations=1,
+                                    thread_id="0x1",
+                                    interesting=True,
+                                    import_system=False,
+                                ),
+                            },
+                            n_allocations=2,
                             thread_id="0x1",
                             interesting=True,
-                            group=[],
-                        ),
-                        ("sibling", "fun.py", 16): Frame(
-                            location=("sibling", "fun.py", 16),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
+                            import_system=False,
+                        )
                     },
                     n_allocations=2,
                     thread_id="0x1",
                     interesting=True,
-                    group=[
-                        Frame(
-                            location=("grandparent", "fun.py", 4),
-                            value=2048,
-                            children={},
-                            n_allocations=2,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        )
-                    ],
+                    import_system=False,
                 )
             },
             n_allocations=2,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_works_with_multiple_stacks_from_same_caller_two_frames_above(self):
@@ -563,54 +350,54 @@ class TestTreeReporter:
                     value=2048,
                     children={
                         ("parent_one", "fun.py", 8): Frame(
-                            location=("me", "fun.py", 12),
+                            location=("parent_one", "fun.py", 8),
                             value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[
-                                Frame(
-                                    location=("parent_one", "fun.py", 8),
+                            children={
+                                ("me", "fun.py", 12): Frame(
+                                    location=("me", "fun.py", 12),
                                     value=1024,
                                     children={},
                                     n_allocations=1,
                                     thread_id="0x1",
                                     interesting=True,
-                                    group=[],
+                                    import_system=False,
                                 )
-                            ],
+                            },
+                            n_allocations=1,
+                            thread_id="0x1",
+                            interesting=True,
+                            import_system=False,
                         ),
                         ("parent_two", "fun.py", 10): Frame(
-                            location=("sibling", "fun.py", 16),
+                            location=("parent_two", "fun.py", 10),
                             value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[
-                                Frame(
-                                    location=("parent_two", "fun.py", 10),
+                            children={
+                                ("sibling", "fun.py", 16): Frame(
+                                    location=("sibling", "fun.py", 16),
                                     value=1024,
                                     children={},
                                     n_allocations=1,
                                     thread_id="0x1",
                                     interesting=True,
-                                    group=[],
+                                    import_system=False,
                                 )
-                            ],
+                            },
+                            n_allocations=1,
+                            thread_id="0x1",
+                            interesting=True,
+                            import_system=False,
                         ),
                     },
                     n_allocations=2,
                     thread_id="0x1",
                     interesting=True,
-                    group=[],
+                    import_system=False,
                 )
             },
             n_allocations=2,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_works_with_recursive_calls(self):
@@ -644,74 +431,99 @@ class TestTreeReporter:
             value=1024,
             children={
                 ("main", "recursive.py", 5): Frame(
-                    location=("one", "recursive.py", 9),
+                    location=("main", "recursive.py", 5),
                     value=1024,
-                    children={},
+                    children={
+                        ("two", "recursive.py", 20): Frame(
+                            location=("two", "recursive.py", 20),
+                            value=1024,
+                            children={
+                                ("one", "recursive.py", 10): Frame(
+                                    location=("one", "recursive.py", 10),
+                                    value=1024,
+                                    children={
+                                        ("two", "recursive.py", 20): Frame(
+                                            location=("two", "recursive.py", 20),
+                                            value=1024,
+                                            children={
+                                                ("one", "recursive.py", 10): Frame(
+                                                    location=(
+                                                        "one",
+                                                        "recursive.py",
+                                                        10,
+                                                    ),
+                                                    value=1024,
+                                                    children={
+                                                        (
+                                                            "two",
+                                                            "recursive.py",
+                                                            20,
+                                                        ): Frame(
+                                                            location=(
+                                                                "two",
+                                                                "recursive.py",
+                                                                20,
+                                                            ),
+                                                            value=1024,
+                                                            children={
+                                                                (
+                                                                    "one",
+                                                                    "recursive.py",
+                                                                    9,
+                                                                ): Frame(
+                                                                    location=(
+                                                                        "one",
+                                                                        "recursive.py",
+                                                                        9,
+                                                                    ),
+                                                                    value=1024,
+                                                                    children={},
+                                                                    n_allocations=1,
+                                                                    thread_id="0x1",
+                                                                    interesting=True,
+                                                                    import_system=False,
+                                                                )
+                                                            },
+                                                            n_allocations=1,
+                                                            thread_id="0x1",
+                                                            interesting=True,
+                                                            import_system=False,
+                                                        )
+                                                    },
+                                                    n_allocations=1,
+                                                    thread_id="0x1",
+                                                    interesting=True,
+                                                    import_system=False,
+                                                )
+                                            },
+                                            n_allocations=1,
+                                            thread_id="0x1",
+                                            interesting=True,
+                                            import_system=False,
+                                        )
+                                    },
+                                    n_allocations=1,
+                                    thread_id="0x1",
+                                    interesting=True,
+                                    import_system=False,
+                                )
+                            },
+                            n_allocations=1,
+                            thread_id="0x1",
+                            interesting=True,
+                            import_system=False,
+                        )
+                    },
                     n_allocations=1,
                     thread_id="0x1",
                     interesting=True,
-                    group=[
-                        Frame(
-                            location=("two", "recursive.py", 20),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("one", "recursive.py", 10),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("two", "recursive.py", 20),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("one", "recursive.py", 10),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("two", "recursive.py", 20),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("main", "recursive.py", 5),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                    ],
+                    import_system=False,
                 )
             },
             n_allocations=1,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_works_with_multiple_top_level_nodes(self):
@@ -754,66 +566,68 @@ class TestTreeReporter:
             value=2048,
             children={
                 ("foo2", "/src/lel.py", 12): Frame(
-                    location=("baz2", "/src/lel.py", 18),
+                    location=("foo2", "/src/lel.py", 12),
                     value=1024,
-                    children={},
-                    n_allocations=1,
-                    thread_id="0x1",
-                    interesting=True,
-                    group=[
-                        Frame(
+                    children={
+                        ("bar2", "/src/lel.py", 15): Frame(
                             location=("bar2", "/src/lel.py", 15),
                             value=1024,
-                            children={},
+                            children={
+                                ("baz2", "/src/lel.py", 18): Frame(
+                                    location=("baz2", "/src/lel.py", 18),
+                                    value=1024,
+                                    children={},
+                                    n_allocations=1,
+                                    thread_id="0x1",
+                                    interesting=True,
+                                    import_system=False,
+                                )
+                            },
                             n_allocations=1,
                             thread_id="0x1",
                             interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("foo2", "/src/lel.py", 12),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                    ],
-                ),
-                ("foo1", "/src/lel.py", 2): Frame(
-                    location=("baz1", "/src/lel.py", 8),
-                    value=1024,
-                    children={},
+                            import_system=False,
+                        )
+                    },
                     n_allocations=1,
                     thread_id="0x1",
                     interesting=True,
-                    group=[
-                        Frame(
+                    import_system=False,
+                ),
+                ("foo1", "/src/lel.py", 2): Frame(
+                    location=("foo1", "/src/lel.py", 2),
+                    value=1024,
+                    children={
+                        ("bar1", "/src/lel.py", 5): Frame(
                             location=("bar1", "/src/lel.py", 5),
                             value=1024,
-                            children={},
+                            children={
+                                ("baz1", "/src/lel.py", 8): Frame(
+                                    location=("baz1", "/src/lel.py", 8),
+                                    value=1024,
+                                    children={},
+                                    n_allocations=1,
+                                    thread_id="0x1",
+                                    interesting=True,
+                                    import_system=False,
+                                )
+                            },
                             n_allocations=1,
                             thread_id="0x1",
                             interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("foo1", "/src/lel.py", 2),
-                            value=1024,
-                            children={},
-                            n_allocations=1,
-                            thread_id="0x1",
-                            interesting=True,
-                            group=[],
-                        ),
-                    ],
+                            import_system=False,
+                        )
+                    },
+                    n_allocations=1,
+                    thread_id="0x1",
+                    interesting=True,
+                    import_system=False,
                 ),
             },
             n_allocations=2,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_works_with_split_threads(self):
@@ -856,38 +670,39 @@ class TestTreeReporter:
             value=2048,
             children={
                 ("foo2", "/src/lel.py", 12): Frame(
-                    location=("baz2", "/src/lel.py", 18),
+                    location=("foo2", "/src/lel.py", 12),
                     value=2048,
-                    children={},
+                    children={
+                        ("bar2", "/src/lel.py", 15): Frame(
+                            location=("bar2", "/src/lel.py", 15),
+                            value=2048,
+                            children={
+                                ("baz2", "/src/lel.py", 18): Frame(
+                                    location=("baz2", "/src/lel.py", 18),
+                                    value=2048,
+                                    children={},
+                                    n_allocations=2,
+                                    thread_id="0x2",
+                                    interesting=True,
+                                    import_system=False,
+                                )
+                            },
+                            n_allocations=2,
+                            thread_id="0x2",
+                            interesting=True,
+                            import_system=False,
+                        )
+                    },
                     n_allocations=2,
                     thread_id="0x2",
                     interesting=True,
-                    group=[
-                        Frame(
-                            location=("bar2", "/src/lel.py", 15),
-                            value=2048,
-                            children={},
-                            n_allocations=2,
-                            thread_id="0x2",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("foo2", "/src/lel.py", 12),
-                            value=2048,
-                            children={},
-                            n_allocations=2,
-                            thread_id="0x2",
-                            interesting=True,
-                            group=[],
-                        ),
-                    ],
+                    import_system=False,
                 )
             },
             n_allocations=2,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_works_with_merged_threads(self):
@@ -930,38 +745,39 @@ class TestTreeReporter:
             value=2048,
             children={
                 ("foo2", "/src/lel.py", 12): Frame(
-                    location=("baz2", "/src/lel.py", 18),
+                    location=("foo2", "/src/lel.py", 12),
                     value=2048,
-                    children={},
+                    children={
+                        ("bar2", "/src/lel.py", 15): Frame(
+                            location=("bar2", "/src/lel.py", 15),
+                            value=2048,
+                            children={
+                                ("baz2", "/src/lel.py", 18): Frame(
+                                    location=("baz2", "/src/lel.py", 18),
+                                    value=2048,
+                                    children={},
+                                    n_allocations=2,
+                                    thread_id="merged thread",
+                                    interesting=True,
+                                    import_system=False,
+                                )
+                            },
+                            n_allocations=2,
+                            thread_id="merged thread",
+                            interesting=True,
+                            import_system=False,
+                        )
+                    },
                     n_allocations=2,
                     thread_id="merged thread",
                     interesting=True,
-                    group=[
-                        Frame(
-                            location=("bar2", "/src/lel.py", 15),
-                            value=2048,
-                            children={},
-                            n_allocations=2,
-                            thread_id="merged thread",
-                            interesting=True,
-                            group=[],
-                        ),
-                        Frame(
-                            location=("foo2", "/src/lel.py", 12),
-                            value=2048,
-                            children={},
-                            n_allocations=2,
-                            thread_id="merged thread",
-                            interesting=True,
-                            group=[],
-                        ),
-                    ],
+                    import_system=False,
                 )
             },
             n_allocations=2,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
         )
 
     def test_drops_cpython_frames(self):
@@ -996,34 +812,739 @@ class TestTreeReporter:
             value=1024,
             children={
                 ("parent", "fun.py", 8): Frame(
-                    location=("me", "fun.py", 12),
+                    location=("parent", "fun.py", 8),
                     value=1024,
-                    children={},
-                    n_allocations=1,
-                    thread_id="0x1",
-                    interesting=True,
-                    group=[
-                        Frame(
-                            location=("parent", "fun.py", 8),
+                    children={
+                        ("me", "fun.py", 12): Frame(
+                            location=("me", "fun.py", 12),
                             value=1024,
                             children={},
                             n_allocations=1,
                             thread_id="0x1",
                             interesting=True,
-                            group=[],
+                            import_system=False,
                         )
-                    ],
+                    },
+                    n_allocations=1,
+                    thread_id="0x1",
+                    interesting=True,
+                    import_system=False,
                 )
             },
             n_allocations=1,
             thread_id="",
             interesting=True,
-            group=[],
+            import_system=False,
+        )
+
+
+@dataclass(frozen=True)
+class TreeElement:
+    label: str
+    children: List["TreeElement"]
+    allow_expand: bool
+    is_expanded: bool
+
+
+def tree_to_dict(tree: TreeNode):
+    return TreeElement(
+        str(tree.label),
+        [tree_to_dict(child) for child in tree.children],
+        tree.allow_expand,
+        tree.is_expanded,
+    )
+
+
+class TestTreeTui:
+    def test_no_allocations(self):
+        # GIVEN
+        peak_allocations = []
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                return app.query_one(Tree).root
+
+        root = async_run(run_test())
+
+        # THEN
+        assert tree_to_dict(root) == TreeElement(
+            label="<No allocations>", children=[], is_expanded=True, allow_expand=True
+        )
+
+    def test_single_chain_is_expanded(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                return app.query_one(Tree).root
+
+        root = async_run(run_test())
+
+        # THEN
+        assert tree_to_dict(root) == TreeElement(
+            label="📂 1.000KB (100.00 %) <ROOT>  ",
+            children=[
+                TreeElement(
+                    label="📂 1.000KB (100.00 %) grandparent  fun.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 1.000KB (100.00 %) parent  fun.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 1.000KB (100.00 %) me  fun.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=True,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=True,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=True,
+                )
+            ],
+            allow_expand=True,
+            is_expanded=True,
+        )
+
+    def test_only_biggest_chain_is_expanded(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 4,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 3,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 3,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("child2", "fun2.py", 22),
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                return app.query_one(Tree).root
+
+        root = async_run(run_test())
+
+        # THEN
+        assert tree_to_dict(root) == TreeElement(
+            label="📂 10.000KB (100.00 %) <ROOT>  ",
+            children=[
+                TreeElement(
+                    label="📂 6.000KB (60.00 %) grandparent2  fun2.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 6.000KB (60.00 %) parent2  fun2.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📂 6.000KB (60.00 %) me2  fun2.py:12",
+                                    children=[
+                                        TreeElement(
+                                            label="📄 3.000KB (30.00 %) child2  fun2.py:22",
+                                            children=[],
+                                            allow_expand=False,
+                                            is_expanded=True,
+                                        )
+                                    ],
+                                    allow_expand=True,
+                                    is_expanded=True,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=True,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=True,
+                ),
+                TreeElement(
+                    label="📂 4.000KB (40.00 %) grandparent  fun.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 4.000KB (40.00 %) parent  fun.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 4.000KB (40.00 %) me  fun.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=False,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=False,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=False,
+                ),
+            ],
+            allow_expand=True,
+            is_expanded=True,
+        )
+
+    def test_show_uninteresting_system(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "foo.py", 12),
+                    ("parent", "runpy.py", 8),
+                    ("grandparent", "runpy.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                tree = app.query_one(Tree)
+                first_tree = tree_to_dict(tree.root)
+                await pilot.press("u")
+                await pilot.pause()
+                second_tree = tree_to_dict(tree.root)
+                return first_tree, second_tree
+
+        first_tree, second_tree = async_run(run_test())
+
+        # THEN
+        assert first_tree == TreeElement(
+            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            children=[
+                TreeElement(
+                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=True,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=True,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=True,
+                ),
+                TreeElement(
+                    label="📄 1.000KB (9.09 %) me  foo.py:12",
+                    children=[],
+                    allow_expand=False,
+                    is_expanded=False,
+                ),
+            ],
+            allow_expand=True,
+            is_expanded=True,
+        )
+        assert second_tree == TreeElement(
+            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            children=[
+                TreeElement(
+                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=True,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=True,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=True,
+                ),
+                TreeElement(
+                    label="📂 1.000KB (9.09 %) grandparent  runpy.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 1.000KB (9.09 %) parent  runpy.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 1.000KB (9.09 %) me  foo.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=False,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=False,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=False,
+                ),
+            ],
+            allow_expand=True,
+            is_expanded=True,
+        )
+
+    def test_show_uninteresting_idempotency(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "foo.py", 12),
+                    ("parent", "runpy.py", 8),
+                    ("grandparent", "runpy.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                tree = app.query_one(Tree)
+                first_tree = tree_to_dict(tree.root)
+                await pilot.press("i")
+                await pilot.pause()
+                await pilot.press("i")
+                await pilot.pause()
+                second_tree = tree_to_dict(tree.root)
+                return first_tree, second_tree
+
+        first_tree, second_tree = async_run(run_test())
+
+        # THEN
+        assert first_tree == second_tree
+
+    def test_uninteresting_leaves(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("parent", "runpy.py", 8),
+                    ("grandparent", "runpy.py", 4),
+                    ("me", "foo.py", 12),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                tree = app.query_one(Tree)
+                return tree.root
+
+        root = async_run(run_test())
+
+        # THEN
+
+        assert tree_to_dict(root) == TreeElement(
+            label="📂 1.000KB (100.00 %) <ROOT>  ",
+            children=[
+                TreeElement(
+                    label="📄 1.000KB (100.00 %) me  foo.py:12",
+                    children=[],
+                    allow_expand=False,
+                    is_expanded=True,
+                )
+            ],
+            allow_expand=True,
+            is_expanded=True,
+        )
+
+    def test_hide_import_system(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "<frozen importlib>", 12),
+                    ("parent", "<frozen importlib>", 8),
+                    ("grandparent", "<frozen importlib>", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                tree = app.query_one(Tree)
+                first_tree = tree_to_dict(tree.root)
+                await pilot.press("i")
+                await pilot.pause()
+                second_tree = tree_to_dict(tree.root)
+                return first_tree, second_tree
+
+        first_tree, second_tree = async_run(run_test())
+
+        # THEN
+        assert first_tree == TreeElement(
+            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            children=[
+                TreeElement(
+                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=True,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=True,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=True,
+                )
+            ],
+            allow_expand=True,
+            is_expanded=True,
+        )
+        assert second_tree == TreeElement(
+            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            children=[
+                TreeElement(
+                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=True,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=True,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=True,
+                )
+            ],
+            allow_expand=True,
+            is_expanded=True,
+        )
+
+    def test_hide_import_system_idempotency(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "<frozen importlib>", 12),
+                    ("parent", "<frozen importlib>", 8),
+                    ("grandparent", "<frozen importlib>", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                tree = app.query_one(Tree)
+                first_tree = tree_to_dict(tree.root)
+                await pilot.press("i")
+                await pilot.pause()
+                await pilot.press("i")
+                await pilot.pause()
+                second_tree = tree_to_dict(tree.root)
+                return first_tree, second_tree
+
+        first_tree, second_tree = async_run(run_test())
+
+        # THEN
+        assert first_tree == second_tree
+
+    def test_expand_linear_chain(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(
+            peak_allocations, native_traces=False, biggest_allocs=3
+        )
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                tree = app.query_one(Tree)
+                child = tree.root.children[1]
+                tree.select_node(child)
+                await pilot.press("e")
+                await pilot.pause()
+                return tree.root
+
+        root = async_run(run_test())
+
+        # THEN
+        assert tree_to_dict(root) == TreeElement(
+            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            children=[
+                TreeElement(
+                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=True,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=True,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=True,
+                ),
+                TreeElement(
+                    label="📂 1.000KB (9.09 %) grandparent  fun.py:4",
+                    children=[
+                        TreeElement(
+                            label="📂 1.000KB (9.09 %) parent  fun.py:8",
+                            children=[
+                                TreeElement(
+                                    label="📄 1.000KB (9.09 %) me  fun.py:12",
+                                    children=[],
+                                    allow_expand=False,
+                                    is_expanded=True,
+                                )
+                            ],
+                            allow_expand=True,
+                            is_expanded=True,
+                        )
+                    ],
+                    allow_expand=True,
+                    is_expanded=True,
+                ),
+            ],
+            allow_expand=True,
+            is_expanded=True,
         )
 
     def test_very_deep_call_is_limited(self):
         # GIVEN
-        n_frames = sys.getrecursionlimit() * 2
+        n_frames = MAX_STACKS + 50
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -1036,37 +1557,134 @@ class TestTreeReporter:
             ),
         ]
 
-        # WHEN
         reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                return app.query_one(Tree).root
+
+        root = async_run(run_test())
+
+        assert str(root.label) == "📂 1.000KB (100.00 %) <ROOT>  "
+        assert len(root.children) == 1
+        current_node = root.children[0]
+        for i in range(1, MAX_STACKS + 2):
+            assert f"func_{i}" in str(current_node.label)
+            assert len(current_node.children) == 1
+            current_node = current_node.children[0]
+        assert not current_node.children
+
+    def test_allocations_of_different_size_classes(self):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=65,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[("func", "fun.py", 1)],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=34,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[("func2", "fun.py", 2), ("func", "fun.py", 1)],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("func3", "fun.py", 3),
+                    ("func2", "fun.py", 2),
+                    ("func", "fun.py", 1),
+                ],
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                return app.query_one(Tree).root
+
+        root = async_run(run_test())
 
         # THEN
-        assert reporter.data.location == ("<ROOT>", "", 0)
-        assert len(reporter.data.children) == 1
-        (branch,) = reporter.data.children.values()
-        collapsed_nodes = branch.group
-        assert len(collapsed_nodes) == MAX_STACKS + 1
-        for index, frame in enumerate(reversed(collapsed_nodes), start=1):
-            assert frame.location == (
-                f"func_{index}",
-                "fun.py",
-                index,
+        assert root.label.spans[0].style == "red"
+        first_child = root.children[0]
+        assert first_child.label.spans[0].style == "red"
+        second_child = first_child.children[0]
+        assert second_child.label.spans[0].style == "yellow"
+        third_child = second_child.children[0]
+        assert third_child.label.spans[0].style == "bright_green"
+        assert not third_child.children
+
+    def test_render_runs_the_app(self):
+        # GIVEN
+        with patch("memray.reporters.tree.TreeReporter.get_app") as get_app:
+            reporter = TreeReporter.from_snapshot([], native_traces=False)
+            # WHEN
+            reporter.render()
+
+        # THEN
+        get_app.return_value.run.assert_called()
+
+
+@pytest.fixture
+def compare(monkeypatch, tmp_path, snap_compare):
+    def compare_impl(
+        allocations: Iterator[AllocationRecord],
+        press: Iterable[str] = (),
+        terminal_size: Tuple[int, int] = (120, 60),
+        run_before: Optional[Callable[[Pilot], Optional[Awaitable[None]]]] = None,
+        native: bool = False,
+    ):
+        reporter = TreeReporter.from_snapshot(allocations, native_traces=native)
+        app = reporter.get_app()
+        tmp_main = tmp_path / "main.py"
+        app_global = "_CURRENT_APP_"
+        with monkeypatch.context() as app_patch:
+            app_patch.setitem(globals(), app_global, app)
+            tmp_main.write_text(f"from {__name__} import {app_global} as app")
+            return snap_compare(
+                str(tmp_main),
+                press=press,
+                terminal_size=terminal_size,
+                run_before=run_before,
             )
 
+    yield compare_impl
 
-class TestRenderFrame:
-    def test_render_no_data(self):
+
+class TestTUILooks:
+    def test_basic(self, compare):
         # GIVEN
-        reporter = TreeReporter.from_snapshot([], native_traces=False)
-        output = StringIO()
-
-        # WHEN
-        reporter.render(file=output)
-
-        # THEN
-        assert output.getvalue().strip() == "<No allocations>"
-
-    def test_render_one_allocation(self):
-        # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -1082,22 +1700,93 @@ class TestRenderFrame:
                 ],
             ),
         ]
-        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
-        output = StringIO()
 
-        # WHEN
-        reporter.render(file=output)
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=[])
 
-        # THEN
-        expected = [
-            "📂 1.000KB (100.00 %) <ROOT>",
-            "└── [[2 frames hidden in 1 file(s)]]",
-            "    └── 📄 1.000KB (100.00 %) me  fun.py:12",
-        ]
-        assert [line.rstrip() for line in output.getvalue().splitlines()] == expected
-
-    def test_render_multiple_allocations_in_same_branch(self):
+    def test_basic_node_selected_not_leaf(self, compare):
         # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+        ]
+
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=[*["down"] * 2])
+
+    def test_basic_node_selected_leaf(self, compare):
+        # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                    ("parent", "fun.py", 8),
+                    ("grandparent", "fun.py", 4),
+                ],
+            ),
+        ]
+
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=[*["down"] * 3])
+
+    def test_two_chains(self, compare):
+        # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -1115,151 +1804,36 @@ class TestRenderFrame:
             MockAllocationRecord(
                 tid=1,
                 address=0x1000000,
-                size=1024,
+                size=1024 * 10,
                 allocator=AllocatorType.MALLOC,
                 stack_id=1,
                 n_allocations=1,
                 _stack=[
-                    ("sibling", "fun.py", 16),
-                    ("parent", "fun.py", 8),
-                    ("grandparent", "fun.py", 4),
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
                 ],
             ),
         ]
-        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
-        output = StringIO()
 
-        # WHEN
-        reporter.render(file=output)
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=[])
 
-        # THEN
-        expected = [
-            "📂 2.000KB (100.00 %) <ROOT>",
-            "└── [[1 frames hidden in 1 file(s)]]",
-            "    └── 📂 2.000KB (100.00 %) parent  fun.py:8",
-            "        ├── 📄 1.000KB (50.00 %) me  fun.py:12",
-            "        └── 📄 1.000KB (50.00 %) sibling  fun.py:16",
-        ]
-        assert [line.rstrip() for line in output.getvalue().splitlines()] == expected
-
-    def test_render_multiple_allocations_in_diferent_branches(self):
+    def test_two_chains_after_expanding_second(self, compare):
         # GIVEN
-        peak_allocations = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("me", "fun.py", 12),
-                    ("parent", "fun.py", 8),
-                    ("grandparent", "fun.py", 4),
-                ],
-            ),
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("me2", "fun.py", 16),
-                    ("parent2", "fun.py", 8),
-                    ("grandparent2", "fun.py", 4),
-                ],
-            ),
-        ]
-        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
-        output = StringIO()
-
-        # WHEN
-        reporter.render(file=output)
-
-        # THEN
-        expected = [
-            "📂 2.000KB (100.00 %) <ROOT>",
-            "├── [[2 frames hidden in 1 file(s)]]",
-            "│   └── 📄 1.000KB (50.00 %) me  fun.py:12",
-            "└── [[2 frames hidden in 1 file(s)]]",
-            "    └── 📄 1.000KB (50.00 %) me2  fun.py:16",
-        ]
-        assert [line.rstrip() for line in output.getvalue().splitlines()] == expected
-
-    def test_render_multiple_allocations_with_no_single_childs(self):
-        # GIVEN
-        peak_allocations = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("me", "fun.py", 12),
-                    ("parent", "fun.py", 8),
-                ],
-            ),
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("me2", "fun.py", 16),
-                    ("parent", "fun.py", 8),
-                ],
-            ),
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("me", "fun.py", 16),
-                    ("parent2", "fun.py", 8),
-                ],
-            ),
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("me2", "fun.py", 16),
-                    ("parent2", "fun.py", 8),
-                ],
-            ),
-        ]
-        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
-        output = StringIO()
-
-        # WHEN
-        reporter.render(file=output)
-
-        # THEN
-        expected = [
-            "📂 4.000KB (100.00 %) <ROOT>",
-            "├── 📂 2.000KB (50.00 %) parent  fun.py:8",
-            "│   ├── 📄 1.000KB (25.00 %) me  fun.py:12",
-            "│   └── 📄 1.000KB (25.00 %) me2  fun.py:16",
-            "└── 📂 2.000KB (50.00 %) parent2  fun.py:8",
-            "    ├── 📄 1.000KB (25.00 %) me  fun.py:16",
-            "    └── 📄 1.000KB (25.00 %) me2  fun.py:16",
-        ]
-        assert [line.rstrip() for line in output.getvalue().splitlines()] == expected
-
-    def test_render_long_chain(self):
-        # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -1270,30 +1844,45 @@ class TestRenderFrame:
                 n_allocations=1,
                 _stack=[
                     ("a", "fun.py", 1),
-                    ("b", "fun.py", 9),
-                    ("c", "fun.py", 10),
-                    ("d", "fun.py", 11),
-                    ("e", "fun.py", 11),
-                    ("f", "fun.py", 11),
+                    ("b", "fun.py", 2),
+                    ("c", "fun.py", 3),
+                    ("d", "fun.py", 4),
+                    ("e", "fun.py", 5),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
                 ],
             ),
         ]
-        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
-        output = StringIO()
 
-        # WHEN
-        reporter.render(file=output)
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=[*["down"] * 4, "e"])
 
-        # THEN
-        expected = [
-            "📂 1.000KB (100.00 %) <ROOT>",
-            "└── [[5 frames hidden in 1 file(s)]]",
-            "    └── 📄 1.000KB (100.00 %) a  fun.py:1",
-        ]
-        assert [line.rstrip() for line in output.getvalue().splitlines()] == expected
-
-    def test_render_long_chain_with_branch_at_the_end(self):
+    def test_hide_import_system(self, compare):
         # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
         peak_allocations = [
             MockAllocationRecord(
                 tid=1,
@@ -1303,12 +1892,59 @@ class TestRenderFrame:
                 stack_id=1,
                 n_allocations=1,
                 _stack=[
-                    ("a1", "fun.py", 1),
-                    ("b", "fun2.py", 9),
-                    ("c", "fun3.py", 10),
-                    ("d", "fun4.py", 11),
-                    ("e", "fun5.py", 11),
-                    ("f", "fun6.py", 11),
+                    ("a0", "some other frame", 4),
+                    ("a", "<frozen importlib>", 1),
+                    ("b", "<frozen importlib>", 2),
+                    ("c", "<frozen importlib>", 3),
+                    ("d", "<frozen importlib>", 4),
+                    ("e", "<frozen importlib>", 5),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+        ]
+
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=["i"])
+
+    def test_show_uninteresting(self, compare):
+        # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
                 ],
             ),
             MockAllocationRecord(
@@ -1319,27 +1955,101 @@ class TestRenderFrame:
                 stack_id=1,
                 n_allocations=1,
                 _stack=[
-                    ("a2", "fun.py", 1),
-                    ("b", "fun2.py", 9),
-                    ("c", "fun3.py", 10),
-                    ("d", "fun4.py", 11),
-                    ("e", "fun5.py", 11),
-                    ("f", "fun6.py", 11),
+                    ("a0", "some other frame", 4),
+                    ("a", "runpy.py", 1),
+                    ("b", "runpy.py", 2),
+                    ("c", "runpy.py", 3),
+                    ("d", "runpy.py", 4),
+                    ("e", "runpy.py", 5),
                 ],
             ),
         ]
-        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
-        output = StringIO()
 
-        # WHEN
-        reporter.render(file=output)
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=["u"])
 
-        # THEN
-        expected = [
-            "📂 2.000KB (100.00 %) <ROOT>",
-            "└── [[4 frames hidden in 4 file(s)]]",
-            "    └── 📂 2.000KB (100.00 %) b  fun2.py:9",
-            "        ├── 📄 1.000KB (50.00 %) a1  fun.py:1",
-            "        └── 📄 1.000KB (50.00 %) a2  fun.py:1",
+    def test_show_uninteresting_and_hide_import_system(self, compare):
+        # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024 * 10,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("B", "some other frame", 4),
+                    ("d", "<frozen importlib>", 3),
+                    ("e", "<frozen importlib>", 4),
+                    ("A", "some other frame", 4),
+                    ("a", "runpy.py", 1),
+                    ("b", "runpy.py", 2),
+                    ("c", "runpy.py", 5),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "fun2.py", 12),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
         ]
-        assert [line.rstrip() for line in output.getvalue().splitlines()] == expected
+
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=["u", "i"])
+
+    def test_select_screen(self, tmp_path, compare):
+        # GIVEN
+        code = dedent(
+            """\
+        import itertools
+        def generate_primes():
+            numbers = itertools.count(2)
+            while True:
+                prime = next(numbers)
+                yield prime
+                numbers = filter(lambda x, prime=prime: x % prime, numbers)
+        """
+        )
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me2", "func2.py", 4),
+                    ("parent2", "fun2.py", 8),
+                    ("grandparent2", "fun2.py", 4),
+                ],
+            ),
+        ]
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = code.splitlines()
+            assert compare(peak_allocations, press=[*["down"] * 3])

@@ -867,10 +867,11 @@ class TestTreeSubCommand:
             ],
             cwd=str(tmp_path),
             text=True,
+            input="q",
         )
 
         # THEN
-        assert "frames hidden" in output
+        assert output
 
     def test_temporary_allocations_tree(self, tmp_path, simple_test_file):
         # GIVEN
@@ -888,6 +889,7 @@ class TestTreeSubCommand:
             ],
             cwd=str(tmp_path),
             text=True,
+            input="q",
         )
 
         # THEN

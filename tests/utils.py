@@ -1,5 +1,5 @@
 """Utilities / Helpers for writing tests."""
-
+import asyncio
 import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -99,3 +99,18 @@ def run_without_tracer():
     finally:
         sys.settrace(prev_trace)
         sys.setprofile(prev_profile)
+
+
+def async_run(coro):
+    # This technique shamelessly cribbed from Textual itself...
+    # `asyncio.get_event_loop()` is deprecated since Python 3.10:
+    asyncio_get_event_loop_is_deprecated = sys.version_info >= (3, 10, 0)
+
+    if asyncio_get_event_loop_is_deprecated:
+        # N.B. This doesn't work with Python<3.10, as we end up with 2 event loops:
+        return asyncio.run(coro)
+    else:
+        # pragma: no cover
+        # However, this works with Python<3.10:
+        event_loop = asyncio.get_event_loop()
+        return event_loop.run_until_complete(coro)
