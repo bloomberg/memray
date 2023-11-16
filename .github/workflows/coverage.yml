@@ -36,6 +36,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -qy \
+            pkg-config \
             libunwind-dev \
             liblz4-dev \
             gdb \
@@ -46,7 +47,7 @@ jobs:
             python3.10-dbg
       - name: Install Python dependencies
         run: |
-          python3 -m pip install --upgrade pip cython
+          python3 -m pip install --upgrade pip cython pkgconfig
           make test-install
       - name: Disable ptrace security restrictions
         run: |

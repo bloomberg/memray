@@ -8,6 +8,7 @@ import tempfile
 from sys import platform
 from sys import version_info
 
+import pkgconfig
 from Cython.Build import cythonize
 from setuptools import Extension
 from setuptools import find_packages
@@ -212,6 +213,22 @@ if MEMRAY_FAST_TLS:
 BINARY_FORMATS = {"darwin": "macho", "linux": "elf"}
 BINARY_FORMAT = BINARY_FORMATS.get(sys.platform, "elf")
 
+library_flags = {"libraries": ["lz4"]}
+if IS_LINUX:
+    library_flags["libraries"].append("unwind")
+
+try:
+    if IS_LINUX:
+        library_flags = pkgconfig.parse("liblz4 libunwind")
+    else:
+        library_flags = pkgconfig.parse("liblz4")
+except EnvironmentError as e:
+    print("pkg-config not found.", e)
+    print("Falling back to static flags.")
+except pkgconfig.PackageNotFoundError as e:
+    print("Package Not Found", e)
+    print("Falling back to static flags.")
+
 MEMRAY_EXTENSION = Extension(
     name="memray._memray",
     sources=[
@@ -231,20 +248,16 @@ MEMRAY_EXTENSION = Extension(
         "src/memray/_memray/socket_reader_thread.cpp",
         "src/memray/_memray/native_resolver.cpp",
     ],
-    libraries=[
-        "lz4",
-    ],
-    library_dirs=[str(LIBBACKTRACE_LIBDIR)],
-    include_dirs=["src", str(LIBBACKTRACE_INCLUDEDIRS)],
     language="c++",
     extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
     extra_link_args=["-std=c++17", "-lbacktrace", *EXTRA_LINK_ARGS],
     define_macros=DEFINE_MACROS,
     undef_macros=UNDEF_MACROS,
+    **library_flags,
 )
 
-if IS_LINUX:
-    MEMRAY_EXTENSION.libraries.append("unwind")
+MEMRAY_EXTENSION.library_dirs.extend([str(LIBBACKTRACE_LIBDIR)])
+MEMRAY_EXTENSION.include_dirs.extend(["src", str(LIBBACKTRACE_INCLUDEDIRS)])
 MEMRAY_EXTENSION.libraries.append("dl")
 
 

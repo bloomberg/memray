@@ -3,6 +3,7 @@
 requires = [
      "setuptools",
      "wheel",
+     "pkgconfig",
      "Cython>=0.29.31"
 ]
 
