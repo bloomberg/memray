@@ -85,7 +85,7 @@ function findHWMAllocations(
   intervals,
   node_objects,
   hwmSnapshot,
-  parent_index_by_child_index
+  parent_index_by_child_index,
 ) {
   intervals.forEach((interval) => {
     let [allocBefore, deallocBefore, nodeIndex, count, bytes] = interval;
@@ -108,7 +108,7 @@ function findLeakedAllocations(
   node_objects,
   rangeStart,
   rangeEnd,
-  parent_index_by_child_index
+  parent_index_by_child_index,
 ) {
   intervals.forEach((interval) => {
     let [allocBefore, deallocBefore, nodeIndex, count, bytes] = interval;
@@ -150,7 +150,7 @@ function packedDataToTree(packedData, rangeStart, rangeEnd) {
         " is " +
         hwmBytes +
         " at " +
-        hwmSnapshot
+        hwmSnapshot,
     );
 
     let plotUpdate = { shapes: [] };
@@ -197,14 +197,14 @@ function packedDataToTree(packedData, rangeStart, rangeEnd) {
       flamegraphIntervals,
       flamegraphNodeObjects,
       hwmSnapshot,
-      parent_index_by_child_index
+      parent_index_by_child_index,
     );
     if (inverted) {
       findHWMAllocations(
         invertedNoImportsIntervals,
         invertedNoImportsNodeObjects,
         hwmSnapshot,
-        inverted_no_imports_parent_index_by_child_index
+        inverted_no_imports_parent_index_by_child_index,
       );
     }
   } else {
@@ -215,7 +215,7 @@ function packedDataToTree(packedData, rangeStart, rangeEnd) {
       flamegraphNodeObjects,
       rangeStart,
       rangeEnd,
-      parent_index_by_child_index
+      parent_index_by_child_index,
     );
     if (inverted) {
       findLeakedAllocations(
@@ -223,7 +223,7 @@ function packedDataToTree(packedData, rangeStart, rangeEnd) {
         invertedNoImportsNodeObjects,
         rangeStart,
         rangeEnd,
-        inverted_no_imports_parent_index_by_child_index
+        inverted_no_imports_parent_index_by_child_index,
       );
     }
   }
@@ -400,7 +400,7 @@ function main() {
   console.log("main");
 
   const unique_threads = packed_data.unique_threads.map(
-    (tid) => packed_data.strings[tid]
+    (tid) => packed_data.strings[tid],
   );
   initThreadsDropdown({ unique_threads: unique_threads }, merge_threads);
 

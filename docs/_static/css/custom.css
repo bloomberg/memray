@@ -212,7 +212,9 @@ a:hover {
   border-right: 0.15em solid #31373e;
   white-space: nowrap;
   margin: 0 auto;
-  animation: typing 2.75s steps(40, end), blink-caret 0.75s step-end infinite;
+  animation:
+    typing 2.75s steps(40, end),
+    blink-caret 0.75s step-end infinite;
 }
 
 @keyframes typing {

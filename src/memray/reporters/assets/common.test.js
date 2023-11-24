@@ -22,7 +22,7 @@ describe("Flame graph tooltip generation", () => {
       thread_id: "merged thread",
     };
     expect(makeTooltipString(data, "1KiB", true)).toBe(
-      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations"
+      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations",
     );
   });
 
@@ -33,7 +33,7 @@ describe("Flame graph tooltip generation", () => {
       thread_id: "0x1",
     };
     expect(makeTooltipString(data, "1KiB", false)).toBe(
-      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 0x1"
+      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 0x1",
     );
   });
   test("Generate label with single allocation", () => {
@@ -43,7 +43,7 @@ describe("Flame graph tooltip generation", () => {
       thread_id: "0x1",
     };
     expect(makeTooltipString(data, "1KiB", false)).toBe(
-      "File foo.py, line 10 in foo<br>1KiB total<br>1 allocation<br>Thread ID: 0x1"
+      "File foo.py, line 10 in foo<br>1KiB total<br>1 allocation<br>Thread ID: 0x1",
     );
   });
 });
@@ -114,8 +114,8 @@ describe("Filter threads", () => {
           thread_id: "0x0",
           children: [],
         },
-        2
-      )
+        2,
+      ),
     ).toStrictEqual({
       thread_id: "0x0",
       children: [],
