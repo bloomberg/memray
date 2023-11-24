@@ -250,7 +250,7 @@ def aggregate_allocations(
         )
 
         # Walk upwards and sum totals
-        visited = set([location])
+        visited = {location}
         for function, file_name, _ in caller_frames:
             location = Location(function=function, file=file_name)
             frame = processed_allocations[location]

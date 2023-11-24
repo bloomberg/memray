@@ -46,13 +46,13 @@ class TableReporter:
 
             allocator = AllocatorType(record.allocator)
             result.append(
-                dict(
-                    tid=record.thread_name,
-                    size=record.size,
-                    allocator=allocator.name.lower(),
-                    n_allocations=record.n_allocations,
-                    stack_trace=html.escape(stack),
-                )
+                {
+                    "tid": record.thread_name,
+                    "size": record.size,
+                    "allocator": allocator.name.lower(),
+                    "n_allocations": record.n_allocations,
+                    "stack_trace": html.escape(stack),
+                }
             )
 
         return cls(result, memory_records=memory_records)
