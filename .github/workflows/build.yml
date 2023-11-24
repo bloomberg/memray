@@ -110,6 +110,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 16
+      - name: Symlink node as nodejs
+        run: ln -sf "$(which node)" "$(which node)js"
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
