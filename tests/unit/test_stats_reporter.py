@@ -51,21 +51,18 @@ def _generate_mock_allocations(
     stacks.extend([default_stacks_value] * (count - len(stacks)))
     stacks = stacks[:count]
 
-    snapshot = []
-    for i in range(count):
-        snapshot.append(
-            MockAllocationRecord(
-                tid=i + 1,
-                address=0x1000000,
-                size=sizes[i],
-                allocator=allocators[i],
-                stack_id=i + 1,
-                n_allocations=n_allocations[i],
-                _stack=stacks[i],
-            )
+    return [
+        MockAllocationRecord(
+            tid=i + 1,
+            address=0x1000000,
+            size=sizes[i],
+            allocator=allocators[i],
+            stack_id=i + 1,
+            n_allocations=n_allocations[i],
+            _stack=stacks[i],
         )
-
-    return snapshot
+        for i in range(count)
+    ]
 
 
 # data generator for tests

@@ -523,7 +523,7 @@ class TestParseSubcommand:
         for record in records:
             record_count_by_type[record.partition(" ")[0]] += 1
 
-        for _, count in record_count_by_type.items():
+        for count in record_count_by_type.values():
             assert count > 0
 
     def test_successful_parse_of_aggregated_capture_file(self, tmp_path):
@@ -582,7 +582,7 @@ class TestParseSubcommand:
         for record in records:
             record_count_by_type[record.partition(" ")[0]] += 1
 
-        for _, count in record_count_by_type.items():
+        for count in record_count_by_type.values():
             assert count > 0
 
     def test_error_when_stdout_is_a_tty(self, tmp_path, simple_test_file):

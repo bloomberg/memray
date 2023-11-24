@@ -1224,7 +1224,7 @@ class TestLeaks:
             records[record.tid].append(record)
         assert len(records.keys()) == 2
         # Each thread should have 4096 bytes total allocations
-        for tid, allocations in records.items():
+        for allocations in records.values():
             assert sum(allocation.size for allocation in allocations) == 4096
 
 
@@ -1448,7 +1448,7 @@ class TestTemporaryAllocations:
             records[record.tid].append(record)
         assert len(records.keys()) == 2
         # Each thread should have 4096 bytes total allocations
-        for tid, allocations in records.items():
+        for allocations in records.values():
             assert sum(allocation.size for allocation in allocations) == 4096
 
     def test_intertwined_temporary_allocations_in_threads(self, tmpdir):
@@ -1522,7 +1522,7 @@ class TestTemporaryAllocations:
             records[record.tid].append(record)
         assert len(records.keys()) == 2
         # Each thread should have 1234 bytes total allocations
-        for _, allocations in records.items():
+        for allocations in records.values():
             assert sum(allocation.size for allocation in allocations) == 1234
 
 

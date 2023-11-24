@@ -46,7 +46,7 @@ def describe_histogram_databins(
     for i, (end, count) in enumerate(databins):
         # The max size for the last bucket is inclusive, not exclusive
         adjustment = 1 if i != len(databins) - 1 else 0
-        ret.append(dict(min_bytes=start, max_bytes=end - adjustment, count=count))
+        ret.append({"min_bytes": start, "max_bytes": end - adjustment, "count": count})
         start = end
     return ret
 
@@ -111,10 +111,10 @@ class StatsReporter:
         self.num_largest = num_largest
 
     def render(self, json_output_file: Optional[Path] = None) -> None:
-        histogram_params = dict(
-            num_bins=10,
-            histogram_scale_factor=25,
-        )
+        histogram_params = {
+            "num_bins": 10,
+            "histogram_scale_factor": 25,
+        }
         if json_output_file:
             self._render_to_json(histogram_params, json_output_file)
         else:
@@ -170,24 +170,23 @@ class StatsReporter:
             if isinstance(val, datetime.datetime):
                 metadata[name] = str(val)
 
-        data: Dict[str, Any] = dict(
-            total_num_allocations=self._stats.total_num_allocations,
-            total_bytes_allocated=self._stats.total_memory_allocated,
-            allocation_size_histogram=alloc_size_hist,
-            allocator_type_distribution={
-                allocation_type: count
-                for allocation_type, count in self._get_allocator_type_distribution()
-            },
-            top_allocations_by_size=[
+        data: Dict[str, Any] = {
+            "total_num_allocations": self._stats.total_num_allocations,
+            "total_bytes_allocated": self._stats.total_memory_allocated,
+            "allocation_size_histogram": alloc_size_hist,
+            "allocator_type_distribution": dict(
+                self._get_allocator_type_distribution()
+            ),
+            "top_allocations_by_size": [
                 {"location": self._format_location(location), "size": size}
                 for location, size in self._get_top_allocations_by_size()
             ],
-            top_allocations_by_count=[
+            "top_allocations_by_count": [
                 {"location": self._format_location(location), "count": count}
                 for location, count in self._get_top_allocations_by_count()
             ],
-            metadata=metadata,
-        )
+            "metadata": metadata,
+        }
 
         with open(out_path, "w") as f:
             json.dump(data, f, indent=2)
