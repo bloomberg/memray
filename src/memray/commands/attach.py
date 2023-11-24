@@ -10,7 +10,6 @@ import shutil
 import signal
 import socket
 import subprocess
-import sys
 import threading
 
 import memray
@@ -167,10 +166,7 @@ def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
 
     cmd = gdb_cmd if debugger == "gdb" else lldb_cmd
     if verbose:
-        if sys.version_info >= (3, 8):
-            print("Debugger command line:", shlex.join(cmd))
-        else:
-            print("Debugger command line:", cmd)
+        print("Debugger command line:", shlex.join(cmd))
 
     try:
         output = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)

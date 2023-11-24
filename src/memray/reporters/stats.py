@@ -199,17 +199,23 @@ class StatsReporter:
         return f"{function}:{file}:{line}"
 
     def _get_top_allocations_by_size(self) -> Iterator[Tuple[PythonStackElement, int]]:
-        for location, size in self._stats.top_locations_by_size:
-            yield (location, size)
+        """
+        Yield (location, size) tuples
+        """
+        yield self._stats.top_locations_by_size
 
     def _get_top_allocations_by_count(self) -> Iterator[Tuple[PythonStackElement, int]]:
-        for location, count in self._stats.top_locations_by_count:
-            yield (location, count)
+        """
+        Yield (location, count) tuples
+        """
+        yield from self._stats.top_locations_by_count
 
     def _get_allocator_type_distribution(self) -> Iterator[Tuple[str, int]]:
-        for allocator_name, count in sorted(
+        """
+        Yield from a sorted list of (allocator_name, count) tuples
+        """
+        yield from sorted(
             self._stats.allocation_count_by_allocator.items(),
             key=lambda item: item[1],
             reverse=True,
-        ):
-            yield (allocator_name, count)
+        )

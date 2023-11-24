@@ -12,14 +12,10 @@ from typing import Sequence
 from typing import Set
 from typing import TextIO
 from typing import Tuple
+from typing import TypedDict
 from typing import TypeVar
 from typing import Union
 from typing import cast
-
-if sys.version_info >= (3, 8):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
 
 from memray import AllocationRecord
 from memray import MemorySnapshot

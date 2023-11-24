@@ -5,12 +5,7 @@ from types import TracebackType
 from typing import Any
 from typing import Iterable
 from typing import Iterator
-from typing import List
 from typing import NamedTuple
-from typing import Optional
-from typing import Tuple
-from typing import Type
-from typing import Union
 from typing import overload
 
 from memray._destination import FileDestination as FileDestination
@@ -20,11 +15,13 @@ from memray._stats import Stats
 
 from . import Destination
 
-PythonStackElement = Tuple[str, str, int]
-NativeStackElement = Tuple[str, str, int]
-MemorySnapshot = NamedTuple(
-    "MemorySnapshot", [("time", int), ("rss", int), ("heap", int)]
-)
+PythonStackElement = tuple[str, str, int]
+NativeStackElement = tuple[str, str, int]
+
+class MemorySnapshot(NamedTuple):
+    time: int
+    rss: int
+    heap: int
 
 def set_log_level(level: int) -> None: ...
 
@@ -49,14 +46,14 @@ class AllocationRecord:
     def thread_name(self) -> str: ...
     def hybrid_stack_trace(
         self,
-        max_stacks: Optional[int] = None,
-    ) -> List[Union[PythonStackElement, NativeStackElement]]: ...
+        max_stacks: int | None = None,
+    ) -> list[PythonStackElement | NativeStackElement]: ...
     def native_stack_trace(
-        self, max_stacks: Optional[int] = None
-    ) -> List[NativeStackElement]: ...
+        self, max_stacks: int | None = None
+    ) -> list[NativeStackElement]: ...
     def stack_trace(
-        self, max_stacks: Optional[int] = None
-    ) -> List[PythonStackElement]: ...
+        self, max_stacks: int | None = None
+    ) -> list[PythonStackElement]: ...
     def __eq__(self, other: Any) -> Any: ...
     def __ge__(self, other: Any) -> Any: ...
     def __gt__(self, other: Any) -> Any: ...
@@ -94,17 +91,17 @@ class TemporalAllocationRecord:
     def thread_name(self) -> str: ...
     def hybrid_stack_trace(
         self,
-        max_stacks: Optional[int] = None,
-    ) -> List[Union[PythonStackElement, NativeStackElement]]: ...
+        max_stacks: int | None = None,
+    ) -> list[PythonStackElement | NativeStackElement]: ...
     def native_stack_trace(
-        self, max_stacks: Optional[int] = None
-    ) -> List[NativeStackElement]: ...
+        self, max_stacks: int | None = None
+    ) -> list[NativeStackElement]: ...
     def stack_trace(
-        self, max_stacks: Optional[int] = None
-    ) -> List[PythonStackElement]: ...
+        self, max_stacks: int | None = None
+    ) -> list[PythonStackElement]: ...
     def __eq__(self, other: Any) -> Any: ...
     def __hash__(self) -> Any: ...
-    intervals: List[Interval]
+    intervals: list[Interval]
 
 class AllocatorType(enum.IntEnum):
     MALLOC: int
@@ -134,7 +131,7 @@ class FileReader:
     def metadata(self) -> Metadata: ...
     def __init__(
         self,
-        file_name: Union[str, Path],
+        file_name: str | Path,
         *,
         report_progress: bool = False,
         max_memory_records: int = 10000,
@@ -147,7 +144,7 @@ class FileReader:
     def get_temporal_high_water_mark_allocation_records(
         self,
         merge_threads: bool,
-    ) -> Tuple[List[TemporalAllocationRecord], List[int]]: ...
+    ) -> tuple[list[TemporalAllocationRecord], list[int]]: ...
     def get_high_watermark_allocation_records(
         self,
         merge_threads: bool = ...,
@@ -162,40 +159,40 @@ class FileReader:
     def __enter__(self) -> Any: ...
     def __exit__(
         self,
-        exctype: Optional[Type[BaseException]],
-        excinst: Optional[BaseException],
-        exctb: Optional[TracebackType],
+        exctype: type[BaseException] | None,
+        excinst: BaseException | None,
+        exctb: TracebackType | None,
     ) -> bool: ...
     @property
     def closed(self) -> bool: ...
     def close(self) -> None: ...
 
 def compute_statistics(
-    file_name: Union[str, Path],
+    file_name: str | Path,
     *,
     report_progress: bool = False,
     num_largest: int = 5,
 ) -> Stats: ...
-def dump_all_records(file_name: Union[str, Path]) -> None: ...
+def dump_all_records(file_name: str | Path) -> None: ...
 
 class SocketReader:
     def __init__(self, port: int) -> None: ...
-    def __enter__(self) -> "SocketReader": ...
+    def __enter__(self) -> SocketReader: ...
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        exc_traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_traceback: TracebackType | None,
     ) -> Any: ...
     def get_current_snapshot(
         self, *, merge_threads: bool
     ) -> Iterator[AllocationRecord]: ...
     @property
-    def command_line(self) -> Optional[str]: ...
+    def command_line(self) -> str | None: ...
     @property
     def is_active(self) -> bool: ...
     @property
-    def pid(self) -> Optional[int]: ...
+    def pid(self) -> int | None: ...
     @property
     def has_native_traces(self) -> bool: ...
 
@@ -205,7 +202,7 @@ class Tracker:
     @overload
     def __init__(
         self,
-        file_name: Union[Path, str],
+        file_name: Path | str,
         *,
         native_traces: bool = ...,
         memory_interval_ms: int = ...,
@@ -227,9 +224,9 @@ class Tracker:
     def __enter__(self) -> Any: ...
     def __exit__(
         self,
-        exctype: Optional[Type[BaseException]],
-        excinst: Optional[BaseException],
-        exctb: Optional[TracebackType],
+        exctype: type[BaseException] | None,
+        excinst: BaseException | None,
+        exctb: TracebackType | None,
     ) -> bool: ...
 
 def greenlet_trace(event: str, args: Any) -> None: ...

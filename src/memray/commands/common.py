@@ -1,18 +1,13 @@
 import argparse
 import os
 import pathlib
-import sys
 from pathlib import Path
 from textwrap import dedent
 from typing import Iterable
 from typing import List
 from typing import Optional
+from typing import Protocol
 from typing import Tuple
-
-if sys.version_info >= (3, 8):
-    from typing import Protocol
-else:
-    from typing_extensions import Protocol
 
 from rich import print as pprint
 

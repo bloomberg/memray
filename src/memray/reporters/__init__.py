@@ -1,12 +1,7 @@
-import sys
+from typing import Protocol
 from typing import TextIO
 
 from memray import Metadata
-
-if sys.version_info >= (3, 8):
-    from typing import Protocol
-else:
-    from typing_extensions import Protocol
 
 
 class BaseReporter(Protocol):

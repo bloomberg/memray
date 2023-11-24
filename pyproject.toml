@@ -11,7 +11,7 @@ build-backend = 'setuptools.build_meta'
 
 [tool.ruff]
 line-length = 95
-select = ["C4", "E", "F", "I001", "PERF", "W"]
+select = ["C4", "C90", "E", "F", "I001", "PERF", "UP", "W"]
 fix = true
 
 [tool.ruff.isort]
@@ -19,8 +19,11 @@ force-single-line = true
 known-first-party = ["memray"]
 known-third-party=["rich", "elftools", "pytest"]
 
+[tool.ruff.mccabe]
+max-complexity = 13
+
 [tool.ruff.per-file-ignores]
-"benchmarks/*" = ["C4", "PERF"]
+"benchmarks/*" = ["C4", "C90", "PERF", "UP"]
 
 [tool.isort]
 force_single_line = true

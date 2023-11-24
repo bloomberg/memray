@@ -117,7 +117,7 @@ def run_till_snapshot_point(
     try:
         with reader:
             print("[parent] Waiting on allocations made")
-            with open(allocations_made, "r") as f1:
+            with open(allocations_made) as f1:
                 assert f1.read() == "done"
 
             print("[parent] Deferring to caller")

@@ -222,7 +222,7 @@ try:
         library_flags = pkgconfig.parse("liblz4 libunwind")
     else:
         library_flags = pkgconfig.parse("liblz4")
-except EnvironmentError as e:
+except OSError as e:
     print("pkg-config not found.", e)
     print("Falling back to static flags.")
 except pkgconfig.PackageNotFoundError as e:

@@ -77,7 +77,7 @@ def track_and_wait(output_dir, sleep_after=100):
     yield program_file
 
     # Wait until we are tracking
-    with open(fifo, "r") as f:
+    with open(fifo) as f:
         assert f.read() == "done"
 
 
