@@ -299,7 +299,7 @@ class TestGraph:
 
         assert plot._maxval == 1.0
         assert plot._minval == 0.0
-        assert graph == ("", "", "", "")
+        assert graph == (" " * 50, " " * 50, " " * 50, " " * 50)
 
     def test_size_of_graph(self):
         # GIVEN
@@ -312,12 +312,12 @@ class TestGraph:
 
         for point in range(50):
             plot.add_value(point)
-        graph = plot._graph
+        graph = tuple(plot.render_line(i).text for i in range(plot._height))
 
         # THEN
 
         assert len(graph) == rows
-        assert all(len(row) == size for row in graph)
+        assert all(len(line) == size for line in graph)
 
     def test_one_point_lower_than_max(self):
         # GIVEN
@@ -333,7 +333,12 @@ class TestGraph:
 
         assert plot._maxval == 1.0
         assert plot._minval == 0.0
-        assert graph == (" ", " ", "⢸", "⢸")
+        assert graph == (
+            "                                                  ",
+            "                                                  ",
+            "                                                 ▐",
+            "                                                 ▐",
+        )
 
     def test_one_point_bigger_than_max(self):
         # GIVEN
@@ -350,10 +355,10 @@ class TestGraph:
         assert plot._maxval == 500.0
         assert plot._minval == 0
         assert graph == (
-            "                                                 ⢸",
-            "                                                 ⢸",
-            "                                                 ⢸",
-            "                                                 ⢸",
+            "                                                 ▐",
+            "                                                 ▐",
+            "                                                 ▐",
+            "                                                 ▐",
         )
 
     def test_one_point_bigger_than_max_after_resize(self):
@@ -362,9 +367,11 @@ class TestGraph:
         plot = MemoryGraph(max_data_points=50)
 
         # WHEN
-
+        plot.add_value(1000)
+        for _ in range(50 * 2):
+            plot.add_value(0)
         plot.add_value(500.0)
-        plot._reset_max(1000)
+
         graph = tuple(plot.render_line(i).text for i in range(plot._height))
 
         # THEN
@@ -374,19 +381,20 @@ class TestGraph:
         assert graph == (
             "                                                  ",
             "                                                  ",
-            "                                                 ⢸",
-            "                                                 ⢸",
+            "                                                 ▐",
+            "                                                 ▐",
         )
 
     def test_multiple_points(self):
         # GIVEN
 
         plot = MemoryGraph(max_data_points=50)
+        plot.add_value(100.0)
+        for _ in range(50 * 2):
+            plot.add_value(0)
 
         # WHEN
 
-        plot.add_value(100.0)
-        plot.add_value(0)
         for point in range(50):
             plot.add_value(point)
 
@@ -399,31 +407,36 @@ class TestGraph:
         assert graph == (
             "                                                  ",
             "                                                  ",
-            "                          ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿",
-            " ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            "                                      ▄▄▄▄▄▄██████",
+            "                         ▗▄▄▄▄▄▟██████████████████",
         )
 
-    def test_multiple_points_with_resize(self):
+    def test_multiple_points_scattered(self):
         # GIVEN
 
         plot = MemoryGraph(max_data_points=50)
+        plot.add_value(100.0)
+        for _ in range(50 * 2):
+            plot.add_value(0)
 
         # WHEN
-
-        for point in range(50):
-            plot.add_value(point)
-        plot._reset_max(100)
+        plot.add_value(100)
+        plot.add_value(15)
+        plot.add_value(30)
+        plot.add_value(75)
 
         graph = tuple(plot.render_line(i).text for i in range(plot._height))
 
         # THEN
+
         assert plot._maxval == 100.0
         assert plot._minval == 0
+
         assert graph == (
-            "                                                  ",
-            "                                                  ",
-            "                          ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿",
-            " ⢀⣀⣀⣀⣀⣀⣠⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
+            "                                                ▌ ",
+            "                                                ▌▐",
+            "                                                ▌▟",
+            "                                                ██",
         )
 
 

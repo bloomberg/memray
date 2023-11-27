@@ -12,7 +12,6 @@ from functools import total_ordering
 from math import ceil
 from typing import Any
 from typing import DefaultDict
-from typing import Deque
 from typing import Dict
 from typing import Iterable
 from typing import List
@@ -96,26 +95,22 @@ class MemoryGraph(Widget):
         maxval: float = 1.0
         minval: float = 0.0
         self._width = max_data_points
-        self._graph: List[Deque[str]] = [
-            deque(maxlen=self._width) for _ in range(height)
-        ]
         self._height = height
         self._minval = minval
         self._maxval = maxval
-        self._previous_blocks = [0] * height
         values = [minval] * (2 * self._width + 1)
-        self._values = deque(values, maxlen=2 * self._width + 1)
+        self._values = deque(values, maxlen=2 * self._width)
+
         self._lookup = [
-            [" ", "⢀", "⢠", "⢰", "⢸"],
-            ["⡀", "⣀", "⣠", "⣰", "⣸"],
-            ["⡄", "⣄", "⣤", "⣴", "⣼"],
-            ["⡆", "⣆", "⣦", "⣶", "⣾"],
-            ["⡇", "⣇", "⣧", "⣷", "⣿"],
+            [" ", "▗", "▐"],
+            ["▖", "▄", "▟"],
+            ["▌", "▙", "█"],
         ]
+
         self.border_title = "Heap Usage"
 
     def _value_to_blocks(self, value: float) -> List[int]:
-        dots_per_block = 4
+        dots_per_block = 2
         if value < self._minval:
             n_dots = 0
         elif value > self._maxval:
@@ -135,8 +130,8 @@ class MemoryGraph(Widget):
 
     def add_value(self, value: float) -> None:
         if value > self._maxval:
-            self._reset_max(value)
-        self._add_value_without_redraw(value)
+            self._maxval = value
+        self._values.append(value)
         if self._maxval > 1:
             self.border_subtitle = (
                 f"{size_fmt(int(value))}"
@@ -145,30 +140,20 @@ class MemoryGraph(Widget):
             )
         self.refresh()
 
-    def _reset_max(self, value: float) -> None:
-        self._graph = [deque(maxlen=self._width) for _ in range(self._height)]
-        self._maxval = value
-        for old_val in list(self._values):
-            self._add_value_without_redraw(old_val)
-
-    def _add_value_without_redraw(self, value: float) -> None:
-        blocks = self._value_to_blocks(value)
-
-        chars = reversed(
-            tuple(self._lookup[i0][i1] for i0, i1 in zip(self._previous_blocks, blocks))
-        )
-
-        for row, char in enumerate(chars):
-            self._graph[row].append(char)
-
-        self._values.append(value)
-        self._previous_blocks = blocks
-
     def render_line(self, y: int) -> Strip:
-        if y > len(self._graph):
+        graph: list[list[str]] = [[] for _ in range(self._height)]
+        blocks_by_index = [self._value_to_blocks(value) for value in self._values]
+
+        for left, right in zip(blocks_by_index[::2], blocks_by_index[1::2]):
+            for row, char in enumerate(
+                reversed(tuple(self._lookup[li][ri] for li, ri in zip(left, right)))
+            ):
+                graph[row].append(char)
+
+        if y > len(graph):
             return Strip.blank(self.size.width)
         data = " " * self.size.width
-        data += "".join(self._graph[y])
+        data += "".join(graph[y])
         data = data[-self.size.width :]
         return Strip([Segment(data, self.rich_style)])
 
