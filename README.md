@@ -282,11 +282,13 @@ The results are displayed in descending order of total memory allocated by a fun
 
 - a: Sort by allocation count
 
-The sorted column is highlighted with `< >` characters around the title.
+In most terminals you can also click the "Sort by Total", "Sort by Own", and "Sort by Allocations" buttons on the footer.
+
+The sorted column's heading is underlined.
 
 ## Viewing different threads
 
-By default, the live command will present the main thread of the program. You can look at different threads of the program by pressing the left and right arrow keys.
+By default, the live command will present the main thread of the program. You can look at different threads of the program by pressing the greater than and less than keys, `<` and `>`. In most terminals you can also click the "Previous Thread" and "Next Thread" buttons on the footer.
 
 <img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/live_different_thread.png?raw=true" align="center"/>
 

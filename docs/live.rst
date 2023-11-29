@@ -51,13 +51,17 @@ it. You can change the ordering with the following keyboard shortcuts:
 - o: Sort by own memory
 - a: Sort by allocation count
 
-The sorted column is highlighted with ``< >`` characters around the title.
+In most terminals you can also click the "Sort by Total", "Sort by Own", and "Sort by Allocations" buttons on the
+footer.
+
+The sorted column's heading is underlined.
 
 Viewing different threads
 -------------------------
 
 By default, the ``live`` command will present the main thread of the program. You can look at different threads of the
-program by pressing the left and right arrow keys.
+program by pressing the greater than and less than keys, ``<`` and ``>``. In most terminals you can also click the
+"Previous Thread" and "Next Thread" buttons on the footer.
 
 .. image:: _static/images/live_different_thread.png
 
