@@ -514,7 +514,7 @@ class TestTreeSubCommand:
 
         # THEN
         assert namespace.results == "results.txt"
-        assert namespace.biggest_allocs == 10
+        assert namespace.biggest_allocs == 200
 
     def test_parser_acceps_biggest_allocs_short_form(self):
         # GIVEN

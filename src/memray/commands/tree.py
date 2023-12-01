@@ -17,9 +17,9 @@ class TreeCommand:
         parser.add_argument(
             "-b",
             "--biggest-allocs",
-            help="Show n biggest allocations (defaults to 10)",
+            help="Show n biggest allocations (defaults to 200)",
             type=int,
-            default=10,
+            default=200,
         )
         alloc_type_group = parser.add_mutually_exclusive_group()
         alloc_type_group.add_argument(
