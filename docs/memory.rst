@@ -1,3 +1,5 @@
+.. _memory overview:
+
 Memory overview
 ===============
 
