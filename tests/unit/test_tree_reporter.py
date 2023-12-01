@@ -1577,63 +1577,6 @@ class TestTreeTui:
             current_node = current_node.children[0]
         assert not current_node.children
 
-    def test_allocations_of_different_size_classes(self):
-        # GIVEN
-        peak_allocations = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=65,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[("func", "fun.py", 1)],
-            ),
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=34,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[("func2", "fun.py", 2), ("func", "fun.py", 1)],
-            ),
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=1,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("func3", "fun.py", 3),
-                    ("func2", "fun.py", 2),
-                    ("func", "fun.py", 1),
-                ],
-            ),
-        ]
-
-        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
-        app = reporter.get_app()
-
-        # WHEN
-        async def run_test():
-            async with app.run_test() as pilot:
-                await pilot.pause()
-                return app.query_one(Tree).root
-
-        root = async_run(run_test())
-
-        # THEN
-        assert root.label.spans[0].style == "red"
-        first_child = root.children[0]
-        assert first_child.label.spans[0].style == "red"
-        second_child = first_child.children[0]
-        assert second_child.label.spans[0].style == "yellow"
-        third_child = second_child.children[0]
-        assert third_child.label.spans[0].style == "bright_green"
-        assert not third_child.children
-
     def test_render_runs_the_app(self):
         # GIVEN
         with patch("memray.reporters.tree.TreeReporter.get_app") as get_app:
@@ -2053,3 +1996,23 @@ class TestTUILooks:
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=[*["down"] * 3])
+
+    def test_allocations_of_different_sizes(self, compare):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=65,
+                allocator=AllocatorType.MALLOC,
+                stack_id=j,
+                n_allocations=1,
+                _stack=[(f"func{i}", f"fun{i}.py", i) for i in range(1, 51)][:j][::-1],
+            )
+            for j in range(1, 51)
+        ]
+
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = []
+            assert compare(peak_allocations, press=[])
