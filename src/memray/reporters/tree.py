@@ -359,7 +359,7 @@ class TreeReporter:
         cls,
         allocations: Iterator[AllocationRecord],
         *,
-        biggest_allocs: int = 10,
+        biggest_allocs: int = 200,
         native_traces: bool,
     ) -> "TreeReporter":
         data = Frame(location=ROOT_NODE, value=0, import_system=False, interesting=True)
