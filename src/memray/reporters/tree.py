@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import linecache
 import sys
 from dataclasses import dataclass
@@ -13,10 +14,14 @@ from typing import Iterator
 from typing import Optional
 from typing import Tuple
 
+from rich.style import Style
+from rich.text import Text
 from textual import work
 from textual.app import App
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.color import Color
+from textual.color import Gradient
 from textual.containers import Grid
 from textual.containers import Horizontal
 from textual.containers import Vertical
@@ -239,28 +244,29 @@ class TreeApp(App[None]):
                 break
             current_node = current_node.children[0]
 
-    def frame_text(self, node: Frame, *, allow_expand: bool) -> str:
+    def frame_text(self, node: Frame, *, allow_expand: bool) -> Text:
         if node.value == 0:
-            return "<No allocations>"
+            return Text("<No allocations>")
 
         value = node.value
         root_data = self.data
         size_str = f"{size_fmt(value)} ({100 * value / root_data.value:.2f} %)"
         function, file, lineno = node.location
-        icon = ":open_file_folder:" if allow_expand else ":page_facing_up:"
-        return (
-            "{icon}[{info_color}] {size} [/{info_color}]"
-            "[bold]{function}[/bold]  "
-            "[dim cyan]{code_position}[/dim cyan]".format(
-                icon=icon,
-                size=size_str,
-                info_color=_info_color(node, root_data),
-                function=function,
-                code_position=f"{_filename_to_module_name(file)}:{lineno}"
-                if lineno != 0
-                else file,
+        size_color = _info_color(node, root_data)
+        code_position = (
+            f"{_filename_to_module_name(file)}:{lineno}" if lineno != 0 else file
+        )
+
+        ret = Text.from_markup(
+            ":open_file_folder:" if allow_expand else ":page_facing_up:"
+        )
+        ret.append_text(Text(f" {size_str} ", style=Style(color=size_color.rich_color)))
+        ret.append_text(
+            Text.from_markup(
+                f"[bold]{function}[/bold]  [dim cyan]{code_position}[/dim cyan]"
             )
         )
+        return ret
 
     def add_children(self, tree: TreeNode[Frame], children: Iterable[Frame]) -> None:
         # Add children to the tree from largest to smallest
@@ -327,16 +333,20 @@ class TreeApp(App[None]):
         return bindings
 
 
-def _info_color(node: Frame, root_node: Frame) -> str:
+@functools.lru_cache(maxsize=None)
+def _percentage_to_color(percentage: int) -> Color:
+    gradient = Gradient(
+        (0, Color(97, 193, 44)),
+        (0.4, Color(236, 152, 16)),
+        (0.6, Color.parse("darkorange")),
+        (1, Color.parse("indianred")),
+    )
+    return gradient.get_color(percentage / 100)
+
+
+def _info_color(node: Frame, root_node: Frame) -> Color:
     proportion_of_total = node.value / root_node.value
-    if proportion_of_total > 0.6:
-        return "red"
-    elif proportion_of_total > 0.2:
-        return "yellow"
-    elif proportion_of_total > 0.05:
-        return "green"
-    else:
-        return "bright_green"
+    return _percentage_to_color(int(proportion_of_total * 100))
 
 
 class TreeReporter:
