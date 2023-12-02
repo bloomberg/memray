@@ -89,30 +89,41 @@ class FrameDetailScreen(Widget):
         text.select_line((delta - 1))
         text.show_line_numbers = False
 
+    def _get_content_by_label_id(self) -> Dict[str, str]:
+        function, file, line = self.frame.location
+        if self.frame.location is ROOT_NODE:
+            return {
+                "function": "",
+                "location": "",
+                "allocs": f":floppy_disk: Allocations: {self.frame.n_allocations}",
+                "size": f":package: Size: {size_fmt(self.frame.value)}",
+                "thread": "",
+            }
+        return {
+            "function": f":compass: Function: {function}",
+            "location": f":compass: Location: {_filename_to_module_name(file)}:{line}",
+            "allocs": f":floppy_disk: Allocations: {self.frame.n_allocations}",
+            "size": f":package: Size: {size_fmt(self.frame.value)}",
+            "thread": f":thread: Thread: {self.frame.thread_id}",
+        }
+
     def watch_frame(self) -> None:
         if not self.__is_mounted or self.frame is None:
             return
 
         self.update_text_area()
-        function, file, line = self.frame.location
-        self.query_one("#function", Label).update(f":compass: Function: {function}")
-        self.query_one("#location", Label).update(
-            f":compass: Location: {_filename_to_module_name(file)}:{line}"
-        )
-        self.query_one("#allocs", Label).update(
-            f":floppy_disk: Allocations: {self.frame.n_allocations}"
-        )
-        self.query_one("#size", Label).update(
-            f":package: Size: {size_fmt(self.frame.value)}"
-        )
-        self.query_one("#thread", Label).update(
-            f":thread: Thread: {self.frame.thread_id}"
-        )
+
+        content_by_label_id = self._get_content_by_label_id()
+        for label_id, content in content_by_label_id.items():
+            label = self.query_one(f"#{label_id}", Label)
+            label.update(content)
+            label.set_class(not content, "hidden")
+            label.styles.display = "block" if content else "none"
 
     def compose(self) -> ComposeResult:
         if self.frame is None:
             return
-        function, file, line = self.frame.location
+        _, file, line = self.frame.location
         delta = 3
         lines = linecache.getlines(file)[line - delta : line + delta]
         text = TextArea(
@@ -123,17 +134,15 @@ class FrameDetailScreen(Widget):
         text.can_focus = False
         text.cursor_blink = False
 
-        node_metadata = Vertical(
-            Label(f":compass: Function: {function}", id="function"),
-            Label(f":compass: Location: {file}:{line}", id="location"),
-            Label(
-                f":floppy_disk: Allocations: {self.frame.n_allocations}",
-                id="allocs",
-            ),
-            Label(f":package: Size: {size_fmt(self.frame.value)}", id="size"),
-            Label(f":thread: Thread: {self.frame.thread_id}", id="thread"),
-        )
+        labels: list[Label] = []
+        content_by_label_id = self._get_content_by_label_id()
+        for label_id in ("function", "location", "allocs", "size", "thread"):
+            content = content_by_label_id[label_id]
+            label = Label(content, id=label_id)
+            label.styles.display = "block" if content else "none"
+            labels.append(label)
 
+        node_metadata = Vertical(*labels)
         yield Grid(
             text,
             node_metadata,
