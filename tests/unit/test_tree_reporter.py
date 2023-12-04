@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from textwrap import dedent
+from typing import Any
 from typing import Awaitable
 from typing import Callable
+from typing import Dict
 from typing import Iterable
 from typing import Iterator
 from typing import List
@@ -33,67 +35,6 @@ class TestTreeReporter:
             n_allocations=0,
             thread_id="",
             interesting=True,
-        )
-
-    def test_biggest_allocations(self):
-        # GIVEN
-        peak_allocations = [
-            MockAllocationRecord(
-                tid=1,
-                address=0x1000000,
-                size=index * 1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    (f"function_{index}", "fun.py", 12),
-                ],
-            )
-            for index in range(1000)
-        ]
-
-        # WHEN
-        reporter = TreeReporter.from_snapshot(
-            peak_allocations, native_traces=False, biggest_allocs=3
-        )
-
-        # THEN
-        assert reporter.data == Frame(
-            location=("<ROOT>", "", 0),
-            value=3065856,
-            children={
-                ("function_999", "fun.py", 12): Frame(
-                    location=("function_999", "fun.py", 12),
-                    value=1022976,
-                    children={},
-                    n_allocations=1,
-                    thread_id="0x1",
-                    interesting=True,
-                    import_system=False,
-                ),
-                ("function_998", "fun.py", 12): Frame(
-                    location=("function_998", "fun.py", 12),
-                    value=1021952,
-                    children={},
-                    n_allocations=1,
-                    thread_id="0x1",
-                    interesting=True,
-                    import_system=False,
-                ),
-                ("function_997", "fun.py", 12): Frame(
-                    location=("function_997", "fun.py", 12),
-                    value=1020928,
-                    children={},
-                    n_allocations=1,
-                    thread_id="0x1",
-                    interesting=True,
-                    import_system=False,
-                ),
-            },
-            n_allocations=3,
-            thread_id="",
-            interesting=True,
-            import_system=False,
         )
 
     def test_works_with_single_call(self):
@@ -1596,8 +1537,12 @@ def compare(monkeypatch, tmp_path, snap_compare):
         terminal_size: Tuple[int, int] = (120, 60),
         run_before: Optional[Callable[[Pilot], Optional[Awaitable[None]]]] = None,
         native: bool = False,
+        biggest_allocs: Optional[int] = None,
     ):
-        reporter = TreeReporter.from_snapshot(allocations, native_traces=native)
+        from_snapshot_kwargs: Dict[str, Any] = {"native_traces": native}
+        if biggest_allocs is not None:
+            from_snapshot_kwargs["biggest_allocs"] = biggest_allocs
+        reporter = TreeReporter.from_snapshot(allocations, **from_snapshot_kwargs)
         app = reporter.get_app()
         tmp_main = tmp_path / "main.py"
         app_global = "_CURRENT_APP_"
@@ -2015,4 +1960,31 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = []
-            assert compare(peak_allocations, press=[])
+            assert compare(peak_allocations, press=[], terminal_size=(350, 100))
+
+    def test_biggest_allocations(self, compare):
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=index * 1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    (f"function_{index}", "fun.py", 12),
+                ],
+            )
+            for index in range(1000)
+        ]
+
+        # WHEN / THEN
+        with patch("linecache.getlines") as getlines:
+            getlines.return_value = []
+            assert compare(
+                peak_allocations,
+                press=["end"],
+                biggest_allocs=10,
+                terminal_size=(200, 40),
+            )
