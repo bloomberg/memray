@@ -1,1 +1,0 @@
-Migrate the  :doc:`live TUI <live>` to Textual. This provides a greatly improved user experience, including the ability to scroll to view rows that don't fit on the screen.

@@ -1,1 +1,0 @@
-Where possible, leverage ``pkg-config`` when building the extension from source, picking up appropriate compiler and linker flags automatically.

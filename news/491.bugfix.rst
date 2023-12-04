@@ -1,1 +1,0 @@
-Limit the number of memory records displayed in reporters by default. This will help displaying flamegraphs for long capture sessions.
