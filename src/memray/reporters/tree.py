@@ -52,7 +52,7 @@ ROOT_NODE = ("<ROOT>", "", 0)
 class Frame:
     """A frame in the tree"""
 
-    location: StackElement
+    location: Optional[StackElement]
     value: int
     children: Dict[StackElement, "Frame"] = field(default_factory=dict)
     n_allocations: int = 0
@@ -61,13 +61,26 @@ class Frame:
     import_system: bool = False
 
 
+@dataclass
+class ElidedLocations:
+    """Information about allocations locations below the configured threshold."""
+
+    cutoff: int = 0
+    n_locations: int = 0
+    n_allocations: int = 0
+    n_bytes: int = 0
+
+
 class FrameDetailScreen(Widget):
     """A screen that displays information about a frame"""
 
     frame = reactive(Frame(location=ROOT_NODE, value=0))
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, *args: Any, elided_locations: ElidedLocations, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
+        self.__elided_locations = elided_locations
         self.__is_mounted = False
 
     def on_mount(self) -> None:
@@ -80,8 +93,13 @@ class FrameDetailScreen(Widget):
         if not self.__is_mounted or self.frame is None:
             return
 
-        _, file, line = self.frame.location
         text = self.query_one("#textarea", TextArea)
+
+        if self.frame.location is None:
+            text.clear()
+            return
+
+        _, file, line = self.frame.location
         delta = text.size.height // 2
         lines = linecache.getlines(file)[line - delta : line + delta]
 
@@ -90,20 +108,45 @@ class FrameDetailScreen(Widget):
         text.show_line_numbers = False
 
     def _get_content_by_label_id(self) -> Dict[str, str]:
-        function, file, line = self.frame.location
+        common = {
+            "allocs": f":floppy_disk: Allocations: {self.frame.n_allocations}",
+            "size": f":package: Size: {size_fmt(self.frame.value)}",
+        }
+
+        if self.frame.location is None:
+            cutoff = self.__elided_locations.cutoff
+            return {
+                **common,
+                "function": "",
+                "location": (
+                    f"Only the top {cutoff} allocation locations are shown in the tree."
+                    " Allocation locations which individually contributed too little"
+                    " to meet the threshold are summarized here.\n\n"
+                    "You can adjust this threshold to include more allocation locations"
+                    " by rerunning this reporter with a larger --biggest-allocs value."
+                ),
+                "thread": "",
+            }
+
+        function, file, lineno = self.frame.location
         if self.frame.location is ROOT_NODE:
             return {
+                **common,
                 "function": "",
                 "location": "",
-                "allocs": f":floppy_disk: Allocations: {self.frame.n_allocations}",
-                "size": f":package: Size: {size_fmt(self.frame.value)}",
                 "thread": "",
             }
         return {
+            **common,
             "function": f":compass: Function: {function}",
-            "location": f":compass: Location: {_filename_to_module_name(file)}:{line}",
-            "allocs": f":floppy_disk: Allocations: {self.frame.n_allocations}",
-            "size": f":package: Size: {size_fmt(self.frame.value)}",
+            "location": (
+                ":compass: Location: "
+                + (
+                    f"{_filename_to_module_name(file)}:{lineno}"
+                    if lineno != 0
+                    else file
+                )
+            ),
             "thread": f":thread: Thread: {self.frame.thread_id}",
         }
 
@@ -123,9 +166,14 @@ class FrameDetailScreen(Widget):
     def compose(self) -> ComposeResult:
         if self.frame is None:
             return
-        _, file, line = self.frame.location
         delta = 3
-        lines = linecache.getlines(file)[line - delta : line + delta]
+
+        if self.frame.location is not None:
+            _, file, line = self.frame.location
+            lines = linecache.getlines(file)[line - delta : line + delta]
+        else:
+            lines = []
+
         text = TextArea(
             "\n".join(lines), language="python", theme="dracula", id="textarea"
         )
@@ -215,9 +263,11 @@ class TreeApp(App[None]):
     def __init__(
         self,
         data: Frame,
+        elided_locations: ElidedLocations,
     ):
         super().__init__()
         self.data = data
+        self.elided_locations = elided_locations
         self.import_system_filter: Optional[Callable[[Frame], bool]] = None
         self.uninteresting_filter: Optional[
             Callable[[Frame], bool]
@@ -233,13 +283,17 @@ class TreeApp(App[None]):
         self.repopulate_tree(tree)
         yield Horizontal(
             Vertical(tree),
-            Vertical(FrameDetailScreen(), id="detailcol"),
+            Vertical(
+                FrameDetailScreen(elided_locations=self.elided_locations),
+                id="detailcol",
+            ),
         )
         yield Footer()
 
     def repopulate_tree(self, tree: FrameTree) -> None:
         tree.clear()
         self.add_children(tree.root, self.data.children.values())
+        self.add_elided_locations_node(tree.root)
         tree.root.expand()
         tree.select_node(tree.root)
         self.expand_first_child(tree.root)
@@ -260,21 +314,25 @@ class TreeApp(App[None]):
         value = node.value
         root_data = self.data
         size_str = f"{size_fmt(value)} ({100 * value / root_data.value:.2f} %)"
-        function, file, lineno = node.location
         size_color = _info_color(node, root_data)
-        code_position = (
-            f"{_filename_to_module_name(file)}:{lineno}" if lineno != 0 else file
-        )
 
         ret = Text.from_markup(
             ":open_file_folder:" if allow_expand else ":page_facing_up:"
         )
         ret.append_text(Text(f" {size_str} ", style=Style(color=size_color.rich_color)))
-        ret.append_text(
-            Text.from_markup(
-                f"[bold]{function}[/bold]  [dim cyan]{code_position}[/dim cyan]"
+
+        if node.location is not None:
+            function, file, lineno = node.location
+            code_position = (
+                f"{_filename_to_module_name(file)}:{lineno}" if lineno != 0 else file
             )
-        )
+            ret.append_text(
+                Text.from_markup(
+                    f"[bold]{function}[/bold]  [dim cyan]{code_position}[/dim cyan]"
+                )
+            )
+        else:
+            ret.append_text(Text("hidden"))
         return ret
 
     def add_children(self, tree: TreeNode[Frame], children: Iterable[Frame]) -> None:
@@ -299,6 +357,29 @@ class TreeApp(App[None]):
                 new_tree = tree
 
             self.add_children(new_tree, child.children.values())
+
+    def add_elided_locations_node(self, tree: TreeNode[Frame]) -> None:
+        if not self.elided_locations.n_locations:
+            return
+
+        count = self.elided_locations.n_locations
+        value = self.elided_locations.n_bytes
+        number = self.elided_locations.n_allocations
+
+        root_data = self.data
+        percentage = 100 * value / root_data.value
+        size_str = f"{size_fmt(value)} ({percentage:.2f} %)"
+        size_color = _percentage_to_color(int(percentage))
+        ret = Text.from_markup("\N{black question mark ornament}")
+        ret.append_text(Text(f" {size_str} ", style=Style(color=size_color.rich_color)))
+        ret.append_text(
+            Text.from_markup(
+                f"{number} allocations from {count} locations"
+                f" below the configured threshold"
+            )
+        )
+
+        tree.add_leaf(ret, data=Frame(location=None, value=value, n_allocations=number))
 
     def action_toggle_import_system(self) -> None:
         if self.import_system_filter is None:
@@ -359,9 +440,10 @@ def _info_color(node: Frame, root_node: Frame) -> Color:
 
 
 class TreeReporter:
-    def __init__(self, data: Frame):
+    def __init__(self, data: Frame, elided_locations: ElidedLocations) -> None:
         super().__init__()
         self.data = data
+        self.elided_locations = elided_locations
 
     @classmethod
     def from_snapshot(
@@ -372,9 +454,8 @@ class TreeReporter:
         native_traces: bool,
     ) -> "TreeReporter":
         data = Frame(location=ROOT_NODE, value=0, import_system=False, interesting=True)
-        for record in sorted(allocations, key=lambda alloc: alloc.size, reverse=True)[
-            :biggest_allocs
-        ]:
+        sorted_records = sorted(allocations, key=lambda alloc: alloc.size, reverse=True)
+        for record in sorted_records[:biggest_allocs]:
             size = record.size
             data.value += size
             data.n_allocations += record.n_allocations
@@ -409,10 +490,20 @@ class TreeReporter:
                 if index > MAX_STACKS:
                     break
 
-        return cls(data)
+        elided_locations = ElidedLocations()
+        elided_locations.cutoff = biggest_allocs
+
+        for record in sorted_records[biggest_allocs:]:
+            data.value += record.size
+            data.n_allocations += record.n_allocations
+            elided_locations.n_locations += 1
+            elided_locations.n_bytes += record.size
+            elided_locations.n_allocations += record.n_allocations
+
+        return cls(data, elided_locations)
 
     def get_app(self) -> TreeApp:
-        return TreeApp(self.data)
+        return TreeApp(self.data, self.elided_locations)
 
     def render(
         self,
