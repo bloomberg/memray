@@ -8,6 +8,27 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.11.0 (2023-12-04)
+--------------------------
+
+Features
+~~~~~~~~
+
+- Migrate the  :doc:`live TUI <live>` to Textual. This provides a greatly improved user experience, including the ability to scroll to view rows that don't fit on the screen. (#274)
+- Add a new documentation page to serve as :ref:`an overview of memory concepts <memory overview>`, to help users better interpret the memory profiles provided by Memray. (#496)
+- Where possible, leverage ``pkg-config`` when building the extension from source, picking up appropriate compiler and linker flags automatically. (#498)
+- Port the tree reporter to be an interactive Textual App. (#499)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed a bug that caused ``memray attach`` to fail with newer LLDB versions, including on macOS Sonoma. (#490)
+- Limit the number of memory records displayed in reporters by default. This will help displaying flamegraphs for long capture sessions. (#491)
+- When generating a ``--leaks`` flamegraph, don't show a warning that the ``pymalloc`` allocator is in use if ``--trace-python-allocators`` was used when generating the capture file. (#492)
+- Ensure that we update our terminal progress bars to 100% when processing finishes. (#494)
+
+
 memray 1.10.0 (2023-10-05)
 --------------------------
 

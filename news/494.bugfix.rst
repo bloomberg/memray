@@ -1,1 +1,0 @@
-Ensure that we update our terminal progress bars to 100% when processing finishes.

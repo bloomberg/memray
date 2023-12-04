@@ -1,1 +1,0 @@
-Port the tree reporter to be an interactive Textual App.
