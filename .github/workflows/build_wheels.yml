@@ -24,12 +24,12 @@ jobs:
       - name: Build sdist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: sdist
           path: dist
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: tests
           path: tests
@@ -50,22 +50,20 @@ jobs:
 
   build_wheels:
     needs: [build_sdist, choose_architectures]
-    name: Wheel for Linux-${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
+    name: Wheel for Linux ${{ matrix.cibw_arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        cibw_python:
-          ["cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
         cibw_arch: ${{ fromJSON(needs.choose_architectures.outputs.cibw_arches) }}
 
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: sdist
           path: dist
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: tests
           path: tests
@@ -81,34 +79,33 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.16.2
         env:
-          CIBW_BUILD: ${{ matrix.cibw_python }}
+          CIBW_BUILD: "cp3{7..12}-*"
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_arch }}
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -m pytest {package}/tests
           CIBW_TEST_SKIP: "*aarch64*"
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: linux-${{ matrix.cibw_arch }}-wheels
           path: ./wheelhouse/*.whl
 
   build_wheels_macos:
     needs: [build_sdist]
-    name: Wheel for MacOS-${{ matrix.cibw_python }}-${{ matrix.cibw_arch }}
+    name: Wheel for MacOS ${{ matrix.cibw_arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [macos-11]
-        cibw_python: ["cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
         cibw_arch: ["x86_64", "arm64"]
 
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: sdist
           path: dist
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: tests
           path: tests
@@ -123,7 +120,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.16.2
         env:
-          CIBW_BUILD: ${{ matrix.cibw_python }}
+          CIBW_BUILD: "cp3{8..12}-*"
           CIBW_ARCHS_MACOS: ${{ matrix.cibw_arch }}
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
@@ -131,24 +128,25 @@ jobs:
           CIBW_BUILD_VERBOSITY: 1
           MACOSX_DEPLOYMENT_TARGET: "10.14"
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: macos-${{ matrix.cibw_arch }}-wheels
           path: ./wheelhouse/*.whl
 
   upload_pypi:
     needs: [build_wheels, build_wheels_macos, build_sdist]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: dist
+          # with no name set, it downloads all of the artifacts
           path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          skip_existing: true
-          password: ${{ secrets.PYPI_PASSWORD }}
+      - run: |
+          mv dist/sdist/*.tar.gz dist/
+          mv dist/*-wheels/*.whl dist/
+          rmdir dist/{sdist,*-wheels}
+          rm -r dist/tests
+      - run: ls -R dist
 
   publish_docs:
     name: Publish docs
