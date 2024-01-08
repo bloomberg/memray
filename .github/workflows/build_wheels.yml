@@ -34,29 +34,30 @@ jobs:
           name: tests
           path: tests
 
-  choose_architectures:
-    name: Decide which architectures to build wheels for
+  choose_linux_wheel_types:
+    name: Decide which wheel types to build
     runs-on: ubuntu-latest
     steps:
-      - id: x86_64
-        run: echo "cibw_arch=x86_64" >> $GITHUB_OUTPUT
-      - id: i686
-        run: echo "cibw_arch=i686" >> $GITHUB_OUTPUT
-      - id: aarch64
+      - id: manylinux_x86_64
+        run: echo "wheel_types=manylinux_x86_64" >> $GITHUB_OUTPUT
+      - id: musllinux_x86_64
+        run: echo "wheel_types=musllinux_x86_64" >> $GITHUB_OUTPUT
+      - id: manylinux_i686
+        run: echo "wheel_types=manylinux_i686" >> $GITHUB_OUTPUT
+      - id: manylinux_aarch64
         if: github.event_name == 'release' && github.event.action == 'published'
-        run: echo "cibw_arch=aarch64" >> $GITHUB_OUTPUT
+        run: echo "wheel_types=manylinux_aarch64" >> $GITHUB_OUTPUT
     outputs:
-      cibw_arches: ${{ toJSON(steps.*.outputs.cibw_arch) }}
+      wheel_types: ${{ toJSON(steps.*.outputs.wheel_types) }}
 
-  build_wheels:
-    needs: [build_sdist, choose_architectures]
-    name: Wheel for Linux ${{ matrix.cibw_arch }}
-    runs-on: ${{ matrix.os }}
+  build_linux_wheels:
+    needs: [build_sdist, choose_linux_wheel_types]
+    name: ${{ matrix.wheel_type }} wheels
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        cibw_arch: ${{ fromJSON(needs.choose_architectures.outputs.cibw_arches) }}
+        wheel_type: ${{ fromJSON(needs.choose_linux_wheel_types.outputs.wheel_types) }}
 
     steps:
       - uses: actions/download-artifact@v4
@@ -79,25 +80,24 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.16.2
         env:
-          CIBW_BUILD: "cp3{7..12}-*"
-          CIBW_ARCHS_LINUX: ${{ matrix.cibw_arch }}
+          CIBW_BUILD: "cp3{7..12}-${{ matrix.wheel_type }}"
+          CIBW_ARCHS_LINUX: auto aarch64
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -m pytest {package}/tests
           CIBW_TEST_SKIP: "*aarch64*"
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ matrix.cibw_arch }}-wheels
+          name: ${{ matrix.wheel_type }}-wheels
           path: ./wheelhouse/*.whl
 
-  build_wheels_macos:
+  build_macosx_wheels:
     needs: [build_sdist]
-    name: Wheel for MacOS ${{ matrix.cibw_arch }}
-    runs-on: ${{ matrix.os }}
+    name: macosx_${{ matrix.cibw_arch }} wheels
+    runs-on: macos-11
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-11]
         cibw_arch: ["x86_64", "arm64"]
 
     steps:
@@ -130,11 +130,11 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ matrix.cibw_arch }}-wheels
+          name: macosx_${{ matrix.cibw_arch }}-wheels
           path: ./wheelhouse/*.whl
 
   upload_pypi:
-    needs: [build_wheels, build_wheels_macos, build_sdist]
+    needs: [build_linux_wheels, build_macosx_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
