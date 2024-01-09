@@ -97,7 +97,7 @@ jobs:
         env:
           CYTHON_TEST_MACROS: 1
           PYTHON: /venv/bin/python
-          GENHTMLOPTS: "--ignore-errors category"
+          GENHTMLOPTS: "--ignore-errors inconsistent"
         run: |
           make dev-install pycoverage
 
