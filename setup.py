@@ -92,7 +92,7 @@ install_requires = [
     "jinja2 >= 2.9",
     "typing_extensions; python_version < '3.8.0'",
     "rich >= 11.2.0",
-    "textual >= 0.34.0",
+    "textual >= 0.41.0",
 ]
 docs_requires = [
     "IPython",
