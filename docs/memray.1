@@ -1,0 +1,69 @@
+.TH MEMRAY "1" "January 2024" "memray 1.11.0" "User Commands"
+.SH NAME
+memray \- Python memory profiler
+.SH DESCRIPTION
+usage: memray [\-h] [\-v] [\-V]
+.IP
+{run,flamegraph,table,live,tree,parse,summary,stats,transform,attach,detach}
+\&...
+.PP
+Memory profiler for Python applications
+.PP
+Run `memray run` to generate a memory profile report, then use a reporter command
+such as `memray flamegraph` or `memray table` to convert the results into HTML.
+.PP
+Example:
+.IP
+\f(CW$ python3 -m memray run -o output.bin my_script.py\fR
+.br
+\f(CW$ python3 -m memray flamegraph output.bin\fR
+.SS "positional arguments:"
+.TP
+{run,flamegraph,table,live,tree,parse,summary,stats,transform,attach,detach}
+Mode of operation
+.TP
+run
+Run the specified application and track memory usage
+.TP
+flamegraph
+Generate an HTML flame graph for peak memory usage
+.TP
+table
+Generate an HTML table with all records in the peak memory usage
+.TP
+live
+Remotely monitor allocations in a text\-based interface
+.TP
+tree
+Generate a tree view in the terminal for peak memory usage
+.TP
+parse
+Debug a results file by parsing and printing each record in it
+.TP
+summary
+Generate a terminal\-based summary report of the functions that allocate most memory
+.TP
+stats
+Generate high level stats of the memory usage in the terminal
+.TP
+transform
+Generate reports files in different formats
+.TP
+attach
+Begin tracking allocations in an already\-started process
+.TP
+detach
+End the tracking started by a previous ``memray attach`` call
+.SS "options:"
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+show this help message and exit
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Increase verbosity. Option is additive and can be specified up to 3 times
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Displays the current version of Memray
+.PP
+Please submit feedback, ideas, and bug reports by filing a new issue at
+https://github.com/bloomberg/memray/issues
