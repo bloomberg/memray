@@ -2,6 +2,8 @@
 
 import os
 
+import memray.commands
+
 # -- General configuration ------------------------------------------------------------
 
 # The name of a reST role (builtin or Sphinx extension) to use as the default role,
@@ -24,6 +26,10 @@ extensions = [
     "sphinxarg.ext",
 ]
 
+# Don't build our manpage document when we're using the HTML builder.
+# We override this setting when we build with the manpage builder.
+exclude_patterns = ["manpage.rst"]
+
 # General information about the project.
 project = "memray"
 author = "Pablo Galindo Salgado"
@@ -43,6 +49,11 @@ html_additional_pages = {
     "index": "index.html",
 }
 html_favicon = "favicon.ico"
+
+# -- Options for man pages ------------------------------------------------------------
+man_pages = [
+    ("manpage", "memray", "Python memory profiler", "", 1),
+]
 
 # -- Options for smartquotes ----------------------------------------------------------
 
@@ -66,3 +77,12 @@ intersphinx_mapping = {
 # but we don't want different output depending on the terminal width where the
 # docs were built.
 os.environ["COLUMNS"] = "88"
+
+# -- Improving man page generation ----------------------------------------------------
+
+# The :manpage: mode of sphinx-argparse doesn't allow you to fully override the
+# parser's description with a custom reStructuredText one as it should. Work
+# around this by providing the first sentence of our desired description as the
+# parser's description, and then letting the argparse role append the rest of
+# the intended description. This description doesn't go into the HTML docs.
+memray.commands._DESCRIPTION = "Memray is a memory profiler for Python applications."
