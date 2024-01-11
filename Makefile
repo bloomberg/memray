@@ -124,6 +124,7 @@ lint:  ## Lint all files
 docs:  ## Generate documentation
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
+	$(MAKE) -C docs man
 
 .PHONY: docs-live
 docs-live:  ## Serve documentation on localhost:8000, with live-reload

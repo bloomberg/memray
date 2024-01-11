@@ -25,6 +25,12 @@ html:
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
+.PHONY: man
+man:
+	$(SPHINXBUILD) -b man -D exclude_patterns= $(ALLSPHINXOPTS) $(BUILDDIR)/man
+	@echo
+	@echo "Build finished. The man pages are in $(BUILDDIR)/man."
+
 .PHONY: livehtml
 livehtml:
 	$(SPHINXAUTOBUILD) -a $(ALLSPHINXOPTS) $(BUILDDIR)/html
