@@ -14,6 +14,7 @@ from memray._test import MemoryAllocator
 HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_MISBEHAVING_EXTENSION = HERE / "misbehaving_extension"
+TEST_RPATH_EXTENSION = HERE / "rpath_extension"
 
 
 @pytest.mark.valgrind
@@ -107,7 +108,7 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "allocating_function"
     assert filename.endswith(__file__)
-    assert line == 82
+    assert line == 83
 
     frees = [
         event
@@ -170,7 +171,7 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "test_extension_that_uses_pygilstate_ensure"
     assert filename.endswith(__file__)
-    assert line == 153
+    assert line == 154
 
     # We should have 2 frames here: this function calling `allocator.valloc`,
     # and `allocator.valloc` calling the C `valloc`.
@@ -185,7 +186,7 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     func, filename, line = caller
     assert func == "test_extension_that_uses_pygilstate_ensure"
     assert filename.endswith(__file__)
-    assert line == 154
+    assert line == 155
 
     frees = [
         event
@@ -241,7 +242,7 @@ def test_native_dlopen(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "test_native_dlopen"
     assert filename.endswith(__file__)
-    assert line == 225
+    assert line == 226
 
     frees = [
         event
@@ -354,3 +355,34 @@ def test_hard_exit(tmpdir, py_finalize):
 
     # THEN
     # No assertions, just check that the program exits without error
+
+
+@pytest.mark.skipif(
+    sys.platform == "darwin", reason="Test requires a linker that supports $ORIGIN"
+)
+def test_dlopen_with_rpath(tmpdir, monkeypatch):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "sharedlibs"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_RPATH_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from ext import hello_world  # type: ignore
+
+        try:
+            hello_world()
+        except RuntimeError:
+            pytest.skip("Test requires a linker that supports -rpath")
+
+        # THEN
+        with Tracker(output):
+            hello_world()

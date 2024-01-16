@@ -1,0 +1,1 @@
+Fix a bug that was causing ``dlopen`` to not load shared libraries that have an RPATH/RUNPATH set.

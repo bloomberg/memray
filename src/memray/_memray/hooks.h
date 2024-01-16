@@ -43,7 +43,7 @@
     FOR_EACH_HOOKED_FUNCTION(aligned_alloc)                                                             \
     FOR_EACH_HOOKED_FUNCTION(mmap)                                                                      \
     FOR_EACH_HOOKED_FUNCTION(munmap)                                                                    \
-    FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
+    FOR_EACH_HOOKED_FUNCTION(dlsym)                                                                     \
     FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
     FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)                                                         \
     MEMRAY_PLATFORM_HOOKED_FUNCTIONS
@@ -175,7 +175,7 @@ void*
 pvalloc(size_t size) noexcept;
 
 void*
-dlopen(const char* filename, int flag) noexcept;
+dlsym(void* handle, const char* symbol) noexcept;
 
 int
 dlclose(void* handle) noexcept;

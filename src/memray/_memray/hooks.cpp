@@ -1,5 +1,7 @@
 #include <cassert>
 #include <cstdio>
+#include <mutex>
+#include <unordered_set>
 
 #include "hooks.h"
 #include "tracking_api.h"
@@ -304,21 +306,75 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
     return ret;
 }
 
-void*
-dlopen(const char* filename, int flag) noexcept
+// We need to override dlopen/dlclose to account for new shared libraries being
+// loaded in the process memory space. This is needed so we can correctly track
+// allocations in those libraries by overriding their PLT entries and also so we
+// can properly map the addresses of the symbols in those libraries when we
+// resolve later native traces. Unfortunately, we can't just override dlopen
+// directly because of the following edge case: when a shared library dlopen's
+// another by name (e.g. dlopen("libfoo.so")), the dlopen call will honor the
+// RPATH/RUNPATH of the calling library if it's set. Some libraries set an
+// RPATH/RUNPATH based on $ORIGIN (the path of the calling library) to load
+// dependencies from a relative directory based on the location of the calling
+// library. This means that if we override dlopen, we'll end up loading the
+// library from the wrong path or more likely, not loading it at all because the
+// dynamic loader will think the memray extenion it's the calling library and
+// the RPATH of the real calling library will not be honoured.
+//
+// To work around this, we override dlsym instead and override the symbols in
+// the loaded libraries only the first time we have seen a handle passed to
+// dlsym. This works because for a symbol from a given dlopen-ed library to
+// appear in a call stack, *something* from that library has to be dlsym-ed
+// first. The only exception to this are static initializers, but we cannot
+// track those anyway by overriding dlopen as they run within the dlopen call
+// itself.
+// There's another set of cases we would miss: if library A has a static initializer
+// that passes a pointer to one of its functions to library B, and library B stores
+// that function pointer, then we could see calls into library A via the function pointer
+// held by library B, even though dlsym was never called on library A. This should be
+// very rare and will be corrected the next time library B calls dlsym so this should
+// not be a problem in practice.
+
+class DlsymCache
 {
-    assert(hooks::dlopen);
+  public:
+    auto insert(const void* handle)
+    {
+        std::unique_lock lock(mutex_);
+        return d_handles.insert(handle);
+    }
+
+    void erase(const void* handle)
+    {
+        std::unique_lock lock(mutex_);
+        d_handles.erase(handle);
+    }
+
+  private:
+    mutable std::mutex mutex_;
+    std::unordered_set<const void*> d_handles;
+};
+
+static DlsymCache dlsym_cache;
+
+void*
+dlsym(void* handle, const char* symbol) noexcept
+{
+    assert(hooks::dlsym);
     void* ret;
     {
         tracking_api::RecursionGuard guard;
-        ret = hooks::dlopen(filename, flag);
+        ret = hooks::dlsym(handle, symbol);
     }
     if (ret) {
-        tracking_api::Tracker::invalidate_module_cache();
-        if (filename
-            && (nullptr != strstr(filename, "/_greenlet.") || nullptr != strstr(filename, "/greenlet.")))
-        {
-            tracking_api::Tracker::beginTrackingGreenlets();
+        auto [_, inserted] = dlsym_cache.insert(handle);
+        if (inserted) {
+            tracking_api::Tracker::invalidate_module_cache();
+            if (symbol
+                && (0 == strcmp(symbol, "PyInit_greenlet") || 0 == strcmp(symbol, "PyInit__greenlet")))
+            {
+                tracking_api::Tracker::beginTrackingGreenlets();
+            }
         }
     }
     return ret;
@@ -334,6 +390,7 @@ dlclose(void* handle) noexcept
         tracking_api::RecursionGuard guard;
         ret = hooks::dlclose(handle);
     }
+    dlsym_cache.erase(handle);
     tracking_api::NativeTrace::flushCache();
     if (!ret) tracking_api::Tracker::invalidate_module_cache();
     return ret;
