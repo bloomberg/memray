@@ -83,8 +83,13 @@ overwrite_elf_table(
         const char* symname = symbols.getSymbolNameByIndex(index);
         auto symbol_addr = relocation.r_offset + base_addr;
 #define FOR_EACH_HOOKED_FUNCTION(hookname)                                                              \
-    if (strcmp(hooks::hookname.d_symbol, symname) == 0) {                                               \
-        patch_symbol(hooks::hookname, &intercept::hookname, symname, symbol_addr, restore_original);    \
+    if (strcmp(MEMRAY_ORIG(hookname).d_symbol, symname) == 0) {                                         \
+        patch_symbol(                                                                                   \
+                MEMRAY_ORIG(hookname),                                                                  \
+                &intercept::hookname,                                                                   \
+                symname,                                                                                \
+                symbol_addr,                                                                            \
+                restore_original);                                                                      \
         continue;                                                                                       \
     }
         MEMRAY_HOOKED_FUNCTIONS
