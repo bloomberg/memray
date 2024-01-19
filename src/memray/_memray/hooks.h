@@ -140,7 +140,11 @@ allocatorKind(const Allocator& allocator);
 bool
 isDeallocator(const Allocator& allocator);
 
-#define FOR_EACH_HOOKED_FUNCTION(f) extern SymbolHook<decltype(&::f)> f;
+#define MEMRAY_ORIG_concat_helper(x, y) x##y
+#define MEMRAY_ORIG_NO_NS(f) MEMRAY_ORIG_concat_helper(memray_, f)
+#define MEMRAY_ORIG(f) memray::hooks::MEMRAY_ORIG_NO_NS(f)
+
+#define FOR_EACH_HOOKED_FUNCTION(f) extern SymbolHook<decltype(&::f)> MEMRAY_ORIG_NO_NS(f);
 MEMRAY_HOOKED_FUNCTIONS
 #undef FOR_EACH_HOOKED_FUNCTION
 

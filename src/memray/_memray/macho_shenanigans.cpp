@@ -50,11 +50,11 @@ patch_symbols_in_section(
             continue;
         }
 #define FOR_EACH_HOOKED_FUNCTION(hookname)                                                              \
-    if (strcmp(hooks::hookname.d_symbol, symbol_name + 1) == 0) {                                       \
+    if (strcmp(MEMRAY_ORIG(hookname).d_symbol, symbol_name + 1) == 0) {                                 \
         LOG(DEBUG) << "Patching " << symbol_name << " symbol pointer at " << std::hex << std::showbase  \
                    << *(symbol_addr_table + i) << " for relocation entry " << (symbol_addr_table + i);  \
         patch_symbol(                                                                                   \
-                hooks::hookname,                                                                        \
+                MEMRAY_ORIG(hookname),                                                                  \
                 &intercept::hookname,                                                                   \
                 symbol_name,                                                                            \
                 symbol_addr_table + i,                                                                  \
@@ -227,7 +227,7 @@ patch_stubs(
         }
         auto stub_addr = reinterpret_cast<uint64_t>(symbol_addr_table + i * element_size);
 #define FOR_EACH_HOOKED_FUNCTION(hookname)                                                              \
-    if (strcmp(hooks::hookname.d_symbol, symbol_name + 1) == 0) {                                       \
+    if (strcmp(MEMRAY_ORIG(hookname).d_symbol, symbol_name + 1) == 0) {                                 \
         LOG(DEBUG) << "Extracting symbol address for " << symbol_name << " from stub function at "      \
                    << std::hex << std::showbase << stub_addr;                                           \
         void* symbol_addr = reinterpret_cast<void*>(lazy_pointer_from_stub(stub_addr));                 \
@@ -238,7 +238,7 @@ patch_stubs(
         LOG(DEBUG) << "Patching " << symbol_name << " pointer at address " << std::hex << std::showbase \
                    << symbol_addr;                                                                      \
         patch_symbol(                                                                                   \
-                hooks::hookname,                                                                        \
+                MEMRAY_ORIG(hookname),                                                                  \
                 &intercept::hookname,                                                                   \
                 symbol_name,                                                                            \
                 symbol_addr,                                                                            \
