@@ -171,7 +171,9 @@ phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noe
         patched.insert(info->dlpi_name);
     }
 
-    if (strstr(info->dlpi_name, "/ld-linux") || strstr(info->dlpi_name, "linux-vdso.so.1")) {
+    if (strstr(info->dlpi_name, "/ld-linux") || strstr(info->dlpi_name, "/ld-musl")
+        || strstr(info->dlpi_name, "linux-vdso.so.1"))
+    {
         // Avoid chaos by not overwriting the symbols in the linker.
         // TODO: Don't override the symbols in our shared library!
         return 0;
