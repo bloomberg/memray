@@ -137,3 +137,53 @@ class TestIPython:
         assert "<iframe" in html
         assert "flamegraph.html" in html
         assert "Results saved to" in stdout
+
+    @pytest.mark.parametrize(
+        "args,title",
+        [
+            ("--temporary-allocation-threshold=2", "flamegraph report"),
+            ("--leaks", "flamegraph report (memory leaks)"),
+            ("--temporal", "temporal flamegraph report"),
+            ("--leaks --temporal", "temporal flamegraph report (memory leaks)"),
+        ],
+    )
+    def test_report_title_by_report_type(self, tmpdir, capsys, args, title):
+        # GIVEN
+        code = [
+            "%load_ext memray",
+            f"""
+            %%memray_flamegraph {args}
+            x = "a" * 10000
+            """,
+        ]
+
+        # WHEN
+        html = run_in_ipython_shell(tmpdir, code)
+
+        # THEN
+        assert html is not None
+        stdout, _ = capsys.readouterr()
+        assert "<iframe" in html
+        assert "flamegraph.html" in html
+        assert "Results saved to" in stdout
+
+        title_tag = f"<title>memray - {title}</title>"
+        assert title_tag in next(tmpdir.visit("**/flamegraph.html")).read()
+
+    def test_passing_temporal_and_temporary_allocations(self, tmpdir, capsys):
+        # GIVEN
+        code = [
+            "%load_ext memray",
+            """
+            %%memray_flamegraph --temporal --temporary-allocation-threshold=2
+            """,
+        ]
+
+        # WHEN
+        html = run_in_ipython_shell(tmpdir, code)
+
+        # THEN
+        assert html is None
+        stdout, stderr = capsys.readouterr()
+        assert "" == stdout
+        assert "Can't create a temporal flame graph of temporary allocations" in stderr
