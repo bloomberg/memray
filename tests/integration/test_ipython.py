@@ -115,13 +115,13 @@ class TestIPython:
         assert "" == stdout
         assert "usage:" in stderr
 
-    def test_passing_valid_argument(self, tmpdir, capsys):
+    def test_passing_valid_arguments(self, tmpdir, capsys):
         # GIVEN
 
         code = [
             "%load_ext memray",
             """
-            %%memray_flamegraph --leaks
+            %%memray_flamegraph --leaks --max-memory-records 5
             x = "a" * 10000
             """,
         ]

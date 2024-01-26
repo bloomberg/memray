@@ -107,6 +107,12 @@ def argument_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "--max-memory-records",
+        help="Maximum number of memory records to display",
+        type=int,
+        default=None,
+    )
 
     return parser
 
@@ -149,7 +155,11 @@ class FlamegraphMagics(Magics):
 
         reporter = None
 
-        with FileReader(dump_file, report_progress=True) as reader:
+        kwargs = {}
+        if options.max_memory_records is not None:
+            kwargs["max_memory_records"] = options.max_memory_records
+
+        with FileReader(dump_file, report_progress=True, **kwargs) as reader:
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
 
