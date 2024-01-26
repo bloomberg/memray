@@ -1,3 +1,5 @@
+.. _Jupyter integration:
+
 Jupyter Integration
 ===================
 

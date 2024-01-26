@@ -18,12 +18,13 @@ from memray.commands.common import warn_if_not_enough_symbols
 from memray.reporters.flamegraph import FlameGraphReporter
 
 TEMPLATE = """\
-from memray import Tracker
+from memray import Tracker, FileFormat
 with Tracker(
     "{dump_file!s}",
     native_traces={native_traces},
     trace_python_allocators={trace_python_allocators},
     follow_fork={follow_fork},
+    file_format=FileFormat.{file_format},
 ) as tracker:
 {code}
 """
@@ -136,6 +137,10 @@ class FlamegraphMagics(Magics):
             raise UsageError(
                 "Can't create a temporal flame graph of temporary allocations"
             )
+        elif options.temporal or options.temporary_allocation_threshold >= 0:
+            file_format = "ALL_ALLOCATIONS"
+        else:
+            file_format = "AGGREGATED_ALLOCATIONS"
 
         results_dir = Path("memray-results")
         results_dir.mkdir(exist_ok=True)
@@ -148,6 +153,7 @@ class FlamegraphMagics(Magics):
             trace_python_allocators=options.trace_python_allocators,
             follow_fork=options.follow_fork,
             code=indent(cell, " " * 4),
+            file_format=file_format,
         )
         self.shell.run_cell(code)
 

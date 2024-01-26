@@ -1,0 +1,1 @@
+Automatically use aggregated capture files for the :ref:`Jupyter magic <Jupyter integration>` whenever possible, reducing the amount of disk space needed for temporary files.
