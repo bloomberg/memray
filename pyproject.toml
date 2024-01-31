@@ -82,7 +82,7 @@ before-all = [
   "git clone --depth 1 --branch v1.9.4 https://github.com/lz4/lz4 lz4",
   "cd lz4",
   "make",
-  "make install"
+  "make install DESTDIR=/tmp/lz4_install"
 ]
 before-test = [
   "codesign --remove-signature /Library/Frameworks/Python.framework/Versions/*/bin/python3 || true",

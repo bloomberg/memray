@@ -93,13 +93,15 @@ jobs:
 
   build_macosx_wheels:
     needs: [build_sdist]
-    name: macosx_${{ matrix.cibw_arch }} wheels
-    runs-on: macos-11
+    name: macosx_${{ matrix.arch }} wheels
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        cibw_arch: ["x86_64", "arm64"]
-
+        include:
+          - os: macos-11
+            arch: x86_64
+          - os: macos-14
+            arch: arm64
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -113,24 +115,32 @@ jobs:
         run: |
           tar zxvf dist/*.tar.gz --strip-components=1
       - name: Sets env vars for compilation
-        if: matrix.cibw_arch == 'arm64'
         run: |
-          echo "CFLAGS=-target arm64-apple-macos11" >> $GITHUB_ENV
-          echo "MEMRAY_LIBBACKTRACE_TARGET=arm64-apple-macos11" >> $GITHUB_ENV
+          echo "LZ4_INSTALL_DIR=/tmp/lz4_install/usr/local/" >> $GITHUB_ENV
+          echo "CFLAGS=-arch ${{matrix.arch}}" >> $GITHUB_ENV
+      - name: Set x86_64-specific environment variables
+        if: matrix.arch == 'x86_64'
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=10.14" >> $GITHUB_ENV
+      - name: Set arm64-specific environment variables
+        if: matrix.arch == 'arm64'
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.16.5
         env:
           CIBW_BUILD: "cp3{8..12}-*"
-          CIBW_ARCHS_MACOS: ${{ matrix.cibw_arch }}
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: pytest {package}/tests
           CIBW_BUILD_VERBOSITY: 1
           MACOSX_DEPLOYMENT_TARGET: "10.14"
-
+          CFLAGS: "${{env.CFLAGS}} -I${{env.LZ4_INSTALL_DIR}}/include"
+          LDFLAGS: "-L${{env.LZ4_INSTALL_DIR}}/lib -Wl,-rpath,${{env.LZ4_INSTALL_DIR}}/lib"
+          DYLD_LIBRARY_PATH: "${{env.LZ4_INSTALL_DIR}}/lib"
       - uses: actions/upload-artifact@v4
         with:
-          name: macosx_${{ matrix.cibw_arch }}-wheels
+          name: macosx_${{ matrix.arch }}-wheels
           path: ./wheelhouse/*.whl
 
   build_and_test_wheels:
