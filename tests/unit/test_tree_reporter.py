@@ -1561,6 +1561,10 @@ def compare(monkeypatch, tmp_path, snap_compare):
 
 
 class TestTUILooks:
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.49 or higher, which doesn't support 3.7",
+    )
     def test_basic(self, compare):
         # GIVEN
         code = dedent(
@@ -1633,6 +1637,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=[*["down"] * 2])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.49 or higher, which doesn't support 3.7",
+    )
     def test_basic_node_selected_leaf(self, compare):
         # GIVEN
         code = dedent(
@@ -1667,6 +1675,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=[*["down"] * 3])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.49 or higher, which doesn't support 3.7",
+    )
     def test_two_chains(self, compare):
         # GIVEN
         code = dedent(
@@ -1767,6 +1779,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=[*["down"] * 4, "e"])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.49 or higher, which doesn't support 3.7",
+    )
     def test_hide_import_system(self, compare):
         # GIVEN
         code = dedent(
@@ -1817,6 +1833,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=["i"])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.49 or higher, which doesn't support 3.7",
+    )
     def test_show_uninteresting(self, compare):
         # GIVEN
         code = dedent(
@@ -1867,6 +1887,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=["u"])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.49 or higher, which doesn't support 3.7",
+    )
     def test_show_uninteresting_and_hide_import_system(self, compare):
         # GIVEN
         code = dedent(
@@ -1955,6 +1979,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=[*["down"] * 3])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.49 or higher, which doesn't support 3.7",
+    )
     def test_allocations_of_different_sizes(self, compare):
         # GIVEN
         peak_allocations = [
@@ -1975,6 +2003,10 @@ class TestTUILooks:
             getlines.return_value = []
             assert compare(peak_allocations, press=[], terminal_size=(350, 100))
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.49 or higher, which doesn't support 3.7",
+    )
     def test_biggest_allocations(self, compare):
         # GIVEN
         peak_allocations = [
