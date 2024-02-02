@@ -1,3 +1,4 @@
+import sys
 from dataclasses import dataclass
 from textwrap import dedent
 from typing import Any
@@ -1594,6 +1595,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=[])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.48 or higher, which doesn't support 3.7",
+    )
     def test_basic_node_selected_not_leaf(self, compare):
         # GIVEN
         code = dedent(
@@ -1709,6 +1714,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=[])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.48 or higher, which doesn't support 3.7",
+    )
     def test_two_chains_after_expanding_second(self, compare):
         # GIVEN
         code = dedent(
@@ -1909,6 +1918,10 @@ class TestTUILooks:
             getlines.return_value = code.splitlines()
             assert compare(peak_allocations, press=["u", "i"])
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8),
+        reason="This test requires Textual 0.48 or higher, which doesn't support 3.7",
+    )
     def test_select_screen(self, tmp_path, compare):
         # GIVEN
         code = dedent(
