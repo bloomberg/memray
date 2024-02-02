@@ -868,6 +868,7 @@ class TestTreeSubCommand:
             cwd=str(tmp_path),
             text=True,
             input="q",
+            timeout=5,
         )
 
         # THEN
@@ -890,6 +891,7 @@ class TestTreeSubCommand:
             cwd=str(tmp_path),
             text=True,
             input="q",
+            timeout=5,
         )
 
         # THEN
