@@ -78,6 +78,8 @@ jobs:
       - name: Disable ptrace security restrictions
         run: |
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.16.2
         env:
