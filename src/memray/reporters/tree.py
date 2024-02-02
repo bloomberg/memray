@@ -181,6 +181,7 @@ class FrameDetailScreen(Widget):
         text.show_line_numbers = False
         text.can_focus = False
         text.cursor_blink = False
+        text.soft_wrap = False
 
         labels: list[Label] = []
         content_by_label_id = self._get_content_by_label_id()
