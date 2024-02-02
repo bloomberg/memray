@@ -1,0 +1,29 @@
+Label {
+  padding: 1 3;
+}
+
+#frame-detail-grid Label {
+  color: $text;
+  height: auto;
+  width: 100%;
+  background: $panel-lighten-1;
+}
+
+#frame-detail-grid {
+  grid-size: 1 2;
+  grid-gutter: 1 2;
+  padding: 0 1;
+  border: thick $background 80%;
+  background: $surface;
+}
+
+#detailcol {
+  width: 40%;
+  max-width: 100;
+}
+
+TextArea {
+  scrollbar-size-vertical: 0;
+  border: none;
+  padding: 0;
+}
