@@ -95,7 +95,7 @@ class FrameDetailScreen(Widget):
 
         text = self.query_one("#textarea", TextArea)
 
-        if self.frame.location is None:
+        if self.frame.location is None or self.frame.location == ROOT_NODE:
             text.clear()
             return
 
@@ -166,15 +166,16 @@ class FrameDetailScreen(Widget):
     def compose(self) -> ComposeResult:
         if self.frame is None:
             return
+
         delta = 3
 
-        if self.frame.location is not None:
+        if self.frame.location is None or self.frame.location == ROOT_NODE:
+            lines = []
+            selected_line = 0
+        else:
             _, file, line = self.frame.location
             lines = linecache.getlines(file)[max(line - delta, 0) : line + delta]
             selected_line = line - 1 if delta >= line else delta - 1
-        else:
-            lines = []
-            selected_line = 0
 
         text = TextArea(
             "\n".join(lines), language="python", theme="dracula", id="textarea"
