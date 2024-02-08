@@ -2,6 +2,7 @@ import collections
 import contextlib
 import os
 import pathlib
+import platform
 import sys
 
 cimport cython
@@ -865,9 +866,9 @@ cdef class FileReader:
         except OSError as exc:
             raise OSError(f"Could not open file {file_name}: {exc.strerror}") from None
 
-        IF UNAME_SYSNAME == "Linux":
+        if platform.system() == "Linux":
             self._path = "/proc/self/fd/" + str(self._file.fileno())
-        ELSE:
+        else:
             self._path = str(file_name)
         self._report_progress = report_progress
 
