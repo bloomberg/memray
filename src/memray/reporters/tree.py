@@ -101,10 +101,10 @@ class FrameDetailScreen(Widget):
 
         _, file, line = self.frame.location
         delta = text.size.height // 2
-        lines = linecache.getlines(file)[line - delta : line + delta]
+        lines = linecache.getlines(file)[max(line - delta, 0) : line + delta]
 
         text.text = "\n".join(tuple(line.rstrip() for line in lines))
-        text.select_line((delta - 1))
+        text.select_line(line - 1 if delta >= line else delta - 1)
         text.show_line_numbers = False
 
     def _get_content_by_label_id(self) -> Dict[str, str]:
@@ -170,14 +170,16 @@ class FrameDetailScreen(Widget):
 
         if self.frame.location is not None:
             _, file, line = self.frame.location
-            lines = linecache.getlines(file)[line - delta : line + delta]
+            lines = linecache.getlines(file)[max(line - delta, 0) : line + delta]
+            selected_line = line - 1 if delta >= line else delta - 1
         else:
             lines = []
+            selected_line = 0
 
         text = TextArea(
             "\n".join(lines), language="python", theme="dracula", id="textarea"
         )
-        text.select_line(delta + 1)
+        text.select_line(selected_line)
         text.show_line_numbers = False
         text.can_focus = False
         text.cursor_blink = False
