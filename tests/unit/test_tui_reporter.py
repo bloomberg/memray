@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import sys
 from io import StringIO
 from typing import Awaitable
 from typing import Callable
@@ -102,6 +103,15 @@ class MockReader:
 def compare(monkeypatch, tmp_path, snap_compare):
     monkeypatch.setattr(memray.reporters.tui, "datetime", FakeDatetime)
 
+    # The snapshots we've generated using current versions of Textual aren't
+    # expected to match anymore on Python 3.7, as Textual dropped support for
+    # Python 3.7 in the 0.44 release. However, we'd still like to run our
+    # snapshot tests on Python 3.7, to confirm that no unexpected exceptions
+    # occur and that the app doesn't crash. So, allow `snap_compare()` to drive
+    # the application, but always return `True` on Python 3.7 as long as no
+    # exception was raised.
+    succeed_even_if_mismatched = sys.version_info < (3, 8)
+
     def compare_impl(
         cmdline_override: Optional[str] = None,
         press: Iterable[str] = (),
@@ -128,11 +138,14 @@ def compare(monkeypatch, tmp_path, snap_compare):
         with monkeypatch.context() as app_patch:
             app_patch.setitem(globals(), app_global, app)
             tmp_main.write_text(f"from {__name__} import {app_global} as app")
-            return snap_compare(
-                str(tmp_main),
-                press=press,
-                terminal_size=terminal_size,
-                run_before=run_before_wrapper,
+            return (
+                snap_compare(
+                    str(tmp_main),
+                    press=press,
+                    terminal_size=terminal_size,
+                    run_before=run_before_wrapper,
+                )
+                or succeed_even_if_mismatched
             )
 
     yield compare_impl
