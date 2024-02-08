@@ -46,17 +46,29 @@ from libcpp.vector cimport vector
 
 from ._destination import Destination
 
-IF UNAME_SYSNAME == "Linux":
-    cdef extern from "sys/prctl.h":
-        int prctl(int, char*, char*, char*, char*)
+
+cdef extern from *:
+    """
+    #ifdef __linux__
+    # include <sys/prctl.h>
+    inline int set_thread_name_impl(const char* new_name)
+    {
+        return prctl(PR_SET_NAME, new_name, NULL, NULL, NULL);
+    }
+    #else
+    # include <errno.h>
+    inline int set_thread_name_impl(const char* new_name)
+    {
+        errno = ENOTSUP;
+        return -1;
+    }
+    #endif
+    """
+    int set_thread_name_impl(const char* new_name)
 
 
 def set_thread_name(new_name):
-    cdef int PR_SET_NAME = 15
-    IF UNAME_SYSNAME == "Linux":
-        return prctl(PR_SET_NAME, new_name, NULL, NULL, NULL)
-    ELSE:
-        return None
+    return set_thread_name_impl(new_name)
 
 
 cdef class MemoryAllocator:
