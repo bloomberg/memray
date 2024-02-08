@@ -1,0 +1,1 @@
+Fix a bug where the tree reporter would fail to populate the code pane with relevant lines if the line where the allocation occurred was too near the start of the file.
