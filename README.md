@@ -157,7 +157,7 @@ optional arguments:
 Please submit feedback, ideas, and bug reports by filing a new issue at https://github.com/bloomberg/memray/issues
 ```
 
-To use Memray over a script or a single python file you can use
+To use Memray over a script or a single python file you can use:
 
 ```shell
 python3 -m memray run my_script.py
