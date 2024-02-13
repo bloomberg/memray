@@ -306,75 +306,84 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept
     return ret;
 }
 
-// We need to override dlopen/dlclose to account for new shared libraries being
-// loaded in the process memory space. This is needed so we can correctly track
-// allocations in those libraries by overriding their PLT entries and also so we
-// can properly map the addresses of the symbols in those libraries when we
-// resolve later native traces. Unfortunately, we can't just override dlopen
-// directly because of the following edge case: when a shared library dlopen's
-// another by name (e.g. dlopen("libfoo.so")), the dlopen call will honor the
-// RPATH/RUNPATH of the calling library if it's set. Some libraries set an
-// RPATH/RUNPATH based on $ORIGIN (the path of the calling library) to load
-// dependencies from a relative directory based on the location of the calling
-// library. This means that if we override dlopen, we'll end up loading the
-// library from the wrong path or more likely, not loading it at all because the
-// dynamic loader will think the memray extenion it's the calling library and
-// the RPATH of the real calling library will not be honoured.
-//
-// To work around this, we override dlsym instead and override the symbols in
-// the loaded libraries only the first time we have seen a handle passed to
-// dlsym. This works because for a symbol from a given dlopen-ed library to
-// appear in a call stack, *something* from that library has to be dlsym-ed
-// first. The only exception to this are static initializers, but we cannot
-// track those anyway by overriding dlopen as they run within the dlopen call
-// itself.
-// There's another set of cases we would miss: if library A has a static initializer
-// that passes a pointer to one of its functions to library B, and library B stores
-// that function pointer, then we could see calls into library A via the function pointer
-// held by library B, even though dlsym was never called on library A. This should be
-// very rare and will be corrected the next time library B calls dlsym so this should
-// not be a problem in practice.
-
-class DlsymCache
-{
-  public:
-    auto insert(const void* handle)
-    {
-        std::unique_lock lock(mutex_);
-        return d_handles.insert(handle);
-    }
-
-    void erase(const void* handle)
-    {
-        std::unique_lock lock(mutex_);
-        d_handles.erase(handle);
-    }
-
-  private:
-    mutable std::mutex mutex_;
-    std::unordered_set<const void*> d_handles;
-};
-
-static DlsymCache dlsym_cache;
-
 void*
-dlsym(void* handle, const char* symbol) noexcept
+dlopen(const char* filename, int flag) noexcept
 {
-    assert(MEMRAY_ORIG(dlsym));
-    void* ret;
+    assert(MEMRAY_ORIG(dlopen));
+    void* ret = nullptr;
     {
         tracking_api::RecursionGuard guard;
-        ret = MEMRAY_ORIG(dlsym)(handle, symbol);
+#if defined(__GLIBC__)
+        // In GLIBC, dlopen() will respect the RPATH/RUNPATH of the caller when searching for the
+        // library, which won't work if we intercept dlopen() as we will be the caller. This means that
+        // callers that rely on RUNPATH to find their dependencies will fail to load. To work around
+        // this, we need to manually find our caller and walk the linker search path to know what we need
+        // to dlopen().
+        if (filename != nullptr && filename[0] != '\0' && std::strchr(filename, '/') == nullptr) {
+            void* const callerAddr = __builtin_extract_return_addr(__builtin_return_address(0));
+
+            Dl_info info;
+            if (dladdr(callerAddr, &info)) {
+                const char* dlname = info.dli_fname;
+                {
+                    // Check if we are being called from the main executable
+                    Dl_info main_info;
+                    void* main_sym = NULL;
+                    void* self_handle = MEMRAY_ORIG(dlopen)(nullptr, RTLD_LAZY | RTLD_NOLOAD);
+                    if (self_handle) {
+                        main_sym = dlsym(self_handle, "main");
+                        MEMRAY_ORIG(dlclose)(self_handle);
+                    }
+                    if (main_sym && dladdr(main_sym, &main_info)
+                        && strcmp(main_info.dli_fname, info.dli_fname) == 0)
+                    {
+                        dlname = nullptr;
+                    }
+                }
+
+                void* caller = MEMRAY_ORIG(dlopen)(dlname, RTLD_LAZY | RTLD_NOLOAD);
+                if (caller != nullptr) {
+                    Dl_serinfo size;
+                    if (dlinfo(caller, RTLD_DI_SERINFOSIZE, &size) == 0) {
+                        std::vector<char> paths_buf;
+                        paths_buf.resize(size.dls_size);
+                        auto paths = reinterpret_cast<Dl_serinfo*>(paths_buf.data());
+                        *paths = size;
+                        if (dlinfo(caller, RTLD_DI_SERINFO, paths) == 0) {
+                            for (unsigned int i = 0; i != paths->dls_cnt; ++i) {
+                                const char* name = paths->dls_serpath[i].dls_name;
+                                if (name == nullptr || name[0] == '\0') {
+                                    continue;
+                                }
+                                std::string dir = name;
+                                if (dir.back() != '/') {
+                                    dir += '/';
+                                }
+
+                                dir += filename;
+                                ret = MEMRAY_ORIG(dlopen)(dir.c_str(), flag);
+                                if (ret) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    MEMRAY_ORIG(dlclose)(caller);
+                }
+            }
+        }
+#endif
+        // Fallback if we found nothing
+        if (ret == nullptr) {
+            ret = MEMRAY_ORIG(dlopen)(filename, flag);
+        }
     }
     if (ret) {
-        auto [_, inserted] = dlsym_cache.insert(handle);
-        if (inserted) {
-            tracking_api::Tracker::invalidate_module_cache();
-            if (symbol
-                && (0 == strcmp(symbol, "PyInit_greenlet") || 0 == strcmp(symbol, "PyInit__greenlet")))
-            {
-                tracking_api::Tracker::beginTrackingGreenlets();
-            }
+        tracking_api::Tracker::invalidate_module_cache();
+        if (filename
+            && (nullptr != strstr(filename, "/_greenlet.") || nullptr != strstr(filename, "/greenlet.")))
+        {
+            tracking_api::Tracker::beginTrackingGreenlets();
         }
     }
     return ret;
@@ -390,7 +399,6 @@ dlclose(void* handle) noexcept
         tracking_api::RecursionGuard guard;
         ret = MEMRAY_ORIG(dlclose)(handle);
     }
-    dlsym_cache.erase(handle);
     tracking_api::NativeTrace::flushCache();
     if (!ret) tracking_api::Tracker::invalidate_module_cache();
     return ret;
