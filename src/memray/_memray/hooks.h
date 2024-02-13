@@ -3,7 +3,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <dlfcn.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 
@@ -11,10 +10,15 @@
 #include <iostream>
 
 #ifdef __linux__
+#    ifndef _GNU_SOURCE
+#        define _GNU_SOURCE
+#    endif
 #    include "elf_utils.h"
 #    include <malloc.h>
 #    include <sys/prctl.h>
 #endif
+
+#include <dlfcn.h>
 
 #include "alloc.h"
 #include "logging.h"
@@ -43,7 +47,7 @@
     FOR_EACH_HOOKED_FUNCTION(aligned_alloc)                                                             \
     FOR_EACH_HOOKED_FUNCTION(mmap)                                                                      \
     FOR_EACH_HOOKED_FUNCTION(munmap)                                                                    \
-    FOR_EACH_HOOKED_FUNCTION(dlsym)                                                                     \
+    FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
     FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)                                                         \
     MEMRAY_PLATFORM_HOOKED_FUNCTIONS
@@ -179,7 +183,7 @@ void*
 pvalloc(size_t size) noexcept;
 
 void*
-dlsym(void* handle, const char* symbol) noexcept;
+dlopen(const char* filename, int flag) noexcept;
 
 int
 dlclose(void* handle) noexcept;
