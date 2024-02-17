@@ -54,7 +54,7 @@ For instance, consider this code: ::
     time.sleep(1)
 
 If you run ``memray`` against this code and generate a flamegraph, you will see
-the following the following plot:
+the following plot:
 
 .. image:: _static/images/rss_vs_heap.png
 
