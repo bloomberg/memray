@@ -31,6 +31,12 @@ def _get_free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+def _should_modify_sys_path() -> bool:
+    isolated_mode = sys.flags.isolated
+    safe_path_mode = getattr(sys.flags, "safe_path", False)  # New in Python 3.11
+    return not isolated_mode and not safe_path_mode
+
+
 def _run_tracker(
     destination: Destination,
     args: argparse.Namespace,
@@ -52,16 +58,21 @@ def _run_tracker(
         pid = os.getpid()
         try:
             if args.run_as_module:
-                sys.path[0] = os.getcwd()
+                if _should_modify_sys_path():
+                    sys.path[0] = os.getcwd()
                 # run_module will replace argv[0] with the script's path
                 sys.argv = ["", *args.script_args]
                 runpy.run_module(args.script, run_name="__main__", alter_sys=True)
             elif args.run_as_cmd:
-                sys.path[0] = ""
+                if _should_modify_sys_path():
+                    sys.path[0] = ""
                 sys.argv = ["-c", *args.script_args]
                 exec(args.script, {"__name__": "__main__"})
             else:
-                sys.path[0] = str(pathlib.Path(args.script).resolve().parent.absolute())
+                if _should_modify_sys_path():
+                    sys.path[0] = str(
+                        pathlib.Path(args.script).resolve().parent.absolute()
+                    )
                 sys.argv = [args.script, *args.script_args]
                 runpy.run_path(args.script, run_name="__main__")
         finally:
