@@ -297,6 +297,46 @@ class TestRunSubcommand:
         assert os.getcwd() not in path
         assert str(tmp_path) in path
 
+    @pytest.mark.parametrize(
+        "isolation_flag", ["-I"] + (["-P"] if sys.version_info > (3, 11) else [])
+    )
+    def test_suppressing_sys_manipulations_when_running_script(
+        self, tmp_path, isolation_flag
+    ):
+        # GIVEN
+        out_file = tmp_path / "result.bin"
+        target_file = tmp_path / "test.py"
+        target_file.write_text("import json, sys; print(json.dumps(sys.path))")
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                isolation_flag,
+                "-m",
+                "memray",
+                "run",
+                "--quiet",
+                "--output",
+                str(out_file),
+                str(target_file),
+                "some",
+                "provided args",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert out_file.exists()
+        assert proc.returncode == 0
+        # Running `python -m` did not put cwd in sys.path; ensure it isn't
+        # there, and neither is the tmp_path we would have replaced it with.
+        path = json.loads(proc.stdout)
+        assert os.getcwd() not in path
+        assert str(tmp_path) not in path
+
     def test_sys_manipulations_when_running_module(self, tmp_path):
         # GIVEN
         out_file = tmp_path / "result.bin"
@@ -329,6 +369,45 @@ class TestRunSubcommand:
         assert "" not in path
         assert os.getcwd() in path
 
+    @pytest.mark.parametrize(
+        "isolation_flag", ["-I"] + (["-P"] if sys.version_info > (3, 11) else [])
+    )
+    def test_suppressing_sys_manipulations_when_running_module(
+        self, tmp_path, isolation_flag
+    ):
+        # GIVEN
+        out_file = tmp_path / "result.bin"
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                isolation_flag,
+                "-c",
+                "import sys; from memray.commands import main; sys.exit(main())",
+                "run",
+                "--quiet",
+                "--output",
+                str(out_file),
+                "-m",
+                "site",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert out_file.exists()
+        assert proc.returncode == 0
+        # Running `python -c` did not put "" in sys.path; ensure it isn't
+        # there, and neither is the os.getcwd() we would have replaced it with.
+        path = eval(
+            " ".join(line for line in proc.stdout.splitlines() if line.startswith(" "))
+        )
+        assert "" not in path
+        assert os.getcwd() not in path
+
     def test_sys_manipulations_when_running_cmd(self, tmp_path):
         # GIVEN
         out_file = tmp_path / "result.bin"
@@ -358,6 +437,43 @@ class TestRunSubcommand:
         path = json.loads(proc.stdout)
         assert os.getcwd() not in path
         assert "" in path
+
+    @pytest.mark.parametrize(
+        "isolation_flag", ["-I"] + (["-P"] if sys.version_info > (3, 11) else [])
+    )
+    def test_suppressing_sys_manipulations_when_running_cmd(
+        self, tmp_path, isolation_flag
+    ):
+        # GIVEN
+        out_file = tmp_path / "result.bin"
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                isolation_flag,
+                "-m",
+                "memray",
+                "run",
+                "--quiet",
+                "--output",
+                str(out_file),
+                "-c",
+                "import json, sys; print(json.dumps(sys.path))",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert out_file.exists()
+        assert proc.returncode == 0
+        # Running `python -m` did not put cwd in sys.path; ensure it isn't
+        # there, and neither is the "" we would have replaced it with.
+        path = json.loads(proc.stdout)
+        assert os.getcwd() not in path
+        assert "" not in path
 
     @pytest.mark.parametrize("option", [None, "--live", "--live-remote"])
     def test_run_file_that_is_not_python(self, capsys, option):
