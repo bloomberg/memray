@@ -20,6 +20,7 @@ from memray import AllocationRecord
 from memray import FileReader
 from memray import MemorySnapshot
 from memray._errors import MemrayCommandError
+from memray._memray import FileFormat
 from memray._memray import SymbolicSupport
 from memray._memray import TemporalAllocationRecord
 from memray._memray import get_symbolic_support
@@ -75,6 +76,24 @@ def warn_if_not_enough_symbols() -> None:
         )
     else:
         return
+
+
+def warn_if_file_is_not_aggregated_and_is_too_big(
+    reader: FileReader, result_path: Path
+) -> None:
+    FILE_SIZE_LIMIT = 10 * 1000 * 1000
+    if (
+        reader.metadata.file_format == FileFormat.ALL_ALLOCATIONS
+        and result_path.stat().st_size > FILE_SIZE_LIMIT
+    ):
+        pprint(
+            ":warning: [bold yellow] This capture file is large and may take a long"
+            " time to process [/] :warning:\n\n"
+            "Next time, consider using the `--aggregate` option to `memray run` to"
+            " reduce the size of the file.\n"
+            "Check https://bloomberg.github.io/memray/run.html#aggregated-capture-files"
+            " for more information.\n"
+        )
 
 
 class HighWatermarkCommand:
@@ -139,6 +158,9 @@ class HighWatermarkCommand:
 
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
+
+            if not temporal and not temporary_allocation_threshold >= 0:
+                warn_if_file_is_not_aggregated_and_is_too_big(reader, result_path)
 
             if temporal:
                 assert self.temporal_reporter_factory is not None

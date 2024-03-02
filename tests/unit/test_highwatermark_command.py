@@ -1,5 +1,7 @@
 import os
+import sys
 from pathlib import Path
+from unittest.mock import ANY
 from unittest.mock import MagicMock
 from unittest.mock import Mock
 from unittest.mock import call
@@ -8,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from memray._errors import MemrayCommandError
+from memray._memray import FileFormat
 from memray.commands.common import HighWatermarkCommand
 
 
@@ -165,6 +168,9 @@ class TestReportGeneration:
         calls = [
             call(os.fspath(result_path), report_progress=True),
             call().metadata.has_native_traces.__bool__(),
+            call().metadata.file_format.__eq__(FileFormat.ALL_ALLOCATIONS)
+            if sys.version_info >= (3, 8, 0)
+            else ANY,
             call().get_high_watermark_allocation_records(merge_threads=merge_threads),
             call().get_memory_snapshots(),
         ]
@@ -195,6 +201,9 @@ class TestReportGeneration:
         calls = [
             call(os.fspath(result_path), report_progress=True),
             call().metadata.has_native_traces.__bool__(),
+            call().metadata.file_format.__eq__(FileFormat.ALL_ALLOCATIONS)
+            if sys.version_info >= (3, 8, 0)
+            else ANY,
             call().get_leaked_allocation_records(merge_threads=merge_threads),
             call().get_memory_snapshots(),
         ]

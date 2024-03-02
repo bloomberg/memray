@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from ._memray import FileFormat
+
 
 @dataclass
 class Metadata:
@@ -14,3 +16,4 @@ class Metadata:
     python_allocator: str
     has_native_traces: bool
     trace_python_allocators: bool
+    file_format: FileFormat
