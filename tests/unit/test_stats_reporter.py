@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from memray import AllocatorType as AT
+from memray._memray import FileFormat
 from memray._metadata import Metadata
 from memray._stats import Stats
 from memray.reporters.stats import StatsReporter
@@ -97,6 +98,7 @@ def fake_stats():
             python_allocator="pymalloc",
             has_native_traces=False,
             trace_python_allocators=True,
+            file_format=FileFormat.ALL_ALLOCATIONS,
         ),
         total_num_allocations=20,
         total_memory_allocated=sum(mem_allocation_list),
@@ -435,6 +437,7 @@ def test_stats_output_json(fake_stats, tmp_path):
             "python_allocator": "pymalloc",
             "has_native_traces": False,
             "trace_python_allocators": True,
+            "file_format": 0,
         },
     }
     actual = json.loads(output_file.read_text())

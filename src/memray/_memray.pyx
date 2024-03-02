@@ -757,6 +757,7 @@ cdef _create_metadata(header, peak_memory):
         python_allocator=allocator_id_to_name[header["python_allocator"]],
         has_native_traces=header["native_traces"],
         trace_python_allocators=header["trace_python_allocators"],
+        file_format=FileFormat(header["file_format"]),
     )
 
 

@@ -5,6 +5,7 @@ from textwrap import dedent
 
 from memray import FileReader
 from memray._errors import MemrayCommandError
+from memray.commands.common import warn_if_file_is_not_aggregated_and_is_too_big
 from memray.commands.common import warn_if_not_enough_symbols
 from memray.reporters.summary import SummaryReporter
 
@@ -67,6 +68,9 @@ class SummaryCommand:
             reader = FileReader(os.fspath(args.results), report_progress=True)
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
+
+            if not args.temporary_allocation_threshold >= 0:
+                warn_if_file_is_not_aggregated_and_is_too_big(reader, result_path)
 
             if args.temporary_allocation_threshold >= 0:
                 snapshot = iter(
