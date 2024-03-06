@@ -13,6 +13,7 @@ class Metadata:
     peak_memory: int
     command_line: str
     pid: int
+    main_thread_id: int
     python_allocator: str
     has_native_traces: bool
     trace_python_allocators: bool

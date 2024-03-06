@@ -1,4 +1,5 @@
 import os
+import threading
 
 import pytest
 
@@ -79,3 +80,28 @@ def test_read_pid(tmp_path):
 
     # THEN
     assert FileReader(output).metadata.pid == os.getpid()
+
+
+def test_read_tid(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+
+    def func():
+        allocator.valloc(1024)
+
+    # WHEN
+    t = threading.Thread(target=func)
+    with Tracker(output):
+        func()
+        t.start()
+        t.join()
+
+    # THEN
+    reader = FileReader(output)
+    main_tid = reader.metadata.main_thread_id
+    all_allocations = reader.get_allocation_records()
+    all_tids = tuple(allocation.tid for allocation in all_allocations)
+    assert main_tid in set(all_tids)
+    # The main thread should be the first one in the list
+    assert main_tid == all_tids[0]
