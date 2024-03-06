@@ -754,6 +754,7 @@ cdef _create_metadata(header, peak_memory):
         peak_memory=peak_memory,
         command_line=header["command_line"],
         pid=header["pid"],
+        main_thread_id=header["main_tid"],
         python_allocator=allocator_id_to_name[header["python_allocator"]],
         has_native_traces=header["native_traces"],
         trace_python_allocators=header["trace_python_allocators"],

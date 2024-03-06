@@ -99,6 +99,7 @@ def fake_stats():
             has_native_traces=False,
             trace_python_allocators=True,
             file_format=FileFormat.ALL_ALLOCATIONS,
+            main_thread_id=0x1,
         ),
         total_num_allocations=20,
         total_memory_allocated=sum(mem_allocation_list),
@@ -438,6 +439,7 @@ def test_stats_output_json(fake_stats, tmp_path):
             "has_native_traces": False,
             "trace_python_allocators": True,
             "file_format": 0,
+            "main_thread_id": 0x1,
         },
     }
     actual = json.loads(output_file.read_text())
