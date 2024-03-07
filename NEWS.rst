@@ -8,6 +8,25 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.12.0 (2024-03-07)
+--------------------------
+
+Features
+~~~~~~~~
+
+- Allow ``--temporal`` and ``--max-memory-records`` to be used with our :ref:`Jupyter magic <Jupyter integration>`. (#538)
+- Automatically use aggregated capture files for the :ref:`Jupyter magic <Jupyter integration>` whenever possible, reducing the amount of disk space needed for temporary files. (#538)
+- Expose the main thread id in the FileReader's metadata attribute. (#560)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a bug that was causing ``dlopen`` to not load shared libraries that have an RPATH/RUNPATH set. (#525)
+- Fix a bug where the tree reporter would fail to populate the code pane with relevant lines if the line where the allocation occurred was too near the start of the file. (#544)
+- Fix a bug causing the first entry of ``sys.path`` to be erroneously overwritten by ``memray run`` when the Python interpreter was launched with the ``-I`` or ``-P`` flag, or when the ``PYTHONSAFEPATH`` environment variable was set. (#552)
+
+
 memray 1.11.0 (2023-12-04)
 --------------------------
 
