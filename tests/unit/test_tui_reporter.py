@@ -173,6 +173,7 @@ def mock_allocation(
     allocator: AllocatorType = AllocatorType.MALLOC,
     stack_id: int = 0,
     n_allocations: int = 1,
+    thread_name: str = "",
 ):
     hybrid_stack = stack
 
@@ -190,6 +191,7 @@ def mock_allocation(
         allocator=allocator,
         stack_id=stack_id,
         n_allocations=n_allocations,
+        thread_name=thread_name,
         _stack=stack,
         _hybrid_stack=hybrid_stack,
     )

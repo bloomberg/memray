@@ -64,6 +64,7 @@ class MockAllocationRecord:
     n_allocations: int
     _stack: Optional[List[Tuple[str, str, int]]] = None
     _hybrid_stack: Optional[List[Tuple[str, str, int]]] = None
+    thread_name: str = ""
 
     @property
     def pretty_thread_name(self):
