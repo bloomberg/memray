@@ -1,1 +1,0 @@
-Allow ``--temporal`` and ``--max-memory-records`` to be used with our :ref:`Jupyter magic <Jupyter integration>`.
