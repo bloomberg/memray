@@ -302,11 +302,17 @@ cdef class AllocationRecord:
         return self._tuple[7]
 
     @property
-    def pretty_thread_name(self):
+    def thread_name(self):
         if self.tid == -1:
             return "merged thread"
         assert self._reader.get() != NULL, "Cannot get thread name without reader."
-        cdef object name = self._reader.get().getThreadName(self.tid)
+        return self._reader.get().getThreadName(self.tid)
+
+    @property
+    def pretty_thread_name(self):
+        if self.tid == -1:
+            return "merged thread"
+        name = self.thread_name
         thread_id = hex(self.tid)
         return f"{thread_id} ({name})" if name else f"{thread_id}"
 
@@ -439,9 +445,13 @@ cdef class TemporalAllocationRecord:
         return self._tuple[4]
 
     @property
-    def pretty_thread_name(self):
+    def thread_name(self):
         assert self._reader.get() != NULL, "Cannot get thread name without reader."
-        cdef object name = self._reader.get().getThreadName(self.tid)
+        return self._reader.get().getThreadName(self.tid)
+
+    @property
+    def pretty_thread_name(self):
+        name = self.thread_name
         thread_id = hex(self.tid)
         return f"{thread_id} ({name})" if name else f"{thread_id}"
 
