@@ -302,7 +302,7 @@ cdef class AllocationRecord:
         return self._tuple[7]
 
     @property
-    def thread_name(self):
+    def pretty_thread_name(self):
         if self.tid == -1:
             return "merged thread"
         assert self._reader.get() != NULL, "Cannot get thread name without reader."
@@ -439,7 +439,7 @@ cdef class TemporalAllocationRecord:
         return self._tuple[4]
 
     @property
-    def thread_name(self):
+    def pretty_thread_name(self):
         assert self._reader.get() != NULL, "Cannot get thread name without reader."
         cdef object name = self._reader.get().getThreadName(self.tid)
         thread_id = hex(self.tid)
