@@ -476,7 +476,7 @@ class TreeReporter:
                 current_frame = current_frame.children[stack_frame]
                 current_frame.value += size
                 current_frame.n_allocations += record.n_allocations
-                current_frame.thread_id = record.thread_name
+                current_frame.thread_id = record.pretty_thread_name
 
                 if index > MAX_STACKS:
                     break

@@ -47,7 +47,7 @@ class TableReporter:
             allocator = AllocatorType(record.allocator)
             result.append(
                 {
-                    "tid": record.thread_name,
+                    "tid": record.pretty_thread_name,
                     "size": record.size,
                     "allocator": allocator.name.lower(),
                     "n_allocations": record.n_allocations,

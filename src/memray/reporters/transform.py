@@ -117,7 +117,7 @@ class TransformReporter:
                     record.n_allocations,
                     record.size,
                     record.tid,
-                    record.thread_name,
+                    record.pretty_thread_name,
                     "|".join(f"{func};{mod};{line}" for func, mod, line in stack_trace),
                 ]
             )
