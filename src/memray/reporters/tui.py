@@ -545,7 +545,7 @@ class TUI(Screen[None]):
         self.pid = pid
         self.cmd_line = cmd_line
         self.native = native
-        self._seen_threads: Set[int] = set()
+        self._name_by_tid: Dict[int, str] = {}
         self._max_memory_seen = 0
         self._merge_threads = True
         super().__init__()
@@ -575,6 +575,9 @@ class TUI(Screen[None]):
         else:
             tid_label = f"[b]TID[/]: {hex(self.current_thread)}"
             thread_label = f"[b]Thread[/] {thread_idx + 1} of {len(self.threads)}"
+            thread_name = self._name_by_tid.get(self.current_thread)
+            if thread_name:
+                thread_label += f" ({thread_name})"
 
         self.query_one("#tid", Label).update(tid_label)
         self.query_one("#thread", Label).update(thread_label)
@@ -662,8 +665,9 @@ class TUI(Screen[None]):
         if self.paused:
             return
 
-        new_tids = {record.tid for record in snapshot.records} - self._seen_threads
-        self._seen_threads.update(new_tids)
+        name_by_tid = {record.tid: record.thread_name for record in snapshot.records}
+        new_tids = name_by_tid.keys() - self._name_by_tid.keys()
+        self._name_by_tid.update(name_by_tid)
 
         if new_tids:
             threads = self.threads
