@@ -648,18 +648,27 @@ def test_sorting():
 def test_switching_threads():
     """Test that we can switch which thread is displayed"""
     # GIVEN
+    thread_names = ["Thread A", "", "Thread C"]
+    thread_labels = [
+        "Thread 1 of 3 (Thread A)",
+        "Thread 2 of 3",
+        "Thread 3 of 3 (Thread C)",
+    ]
     snapshot = [
         mock_allocation(
             tid=1,
             stack=[("a", "a.py", 1)],
+            thread_name=thread_names[0],
         ),
         mock_allocation(
             tid=2,
             stack=[("b", "b.py", 1)],
+            thread_name=thread_names[1],
         ),
         mock_allocation(
             tid=3,
             stack=[("c", "c.py", 1)],
+            thread_name=thread_names[2],
         ),
     ]
 
@@ -690,7 +699,7 @@ def test_switching_threads():
     order = [0, 1, 2, 0, 2, 1, 0]
     assert functions == ["abc"[i] for i in order]
     assert tids == [f"TID: {hex(i+1)}" for i in order]
-    assert threads == [f"Thread {i+1} of 3" for i in order]
+    assert threads == [thread_labels[i] for i in order]
 
 
 def test_merge_mode_new_threads():
