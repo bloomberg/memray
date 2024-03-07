@@ -93,4 +93,4 @@ def test_thread_name(tmpdir):
     assert len(vallocs) == 1
     (valloc,) = vallocs
     assert valloc.size == 1234
-    assert "my thread name" in valloc.thread_name
+    assert "my thread name" in valloc.pretty_thread_name

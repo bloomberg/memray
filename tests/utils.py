@@ -66,7 +66,7 @@ class MockAllocationRecord:
     _hybrid_stack: Optional[List[Tuple[str, str, int]]] = None
 
     @property
-    def thread_name(self):
+    def pretty_thread_name(self):
         return str(hex(self.tid)) if self.tid != -1 else "merged thread"
 
     @staticmethod
