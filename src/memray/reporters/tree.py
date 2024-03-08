@@ -36,6 +36,7 @@ from textual.widgets.tree import TreeNode
 
 from memray import AllocationRecord
 from memray._memray import size_fmt
+from memray.reporters.common import format_thread_name
 from memray.reporters.frame_tools import is_cpython_internal
 from memray.reporters.frame_tools import is_frame_from_import_system
 from memray.reporters.frame_tools import is_frame_interesting
@@ -461,7 +462,7 @@ class TreeReporter:
                 current_frame = current_frame.children[stack_frame]
                 current_frame.value += size
                 current_frame.n_allocations += record.n_allocations
-                current_frame.thread_id = record.pretty_thread_name
+                current_frame.thread_id = format_thread_name(record)
 
                 if index > MAX_STACKS:
                     break

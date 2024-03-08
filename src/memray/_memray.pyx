@@ -309,14 +309,6 @@ cdef class AllocationRecord:
         assert self._reader.get() != NULL, "Cannot get thread name without reader."
         return self._reader.get().getThreadName(self.tid)
 
-    @property
-    def pretty_thread_name(self):
-        if self.tid == -1:
-            return "merged thread"
-        name = self.thread_name
-        thread_id = hex(self.tid)
-        return f"{thread_id} ({name})" if name else f"{thread_id}"
-
     def stack_trace(self, max_stacks=None):
         cache_key = ("python", max_stacks)
         if cache_key not in self._stack_trace_cache:
@@ -449,12 +441,6 @@ cdef class TemporalAllocationRecord:
     def thread_name(self):
         assert self._reader.get() != NULL, "Cannot get thread name without reader."
         return self._reader.get().getThreadName(self.tid)
-
-    @property
-    def pretty_thread_name(self):
-        name = self.thread_name
-        thread_id = hex(self.tid)
-        return f"{thread_id} ({name})" if name else f"{thread_id}"
 
     def stack_trace(self, max_stacks=None):
         cache_key = ("python", max_stacks)
