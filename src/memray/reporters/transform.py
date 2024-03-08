@@ -11,6 +11,7 @@ from memray import AllocationRecord
 from memray import AllocatorType
 from memray import MemorySnapshot
 from memray import Metadata
+from memray.reporters.common import format_thread_name
 
 Location = Tuple[str, str]
 
@@ -117,7 +118,7 @@ class TransformReporter:
                     record.n_allocations,
                     record.size,
                     record.tid,
-                    record.pretty_thread_name,
+                    format_thread_name(record),
                     "|".join(f"{func};{mod};{line}" for func, mod, line in stack_trace),
                 ]
             )
