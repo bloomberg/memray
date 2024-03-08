@@ -74,6 +74,7 @@ from ._destination import FileDestination
 from ._destination import SocketDestination
 from ._metadata import Metadata
 from ._stats import Stats
+from ._thread_name_interceptor import ThreadNameInterceptor
 
 
 def set_log_level(int level):
@@ -691,7 +692,6 @@ cdef class Tracker:
 
     @cython.profile(False)
     def __enter__(self):
-
         if NativeTracker.getTracker() != NULL:
             raise RuntimeError("No more than one Tracker instance can be active at the same time")
 
@@ -699,6 +699,14 @@ cdef class Tracker:
         if self._writer == NULL:
             raise RuntimeError("Attempting to use stale output handle")
         writer = move(self._writer)
+
+        for attr in ("_name", "_ident"):
+            assert not hasattr(threading.Thread, attr)
+            setattr(
+                threading.Thread,
+                attr,
+                ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
+            )
 
         self._previous_profile_func = sys.getprofile()
         self._previous_thread_profile_func = threading._profile_hook
@@ -721,6 +729,9 @@ cdef class Tracker:
         NativeTracker.destroyTracker()
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
+
+        for attr in ("_name", "_ident"):
+            delattr(threading.Thread, attr)
 
 
 def start_thread_trace(frame, event, arg):
