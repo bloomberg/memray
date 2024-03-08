@@ -9,6 +9,7 @@ from memray import AllocationRecord
 from memray import AllocatorType
 from memray import MemorySnapshot
 from memray import Metadata
+from memray.reporters.common import format_thread_name
 from memray.reporters.templates import render_report
 
 
@@ -47,7 +48,7 @@ class TableReporter:
             allocator = AllocatorType(record.allocator)
             result.append(
                 {
-                    "tid": record.pretty_thread_name,
+                    "tid": format_thread_name(record),
                     "size": record.size,
                     "allocator": allocator.name.lower(),
                     "n_allocations": record.n_allocations,
