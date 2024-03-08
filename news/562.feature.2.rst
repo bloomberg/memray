@@ -1,0 +1,1 @@
+Capture the name attribute of Python `threading.Thread` objects.

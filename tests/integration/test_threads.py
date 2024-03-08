@@ -94,3 +94,53 @@ def test_thread_name(tmpdir):
     (valloc,) = vallocs
     assert valloc.size == 1234
     assert "my thread name" == valloc.thread_name
+
+
+def test_setting_python_thread_name(tmpdir):
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    allocator = MemoryAllocator()
+    name_set_inside_thread = threading.Event()
+    name_set_outside_thread = threading.Event()
+    prctl_rc = -1
+
+    def allocating_function():
+        allocator.valloc(1234)
+        allocator.free()
+
+        threading.current_thread().name = "set inside thread"
+        allocator.valloc(1234)
+        allocator.free()
+
+        name_set_inside_thread.set()
+        name_set_outside_thread.wait()
+        allocator.valloc(1234)
+        allocator.free()
+
+        nonlocal prctl_rc
+        prctl_rc = set_thread_name("set by prctl")
+        allocator.valloc(1234)
+        allocator.free()
+
+    # WHEN
+    with Tracker(output):
+        t = threading.Thread(target=allocating_function, name="set before start")
+        t.start()
+        name_set_inside_thread.wait()
+        t.name = "set outside running thread"
+        name_set_outside_thread.set()
+        t.join()
+
+    # THEN
+    expected_names = [
+        "set before start",
+        "set inside thread",
+        "set outside running thread",
+        "set by prctl" if prctl_rc == 0 else "set outside running thread",
+    ]
+    names = [
+        rec.thread_name
+        for rec in FileReader(output).get_allocation_records()
+        if rec.allocator == AllocatorType.VALLOC
+    ]
+    assert names == expected_names
