@@ -13,7 +13,7 @@ Resident memory corresponds to the memory that is allocated currently in your
 main memory or RAM. Generally speaking, programs will store most of the memory
 they are using in main memory but there are some caveats you need to be aware of
 if you want to make sense of how your programs are using memory. Resident memory
-is a metric that is **not independent** on the other programs that are running
+is a metric that is **not independent** of the other programs that are running
 concurrently and what's happening in your machine. This means that **two
 identical runs of your program can have very different resident memory
 measurements**.  If the OS determines that other programs or
