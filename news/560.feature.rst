@@ -1,1 +1,0 @@
-Expose the main thread id in the FileReader's metadata attribute.
