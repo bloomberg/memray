@@ -322,7 +322,7 @@ setup(
     ],
     license="Apache 2.0",
     package_dir={"": "src"},
-    packages=find_packages(where="src"),
+    packages=find_packages(where="src", exclude="memray/_memray/"),
     ext_modules=cythonize(
         [MEMRAY_EXTENSION, MEMRAY_TEST_EXTENSION, MEMRAY_INJECT_EXTENSION],
         include_path=["src/memray"],
