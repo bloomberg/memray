@@ -58,6 +58,7 @@ jobs:
       fail-fast: false
       matrix:
         wheel_type: ${{ fromJSON(needs.choose_linux_wheel_types.outputs.wheel_types) }}
+        manylinux2010_hack: [""]
         include:
           - wheel_type: manylinux_x86_64
             manylinux2010_hack: "_manylinux2010_hack"
