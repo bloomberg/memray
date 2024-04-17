@@ -514,6 +514,7 @@ class TUI(Screen[None]):
     CSS_PATH = "tui.css"
 
     BINDINGS = [
+        Binding("ctrl+z", "suspend_process"),
         Binding("q,esc", "quit", "Quit"),
         Binding("<,left", "previous_thread", "Previous Thread"),
         Binding(">,right", "next_thread", "Next Thread"),

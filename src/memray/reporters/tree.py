@@ -222,6 +222,7 @@ def node_is_not_import_system(node: Frame) -> bool:
 
 class TreeApp(App[None]):
     BINDINGS = [
+        Binding("ctrl+z", "suspend_process"),
         Binding(key="q", action="quit", description="Quit the app"),
         Binding(
             key="i", action="toggle_import_system", description="Hide import system"
