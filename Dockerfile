@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -32,9 +32,9 @@ ENV VIRTUAL_ENV=/venv \
     CC=gcc \
     CXX=g++
 
-RUN python3.9 -m venv "$VIRTUAL_ENV"
+RUN python3 -m venv "$VIRTUAL_ENV"
 
-ENV PATH="${VIRTUAL_ENV}/bin:${PATH}" \
+ENV PATH="${VIRTUAL_ENV}/bin:/usr/lib/ccache:${PATH}" \
     PYTHON="${VIRTUAL_ENV}/bin/python" \
     MEMRAY_MINIMIZE_INLINING="1"
 
@@ -50,8 +50,5 @@ RUN $PYTHON -m pip install -U \
     wheel
 
 RUN npm install -g prettier
-
-RUN ln -s /usr/bin/ccache /bin/g++ \
-    && ln -s /usr/bin/ccache /bin/gcc
 
 WORKDIR /src
