@@ -45,6 +45,7 @@ RUN $PYTHON -m pip install -U \
     -r /tmp/requirements-test.txt \
     -r /tmp/requirements-docs.txt \
     cython \
+    pkgconfig \
     setuptools \
     wheel
 
