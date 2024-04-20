@@ -35,7 +35,8 @@ ENV VIRTUAL_ENV=/venv \
 RUN python3.9 -m venv "$VIRTUAL_ENV"
 
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}" \
-    PYTHON="${VIRTUAL_ENV}/bin/python"
+    PYTHON="${VIRTUAL_ENV}/bin/python" \
+    MEMRAY_MINIMIZE_INLINING="1"
 
 COPY requirements-test.txt requirements-extra.txt requirements-docs.txt /tmp/
 
