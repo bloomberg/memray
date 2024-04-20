@@ -169,7 +169,6 @@ cython_debug/
 memray-*
 
 # VSCode
-.devcontainer
 .vscode
 
 # NodeJS
