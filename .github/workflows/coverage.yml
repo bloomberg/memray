@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   coverage:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
     steps:
@@ -40,11 +40,12 @@ jobs:
             libunwind-dev \
             liblz4-dev \
             gdb \
+            lldb \
             lcov \
             libdw-dev \
             libelf-dev \
-            python3.10-dev \
-            python3.10-dbg
+            python3-dev \
+            python3-dbg
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip cython pkgconfig
