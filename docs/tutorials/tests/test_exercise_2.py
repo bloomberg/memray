@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
-
-from tutorial_2.holding_onto_memory import process_data
+from exercise_2.holding_onto_memory import process_data
 
 
 @pytest.mark.limit_memory("230 MB")

@@ -1,12 +1,9 @@
 import math
+
 import pytest
-
-from tutorial_3.lru_cache import (
-    compare_counts_different_factorials,
-    Algorithms,
-    generate_factorial_plus_last_digit,
-)
-
+from exercise_3.lru_cache import Algorithms
+from exercise_3.lru_cache import compare_counts_different_factorials
+from exercise_3.lru_cache import generate_factorial_plus_last_digit
 
 # Memory tests
 
