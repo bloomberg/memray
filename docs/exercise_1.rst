@@ -146,7 +146,7 @@ generating new flamegraphs. Ensure you don't break any of the correctness tests 
     </code>
     </pre>
 
-    Full code solution <a href="">here</a>
+    Full code solution <a href="https://github.com/bloomberg/memray/blob/main/docs/tutorials/solutions/exercise_1/fibonacci.py">here</a>
     </details>
 
 Conclusion
