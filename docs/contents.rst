@@ -7,7 +7,7 @@ Contents
 -----------
 
 - Introduction to Memray
-- Hands-on Labs, including exercises and examples on
+- Hands-on tutorials, including exercises and examples on
     - How to use Memray
     - Generating Flamegraph reports
     - Garbage Collector
