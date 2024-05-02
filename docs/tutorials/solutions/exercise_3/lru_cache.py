@@ -1,5 +1,5 @@
-from collections import Counter
 import functools
+from collections import Counter
 
 
 class Algorithms:

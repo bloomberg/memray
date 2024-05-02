@@ -21,8 +21,9 @@ def fibonacci(length):
 
 
 def generate_fibonacci_hash(length_1, length_2, length_3):
-    # We could have used sum(...) here instead of reduce(operator.add, ...), but we choose to use
-    # reduce since it yields a more descriptive example of the generated flamegraph for this specific example
+    # We could have used sum(...) here instead of reduce(operator.add, ...),
+    # but we choose to use reduce since it yields a more descriptive example
+    # of the generated flamegraph for this specific example
     return (
         reduce(
             operator.add,
