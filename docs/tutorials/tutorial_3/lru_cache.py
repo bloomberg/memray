@@ -1,5 +1,7 @@
-from collections import Counter
+# pylint: disable=C0114 C0115 C0116 R0903 C0103
+
 import functools
+from collections import Counter
 
 # DO NOT CHANGE
 FIRST_COUNTER_RANGE = 500
@@ -11,7 +13,7 @@ class Algorithms:
     def __init__(self, inc: int):
         self.inc = inc
 
-    @functools.cache    # pylint: disable=W1518
+    @functools.cache  # pylint: disable=W1518
     def factorial_plus(self, n: int) -> int:
         return n * self.factorial_plus(n - 1) + self.inc if n > 1 else 1 + self.inc
 
