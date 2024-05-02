@@ -18,7 +18,44 @@ sequences that you will have an opportunity to learn about.
 Development Environment Setup
 -----------------------------
 
-TODO
+Navigate to the `Memray Github repo <https://github.com/bloomberg/memray>`_ and get a copy of the
+source code. You can either clone it, or just download the zip, whatever is your preference here.
+
+You will also need a terminal with python3 installed, prefferably one of the latest versions.
+You can see which versions of python3 are currently supported at the Memray Github page as well.
+
+Once you have the repo ready to navigate, cd into the docs/tutorials folder:
+
+.. code:: shell
+
+    cd docs/tutorials/
+
+It is here where we will be running the tests and exercises for the remainder of the tutorial.
+For reference here are the `Official Python3 venv docs <https://docs.python.org/3/library/venv.html>`_.
+You can also just follow along with the commands below.
+
+Let's go ahead and setup our virtual environment.
+
+.. code:: shell
+
+    python3 -m venv .venv
+
+Once your virtual environment has been created, you can activate it like so:
+
+.. code:: shell
+
+    source .venv/bin/activate
+
+You can confirm activation was succesful if your terminal is prefixed with `(.venv)`.
+With our virtual environment ready, we can go ahead and install all the dependencies required
+for the tutorial.
+
+.. code:: shell
+
+    python3 -m pip install -r requirements-tutorial.txt
+
+Keep your virtual environment acitvated for the rest of the tutorial, and you should be able to run
+any of the commands in the exercises.
 
 Pytest plugin for Memray
 ------------------------
@@ -76,27 +113,20 @@ You can click into a particular row to filter out results below it and focus on 
 Generating a flamegraph
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Navigate to the TODO directory via
-
-.. code:: shell
-
-    cd TODO
-
 Run the first exercise labeled fibonacci.py, but make sure to have memray wrap this call.
 
 .. code:: shell
 
-    memray run fibonacci.py
+    memray run exercise_1/fibonacci.py
 
 After the run is complete, memray will conveniently print the command to generate a flamegraph from
 the memray output file. Your run id will change each time you run memray with the exercise
 
 .. code:: shell
 
-    memray flamegraph memray-fibonacci.py.<run-id>.bin
+    memray flamegraph exercise_1/memray-fibonacci.py.<run-id>.bin
 
-Now that we have generated our flamegraph, you can launch the HTML output file in your browser of
-choice.
+Now that we have generated our flamegraph, you can launch the HTML output file in your web browser.
 
 Challenge
 ---------
