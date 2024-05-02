@@ -1,5 +1,5 @@
 Introduction
-===========
+============
 
 **Memray** is an open-source memory profiler for Python, built at Bloomberg. It can track memory allocations in Python code, in native extension modules, and in the Python interpreter itself. It can generate several different types of reports to help you analyze the captured memory usage data. While commonly used as a CLI tool, it can also be used as a library to perform more fine-grained profiling tasks.
 
@@ -11,7 +11,7 @@ Memray can help with the following problems:
 
 
 Notable Features
------------
+----------------
 
 - Traces every function call so it can accurately represent the call stack, unlike sampling profilers
 - It can generate various reports about the collected memory usage data

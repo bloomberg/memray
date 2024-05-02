@@ -21,4 +21,4 @@ Read more about the memray pytest plugin in the `official documentation <https:/
 Reporters
 ----------------
 
-As a part of this study guide, we've worked with flamegraphs. However, memray offers numerous other types of reporters. If you would like to learn about different types of reports available, check out the `Reporters section <https://bloomberg.github.io/memray/live.html>`_ on the left-hand side of this page.
+As a part of this study guide, we've worked with flamegraphs. However, memray offers numerous other types of reporters. If you would like to learn about different types of reports available, check out the :doc:`Reporters </live>` section on the left-hand side of this page.

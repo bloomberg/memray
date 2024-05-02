@@ -1,5 +1,5 @@
 Exercise 2: Clinging Onto Memory
-=================
+================================
 
 Intro
 -----------
@@ -8,7 +8,7 @@ Unlike languages such as C++, Python will manage our memory for us, and free up 
 
 
 Working Through an Example
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Let's go through a working example of when memory management in Python doesn't work in the ways we'd typically expect it to, coming from other programming languages.
 
@@ -18,10 +18,10 @@ Exercise
 Let's have a look at the example in ``holding_onto_memory.py``: how many MB of memory do we use at peak? Take a guess, and then confirm by running ``memray`` and generating a ``flamegraph``.
 
 Expectations vs Reality
-"""""""""""
+"""""""""""""""""""""""
 Let's presume that we can’t mutate the original data, the best we can do is peak memory of 200MB: for a brief moment in time both the original 100MB of data and the modified copy of the data will need to be present. In practice, however, the actual peak usage will be 400MB as demonstrated by the ``flamegraph``:
 
-.. image:: images/exercise2_flamegraph.png
+.. image:: _static/images/exercise2_flamegraph.png
 
 Examining our flamegraph further, we can see that we peak at 400MB of allocated memory due to three allocations:
 1. Original 100MB array created by ``load_xMb_of_data(100)``
@@ -42,51 +42,51 @@ Solutions
 
    <details>
 
-      <summary><i>Toggle to see the sample solutions</i></summary>
+   <summary><i>Toggle to see the sample solutions</i></summary>
 
-      After examining the flamegraph, we can see that the problem is caused by local variables which are no longer needed, but continue to use memory until <code>process_data()</code> has finished running. Therefore, we need to look for refactoring the method in a way that does not use unnecessary variables to store data that will not be read afterwards. There are two main approaches we can use to solve our issue here:
+   After examining the flamegraph, we can see that the problem is caused by local variables which are no longer needed, but continue to use memory until <code>process_data()</code> has finished running. Therefore, we need to look for refactoring the method in a way that does not use unnecessary variables to store data that will not be read afterwards. There are two main approaches we can use to solve our issue here:
 
-      <ul>
-      <li>Using no local variables all together in <code>process_data()</code> and instead returning the result of nested function calls
+   <ul>
+   <li>Using no local variables all together in <code>process_data()</code> and instead returning the result of nested function calls
 
-      <pre>
-         <code style="display: block; white-space: pre-wrap;" >
-         def process_data():
-            &emsp;# no extra reference to the original array
-            &emsp;return add_scalar(
-               &emsp;&emsp;duplicate_data(
-                    &emsp;&emsp;&emsp; raise_to_power(
-                        &emsp;&emsp;&emsp;&emsp;subtract_scalar(
-                           &emsp;&emsp;&emsp;&emsp;&emsp;load_xMb_of_data(SIZE_OF_DATA_IN_MB),
-                           &emsp;&emsp;&emsp;&emsp;&emsp;SUBTRACT_AMOUNT
-                        &emsp;&emsp;&emsp;&emsp;),
-                        &emsp;&emsp;&emsp;&emsp;POWER_AMOUNT
-                     &emsp;&emsp;&emsp;)
-               &emsp;&emsp;),
-               &emsp;&emsp;ADD_AMOUNT
-            &emsp;)
-         </code>
-      </pre>
+   <pre>
+   <code style="display: block; white-space: pre-wrap;" >
+   def process_data():
+      # no extra reference to the original array
+      return add_scalar(
+         duplicate_data(
+               raise_to_power(
+                  subtract_scalar(
+                     load_xMb_of_data(SIZE_OF_DATA_IN_MB),
+                     SUBTRACT_AMOUNT
+                  ),
+                  POWER_AMOUNT
+               )
+         ),
+         ADD_AMOUNT
+      )
+   </code>
+   </pre>
 
-      </li>
+   </li>
 
-      <li>Applying the pattern of hidden mutability - we can create a single variable, and re-use it multiple times to store the new value of the manipulated array. This way, we will only hold one array in memory at a time, instead of holding on to older versions of the mutated array unnecessarily
+   <li>Applying the pattern of hidden mutability - we can create a single variable, and re-use it multiple times to store the new value of the manipulated array. This way, we will only hold one array in memory at a time, instead of holding on to older versions of the mutated array unnecessarily
 
-         <pre>
-            <code style="display: block; white-space: pre-wrap;" >
-            def process_data():
-               &emsp;# reusing the local variable instead of allocating more space
-               &emsp;# this approach is called 'hidden mutability'
-               &emsp;data = load_xMb_of_data(SIZE_OF_DATA_IN_MB)
-               &emsp;data = subtract_scalar(data, SUBTRACT_AMOUNT)
-               &emsp;data = raise_to_power(data, POWER_AMOUNT)
-               &emsp;data = duplicate_data(data)
-               &emsp;data = add_scalar(data, ADD_AMOUNT)
-               &emsp;return data
-            </code>
-         </pre>
-      </li>
-      </ul>
+   <pre>
+   <code style="display: block; white-space: pre-wrap;" >
+   def process_data():
+      # reusing the local variable instead of allocating more space
+      # this approach is called 'hidden mutability'
+      data = load_xMb_of_data(SIZE_OF_DATA_IN_MB)
+      data = subtract_scalar(data, SUBTRACT_AMOUNT)
+      data = raise_to_power(data, POWER_AMOUNT)
+      data = duplicate_data(data)
+      data = add_scalar(data, ADD_AMOUNT)
+      return data
+   </code>
+   </pre>
+   </li>
+   </ul>
 
    Full code solution <a href="">here</a>
 
@@ -95,7 +95,7 @@ Solutions
 
 
 Conclusion
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^
 
 Typically, holding onto data in memory a little longer than needed is not a big issue. However, when we are working with large objects, we should be particularly careful. Over-allocating unnecessary memory can lead to running out of memory on the machine (especially for linux VMs which are typically smaller than the older physical machines).
 

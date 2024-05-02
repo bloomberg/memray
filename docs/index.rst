@@ -33,3 +33,14 @@
    supported_environments
    changelog
    licenses
+
+.. toctree::
+   :hidden:
+   :caption: Hands-on Tutorial
+
+   intro
+   contents
+   exercise_1
+   exercise_2
+   exercise_3
+   additional_features

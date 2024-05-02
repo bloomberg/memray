@@ -1,5 +1,5 @@
 Exercise 3: LRU Cache
-=================
+=====================
 
 Intro
 -----------
@@ -42,11 +42,11 @@ Utilising the Native mode
 """""""""""""""""""""""""""
 Let's have a look at our flamegraph - we can see that the majority of the allocations come from the return statement in the ``factorial_plus()`` method. That's quite odd, as the statement doesn't look to be doing any memory heavy operations.
 
-.. image:: images/exercise3_flamegraph_basic.png
+.. image:: _static/images/exercise3_flamegraph_basic.png
 
 Let's give the ``--native`` mode a go and see if we can uncover what might be causing the underlying memory-heavy operations. Can you spot anything new that might help us understand what's causing such high memory usage?
 
-.. image:: images/exercise3_flamegraph_native.png
+.. image:: _static/images/exercise3_flamegraph_native.png
 
 
 Hints
@@ -77,7 +77,7 @@ Hints
 
       <summary><i>Hint 2</i></summary>
 
-      Remove the comment <code># pylint: disable=W1518</code> on line <code>17</code>, and then hover over the <code>@functools.cache</code> decorator to see another hint.
+      Remove the comment <code># pylint: disable=W1518</code> on line <code>17</code>, and then run <code>pylint</code> to see another hint.
 
    </details>
 
@@ -89,53 +89,53 @@ Solutions
 
    <details>
 
-      <summary><i>Toggle to see the sample solutions</i></summary>
+   <summary><i>Toggle to see the sample solutions</i></summary>
 
-      There are many different approaches to fix this memory issue - here are a few of them:
+   There are many different approaches to fix this memory issue - here are a few of them:
 
-      <ul>
-      <li>The <code>@cache</code> decorator calls <code>functools.lru_cache(maxsize=None)</code>. The <code>lru_cache</code> itself stores the results at an instance level, and retains references to all argument values passed to the decorated function in the cache. Consequently, if we invoke such a decorated function with an object as a parameter, that object will persist in memory indefinitely, until the program terminates. This situation is wasteful because once we no longer possess any other references to that object, we can never again call the function with the same parameter, thereby squandering cache space. This scenario frequently arises when decorating a method, with the first parameter typically being <code>self</code>.
+   <ul>
+   <li>The <code>@cache</code> decorator calls <code>functools.lru_cache(maxsize=None)</code>. The <code>lru_cache</code> itself stores the results at an instance level, and retains references to all argument values passed to the decorated function in the cache. Consequently, if we invoke such a decorated function with an object as a parameter, that object will persist in memory indefinitely, until the program terminates. This situation is wasteful because once we no longer possess any other references to that object, we can never again call the function with the same parameter, thereby squandering cache space. This scenario frequently arises when decorating a method, with the first parameter typically being <code>self</code>.
 
-      One solution for this specific case involves utilizing a dedicated memoization method that stores the cache on the <code>self</code> object itself. This arrangement ensures that the cache is released alongside the object.
+   One solution for this specific case involves utilizing a dedicated memoization method that stores the cache on the <code>self</code> object itself. This arrangement ensures that the cache is released alongside the object.
+
+   <pre>
+   <code style="display: block; white-space: pre-wrap;" >
+   class Algorithms:
+      def __init__(self, inc: int):
+         self.inc = inc
+         self.factorial_plus = functools.cache(self._uncached_factorial_plus)
+
+      def _uncached_factorial_plus(self, n: int) -> int:
+         return n * self.factorial_plus(n - 1) + self.inc if n else 1 + self.inc
+
+
+   def generate_factorial_plus_last_digit(plus_range: int, factorial_range: int):
+      for i in range(plus_range):
+         A = Algorithms(i)
+         for j in range(factorial_range):
+            yield A.factorial_plus(j) % 10
+   </code>
+   </pre>
+
+   Full code solution <a href="">here</a>
+   </li>
+
+   <li>Another approach, would be setting a maximum size for the cache. We can do that, by passing an argument to <code>@lru_cache</code> decorator directly. Note: <code>@cache</code> underneath just uses <code>@lru_cache</code> with some default arguments; we can only set the cache size ourselves if we use the <code>@lru_cache</code> decorator directly:
 
       <pre>
-         <code style="display: block; white-space: pre-wrap;" >
-         class Algorithms:
-            &emsp;def __init__(self, inc: int):
-               &emsp;&emsp;self.inc = inc
-               &emsp;&emsp;self.factorial_plus = functools.cache(self._uncached_factorial_plus)
-
-            &emsp;def _uncached_factorial_plus(self, n: int) -> int:
-               &emsp;&emsp;return n * self.factorial_plus(n - 1) + self.inc if n else 1 + self.inc
-
-
-         def generate_factorial_plus_last_digit(plus_range: int, factorial_range: int):
-            &emsp;for i in range(plus_range):
-               &emsp;&emsp;A = Algorithms(i)
-               &emsp;&emsp;for j in range(factorial_range):
-                     &emsp;&emsp;&emsp;yield A.factorial_plus(j) % 10
-         </code>
+      <code style="display: block; white-space: pre-wrap;" >
+      @functools.lru_cache(maxsize=10000)
+      def factorial_plus(self, n: int) -> int:
+         return n * self.factorial_plus(n - 1) + self.inc if n else 1 + self.inc
+      </code>
       </pre>
 
-      Full code solution <a href="">here</a>
-      </li>
+      <code>maxsize</code> here sets the maximum number of values stored in the cache.
+   </li>
 
-      <li>Another approach, would be setting a maximum size for the cache. We can do that, by passing an argument to <code>@lru_cache</code> decorator directly. Note: <code>@cache</code> underneath just uses <code>@lru_cache</code> with some default arguments; we can only set the cache size ourselves if we use the <code>@lru_cache</code> decorator directly:
+   <li>Finally, we can periodically manually invoke the cleanup of the cache. This can be done by calling <code>Algorithms.factorial_plus.cache_clear()</code></li>
 
-         <pre>
-            <code style="display: block; white-space: pre-wrap;" >
-            @functools.lru_cache(maxsize=10000)
-            def factorial_plus(self, n: int) -> int:
-               &emsp;return n * self.factorial_plus(n - 1) + self.inc if n else 1 + self.inc
-            </code>
-         </pre>
-
-         <code>maxsize</code> here sets the maximum number of values stored in the cache.
-      </li>
-
-      <li>Finally, we can periodically manually invoke the cleanup of the cache. This can be done by calling <code>Algorithms.factorial_plus.cache_clear()</code></li>
-
-      </ul>
+   </ul>
 
 
    </details>
@@ -150,6 +150,6 @@ This is an example teaching us that a prophylactic use of Memray, whether using 
 
 Read more about:
 
-- Python GC memory reference counting mechanism `here <http://docs.python.org/extending/extending.html#reference-counts>`_
-- Best ways to cache method calls `here <https://docs.python.org/3/faq/programming.html#faq-cache-method-calls>`_
-- The original github issue on the python language repo going over the details of misuse of lru_cache when decorating class' methods `here <https://github.com/python/cpython/issues/64058>`_
+- Python GC memory reference counting mechanism, `reference count official documentation <http://docs.python.org/extending/extending.html#reference-counts>`_
+- Best ways to cache method calls, `the official faq <https://docs.python.org/3/faq/programming.html#faq-cache-method-calls>`_
+- The original issue on the python language repo going over the details of misuse of lru_cache when decorating class' methods `on github <https://github.com/python/cpython/issues/64058>`_
