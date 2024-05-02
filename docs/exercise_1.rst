@@ -46,7 +46,7 @@ Once your virtual environment has been created, you can activate it like so:
 
     source .venv/bin/activate
 
-You can confirm activation was succesful if your terminal is prefixed with `(.venv)`.
+You can confirm activation was succesful if your terminal is prefixed with ``(.venv)``.
 With our virtual environment ready, we can go ahead and install all the dependencies required
 for the tutorial.
 
