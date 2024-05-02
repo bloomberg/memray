@@ -35,7 +35,7 @@ Let's have a look at the example in ``lru_cache.py``: can you spot any memory-re
 Challenge
 """""""""""
 
-Experiment with the code in ``lru_cache.py`` and try to get the peak memory usage down to 70MB. Test your solutions by running the unit test in ``tests/test_lab_3.py`` and examine them with the help of ``memray`` reports.
+Experiment with the code in ``lru_cache.py`` and try to get the peak memory usage down to 70MB. Test your solutions by running the unit test in ``tests/test_exercise_3.py`` and examine them with the help of ``memray`` reports.
 
 
 Utilising the Native mode

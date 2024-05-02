@@ -5,7 +5,7 @@ Intro
 =====
 
 This first lesson's focus is to familiarise you with the methods and tools we will be using for the
-rest of the labs. By the end of it, you should understand:
+rest of the exercises. By the end of it, you should understand:
 
 - Basic integration of memray with pytest
 - How to run a python script with memray
@@ -18,18 +18,7 @@ sequences that you will have an opportunity to learn about.
 Development Environment Setup
 -----------------------------
 
-We have designed this exercise using a docker-compose workflow. This allows us to pull upstream memray
-and install that as well as any other dependencies required by the labs.
-
-.. code:: shell
-
-    mkdir memray-workshop && cd memray-workshop
-    curl -s https://training.s3.dev.bcs.bloomberg.com/labs/community-training-materials/memray/main/memray_workshop.tgz | tar xzf -
-    docker-compose build
-    docker-compose run --rm client bash
-
-Once you have performed these steps, you should have a shell open to your docker container, ready
-to jump into the labs.
+TODO
 
 Pytest plugin for Memray
 ------------------------
@@ -56,7 +45,7 @@ let's specify the specific test we want to run.
 
 .. code:: shell
 
-    pytest tests/test_lab_1.py
+    pytest tests/test_exercise_1.py
 
 .. image:: images/pytest_cli_output.png
 
@@ -66,7 +55,7 @@ Understanding the results
 Do you notice any issues with your test case? Initially we should see that the test is failing with
 some additional information. Looks like our test case allocated more memory than we alloted for. We
 will be taking advantage of this amazing feature included with Memray to help run our workshop. Your
-goal for each exercise will be to modify the labs (NOT the tests), in order to respect these memory limits.
+goal for each exercise will be to modify the exercises (NOT the tests), in order to respect these memory limits.
 
 Flamegraphs, what are they?
 ---------------------------
@@ -87,11 +76,11 @@ You can click into a particular row to filter out results below it and focus on 
 Generating a flamegraph
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Navigate to the lab_1 directory via
+Navigate to the TODO directory via
 
 .. code:: shell
 
-    cd lab_1/
+    cd TODO
 
 Run the first exercise labeled fibonacci.py, but make sure to have memray wrap this call.
 
@@ -100,7 +89,7 @@ Run the first exercise labeled fibonacci.py, but make sure to have memray wrap t
     memray run fibonacci.py
 
 After the run is complete, memray will conveniently print the command to generate a flamegraph from
-the memray output file. Your run id will change each time you run memray with the lab
+the memray output file. Your run id will change each time you run memray with the exercise
 
 .. code:: shell
 
@@ -117,7 +106,7 @@ code appears to be the source of almost all of our script's allocations. Maybe t
 a clue as to what in particular we may want to change to pass our test?
 
 Try to edit ``fibonacci.py`` to make the program more memory efficient. Test your solution by running
-the ``test_lab_1.py`` unit test, and inspect the effect your changes have on the memory allocation by
+the ``test_exercise_1.py`` unit test, and inspect the effect your changes have on the memory allocation by
 generating new flamegraphs. Ensure you don't break any of the correctness tests along the way as well.
 
 .. raw:: html
