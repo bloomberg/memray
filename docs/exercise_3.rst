@@ -42,11 +42,11 @@ Utilising the Native mode
 """""""""""""""""""""""""""
 Let's have a look at our flamegraph - we can see that the majority of the allocations come from the return statement in the ``factorial_plus()`` method. That's quite odd, as the statement doesn't look to be doing any memory heavy operations.
 
-.. image:: images/lab3_flamegraph_basic.png
+.. image:: images/exercise3_flamegraph_basic.png
 
 Let's give the ``--native`` mode a go and see if we can uncover what might be causing the underlying memory-heavy operations. Can you spot anything new that might help us understand what's causing such high memory usage?
 
-.. image:: images/lab3_flamegraph_native.png
+.. image:: images/exercise3_flamegraph_native.png
 
 
 Hints
