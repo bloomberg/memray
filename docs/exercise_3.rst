@@ -1,10 +1,10 @@
-Lab 3: LRU Cache
+Exercise 3: LRU Cache
 =================
 
 Intro
 -----------
 
-In Lab 2 we experimented with how and when python automatically deallocates memory. This lab will delve deeper into the automatic deallocation logic used in Python.
+In exercise 2 we experimented with how and when python automatically deallocates memory. This exercise will delve deeper into the automatic deallocation logic used in Python.
 
 In Python, Garbage Collection is when the program identifies and releases blocks of memory that are no longer in use. The Python Garbage Collector (GC) operates while the program is running and is activated when the reference count reaches zero. The reference count increases when an object is given a new name or is placed in a container such as a tuple or dictionary. Conversely, the reference count decreases when an object's reference is reassigned, when the reference to an object goes out of scope, or when an object is deleted.
 

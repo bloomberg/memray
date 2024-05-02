@@ -1,4 +1,4 @@
-Lab 1: Fibonacci Sequence
+Exercise 1: Fibonacci Sequence
 =========================
 
 Intro
@@ -18,7 +18,7 @@ sequences that you will have an opportunity to learn about.
 Development Environment Setup
 -----------------------------
 
-We have designed this lab using a docker-compose workflow. This allows us to pull upstream memray
+We have designed this exercise using a docker-compose workflow. This allows us to pull upstream memray
 and install that as well as any other dependencies required by the labs.
 
 .. code:: shell
@@ -36,7 +36,7 @@ Pytest plugin for Memray
 
 Memray supports the ability to augment your pytests and implement an upper bound memory limit for
 your code. This will then cause the test to either pass or fail, depending on the total amount of
-memory used during the tests execution. Take a look at lab 1's test, there is a line that specifies
+memory used during the tests execution. Take a look at exercise 1's test, there is a line that specifies
 ``@pytest.mark.limit_memory`` . This is how we set our upper bound memory limit. These are used for
 all of the tests covered in this workshop.
 
@@ -66,7 +66,7 @@ Understanding the results
 Do you notice any issues with your test case? Initially we should see that the test is failing with
 some additional information. Looks like our test case allocated more memory than we alloted for. We
 will be taking advantage of this amazing feature included with Memray to help run our workshop. Your
-goal for each lab will be to modify the labs (NOT the tests), in order to respect these memory limits.
+goal for each exercise will be to modify the labs (NOT the tests), in order to respect these memory limits.
 
 Flamegraphs, what are they?
 ---------------------------
@@ -93,7 +93,7 @@ Navigate to the lab_1 directory via
 
     cd lab_1/
 
-Run the first lab labeled fibonacci.py, but make sure to have memray wrap this call.
+Run the first exercise labeled fibonacci.py, but make sure to have memray wrap this call.
 
 .. code:: shell
 
