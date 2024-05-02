@@ -1,4 +1,4 @@
-Lab 2: Clinging Onto Memory
+Exercise 2: Clinging Onto Memory
 =================
 
 Intro
@@ -21,7 +21,7 @@ Expectations vs Reality
 """""""""""
 Let's presume that we can’t mutate the original data, the best we can do is peak memory of 200MB: for a brief moment in time both the original 100MB of data and the modified copy of the data will need to be present. In practice, however, the actual peak usage will be 400MB as demonstrated by the ``flamegraph``:
 
-.. image:: images/lab2_flamegraph.png
+.. image:: images/exercise2_flamegraph.png
 
 Examining our flamegraph further, we can see that we peak at 400MB of allocated memory due to three allocations:
 1. Original 100MB array created by ``load_xMb_of_data(100)``
@@ -32,7 +32,7 @@ Examining our flamegraph further, we can see that we peak at 400MB of allocated 
 Challenge
 """""""""""
 
-Experiment with the code in ``holding_onto_memory.py`` and try to get the peak memory usage down to 200MB. Test your solutions by running the unit test in ``tests/test_lab_2.py`` and examine them with the help of ``memray`` reports.
+Experiment with the code in ``holding_onto_memory.py`` and try to get the peak memory usage down to 200MB. Test your solutions by running the unit test in ``tests/test_exercise_2.py`` and examine them with the help of ``memray`` reports.
 
 
 Solutions

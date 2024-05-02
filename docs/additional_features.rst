@@ -9,7 +9,7 @@ Pytest Plugin
 
 Memray offers a really helpful pytest plugin ``pytest-memray`` which has a couple notable features:
 
-- ``@pytest.mark.limit_memory()`` marks tests as failed if the execution of said test allocates more memory than allowed. We used these markers throughout the unit tests in the three labs. It will also print a helpful overview of which function calls used up the most memory for the failed test cases.
+- ``@pytest.mark.limit_memory()`` marks tests as failed if the execution of said test allocates more memory than allowed. We used these markers throughout the unit tests in the three tutorial exercises. It will also print a helpful overview of which function calls used up the most memory for the failed test cases.
 - ``pytest --memray`` the memray flag when running your tests using pytest will generate a report with a high level overview of the memory allocated and will list a few top memory using functions
 
 
