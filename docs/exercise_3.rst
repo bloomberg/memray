@@ -117,7 +117,7 @@ Solutions
    </code>
    </pre>
 
-   Full code solution <a href="">here</a>
+   Full code solution <a href="https://github.com/bloomberg/memray/blob/main/docs/tutorials/solutions/exercise_3/lru_cache.py"></a>
    </li>
 
    <li>Another approach, would be setting a maximum size for the cache. We can do that, by passing an argument to <code>@lru_cache</code> decorator directly. Note: <code>@cache</code> underneath just uses <code>@lru_cache</code> with some default arguments; we can only set the cache size ourselves if we use the <code>@lru_cache</code> decorator directly:

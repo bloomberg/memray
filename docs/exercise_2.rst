@@ -88,7 +88,7 @@ Solutions
    </li>
    </ul>
 
-   Full code solution <a href="">here</a>
+   Full code solution <a href="https://github.com/bloomberg/memray/blob/main/docs/tutorials/solutions/exercise_2/holding_onto_memory.py">here</a>
 
    </details>
 
