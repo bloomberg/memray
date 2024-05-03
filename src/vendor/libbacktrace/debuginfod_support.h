@@ -40,9 +40,6 @@
 #define DEBUGINFOD_MAXTIME_ENV_VAR "DEBUGINFOD_MAXTIME"
 #define DEBUGINFOD_HEADERS_FILE_ENV_VAR "DEBUGINFOD_HEADERS_FILE"
 
-/* The libdebuginfod soname.  */
-#define DEBUGINFOD_SONAME "libdebuginfod.so.1"
-
 /* Handle for debuginfod-client connection.  */
 typedef struct debuginfod_client debuginfod_client;
 
