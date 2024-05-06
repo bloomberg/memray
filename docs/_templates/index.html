@@ -52,8 +52,15 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ pathto('getting_started') }}">Installation</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ pathto('examples/README') }}">Examples</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink3" data-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
+                            Getting Started
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink3">
+                            <a class="dropdown-item" href="{{ pathto('examples/README') }}">Examples</a>
+                            <a class="dropdown-item" href="{{ pathto('intro') }}">Tutorials</a>
+                        </div>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="https://github.com/bloomberg/pytest-memray">Pytest plugin</a>
