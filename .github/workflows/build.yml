@@ -49,7 +49,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm gdb lldb lcov
+          sudo apt-get install -qy libdebuginfod-dev libunwind-dev liblz4-dev pkg-config npm gdb lldb lcov
       - name: Create virtual environment
         run: |
           python3 -m venv venv
@@ -79,6 +79,15 @@ jobs:
           apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev python3-dbg gdb lldb git bash perl perl-datetime build-base perl-app-cpanminus
           cpanm Date::Parse
           cpanm Capture::Tiny
+          # Build elfutils
+          cd /
+          apk add --update argp-standalone bison bsd-compat-headers bzip2-dev curl curl-dev flex-dev libtool linux-headers musl-fts-dev musl-libintl musl-obstack-dev xz-dev zlib-dev zstd-dev
+          VERS=0.191
+          curl https://sourceware.org/elfutils/ftp/$VERS/elfutils-$VERS.tar.bz2 > ./elfutils.tar.bz2
+          tar -xf elfutils.tar.bz2
+          cd elfutils-$VERS
+          CFLAGS='-Wno-error -DFNM_EXTMATCH=0 -g -O3' CXXFLAGS='-Wno-error -DFNM_EXTMATCH=0 -g -O3' ./configure --enable-libdebuginfod --disable-debuginfod --disable-nls --with-zstd
+          make install
       - name: Clone lcov repository
         run: |
           git clone https://github.com/linux-test-project/lcov.git
@@ -119,7 +128,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qy clang-format npm libunwind-dev liblz4-dev pkg-config
+          sudo apt-get install -qy clang-format npm libdebuginfod-dev libunwind-dev liblz4-dev pkg-config
       - name: Install Python dependencies
         run: |
           python3 -m pip install -r requirements-extra.txt
@@ -146,7 +155,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qy libunwind-dev liblz4-dev pkg-config npm valgrind
+          sudo apt-get install -qy libdebuginfod-dev libunwind-dev liblz4-dev pkg-config npm valgrind
       - name: Install Python dependencies and package
         run: |
           python3 -m pip install --upgrade pip
