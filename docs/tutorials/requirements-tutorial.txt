@@ -1,0 +1,5 @@
+memray
+numpy
+pylint
+pytest
+pytest-memray
