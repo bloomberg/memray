@@ -3,6 +3,21 @@
 
    overview
    getting_started
+
+.. toctree::
+   :hidden:
+   :caption: Hands-on Tutorial
+
+   tutorials/index
+   tutorials/1
+   tutorials/2
+   tutorials/3
+   tutorials/additional_features
+
+.. toctree::
+   :hidden:
+   :caption: Concepts
+
    run
    python_allocators
    memory
@@ -33,14 +48,3 @@
    supported_environments
    changelog
    licenses
-
-.. toctree::
-   :hidden:
-   :caption: Hands-on Tutorial
-
-   intro
-   contents
-   exercise_1
-   exercise_2
-   exercise_3
-   additional_features
