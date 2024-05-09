@@ -1,5 +1,5 @@
-Exercise 1: Fibonacci Sequence
-================================
+Exercise 1 - Fibonacci Sequence
+===============================
 
 Intro
 ---------
@@ -84,7 +84,7 @@ let's specify the specific test we want to run.
 
     pytest tests/test_exercise_1.py
 
-.. image:: _static/images/pytest_cli_output.png
+.. image:: ../_static/images/pytest_cli_output.png
 
 Understanding the results
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -101,7 +101,7 @@ Ok so we know our test is broken, how can we use memray to help us dive deeper i
 problem? The answer, is a flamegraph! A flamegraph is an HTML file that can be used to visualize how
 your program utilises memory at the point in time where the memory usage is at its peak.
 
-.. image:: _static/images/exercise1_flamegraph.png
+.. image:: ../_static/images/exercise1_flamegraph.png
 
 
 On the middle portion of the screen, we can see the memory usage plotted vs time. (Y axis is memory

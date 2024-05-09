@@ -1,5 +1,5 @@
-Additional Features
-====================
+What to learn about next
+========================
 
 We've now introduced ourselves with Memray, had a look at how it can be used in development workflows and when diagnosing unexpected memory issues. This section will briefly introduce you to a few more features offered by Memray which you can explore further in your own time.
 
