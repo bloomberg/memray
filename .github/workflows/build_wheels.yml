@@ -163,7 +163,8 @@ jobs:
           CIBW_BUILD_VERBOSITY: 1
           CFLAGS: "${{env.CFLAGS}} -I${{env.LZ4_INSTALL_DIR}}/include"
           LDFLAGS: "-L${{env.LZ4_INSTALL_DIR}}/lib -Wl,-rpath,${{env.LZ4_INSTALL_DIR}}/lib"
-          DYLD_LIBRARY_PATH: "${{env.LZ4_INSTALL_DIR}}/lib"
+          PKG_CONFIG_PATH: "${{env.LZ4_INSTALL_DIR}}/lib/pkgconfig"
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: "DYLD_LIBRARY_PATH=${{env.LZ4_INSTALL_DIR}}/lib delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
       - uses: actions/upload-artifact@v4
         with:
           name: macosx_${{ matrix.arch }}-wheels
