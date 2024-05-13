@@ -161,7 +161,6 @@ jobs:
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: pytest {package}/tests
           CIBW_BUILD_VERBOSITY: 1
-          MACOSX_DEPLOYMENT_TARGET: "10.14"
           CFLAGS: "${{env.CFLAGS}} -I${{env.LZ4_INSTALL_DIR}}/include"
           LDFLAGS: "-L${{env.LZ4_INSTALL_DIR}}/lib -Wl,-rpath,${{env.LZ4_INSTALL_DIR}}/lib"
           DYLD_LIBRARY_PATH: "${{env.LZ4_INSTALL_DIR}}/lib"
