@@ -65,6 +65,7 @@ build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
 skip = "*musllinux*{i686,aarch64}*"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
+musllinux-x86_64-image = "musllinux_1_1"
 
 [[tool.cibuildwheel.overrides]]
 select = "cp3{7,8,9,10}-*"
