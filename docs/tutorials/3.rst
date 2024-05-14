@@ -18,7 +18,7 @@ When passing the ``--native`` flag to the the run subcommand, Memray will collec
 
 This is particularly helpful when working with libraries written in C/C++ natively (for instance ``functools``, ``numpy`` etc).
 
-Read more about how Memray resolves symbols in 'native' more `here <https://bloomberg.github.io/memray/native_mode.html>`_.
+Read more about how Memray resolves symbols in 'native' more :doc:`here <../native_mode>`.
 
 
 Working Through an Example
