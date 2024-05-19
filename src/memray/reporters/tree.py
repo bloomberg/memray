@@ -27,6 +27,7 @@ from textual.containers import Horizontal
 from textual.containers import Vertical
 from textual.dom import DOMNode
 from textual.reactive import reactive
+from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Footer
 from textual.widgets import Label
@@ -220,10 +221,10 @@ def node_is_not_import_system(node: Frame) -> bool:
     return not node.import_system
 
 
-class TreeApp(App[None]):
+class TreeScreen(Screen[None]):
     BINDINGS = [
-        Binding("ctrl+z", "suspend_process"),
-        Binding(key="q", action="quit", description="Quit the app"),
+        Binding("ctrl+z", "app.suspend_process"),
+        Binding(key="q", action="app.quit", description="Quit the app"),
         Binding(
             key="i", action="toggle_import_system", description="Hide import system"
         ),
@@ -380,6 +381,19 @@ class TreeApp(App[None]):
         # Hack: trick the Footer into redrawing itself
         self.app.query_one(Footer).highlight_key = "q"
         self.app.query_one(Footer).highlight_key = None
+
+
+class TreeApp(App[None]):
+    def __init__(
+        self,
+        data: Frame,
+        elided_locations: ElidedLocations,
+    ):
+        super().__init__()
+        self.tree_screen = TreeScreen(data, elided_locations)
+
+    def on_mount(self) -> None:
+        self.push_screen(self.tree_screen)
 
     @property
     def namespace_bindings(self) -> Dict[str, Tuple[DOMNode, Binding]]:
