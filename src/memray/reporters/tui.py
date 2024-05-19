@@ -1,5 +1,4 @@
 import contextlib
-import dataclasses
 import os
 import pathlib
 import sys
@@ -48,6 +47,8 @@ from textual.widgets.data_table import RowKey
 from memray import AllocationRecord
 from memray import SocketReader
 from memray._memray import size_fmt
+from memray.reporters._textual_hacks import Bindings
+from memray.reporters._textual_hacks import update_key_description
 
 MAX_MEMORY_RATIO = 0.95
 
@@ -668,6 +669,19 @@ class TUI(Screen[None]):
         self.app.query_one(Footer).highlight_key = "q"
         self.app.query_one(Footer).highlight_key = None
 
+    def rewrite_bindings(self, bindings: Bindings) -> None:
+        if "space" in bindings and bindings["space"][1].description == "Pause":
+            if self.paused:
+                update_key_description(bindings, "space", "Unpause")
+            elif self.disconnected:
+                del bindings["space"]
+
+    @property
+    def active_bindings(self) -> Dict[str, Any]:
+        bindings = super().active_bindings.copy()
+        self.rewrite_bindings(bindings)
+        return bindings
+
 
 class UpdateThread(threading.Thread):
     def __init__(self, app: App[None], reader: SocketReader) -> None:
@@ -770,22 +784,11 @@ class TUIApp(App[None]):
     def on_resize(self, event: events.Resize) -> None:
         self.set_class(0 <= event.size.width < 81, "narrow")
 
-    @property
-    def namespace_bindings(self) -> Dict[str, Tuple[DOMNode, Binding]]:
-        bindings = super().namespace_bindings.copy()
-
-        if (
-            "space" in bindings
-            and bindings["space"][1].description == "Pause"
-            and self.tui
-        ):
-            if self.tui.paused:
-                node, binding = bindings["space"]
-                bindings["space"] = (
-                    node,
-                    dataclasses.replace(binding, description="Unpause"),
-                )
-            elif self.tui.disconnected:
-                del bindings["space"]
-
-        return bindings
+    if hasattr(App, "namespace_bindings"):
+        # Removed in Textual 0.61
+        @property
+        def namespace_bindings(self) -> Dict[str, Tuple[DOMNode, Binding]]:
+            bindings = super().namespace_bindings.copy()  # type: ignore[misc]
+            if self.tui:
+                self.tui.rewrite_bindings(bindings)
+            return bindings  # type: ignore[no-any-return]

@@ -4,7 +4,6 @@ import linecache
 import sys
 from dataclasses import dataclass
 from dataclasses import field
-from dataclasses import replace
 from typing import IO
 from typing import Any
 from typing import Callable
@@ -16,6 +15,7 @@ from typing import Tuple
 
 from rich.style import Style
 from rich.text import Text
+from textual import binding
 from textual import work
 from textual.app import App
 from textual.app import ComposeResult
@@ -37,6 +37,8 @@ from textual.widgets.tree import TreeNode
 
 from memray import AllocationRecord
 from memray._memray import size_fmt
+from memray.reporters._textual_hacks import Bindings
+from memray.reporters._textual_hacks import update_key_description
 from memray.reporters.frame_tools import is_cpython_internal
 from memray.reporters.frame_tools import is_frame_from_import_system
 from memray.reporters.frame_tools import is_frame_interesting
@@ -382,6 +384,18 @@ class TreeScreen(Screen[None]):
         self.app.query_one(Footer).highlight_key = "q"
         self.app.query_one(Footer).highlight_key = None
 
+    def rewrite_bindings(self, bindings: Bindings) -> None:
+        if self.import_system_filter is not None:
+            update_key_description(bindings, "i", "Show import system")
+        if self.uninteresting_filter is not None:
+            update_key_description(bindings, "u", "Show uninteresting")
+
+    @property
+    def active_bindings(self) -> Dict[str, "binding.ActiveBinding"]:
+        bindings = super().active_bindings.copy()
+        self.rewrite_bindings(bindings)
+        return bindings
+
 
 class TreeApp(App[None]):
     def __init__(
@@ -395,23 +409,13 @@ class TreeApp(App[None]):
     def on_mount(self) -> None:
         self.push_screen(self.tree_screen)
 
-    @property
-    def namespace_bindings(self) -> Dict[str, Tuple[DOMNode, Binding]]:
-        bindings = super().namespace_bindings.copy()
-        if self.import_system_filter is not None:
-            node, binding = bindings["i"]
-            bindings["i"] = (
-                node,
-                replace(binding, description="Show import system"),
-            )
-        if self.uninteresting_filter is not None:
-            node, binding = bindings["u"]
-            bindings["u"] = (
-                node,
-                replace(binding, description="Show uninteresting"),
-            )
-
-        return bindings
+    if hasattr(App, "namespace_bindings"):
+        # Removed in Textual 0.61
+        @property
+        def namespace_bindings(self) -> Dict[str, Tuple[DOMNode, Binding]]:
+            bindings = super().namespace_bindings.copy()  # type: ignore[misc]
+            self.tree_screen.rewrite_bindings(bindings)
+            return bindings  # type: ignore[no-any-return]
 
 
 @functools.lru_cache(maxsize=None)
