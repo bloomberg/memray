@@ -565,8 +565,7 @@ class TUI(Screen[None]):
         """Toggle pause on keypress"""
         if self.paused or not self.disconnected:
             self.paused = not self.paused
-            self.app.query_one(Footer).highlight_key = "space"
-            self.app.query_one(Footer).highlight_key = None
+            self.redraw_footer()
             if not self.paused:
                 self.display_snapshot()
 
@@ -592,8 +591,7 @@ class TUI(Screen[None]):
 
     def watch_disconnected(self) -> None:
         self.update_label()
-        self.app.query_one(Footer).highlight_key = "space"
-        self.app.query_one(Footer).highlight_key = None
+        self.redraw_footer()
 
     def watch_paused(self) -> None:
         self.update_label()
@@ -664,6 +662,11 @@ class TUI(Screen[None]):
         """Method called to update the table sort key attribute."""
         body = self.query_one(AllocationTable)
         body.sort_column_id = col_number
+
+    def redraw_footer(self) -> None:
+        # Hack: trick the Footer into redrawing itself
+        self.app.query_one(Footer).highlight_key = "q"
+        self.app.query_one(Footer).highlight_key = None
 
 
 class UpdateThread(threading.Thread):
