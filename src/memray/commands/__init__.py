@@ -2,30 +2,68 @@ import argparse
 import logging
 import sys
 import textwrap
+from contextlib import suppress
 from typing import List
 from typing import Optional
-
-from memray._version import __version__
-
-try:
-    from typing import Protocol
-except ImportError:
-    from typing_extensions import Protocol  # type: ignore
 
 from memray._errors import MemrayCommandError
 from memray._errors import MemrayError
 from memray._memray import set_log_level
+from memray._version import __version__
 
-from . import attach
-from . import flamegraph
-from . import live
-from . import parse
-from . import run
-from . import stats
-from . import summary
-from . import table
-from . import transform
-from . import tree
+from .protocol import Command
+
+# With the intent of progressively reducing the minimal dependency footprint
+# of memray we import only the commands whose dependencies are installed.
+# If a dependency is missing for a command that command will not show up in
+# the cli help.
+
+_COMMANDS: List[Command] = []
+_EXAMPLES: List[str] = []
+
+with suppress(ModuleNotFoundError):
+    from . import run
+
+    _COMMANDS.append(run.RunCommand())
+    _EXAMPLES.append("$ python3 -m memray run -o output.bin my_script.py")
+with suppress(ModuleNotFoundError):
+    from . import attach
+
+    _COMMANDS.append(attach.AttachCommand())
+with suppress(ModuleNotFoundError):
+    from . import flamegraph
+
+    _COMMANDS.append(flamegraph.FlamegraphCommand())
+    _EXAMPLES.append("$ python3 -m memray flamegraph output.bin")
+with suppress(ModuleNotFoundError):
+    from . import live
+
+    _COMMANDS.append(live.LiveCommand())
+with suppress(ModuleNotFoundError):
+    from . import parse
+
+    _COMMANDS.append(parse.ParseCommand())
+with suppress(ModuleNotFoundError):
+    from . import stats
+
+    _COMMANDS.append(stats.StatsCommand())
+    _EXAMPLES.append("$ python3 -m memray stats capture.bin")
+with suppress(ModuleNotFoundError):
+    from . import summary
+
+    _COMMANDS.append(summary.SummaryCommand())
+with suppress(ModuleNotFoundError):
+    from . import table
+
+    _COMMANDS.append(table.TableCommand())
+with suppress(ModuleNotFoundError):
+    from . import transform
+
+    _COMMANDS.append(transform.TransformCommand())
+with suppress(ModuleNotFoundError):
+    from . import tree
+
+    _COMMANDS.append(tree.TreeCommand())
 
 _EPILOG = textwrap.dedent(
     """\
@@ -43,33 +81,12 @@ _DESCRIPTION = textwrap.dedent(
 
     Example:
 
-        $ python3 -m memray run -o output.bin my_script.py
-        $ python3 -m memray flamegraph output.bin
-    """
+        """
+    + """
+        """.join(
+        _EXAMPLES
+    )
 )
-
-
-class Command(Protocol):
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        ...
-
-    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
-        ...
-
-
-_COMMANDS: List[Command] = [
-    run.RunCommand(),
-    flamegraph.FlamegraphCommand(),
-    table.TableCommand(),
-    live.LiveCommand(),
-    tree.TreeCommand(),
-    parse.ParseCommand(),
-    summary.SummaryCommand(),
-    stats.StatsCommand(),
-    transform.TransformCommand(),
-    attach.AttachCommand(),
-    attach.DetachCommand(),
-]
 
 
 def get_argument_parser() -> argparse.ArgumentParser:
