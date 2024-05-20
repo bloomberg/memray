@@ -15,8 +15,23 @@ In this first example, we will be calculating and printing the results of a Fibo
 specified number of elements. Python has some great standardized practices for iterating over large
 sequences that you will have an opportunity to learn about.
 
+This tutorial supports two modes of development: GitHub Codespaces or a local virtual environment.
+Feel free to choose the option more suitable to you below.
+
 Development Environment Setup
 -----------------------------
+
+Codespaces Environment
+^^^^^^^^^^^^^^^^^^^^^^
+
+To create a new Codespace, click this button, and follow the prompts. It should take approximately 1-2 minutes to setup.
+
+.. raw:: html
+
+  <a href='https://codespaces.new/bloomberg/memray?devcontainer_path=.devcontainer%2Ftutorials%2Fdevcontainer.json'><img src='https://github.com/codespaces/badge.svg' alt='Open in GitHub Codespaces' style='max-width: 100%;'></a>
+
+Local Virtual Environment
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Navigate to the `Memray GitHub repo <https://github.com/bloomberg/memray>`_ and get a copy of the
 source code. You can either clone it, or just download the zip, whatever is your preference here.
@@ -66,8 +81,19 @@ memory during the tests execution. Take a look at exercise 1's test: there is a 
 ``@pytest.mark.limit_memory`` . This is how we set our upper bound memory limit. Markers like this
 are used for all of the tests covered in this workshop.
 
-Executing the tests
-^^^^^^^^^^^^^^^^^^^
+Codespaces Test Execution
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Your Codespace should be pre-configured to include the testing plugin. Click the flask on the
+navigator (circled in green below). This will open the Testing tab, which will include all the
+tests we will be running during this tutorial. Drill down into exercise 1: here you will see
+a handful of tests configured for your first exercise. You can execute this group of tests by
+clicking the play button (circled in red below).
+
+.. image:: ../_static/images/codespaces_testing_tab.png
+
+Local Virtualenv Test Execution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Pytest is already installed in your docker image, so you can simply invoke it to execute your tests.
 Run the following command in your docker image's shell, it will search all subdirectories for tests.
@@ -117,7 +143,63 @@ More details on :ref:`interpreting flame graphs` are available if this quick sum
 confused.
 
 Generating a flamegraph
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
+
+Codespaces Flamegraph Generation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+From VS Code, open up 2 terminals. You can do this by typing Ctrl+Shift+P (Cmd+Shift+P on macOS) to
+open the "command palette", and then typing "terminal" in the search box and selecting "Python:
+Create Terminal".
+
+We need to launch an HTTP server to view our generated flamegraphs. Run this command in one of your
+terminals:
+
+.. code:: shell
+
+    python -m http.server 3000
+
+You should now see a prompt to launch the application in your browser, and should click "Open in
+Browser" in the bottom right. If that prompt doesn't appear, you can navigate to the *Ports* tab
+(circled in orange below) and click the *Open in Browser* button (circled in green below). This will
+give you an HTTP server we will use in order to launch and view our generated flamegraphs.
+
+.. image:: ../_static/images/ports_tab.png
+
+In your second terminal, navigate to the ``exercise_1`` directory via
+
+.. code:: shell
+
+    cd docs/tutorials/exercise_1/
+
+Run the first exercise labeled ``fibonacci.py``, but make sure to have Memray wrap this call.
+
+.. code:: shell
+
+    memray run fibonacci.py
+
+After the run is complete, Memray will conveniently print the command to generate a flamegraph from
+the Memray output file.
+
+.. code:: shell
+
+    memray flamegraph memray-fibonacci.py.<run-id>.bin
+
+.. note::
+
+    The run id will change each time you run the command.
+
+Now that we have generated our flamegraph, let's load it up and have a look at it.
+To do so, open the tab in your browser with your HTTP server, click on ``docs/tutorials/exercise_1``
+directory, and then click on the flamegraph (it should have an html file extension)
+
+Voila! We have generated our very first flamegraph. Try clicking around the graph and exploring some
+of the features of Memray.
+
+.. image:: ../_static/images/exercise1_flamegraph.png
+
+Venv Flamegraph Generation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Run the first exercise labeled ``fibonacci.py``, but make sure to have Memray wrap this call.
 
@@ -132,7 +214,9 @@ the Memray output file.
 
     memray flamegraph exercise_1/memray-fibonacci.py.<run-id>.bin
 
-The run id will change each time you run the command.
+.. note::
+
+    The run id will change each time you run the command.
 
 Now that we have generated our flamegraph, you can launch the HTML output file in your web browser.
 

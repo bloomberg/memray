@@ -1,0 +1,19 @@
+{
+  "name": "Memray tutorials",
+  "build": {
+    "context": "../../docs/tutorials",
+    "dockerfile": "../../docs/tutorials/Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.testing.pytestArgs": ["docs/tutorials/tests"],
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestEnabled": true,
+        "python.defaultInterpreterPath": "/venv/bin/python"
+      },
+      "extensions": ["ms-python.python"]
+    }
+  },
+  "runArgs": ["--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined"]
+}
