@@ -78,7 +78,7 @@ If you wish to build Memray from source you need the following binary dependenci
 - libunwind (for Linux)
 - liblz4
 
-Check your package manager on how to install these dependencies (for example `apt-get install libunwind-dev liblz4-dev` in Debian-based systems
+Check your package manager on how to install these dependencies (for example `apt-get install build-essential python3-dev libunwind-dev liblz4-dev` in Debian-based systems
 or `brew install lz4` in MacOS). Note that you may need to teach the compiler where to find the header and library files of the dependencies. For
 example, in MacOS with `brew` you may need to run:
 
