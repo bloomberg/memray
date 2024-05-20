@@ -238,6 +238,25 @@ it is not.
 If you can live with these limitations, then using ``--aggregate`` results in
 much smaller capture files that can be used seamlessly with most reporters.
 
+Containers getting Out Of Memory
+--------------------------------
+When a process runs out of memory, it is common for it to be killed by its operating system. Within orchestrations like kubernetes the termination of the container might cause the loss of the files that memray uses to collect it's results. More specifically, when running `memray run myprogram.py` the memray Tracer would create a capture file on the file system but the file system will be thrown away as soon as the orchestration cleans up the container.
+This condition might be particularly common as memray is often used to chase memory leaks.
+
+Memray itself cannot post-process the file (sending it over the network for example) because any work it does will be interrupted when the process crashes.
+
+In place of calling a ``memray run myprogram.py`` we are going to call a script that will run memray handling it's OOM termination and running postprocessing operations on the capture file.
+
+.. code-block:: text
+
+  memray run --output /tmp/capture.bin myprogram.py
+  echo "Program finished"
+  # do your post processing here
+  memray summary  /tmp/capture.bin
+
+
+
+
 CLI Reference
 -------------
 
