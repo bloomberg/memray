@@ -20,7 +20,7 @@ from .protocol import Command
 
 _COMMANDS: List[Command] = []
 _EXAMPLES: List[str] = []
-
+_can_import_jinja = False
 with suppress(ModuleNotFoundError):
     from . import run
 
@@ -35,6 +35,7 @@ with suppress(ModuleNotFoundError):
 
     _COMMANDS.append(flamegraph.FlamegraphCommand())
     _EXAMPLES.append("$ python3 -m memray flamegraph output.bin")
+    _can_import_jinja = True
 with suppress(ModuleNotFoundError):
     from . import live
 
@@ -72,20 +73,29 @@ _EPILOG = textwrap.dedent(
     """
 )
 
-_DESCRIPTION = textwrap.dedent(
-    """\
-    Memory profiler for Python applications
 
-    Run `memray run` to generate a memory profile report, then use a reporter command
-    such as `memray flamegraph` or `memray table` to convert the results into HTML.
+def usage_description() -> str:
+    description = "Run `memray run` to generate a memory profile report"
+    if _can_import_jinja:
+        description += (
+            ", then use a reporter command such as `memray "
+            "flamegraph` or `memray table` to convert the results into HTML."
+        )
+    else:
+        description += "."
+    return "\n".join(textwrap.wrap(description))
+
+
+_DESCRIPTION = f"""\
+Memory profiler for Python applications
+
+{usage_description()}
 
     Example:
 
-        """
-    + """
-        """.join(
-        _EXAMPLES
-    )
+    """ + """
+    """.join(
+    _EXAMPLES
 )
 
 
