@@ -3,7 +3,7 @@ About This Tutorial
 
 The tutorials in this section of the docs provide a gentle introduction to debugging memory issues using the Memray
 profiler. You'll learn how to use basic features like generating flame graphs and integrating Memray with pytest test
-suites, as well as some more advanced features like inspecting the C or C++ or Rust frames on the call stack in addition
+suites, as well as some more advanced features like inspecting the C, C++, or Rust frames on the call stack in addition
 to the Python frames.
 
 There are 3 different exercises within this tutorial:
