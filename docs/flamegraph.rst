@@ -64,6 +64,8 @@ orientation with this toggle button:
 Whichever of these modes you choose, the data shown in the table is the
 same, just mirrored vertically.
 
+.. _interpreting flame graphs:
+
 Interpreting flame graphs
 -------------------------
 

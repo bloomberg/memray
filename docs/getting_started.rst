@@ -76,3 +76,24 @@ the results file:
 
 This will generate the ``memray-flamegraph-example.py.4131.html`` file in the current directory. See the :doc:`flamegraph`
 documentation which explains how to interpret flame graphs.
+
+Next Steps
+----------
+
+The "Hands-on Tutorial" section of our sidebar includes :doc:`a set of lessons <tutorials/index>` you can use to
+practice working with Memray by debugging example Python applications with surprising memory allocation behavior. You
+can also try Memray out on our :doc:`example applications <examples/README>`.
+
+If you instead want to jump directly into debugging one of your own applications, the "Concepts" section of our sidebar
+gives background information to help you use Memray more effectively. Reading about :doc:`the run subcommand <run>` will
+tell you what options to use for debugging memory leaks, or for seeing the native stack traces corresponding to
+allocations. Interpreting the generated memory profiles will be much easier if you understand :doc:`the Python
+allocators <python_allocators>` as well as :doc:`some general memory concepts <memory>`.
+
+If you find any bugs, you can `file a bug report`_. If you aren't sure whether something is a bug or expected behavior,
+or if you want to suggest an idea or discuss things with the maintainers, you should `start a discussion`_ instead.
+
+Good luck, and happy debugging!
+
+.. _file a bug report: https://github.com/bloomberg/memray/issues/new?&labels=bug&template=---bug-report.yaml
+.. _start a discussion: https://github.com/bloomberg/memray/discussions/new/choose
