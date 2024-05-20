@@ -21,7 +21,13 @@ from memray import FileFormat
 from memray import SocketDestination
 from memray import Tracker
 from memray._errors import MemrayCommandError
-from memray.commands.live import LiveCommand
+
+try:
+    from memray.commands.live import LiveCommand
+
+    _can_run_live = True
+except ModuleNotFoundError:
+    _can_run_live = False
 
 
 def _get_free_port() -> int:
@@ -205,13 +211,14 @@ class RunCommand:
             "--output",
             help="Output file name (default: <process_name>.<pid>.bin)",
         )
-        output_group.add_argument(
-            "--live",
-            help="Start a live tracking session and immediately connect a live server",
-            action="store_true",
-            dest="live_mode",
-            default=False,
-        )
+        if _can_run_live:
+            output_group.add_argument(
+                "--live",
+                help="Start a live tracking session and immediately connect a live server",
+                action="store_true",
+                dest="live_mode",
+                default=False,
+            )
         output_group.add_argument(
             "--live-remote",
             help="Start a live tracking session and wait until a client connects",
@@ -316,14 +323,15 @@ class RunCommand:
             )
 
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+        is_live_mode = _can_run_live and args.live_mode
         if args.no_compress:
             args.compress_on_exit = False
 
         if args.live_port is not None and not args.live_remote_mode:
             parser.error("The --live-port argument requires --live-remote")
-        if args.follow_fork is True and (args.live_mode or args.live_remote_mode):
+        if args.follow_fork is True and (is_live_mode or args.live_remote_mode):
             parser.error("--follow-fork cannot be used with the live TUI")
-        if args.aggregate and (args.live_mode or args.live_remote_mode):
+        if args.aggregate and (is_live_mode or args.live_remote_mode):
             parser.error("--aggregate cannot be used with the live TUI")
         with contextlib.suppress(OSError):
             if args.run_as_cmd and pathlib.Path(args.script).exists():
@@ -331,7 +339,7 @@ class RunCommand:
 
         self.validate_target_file(args)
 
-        if args.live_mode:
+        if is_live_mode:
             _run_child_process_and_attach(args)
         elif args.live_remote_mode:
             _run_with_socket_output(args)
