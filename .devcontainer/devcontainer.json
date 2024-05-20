@@ -1,5 +1,5 @@
 {
-  "name": "Memray Dockerfile",
+  "name": "Memray development",
   "build": {
     "context": "..",
     "dockerfile": "../Dockerfile"
