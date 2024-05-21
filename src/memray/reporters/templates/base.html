@@ -96,8 +96,8 @@
         </div>
         <div class="modal-body">
           Command line: <code>{{ metadata.command_line }}</code><br>
-          Start time: {{ metadata.start_time }}<br>
-          End time: {{ metadata.end_time }}<br>
+          Start time: <span id="stats-start-time"> {{ metadata.start_time }}</span><br>
+          End time: <span id="stats-end-time"> {{ metadata.end_time }}</span><br>
           Total number of allocations: {{ metadata.total_allocations }}<br>
           Total number of frames seen: {{ metadata.total_frames }}<br>
           Peak memory usage: {{ metadata.peak_memory | filesizeformat(true) }}<br>
