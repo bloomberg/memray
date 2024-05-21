@@ -101,6 +101,10 @@ function main() {
   window.addEventListener("popstate", handleFragments);
   window.addEventListener("resize", debounced(onResize));
 
+  let statsStartTime = document.getElementById("stats-start-time");
+  let statsEndTime = document.getElementById("stats-end-time");
+  statsStartTime.textContent = new Date(statsStartTime.innerText);
+  statsEndTime.textContent = new Date(statsEndTime.innerText);
   // Enable tooltips
   $('[data-toggle-second="tooltip"]').tooltip();
   $('[data-toggle="tooltip"]').tooltip();
