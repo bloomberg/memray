@@ -969,6 +969,7 @@ class TestTreeSubCommand:
                 str(results_file),
             ],
             cwd=str(tmp_path),
+            stderr=subprocess.DEVNULL,
             text=True,
             input="q",
         )
@@ -991,6 +992,7 @@ class TestTreeSubCommand:
                 str(results_file),
             ],
             cwd=str(tmp_path),
+            stderr=subprocess.DEVNULL,
             text=True,
             input="q",
         )
@@ -1413,6 +1415,7 @@ class TestLiveRemoteSubcommand:
                 str(free_port),
             ],
             stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             stdin=subprocess.PIPE,
         )
 
@@ -1536,6 +1539,7 @@ class TestLiveRemoteSubcommand:
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
         )
 
         # WHEN
