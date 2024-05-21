@@ -30,6 +30,7 @@ with suppress(ModuleNotFoundError):
     from . import attach
 
     _COMMANDS.append(attach.AttachCommand())
+    _COMMANDS.append(attach.DetachCommand())
 with suppress(ModuleNotFoundError):
     from . import flamegraph
 
