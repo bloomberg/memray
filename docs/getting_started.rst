@@ -40,7 +40,7 @@ You can also invoke Memray without version-qualifying it:
 
 The downside to the unqualified ``memray`` script is that it's not immediately
 clear what Python interpreter will be used to execute Memray. If you're using
-a virtualenv that's not a problem because you know exactly what interpreter is
+a virtual environment that's not a problem because you know exactly what interpreter is
 in use, but otherwise you need to be careful to ensure that ``memray`` is
 running with the interpreter you meant to use.
 

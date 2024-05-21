@@ -76,7 +76,7 @@ follows:
   allocated memory.
 
 - For quickly identifying the functions that allocated more memory
-  directly, look for large plateaus along the bottom edge, as these show
+  directly, look for wide boxes along the bottom edge, as these show
   a single stack trace was responsible for a large chunk of the total
   memory of the snapshot that the graph represents.
 
@@ -106,7 +106,7 @@ follows:
   graph by default.
 
 And of course, if you switch from the "icicle" view to the "flame" view,
-the root jumps to the bottom of the page, and call stacks grow upwards
+the root drops to the bottom of the page, and call stacks grow upwards
 from it instead of downwards.
 
 Simple example
@@ -424,7 +424,7 @@ for understanding its memory usage patterns.
     about allocations over time. They also can't be used for finding
     :doc:`temporary allocations </temporary_allocations>`.
 
-You can see an example of a temporal flamegraph
+You can see an example of a temporal flame graph
 `here <_static/flamegraphs/memray-flamegraph-fib.html>`_.
 
 Conclusion

@@ -195,6 +195,42 @@ any other capture file, and can be fed into any reporter of your choosing.
   ``--follow-fork`` mode can only be used with an output file. It is incompatible with ``--live``
   mode and ``--live-remote`` mode, since the TUI can't be attached to multiple processes at once.
 
+Losing capture files after OOM Errors
+-------------------------------------
+
+When a process runs out of memory, this commonly causes an Out Of Memory error,
+or "OOM Error". That causes the process to be killed by its operating system.
+Within orchestrations like Kubernetes the termination of the main process might
+immediately lead to the destruction of the container and the loss of the files
+that Memray uses to collect its results.
+
+When running ``memray run myprogram.py`` a capture file gets created on the file
+system, but the entire file system will be thrown away as soon as the
+orchestration cleans up the container. If the program exits unexpectedly,
+perhaps because the kernel kills it due to an OOM error, the orchestration might
+throw away the capture file before you ever get a chance to use it. Since Memray
+is often used to chase memory leaks, this condition might happen more often than
+you'd like.
+
+Since Memray is running in the same process as your application, it has no way
+to prevent this data loss (by sending it over the network, for example) because
+any work it does will be terminated when the process crashes.
+
+Instead of directly calling ``memray run myprogram.py`` you can wrap it in
+a script that will run Memray and run post-processing operations on the capture
+file. That way, the container won't be destroyed by the orchestration until
+after the wrapper script exits, rather than being destroyed as soon as the
+Python script being tracked by Memray exits.
+
+.. code-block:: shell
+
+  memray run --output /tmp/capture.bin myprogram.py
+  echo "Program finished"
+  # Do your post-processing here. This example just logs a summary of what's
+  # in the capture file, but you might want to generate reports from it and
+  # copy them over the network to some persistent storage, for instance.
+  memray summary /tmp/capture.bin
+
 .. _aggregated capture files:
 
 Aggregated capture files
