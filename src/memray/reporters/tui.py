@@ -536,8 +536,8 @@ class TUI(Screen[None]):
     thread_idx = reactive(0)
     threads = reactive(_DUMMY_THREAD_LIST, always_update=True)
     snapshot = reactive(_EMPTY_SNAPSHOT)
-    paused = reactive(False)
-    disconnected = reactive(False)
+    paused = reactive(False, init=False)
+    disconnected = reactive(False, init=False)
 
     def __init__(self, pid: Optional[int], cmd_line: Optional[str], native: bool):
         self.pid = pid
