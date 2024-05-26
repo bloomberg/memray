@@ -1539,11 +1539,11 @@ class TestHeader:
 
         monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
         with run_without_tracer():
-            start_time = datetime.datetime.now()
+            start_time = datetime.datetime.now().astimezone()
             with Tracker(output):
                 for _ in range(100):
                     allocator.valloc(1024)
-            end_time = datetime.datetime.now()
+            end_time = datetime.datetime.now().astimezone()
 
         reader = FileReader(output)
         n_records = len(list(reader.get_allocation_records()))
@@ -1570,11 +1570,11 @@ class TestHeader:
         # WHEN
 
         monkeypatch.setattr(sys, "argv", ["python", "-m", "pytest"])
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now().astimezone()
         with Tracker(output):
             for _ in range(100):
                 allocator.valloc(1024)
-        end_time = datetime.datetime.now()
+        end_time = datetime.datetime.now().astimezone()
 
         reader = FileReader(output)
         peak, *_ = list(reader.get_high_watermark_allocation_records())
