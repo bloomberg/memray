@@ -735,7 +735,7 @@ def print_greenlet_warning():
 
 cdef millis_to_dt(millis):
     return datetime.fromtimestamp(millis // 1000).replace(
-        microsecond=millis % 1000 * 1000)
+        microsecond=millis % 1000 * 1000).astimezone()
 
 
 cdef _create_metadata(header, peak_memory):
