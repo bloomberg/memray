@@ -48,6 +48,7 @@ from memray import AllocationRecord
 from memray import SocketReader
 from memray._memray import size_fmt
 from memray.reporters._textual_hacks import Bindings
+from memray.reporters._textual_hacks import redraw_footer
 from memray.reporters._textual_hacks import update_key_description
 
 MAX_MEMORY_RATIO = 0.95
@@ -566,7 +567,7 @@ class TUI(Screen[None]):
         """Toggle pause on keypress"""
         if self.paused or not self.disconnected:
             self.paused = not self.paused
-            self.redraw_footer()
+            redraw_footer(self.app)
             if not self.paused:
                 self.display_snapshot()
 
@@ -592,7 +593,7 @@ class TUI(Screen[None]):
 
     def watch_disconnected(self) -> None:
         self.update_label()
-        self.redraw_footer()
+        redraw_footer(self.app)
 
     def watch_paused(self) -> None:
         self.update_label()
@@ -663,11 +664,6 @@ class TUI(Screen[None]):
         """Method called to update the table sort key attribute."""
         body = self.query_one(AllocationTable)
         body.sort_column_id = col_number
-
-    def redraw_footer(self) -> None:
-        # Hack: trick the Footer into redrawing itself
-        self.app.query_one(Footer).highlight_key = "q"
-        self.app.query_one(Footer).highlight_key = None
 
     def rewrite_bindings(self, bindings: Bindings) -> None:
         if "space" in bindings and bindings["space"][1].description == "Pause":
