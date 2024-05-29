@@ -227,23 +227,17 @@ def aggregate_allocations(
             frame.n_allocations += allocation.n_allocations
             frame.thread_ids.add(allocation.tid)
             continue
-        (function, file_name, _), *caller_frames = stack_trace
-        location = Location(function=function, file=file_name)
-        processed_allocations[location] = AllocationEntry(
-            own_memory=allocation.size,
-            total_memory=allocation.size,
-            n_allocations=allocation.n_allocations,
-            thread_ids={allocation.tid},
-        )
 
         # Walk upwards and sum totals
-        visited = {location}
-        for function, file_name, _ in caller_frames:
+        visited = set()
+        for i, (function, file_name, _) in enumerate(stack_trace):
             location = Location(function=function, file=file_name)
             frame = processed_allocations[location]
             if location in visited:
                 continue
             visited.add(location)
+            if i == 0:
+                frame.own_memory += allocation.size
             frame.total_memory += allocation.size
             frame.n_allocations += allocation.n_allocations
             frame.thread_ids.add(allocation.tid)
