@@ -1,0 +1,1 @@
+Fix a crash in old macOS versions (<11.0) due to the inavailability of some linker cache APIs.
