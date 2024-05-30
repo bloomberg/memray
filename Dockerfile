@@ -5,6 +5,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --force-yes --no-install-recommends \
     build-essential \
+    libdebuginfod-dev \
     libunwind-dev \
     liblz4-dev \
     pkg-config \
