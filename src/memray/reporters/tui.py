@@ -519,9 +519,9 @@ class TUI(Screen[None]):
     BINDINGS = [
         Binding("ctrl+z", "app.suspend_process"),
         Binding("q,esc", "app.quit", "Quit"),
+        Binding("m", "toggle_merge_threads", "Merge Threads"),
         Binding("<,left", "previous_thread", "Previous Thread"),
         Binding(">,right", "next_thread", "Next Thread"),
-        Binding("m", "toggle_merge_threads", "Merge Threads"),
         Binding("t", "sort(1)", "Sort by Total"),
         Binding("o", "sort(3)", "Sort by Own"),
         Binding("a", "sort(5)", "Sort by Allocations"),
@@ -547,7 +547,7 @@ class TUI(Screen[None]):
         self.native = native
         self._seen_threads: Set[int] = set()
         self._max_memory_seen = 0
-        self._merge_threads = False
+        self._merge_threads = True
         super().__init__()
 
     @property
