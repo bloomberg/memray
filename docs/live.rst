@@ -59,9 +59,10 @@ The sorted column's heading is underlined.
 Viewing different threads
 -------------------------
 
-By default, the ``live`` command will present the main thread of the program. You can look at different threads of the
-program by pressing the greater than and less than keys, ``<`` and ``>``. In most terminals you can also click the
-"Previous Thread" and "Next Thread" buttons on the footer.
+By default, the ``live`` command will present allocations from all of the program's threads. You can look at individual
+threads of the program by first pressing ``m`` (to disable thread merging), and then pressing the greater than and less
+than keys, ``<`` and ``>``, to switch between threads. In most terminals you can also click the "Unmerge Threads",
+"Previous Thread", and "Next Thread" buttons on the footer.
 
 .. image:: _static/images/live_different_thread.png
 

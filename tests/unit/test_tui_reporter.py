@@ -558,8 +558,8 @@ def test_header_with_no_snapshots():
     async_run(run_test())
 
     # THEN
-    assert labels["tid"].split() == "TID: 0x0".split()
-    assert labels["thread"].split() == "Thread 1 of 1".split()
+    assert labels["tid"].split() == "TID: *".split()
+    assert labels["thread"].split() == "All threads".split()
     assert labels["samples"].split() == "Samples: 0".split()
 
 
@@ -579,8 +579,8 @@ def test_header_with_empty_snapshot():
     async_run(run_test())
 
     # THEN
-    assert labels["tid"].split() == "TID: 0x0".split()
-    assert labels["thread"].split() == "Thread 1 of 1".split()
+    assert labels["tid"].split() == "TID: *".split()
+    assert labels["thread"].split() == "All threads".split()
     assert labels["samples"].split() == "Samples: 1".split()
 
 
@@ -675,7 +675,7 @@ def test_switching_threads():
 
             datatable = pilot.app.query_one(DataTable)
 
-            for key in ("", ">", ">", ">", "<", "<", "<"):
+            for key in ("m", ">", ">", ">", "<", "<", "<"):
                 await pilot.press(key)
                 functions.append(datatable.get_cell_at(Coordinate(0, 0)).plain)
                 labels = extract_label_text(app)
@@ -717,6 +717,7 @@ def test_merge_mode_new_threads():
     # WHEN
     async def run_test():
         async with app.run_test() as pilot:
+            await pilot.press("m")
             app.add_mock_snapshot(snapshot)
             await pilot.pause()
 
@@ -766,7 +767,7 @@ def test_merging_allocations_from_all_threads():
 
             datatable = pilot.app.query_one(DataTable)
 
-            for key in ("", ">", "m", "<", "m", "<"):
+            for key in ("m", ">", "m", "<", "m", "<"):
                 await pilot.press(key)
                 functions.append(datatable.get_cell_at(Coordinate(0, 0)).plain)
                 labels = extract_label_text(app)
@@ -1029,6 +1030,7 @@ def test_merge_threads(compare):
             ),
         ]
         app = cast(MockApp, pilot.app)
+        await pilot.press("m")
         app.add_mock_snapshot(snapshot)
         await pilot.pause()
         await pilot.press("m")
@@ -1059,6 +1061,7 @@ def test_unmerge_threads(compare):
         ]
         app = cast(MockApp, pilot.app)
         app.add_mock_snapshot(snapshot)
+        await pilot.press("m")
         await pilot.pause()
         await pilot.press(">")
         await pilot.press("m")
