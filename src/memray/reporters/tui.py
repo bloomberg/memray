@@ -48,6 +48,7 @@ from memray import AllocationRecord
 from memray import SocketReader
 from memray._memray import size_fmt
 from memray.reporters._textual_hacks import Bindings
+from memray.reporters._textual_hacks import redraw_footer
 from memray.reporters._textual_hacks import update_key_description
 
 MAX_MEMORY_RATIO = 0.95
@@ -226,23 +227,17 @@ def aggregate_allocations(
             frame.n_allocations += allocation.n_allocations
             frame.thread_ids.add(allocation.tid)
             continue
-        (function, file_name, _), *caller_frames = stack_trace
-        location = Location(function=function, file=file_name)
-        processed_allocations[location] = AllocationEntry(
-            own_memory=allocation.size,
-            total_memory=allocation.size,
-            n_allocations=allocation.n_allocations,
-            thread_ids={allocation.tid},
-        )
 
         # Walk upwards and sum totals
-        visited = {location}
-        for function, file_name, _ in caller_frames:
+        visited = set()
+        for i, (function, file_name, _) in enumerate(stack_trace):
             location = Location(function=function, file=file_name)
             frame = processed_allocations[location]
             if location in visited:
                 continue
             visited.add(location)
+            if i == 0:
+                frame.own_memory += allocation.size
             frame.total_memory += allocation.size
             frame.n_allocations += allocation.n_allocations
             frame.thread_ids.add(allocation.tid)
@@ -291,6 +286,7 @@ class AllocationTable(Widget):
     sort_column_id = reactive(default_sort_column_id)
     snapshot = reactive(_EMPTY_SNAPSHOT)
     current_thread = reactive(0)
+    merge_threads = reactive(False, init=False)
 
     columns = [
         "Location",
@@ -376,6 +372,10 @@ class AllocationTable(Widget):
         """Called when the current_thread attribute changes."""
         self.populate_table()
 
+    def watch_merge_threads(self) -> None:
+        """Called when the merge_threads attribute changes."""
+        self.populate_table()
+
     def watch_snapshot(self) -> None:
         """Called when the snapshot attribute changes."""
         self.populate_table()
@@ -418,7 +418,9 @@ class AllocationTable(Widget):
         new_locations = set()
 
         for location, result in sorted_allocations:
-            if self.current_thread not in result.thread_ids:
+            if not self.merge_threads and (
+                self.current_thread not in result.thread_ids
+            ):
                 continue
 
             total_color = self._get_color(result.total_memory, total_allocations)
@@ -517,6 +519,7 @@ class TUI(Screen[None]):
     BINDINGS = [
         Binding("ctrl+z", "app.suspend_process"),
         Binding("q,esc", "app.quit", "Quit"),
+        Binding("m", "toggle_merge_threads", "Merge Threads"),
         Binding("<,left", "previous_thread", "Previous Thread"),
         Binding(">,right", "next_thread", "Next Thread"),
         Binding("t", "sort(1)", "Sort by Total"),
@@ -535,15 +538,16 @@ class TUI(Screen[None]):
     thread_idx = reactive(0)
     threads = reactive(_DUMMY_THREAD_LIST, always_update=True)
     snapshot = reactive(_EMPTY_SNAPSHOT)
-    paused = reactive(False)
-    disconnected = reactive(False)
+    paused = reactive(False, init=False)
+    disconnected = reactive(False, init=False)
 
     def __init__(self, pid: Optional[int], cmd_line: Optional[str], native: bool):
         self.pid = pid
         self.cmd_line = cmd_line
         self.native = native
-        self._seen_threads: Set[int] = set()
+        self._name_by_tid: Dict[int, str] = {}
         self._max_memory_seen = 0
+        self._merge_threads = True
         super().__init__()
 
     @property
@@ -552,21 +556,44 @@ class TUI(Screen[None]):
 
     def action_previous_thread(self) -> None:
         """An action to switch to previous thread."""
-        self.thread_idx = (self.thread_idx - 1) % len(self.threads)
+        if not self._merge_threads:
+            self.thread_idx = (self.thread_idx - 1) % len(self.threads)
 
     def action_next_thread(self) -> None:
         """An action to switch to next thread."""
-        self.thread_idx = (self.thread_idx + 1) % len(self.threads)
+        if not self._merge_threads:
+            self.thread_idx = (self.thread_idx + 1) % len(self.threads)
 
     def action_sort(self, col_number: int) -> None:
         """An action to sort the table rows based on a given column attribute."""
         self.update_sort_key(col_number)
 
+    def _populate_header_thread_labels(self, thread_idx: int) -> None:
+        if self._merge_threads:
+            tid_label = "[b]TID[/]: *"
+            thread_label = "[b]All threads[/]"
+        else:
+            tid_label = f"[b]TID[/]: {hex(self.current_thread)}"
+            thread_label = f"[b]Thread[/] {thread_idx + 1} of {len(self.threads)}"
+            thread_name = self._name_by_tid.get(self.current_thread)
+            if thread_name:
+                thread_label += f" ({thread_name})"
+
+        self.query_one("#tid", Label).update(tid_label)
+        self.query_one("#thread", Label).update(thread_label)
+
+    def action_toggle_merge_threads(self) -> None:
+        """An action to toggle showing allocations from all threads together."""
+        self._merge_threads = not self._merge_threads
+        redraw_footer(self.app)
+        self.app.query_one(AllocationTable).merge_threads = self._merge_threads
+        self._populate_header_thread_labels(self.thread_idx)
+
     def action_toggle_pause(self) -> None:
         """Toggle pause on keypress"""
         if self.paused or not self.disconnected:
             self.paused = not self.paused
-            self.redraw_footer()
+            redraw_footer(self.app)
             if not self.paused:
                 self.display_snapshot()
 
@@ -577,22 +604,16 @@ class TUI(Screen[None]):
 
     def watch_thread_idx(self, thread_idx: int) -> None:
         """Called when the thread_idx attribute changes."""
-        self.query_one("#tid", Label).update(f"[b]TID[/]: {hex(self.current_thread)}")
-        self.query_one("#thread", Label).update(
-            f"[b]Thread[/] {thread_idx + 1} of {len(self.threads)}"
-        )
+        self._populate_header_thread_labels(thread_idx)
         self.query_one(AllocationTable).current_thread = self.current_thread
 
-    def watch_threads(self, threads: List[int]) -> None:
+    def watch_threads(self) -> None:
         """Called when the threads attribute changes."""
-        self.query_one("#tid", Label).update(f"[b]TID[/]: {hex(self.current_thread)}")
-        self.query_one("#thread", Label).update(
-            f"[b]Thread[/] {self.thread_idx + 1} of {len(threads)}"
-        )
+        self._populate_header_thread_labels(self.thread_idx)
 
     def watch_disconnected(self) -> None:
         self.update_label()
-        self.redraw_footer()
+        redraw_footer(self.app)
 
     def watch_paused(self) -> None:
         self.update_label()
@@ -644,8 +665,9 @@ class TUI(Screen[None]):
         if self.paused:
             return
 
-        new_tids = {record.tid for record in snapshot.records} - self._seen_threads
-        self._seen_threads.update(new_tids)
+        name_by_tid = {record.tid: record.thread_name for record in snapshot.records}
+        new_tids = name_by_tid.keys() - self._name_by_tid.keys()
+        self._name_by_tid.update(name_by_tid)
 
         if new_tids:
             threads = self.threads
@@ -664,17 +686,17 @@ class TUI(Screen[None]):
         body = self.query_one(AllocationTable)
         body.sort_column_id = col_number
 
-    def redraw_footer(self) -> None:
-        # Hack: trick the Footer into redrawing itself
-        self.app.query_one(Footer).highlight_key = "q"
-        self.app.query_one(Footer).highlight_key = None
-
     def rewrite_bindings(self, bindings: Bindings) -> None:
         if "space" in bindings and bindings["space"][1].description == "Pause":
             if self.paused:
                 update_key_description(bindings, "space", "Unpause")
             elif self.disconnected:
                 del bindings["space"]
+
+        if self._merge_threads:
+            bindings.pop("less_than_sign")
+            bindings.pop("greater_than_sign")
+            update_key_description(bindings, "m", "Unmerge Threads")
 
     @property
     def active_bindings(self) -> Dict[str, Any]:
@@ -684,7 +706,7 @@ class TUI(Screen[None]):
 
 
 class UpdateThread(threading.Thread):
-    def __init__(self, app: App[None], reader: SocketReader) -> None:
+    def __init__(self, app: "TUIApp", reader: SocketReader) -> None:
         self._app = app
         self._reader = reader
         self._update_requested = threading.Event()

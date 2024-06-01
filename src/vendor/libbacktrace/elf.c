@@ -853,68 +853,23 @@ elf_readlink (struct backtrace_state *state, const char *filename,
 
 #define SYSTEM_BUILD_ID_DIR "/usr/lib/debug/.build-id/"
 
-typedef debuginfod_client*(*debuginfod_begin_t)(void);
-
-typedef int(*debuginfod_find_debuginfo_t)(debuginfod_client *client,
-                                            const unsigned char *build_id,
-                                            int build_id_len,
-                                            char **path);
-typedef void(*debuginfod_end_t)(debuginfod_client *client);
-
-
-static debuginfod_find_debuginfo_t the_debuginfod_find_debuginfo = NULL;
-static debuginfod_begin_t the_debuginfod_begin = NULL;
-static debuginfod_end_t the_debuginfod_end = NULL;
-static int debuginfod_guard = 0;
-static int debuginfod_dlopen_failed = 0;
-
 static int
 elf_open_debugfile_by_debuginfod (const char *buildid_data,
 			       size_t buildid_size,
 			       backtrace_error_callback error_callback,
 			       void *data)
 {
-  if (debuginfod_dlopen_failed) {
-      return -1;
-  }
-
-  if (the_debuginfod_find_debuginfo == NULL) {
-    void *handle = dlopen(DEBUGINFOD_SONAME, RTLD_LAZY);
-    if (!handle) {
-      debuginfod_dlopen_failed = 1;
-      return -1;
-    }
-
-    the_debuginfod_find_debuginfo = (debuginfod_find_debuginfo_t)dlsym(handle, "debuginfod_find_debuginfo");
-    if (!the_debuginfod_find_debuginfo) {
-      return -1;
-    }
-
-    the_debuginfod_begin = (debuginfod_begin_t)dlsym(handle, "debuginfod_begin");
-    if (!the_debuginfod_begin) {
-      the_debuginfod_find_debuginfo = NULL;
-      return -1;
-    }
-
-    the_debuginfod_end = (debuginfod_end_t)dlsym(handle, "debuginfod_end");
-    if (!the_debuginfod_end) {
-      the_debuginfod_find_debuginfo = NULL;
-      the_debuginfod_begin = NULL;
-      return -1;
-    }
-  }
-
   char* path = NULL;
   const unsigned char* bi = (const unsigned char*)buildid_data;
 
-  debuginfod_client* client = the_debuginfod_begin();
+  debuginfod_client* client = debuginfod_begin();
   if (!client) {
     return -1;
   }
 
-  const int fd = the_debuginfod_find_debuginfo(client, bi, buildid_size, &path);
+  const int fd = debuginfod_find_debuginfo(client, bi, buildid_size, &path);
 
-  the_debuginfod_end(client);
+  debuginfod_end(client);
 
   if (!path || fd <= 0) {
     return -1;
@@ -4500,7 +4455,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 
       d = elf_open_debugfile_by_buildid (state, buildid_data, buildid_size,
 					 error_callback, data);
-      if (d < 0 && !debuginfod_guard) {
+      if (d < 0) {
           char* env = getenv(DEBUGINFOD_PROGRESS_ENV_VAR);
           if (env) {
             fprintf(stderr, "Trying to download debuginfo for %s\n", filename);
@@ -4975,29 +4930,7 @@ backtrace_initialize (struct backtrace_state *state, const char *filename,
   pd.exe_filename = filename;
   pd.exe_descriptor = ret < 0 ? descriptor : -1;
 
-
-  /* Here, There Be Dragons: we are about to call dl_iterate_phdr,
-     which is a glibc-internal function that holds a libc internal
-     lock. As this function needs to iterate over all the loaded
-     modules, this lock is shared by dlopen so no new modules can be
-     loaded while is iterating. This is a problem for us, as the
-     debuginfod client will use libcurl to spawn threads to download
-     debuginfo files, and libcurl uses dlopen to load a bunch of stuff
-     for its backend in some versions. This can cause a deadlock because
-     the debuginfod client will wait until the libcurl threads finish but
-     they will never finish because they are waiting for the dlopen lock
-     to be released, which will not happen until the call to dl_iterate_phdr
-     finishes.
-
-     To avoid this, we use a global variable to detect if we are already
-     iterating over the modules, and if so, we skip the query to debuginfod
-     and just try with the other default methods.
-
-     Note this ONLY affects the symbol resolution when retrieving a backtrace,
-     and it doesn't affect offline symbolication.  */
-  debuginfod_guard++;
   dl_iterate_phdr (phdr_callback, (void *) &pd);
-  debuginfod_guard--;
 
   if (!state->threaded)
     {

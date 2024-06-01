@@ -184,7 +184,7 @@ index 66e101e..9422a90 100644
    if ((type & MACH_O_N_STAB) != 0)
 -    return 0;
 +  {
-+    switch (type) 
++    switch (type)
 +     {
 +     case MACH_O_N_FNAME:
 +      return 1;

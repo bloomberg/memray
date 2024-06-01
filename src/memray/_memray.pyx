@@ -74,6 +74,7 @@ from ._destination import FileDestination
 from ._destination import SocketDestination
 from ._metadata import Metadata
 from ._stats import Stats
+from ._thread_name_interceptor import ThreadNameInterceptor
 
 
 def set_log_level(int level):
@@ -306,9 +307,7 @@ cdef class AllocationRecord:
         if self.tid == -1:
             return "merged thread"
         assert self._reader.get() != NULL, "Cannot get thread name without reader."
-        cdef object name = self._reader.get().getThreadName(self.tid)
-        thread_id = hex(self.tid)
-        return f"{thread_id} ({name})" if name else f"{thread_id}"
+        return self._reader.get().getThreadName(self.tid)
 
     def stack_trace(self, max_stacks=None):
         cache_key = ("python", max_stacks)
@@ -441,9 +440,7 @@ cdef class TemporalAllocationRecord:
     @property
     def thread_name(self):
         assert self._reader.get() != NULL, "Cannot get thread name without reader."
-        cdef object name = self._reader.get().getThreadName(self.tid)
-        thread_id = hex(self.tid)
-        return f"{thread_id} ({name})" if name else f"{thread_id}"
+        return self._reader.get().getThreadName(self.tid)
 
     def stack_trace(self, max_stacks=None):
         cache_key = ("python", max_stacks)
@@ -681,7 +678,6 @@ cdef class Tracker:
 
     @cython.profile(False)
     def __enter__(self):
-
         if NativeTracker.getTracker() != NULL:
             raise RuntimeError("No more than one Tracker instance can be active at the same time")
 
@@ -689,6 +685,14 @@ cdef class Tracker:
         if self._writer == NULL:
             raise RuntimeError("Attempting to use stale output handle")
         writer = move(self._writer)
+
+        for attr in ("_name", "_ident"):
+            assert not hasattr(threading.Thread, attr)
+            setattr(
+                threading.Thread,
+                attr,
+                ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
+            )
 
         self._previous_profile_func = sys.getprofile()
         self._previous_thread_profile_func = threading._profile_hook
@@ -711,6 +715,9 @@ cdef class Tracker:
         NativeTracker.destroyTracker()
         sys.setprofile(self._previous_profile_func)
         threading.setprofile(self._previous_thread_profile_func)
+
+        for attr in ("_name", "_ident"):
+            delattr(threading.Thread, attr)
 
 
 def start_thread_trace(frame, event, arg):
@@ -735,7 +742,7 @@ def print_greenlet_warning():
 
 cdef millis_to_dt(millis):
     return datetime.fromtimestamp(millis // 1000).replace(
-        microsecond=millis % 1000 * 1000)
+        microsecond=millis % 1000 * 1000).astimezone()
 
 
 cdef _create_metadata(header, peak_memory):

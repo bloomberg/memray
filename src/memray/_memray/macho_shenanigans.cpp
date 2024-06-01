@@ -296,7 +296,20 @@ patch_symbols_in_shared_object(
             unsigned int section_type = section->flags & SECTION_TYPE;
             LOG(DEBUG) << "Considering section " << i << " (" << section->segname << ":"
                        << section->sectname << ")";
-            if (_dyld_shared_cache_contains_path(image_name) && strcmp(section->segname, SEG_TEXT) == 0)
+
+            // dlopen with null and check for _dyld_shared_cache_contains_path but do it only
+            // once with std::once_flag
+            static std::function<bool(const char*)> dyld_shared_cache_contains_path;
+            static std::once_flag _dyld_shared_cache_check_flag;
+            std::call_once(_dyld_shared_cache_check_flag, [&]() {
+                void* handle = dlopen(nullptr, RTLD_LAZY);
+                dyld_shared_cache_contains_path =
+                        (bool (*)(const char*))(dlsym(handle, "_dyld_shared_cache_contains_path"));
+                dlclose(handle);
+            });
+
+            if (dyld_shared_cache_contains_path && _dyld_shared_cache_contains_path(image_name)
+                && strcmp(section->segname, SEG_TEXT) == 0)
             {
                 // Shared libraries that are part of the shared cache will have the symbols we are
                 // looking for in the __stubs/__auth_stubs PLT section pointing to a GOT that we cannot

@@ -1,1 +1,1 @@
-Fix dynamic toggling between descriptions like "Pause" vs "Unpause" or "Show" vs "Hide" in the footer of the live-mode TUI and tree reporter. This was broken by changes introduced in Textual 0.61.
+Fix dynamic toggling between descriptions like "Pause" vs "Unpause" or "Show" vs "Hide" in the footer of the live-mode TUI and tree reporter. This was broken by changes introduced in Textual 0.61 (and again by Textual 0.63).

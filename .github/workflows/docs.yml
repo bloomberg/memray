@@ -21,7 +21,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -qy libunwind-dev liblz4-dev pkg-config
+          sudo apt-get install --no-install-recommends -qy libdebuginfod-dev libunwind-dev liblz4-dev pkg-config
       - name: Install Python dependencies
         run: |
           python3 -m pip install -r requirements-extra.txt

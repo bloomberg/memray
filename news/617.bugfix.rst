@@ -1,0 +1,1 @@
+Fix reporting of "Own Memory" in the ``live`` and ``summary`` reporters. A bug in our summation caused us to undercount functions' direct allocations.

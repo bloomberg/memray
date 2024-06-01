@@ -1,4 +1,5 @@
 from _memray.record_writer cimport RecordWriter
+from libc.stdint cimport uint64_t
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
@@ -31,3 +32,6 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
 
         @staticmethod
         void handleGreenletSwitch(object, object) except+
+
+        @staticmethod
+        void registerThreadNameById(uint64_t, const char*) except+

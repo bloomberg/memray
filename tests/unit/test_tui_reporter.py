@@ -173,6 +173,7 @@ def mock_allocation(
     allocator: AllocatorType = AllocatorType.MALLOC,
     stack_id: int = 0,
     n_allocations: int = 1,
+    thread_name: str = "",
 ):
     hybrid_stack = stack
 
@@ -190,6 +191,7 @@ def mock_allocation(
         allocator=allocator,
         stack_id=stack_id,
         n_allocations=n_allocations,
+        thread_name=thread_name,
         _stack=stack,
         _hybrid_stack=hybrid_stack,
     )
@@ -558,8 +560,8 @@ def test_header_with_no_snapshots():
     async_run(run_test())
 
     # THEN
-    assert labels["tid"].split() == "TID: 0x0".split()
-    assert labels["thread"].split() == "Thread 1 of 1".split()
+    assert labels["tid"].split() == "TID: *".split()
+    assert labels["thread"].split() == "All threads".split()
     assert labels["samples"].split() == "Samples: 0".split()
 
 
@@ -579,8 +581,8 @@ def test_header_with_empty_snapshot():
     async_run(run_test())
 
     # THEN
-    assert labels["tid"].split() == "TID: 0x0".split()
-    assert labels["thread"].split() == "Thread 1 of 1".split()
+    assert labels["tid"].split() == "TID: *".split()
+    assert labels["thread"].split() == "All threads".split()
     assert labels["samples"].split() == "Samples: 1".split()
 
 
@@ -646,6 +648,63 @@ def test_sorting():
 def test_switching_threads():
     """Test that we can switch which thread is displayed"""
     # GIVEN
+    thread_names = ["Thread A", "", "Thread C"]
+    thread_labels = [
+        "Thread 1 of 3 (Thread A)",
+        "Thread 2 of 3",
+        "Thread 3 of 3 (Thread C)",
+    ]
+    snapshot = [
+        mock_allocation(
+            tid=1,
+            stack=[("a", "a.py", 1)],
+            thread_name=thread_names[0],
+        ),
+        mock_allocation(
+            tid=2,
+            stack=[("b", "b.py", 1)],
+            thread_name=thread_names[1],
+        ),
+        mock_allocation(
+            tid=3,
+            stack=[("c", "c.py", 1)],
+            thread_name=thread_names[2],
+        ),
+    ]
+
+    reader = MockReader([])
+    app = MockApp(reader)
+    functions = []
+    tids = []
+    threads = []
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            app.add_mock_snapshot(snapshot)
+            await pilot.pause()
+
+            datatable = pilot.app.query_one(DataTable)
+
+            for key in ("m", ">", ">", ">", "<", "<", "<"):
+                await pilot.press(key)
+                functions.append(datatable.get_cell_at(Coordinate(0, 0)).plain)
+                labels = extract_label_text(app)
+                tids.append(" ".join(labels["tid"].split()))
+                threads.append(" ".join(labels["thread"].split()))
+
+    async_run(run_test())
+
+    # THEN
+    order = [0, 1, 2, 0, 2, 1, 0]
+    assert functions == ["abc"[i] for i in order]
+    assert tids == [f"TID: {hex(i+1)}" for i in order]
+    assert threads == [thread_labels[i] for i in order]
+
+
+def test_merge_mode_new_threads():
+    """Test that the 'All threads' is still displayed when a new thread is created."""
+    # GIVEN
     snapshot = [
         mock_allocation(
             tid=1,
@@ -657,6 +716,50 @@ def test_switching_threads():
         ),
         mock_allocation(
             tid=3,
+            stack=[("c", "c.py", 1)],
+        ),
+    ]
+    new_thread = mock_allocation(tid=4, stack=[("d", "d.py", 1)])
+
+    reader = MockReader([])
+    app = MockApp(reader)
+    label = []
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            await pilot.press("m")
+            app.add_mock_snapshot(snapshot)
+            await pilot.pause()
+
+            await pilot.press("m")
+            app.add_mock_snapshot(snapshot + [new_thread])
+            await pilot.pause()
+            label.append(extract_label_text(app)["thread"])
+
+    async_run(run_test())
+
+    # THEN
+    assert label == ["All threads\n"]
+
+
+def test_merging_allocations_from_all_threads():
+    """Test that we can display allocations from all threads"""
+    # GIVEN
+    snapshot = [
+        mock_allocation(
+            tid=1,
+            size=1024,
+            stack=[("a", "a.py", 1)],
+        ),
+        mock_allocation(
+            tid=2,
+            size=2 * 1024,
+            stack=[("b", "b.py", 1)],
+        ),
+        mock_allocation(
+            tid=3,
+            size=3 * 1024,
             stack=[("c", "c.py", 1)],
         ),
     ]
@@ -675,7 +778,7 @@ def test_switching_threads():
 
             datatable = pilot.app.query_one(DataTable)
 
-            for key in ("", ">", ">", ">", "<", "<", "<"):
+            for key in ("m", ">", "m", "<", "m", "<"):
                 await pilot.press(key)
                 functions.append(datatable.get_cell_at(Coordinate(0, 0)).plain)
                 labels = extract_label_text(app)
@@ -685,10 +788,15 @@ def test_switching_threads():
     async_run(run_test())
 
     # THEN
-    order = [0, 1, 2, 0, 2, 1, 0]
+    order = [0, 1, 2, 2, 1, 0]
+    merged = [False, False, True, True, False, False]
     assert functions == ["abc"[i] for i in order]
-    assert tids == [f"TID: {hex(i+1)}" for i in order]
-    assert threads == [f"Thread {i+1} of 3" for i in order]
+    assert tids == [
+        "TID: *" if all else f"TID: {hex(i+1)}" for i, all in zip(order, merged)
+    ]
+    assert threads == [
+        "All threads" if all else f"Thread {i+1} of 3" for i, all in zip(order, merged)
+    ]
 
 
 @pytest.mark.parametrize(
@@ -914,3 +1022,66 @@ class TestAggregateResults:
         assert me.own_memory == 40
         assert me.total_memory == 40
         assert me.n_allocations == 3
+
+
+def test_merge_threads(compare):
+    async def run_before(pilot: Pilot) -> None:
+        snapshot = [
+            mock_allocation(
+                tid=1,
+                stack=[("a", "a.py", 1)],
+            ),
+            mock_allocation(
+                tid=2,
+                stack=[("b", "b.py", 1)],
+            ),
+            mock_allocation(
+                tid=3,
+                stack=[("c", "c.py", 1)],
+            ),
+        ]
+        app = cast(MockApp, pilot.app)
+        await pilot.press("m")
+        app.add_mock_snapshot(snapshot)
+        await pilot.pause()
+        await pilot.press("m")
+        await pilot.pause()
+        app.add_mock_snapshot(snapshot)
+
+    assert compare(
+        run_before=run_before,
+        terminal_size=(150, 24),
+    )
+
+
+def test_unmerge_threads(compare):
+    async def run_before(pilot: Pilot) -> None:
+        snapshot = [
+            mock_allocation(
+                tid=1,
+                stack=[("a", "a.py", 1)],
+            ),
+            mock_allocation(
+                tid=2,
+                stack=[("b", "b.py", 1)],
+            ),
+            mock_allocation(
+                tid=3,
+                stack=[("c", "c.py", 1)],
+            ),
+        ]
+        app = cast(MockApp, pilot.app)
+        app.add_mock_snapshot(snapshot)
+        await pilot.press("m")
+        await pilot.pause()
+        await pilot.press(">")
+        await pilot.press("m")
+        await pilot.press(">")
+        await pilot.press("m")
+        await pilot.pause()
+        app.add_mock_snapshot(snapshot)
+
+    assert compare(
+        run_before=run_before,
+        terminal_size=(150, 24),
+    )

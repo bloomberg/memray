@@ -38,7 +38,9 @@ from textual.widgets.tree import TreeNode
 from memray import AllocationRecord
 from memray._memray import size_fmt
 from memray.reporters._textual_hacks import Bindings
+from memray.reporters._textual_hacks import redraw_footer
 from memray.reporters._textual_hacks import update_key_description
+from memray.reporters.common import format_thread_name
 from memray.reporters.frame_tools import is_cpython_internal
 from memray.reporters.frame_tools import is_frame_from_import_system
 from memray.reporters.frame_tools import is_frame_interesting
@@ -367,7 +369,7 @@ class TreeScreen(Screen[None]):
         else:
             self.import_system_filter = None
 
-        self.redraw_footer()
+        redraw_footer(self.app)
         self.repopulate_tree(self.query_one(FrameTree))
 
     def action_toggle_uninteresting(self) -> None:
@@ -376,13 +378,8 @@ class TreeScreen(Screen[None]):
         else:
             self.uninteresting_filter = None
 
-        self.redraw_footer()
+        redraw_footer(self.app)
         self.repopulate_tree(self.query_one(FrameTree))
-
-    def redraw_footer(self) -> None:
-        # Hack: trick the Footer into redrawing itself
-        self.app.query_one(Footer).highlight_key = "q"
-        self.app.query_one(Footer).highlight_key = None
 
     def rewrite_bindings(self, bindings: Bindings) -> None:
         if self.import_system_filter is not None:
@@ -480,7 +477,7 @@ class TreeReporter:
                 current_frame = current_frame.children[stack_frame]
                 current_frame.value += size
                 current_frame.n_allocations += record.n_allocations
-                current_frame.thread_id = record.thread_name
+                current_frame.thread_id = format_thread_name(record)
 
                 if index > MAX_STACKS:
                     break

@@ -26,6 +26,7 @@ from memray import MemorySnapshot
 from memray import Metadata
 from memray._memray import Interval
 from memray._memray import TemporalAllocationRecord
+from memray.reporters.common import format_thread_name
 from memray.reporters.frame_tools import StackFrame
 from memray.reporters.frame_tools import is_cpython_internal
 from memray.reporters.frame_tools import is_frame_from_import_system
@@ -263,13 +264,13 @@ class FlameGraphReporter:
 
         unique_threads: Set[str] = set()
         for record in allocations:
-            unique_threads.add(record.thread_name)
+            unique_threads.add(format_thread_name(record))
 
             record_data: RecordData
             if temporal:
                 assert isinstance(record, TemporalAllocationRecord)
                 record_data = {
-                    "thread_name": record.thread_name,
+                    "thread_name": format_thread_name(record),
                     "intervals": record.intervals,
                     "size": None,
                     "n_allocations": None,
@@ -277,7 +278,7 @@ class FlameGraphReporter:
             else:
                 assert not isinstance(record, TemporalAllocationRecord)
                 record_data = {
-                    "thread_name": record.thread_name,
+                    "thread_name": format_thread_name(record),
                     "intervals": None,
                     "size": record.size,
                     "n_allocations": record.n_allocations,
