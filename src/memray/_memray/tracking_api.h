@@ -338,6 +338,10 @@ class Tracker
      */
     static void handleGreenletSwitch(PyObject* from, PyObject* to);
 
+    static void prepareFork();
+    static void parentFork();
+    static void childFork();
+
   private:
     class BackgroundThread
     {
@@ -406,10 +410,6 @@ class Tracker
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators);
-
-    static void prepareFork();
-    static void parentFork();
-    static void childFork();
 
     static bool areNativeTracesEnabled();
 };

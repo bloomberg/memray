@@ -35,3 +35,12 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
 
         @staticmethod
         void registerThreadNameById(uint64_t, const char*) except+
+
+        @staticmethod
+        void prepareFork() noexcept
+
+        @staticmethod
+        void parentFork() noexcept
+
+        @staticmethod
+        void childFork() noexcept

@@ -76,6 +76,12 @@ from ._metadata import Metadata
 from ._stats import Stats
 from ._thread_name_interceptor import ThreadNameInterceptor
 
+os.register_at_fork(
+    before=NativeTracker.prepareFork,
+    after_in_parent=NativeTracker.parentFork,
+    after_in_child=NativeTracker.childFork,
+)
+
 
 def set_log_level(int level):
     """Configure which log messages will be printed to stderr by memray.
