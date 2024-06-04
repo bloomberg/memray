@@ -569,10 +569,6 @@ Tracker::Tracker(
 
         hooks::ensureAllHooksAreValid();
         NativeTrace::setup();
-
-        // We must do this last so that a child can't inherit an environment
-        // where only half of our one-time setup is done.
-        pthread_atfork(&prepareFork, &parentFork, &childFork);
     });
 
     d_writer->setMainTidAndSkippedFrames(thread_id(), computeMainTidSkip());
