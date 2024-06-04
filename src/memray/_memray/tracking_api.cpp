@@ -603,7 +603,7 @@ Tracker::~Tracker()
         d_patcher.restore_symbols();
     }
 
-    if (Py_IsInitialized() && !_Py_IsFinalizing()) {
+    if (Py_IsInitialized() && !compat::isPythonFinalizing()) {
         PyGILState_STATE gstate;
         gstate = PyGILState_Ensure();
 

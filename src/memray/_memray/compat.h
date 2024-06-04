@@ -7,6 +7,16 @@
 
 namespace memray::compat {
 
+inline int
+isPythonFinalizing()
+{
+#if PY_VERSION_HEX >= 0x030D0000
+    return Py_IsFinalizing();
+#else
+    return _Py_IsFinalizing();
+#endif
+}
+
 inline bool
 isEntryFrame(PyFrameObject* frame)
 {
