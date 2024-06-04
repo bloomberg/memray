@@ -11,6 +11,12 @@
 #include "records.h"
 #include "snapshot.h"
 
+#if PY_VERSION_HEX >= 0x030D0000
+// This function still exists in 3.13 but Python.h no longer has its prototype.
+extern "C" const char*
+_PyMem_GetCurrentAllocatorName();
+#endif
+
 namespace memray::tracking_api {
 
 using namespace std::chrono;
