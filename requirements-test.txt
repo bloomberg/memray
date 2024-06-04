@@ -1,6 +1,6 @@
 Cython
 coverage[toml]
-greenlet; python_version < '3.12'
+greenlet; python_version < '3.13'
 pytest
 pytest-cov
 ipython
