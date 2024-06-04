@@ -66,7 +66,7 @@ jobs:
       - name: Build manylinux2010 image containing Python 3.11 and 3.12
         if: matrix.manylinux2010_hack
         run: |
-          echo "CIBW_SKIP=*cp3{7,8,9,10}*" >> $GITHUB_ENV
+          echo "CIBW_SKIP=*cp3{7,8,9,10,13}*" >> $GITHUB_ENV
           echo "CIBW_MANYLINUX_X86_64_IMAGE=manylinux2010-with-modern-cpython" >> $GITHUB_ENV
           docker build -t manylinux2010-with-modern-cpython - <<'EOF'
           # syntax=docker/dockerfile:1
@@ -107,7 +107,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.18.1
         env:
-          CIBW_BUILD: "cp3{7..12}-${{ matrix.wheel_type }}"
+          CIBW_BUILD: "cp3{7..13}-${{ matrix.wheel_type }}"
           CIBW_ARCHS_LINUX: auto aarch64
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
@@ -156,7 +156,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.18.1
         env:
-          CIBW_BUILD: "cp3{8..12}-*"
+          CIBW_BUILD: "cp3{8..13}-*"
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: pytest {package}/tests
@@ -196,6 +196,10 @@ jobs:
           rmdir dist/{sdist,*-wheels}
           rm -r dist/tests
           ls -R dist
+      - name: Avoid publishing Python 3.13 wheels
+        run: |
+          rm -f dist/*cp313*
+          ls -l dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip_existing: true
