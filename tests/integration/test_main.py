@@ -958,6 +958,8 @@ class TestTreeSubCommand:
         results_file, _ = generate_sample_results(
             tmp_path, simple_test_file, native=True
         )
+        env = os.environ.copy()
+        env["TEXTUAL_PRESS"] = "q"
 
         # WHEN
         output = subprocess.check_output(
@@ -971,7 +973,7 @@ class TestTreeSubCommand:
             cwd=str(tmp_path),
             stderr=subprocess.DEVNULL,
             text=True,
-            input="q",
+            env=env,
         )
 
         # THEN
@@ -980,6 +982,8 @@ class TestTreeSubCommand:
     def test_temporary_allocations_tree(self, tmp_path, simple_test_file):
         # GIVEN
         results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        env = os.environ.copy()
+        env["TEXTUAL_PRESS"] = "q"
 
         # WHEN
         output = subprocess.check_output(
@@ -994,7 +998,7 @@ class TestTreeSubCommand:
             cwd=str(tmp_path),
             stderr=subprocess.DEVNULL,
             text=True,
-            input="q",
+            env=env,
         )
 
         # THEN
