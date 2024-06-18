@@ -1,1 +1,0 @@
-Allow using Ctrl+Z to suspend ``memray tree`` and the live mode TUI.
