@@ -1,1 +1,0 @@
-Add a button in the live-mode TUI to show allocations from all threads at once.

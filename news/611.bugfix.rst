@@ -1,1 +1,0 @@
-Correctly localize the start and end time in the "Stats" modal when an HTML report was generated on a different machine than the one it is being displayed on.

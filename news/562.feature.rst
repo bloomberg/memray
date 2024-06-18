@@ -1,1 +1,0 @@
-Include the thread name in the live TUI
