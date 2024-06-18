@@ -14,10 +14,12 @@ memray 1.13.0 (2024-06-18)
 Features
 ~~~~~~~~
 
-- Include the thread name in the live TUI (#562)
+- Add :doc:`a tutorial <tutorials/index>` to the Memray documentation. (#590)
+- Include the thread name in the live TUI. (#562)
 - Capture the name attribute of Python `threading.Thread` objects. (#562)
 - Allow using Ctrl+Z to suspend ``memray tree`` and the live mode TUI. (#581)
 - Add a button in the live-mode TUI to show allocations from all threads at once. (#589)
+- Vendor ``libdebuginfod`` into our Linux wheels, so that debuginfod integration can be used without any dependency on system-installed libraries. (#592)
 
 
 Bug Fixes
@@ -27,6 +29,13 @@ Bug Fixes
 - Correctly localize the start and end time in the "Stats" modal when an HTML report was generated on a different machine than the one it is being displayed on. (#611)
 - Fix a crash in old macOS versions (<11.0) due to the inavailability of some linker cache APIs. (#615)
 - Fix reporting of "Own Memory" in the ``live`` and ``summary`` reporters. A bug in our summation caused us to undercount functions' direct allocations. (#617)
+
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+- Builds from source now work for Python 3.13. Wheels are not yet published for 3.13 because it is not yet ABI stable. (#622)
+- Link our Linux wheels against the latest version of ``elfutils``. (#592)
 
 
 memray 1.12.0 (2024-03-07)
