@@ -22,11 +22,11 @@ Bindings = Union[Dict[str, "binding.ActiveBinding"], Dict[str, Tuple[DOMNode, Bi
 
 def update_key_description(bindings: Bindings, key: str, description: str) -> None:
     val = bindings[key]
-    binding = dataclasses.replace(val[1], description=description)
-    if type(val) is tuple:
-        bindings[key] = val[:1] + (binding,) + val[2:]  # type: ignore
+    new_binding = dataclasses.replace(val[1], description=description)
+    if isinstance(val, tuple):
+        bindings[key] = val[:1] + (new_binding,) + val[2:]  # type: ignore
     else:
-        bindings[key] = val._replace(binding=binding)  # type: ignore
+        bindings[key] = val._replace(binding=new_binding)  # type: ignore
 
 
 def redraw_footer(app: App[Any]) -> None:

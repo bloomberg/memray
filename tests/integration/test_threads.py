@@ -68,14 +68,14 @@ def test_thread_name(tmpdir):
     output = Path(tmpdir) / "test.bin"
     allocator = MemoryAllocator()
 
-    def allocating_function():
+    def _allocating_function():
         set_thread_name("my thread name")
         allocator.valloc(1234)
         allocator.free()
 
     # WHEN
     with Tracker(output):
-        t = threading.Thread(target=allocating_function)
+        t = threading.Thread(target=_allocating_function)
         t.start()
         t.join()
 
@@ -104,7 +104,7 @@ def test_setting_python_thread_name(tmpdir):
     name_set_outside_thread = threading.Event()
     prctl_rc = -1
 
-    def allocating_function():
+    def _allocating_function():
         allocator.valloc(1234)
         allocator.free()
 
@@ -124,7 +124,7 @@ def test_setting_python_thread_name(tmpdir):
 
     # WHEN
     with Tracker(output):
-        t = threading.Thread(target=allocating_function, name="set before start")
+        t = threading.Thread(target=_allocating_function, name="set before start")
         t.start()
         name_set_inside_thread.wait()
         t.name = "set outside running thread"

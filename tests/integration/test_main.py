@@ -145,7 +145,7 @@ def generate_sample_results(
 
 
 class TestRunSubcommand:
-    def test_run(self, tmp_path, simple_test_file):
+    def test_run(self, tmp_path, simple_test_file_param):
         # GIVEN / WHEN
         proc = subprocess.run(
             [
@@ -153,7 +153,7 @@ class TestRunSubcommand:
                 "-m",
                 "memray",
                 "run",
-                str(simple_test_file),
+                str(simple_test_file_param),
             ],
             check=True,
             capture_output=True,
@@ -169,7 +169,7 @@ class TestRunSubcommand:
         out_file = re.search("Writing profile results into (.*)", proc.stdout).group(1)
         assert (tmp_path / out_file).exists()
 
-    def test_run_override_output(self, tmp_path, simple_test_file):
+    def test_run_override_output(self, tmp_path, simple_test_file_param):
         # GIVEN
         out_file = tmp_path / "result.bin"
 
@@ -182,7 +182,7 @@ class TestRunSubcommand:
                 "run",
                 "--output",
                 str(out_file),
-                str(simple_test_file),
+                str(simple_test_file_param),
             ],
             check=True,
             capture_output=True,
@@ -194,7 +194,7 @@ class TestRunSubcommand:
         assert proc.returncode == 0
         assert out_file.exists()
 
-    def test_run_overwrite_output_file(self, tmp_path, simple_test_file):
+    def test_run_overwrite_output_file(self, tmp_path, simple_test_file_2):
         # GIVEN
         out_file = tmp_path / "result.bin"
         out_file.write_bytes(b"oops" * 1024 * 1024)
@@ -211,7 +211,7 @@ class TestRunSubcommand:
                 "--force",
                 "--output",
                 str(out_file),
-                str(simple_test_file),
+                str(simple_test_file_2),
             ],
             check=True,
             capture_output=True,
@@ -515,7 +515,7 @@ class TestRunSubcommand:
         )
 
     @pytest.mark.parametrize("quiet", [True, False])
-    def test_quiet(self, quiet, tmp_path, simple_test_file):
+    def test_quiet(self, quiet, tmp_path, simple_test_file_local):
         # GIVEN
         out_file = tmp_path / "result.bin"
 
@@ -529,7 +529,7 @@ class TestRunSubcommand:
                 *(["-q"] if quiet else []),
                 "--output",
                 str(out_file),
-                str(simple_test_file),
+                str(simple_test_file_local),
             ],
             check=True,
             capture_output=True,
@@ -544,7 +544,7 @@ class TestRunSubcommand:
         else:
             assert str(out_file) in proc.stdout
 
-    def test_not_quiet_and_fork(self, tmp_path, test_file_returns_from_fork):
+    def test_not_quiet_and_fork(self, tmp_path, test_file_returns_from_fork_param):
         # GIVEN
         out_file = tmp_path / "result.bin"
 
@@ -557,7 +557,7 @@ class TestRunSubcommand:
                 "run",
                 "--output",
                 str(out_file),
-                str(test_file_returns_from_fork),
+                str(test_file_returns_from_fork_param),
             ],
             check=True,
             capture_output=True,
@@ -688,10 +688,10 @@ class TestParseSubcommand:
         for count in record_count_by_type.values():
             assert count > 0
 
-    def test_error_when_stdout_is_a_tty(self, tmp_path, simple_test_file):
+    def test_error_when_stdout_is_a_tty(self, tmp_path, simple_test_file_local):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_local, native=True
         )
         _, controlled = pty.openpty()
 
@@ -738,10 +738,10 @@ class TestParseSubcommand:
 
 
 class TestFlamegraphSubCommand:
-    def test_reads_from_correct_file(self, tmp_path, simple_test_file):
+    def test_reads_from_correct_file(self, tmp_path, simple_test_file_local):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_local, native=True
         )
 
         # WHEN
@@ -764,10 +764,10 @@ class TestFlamegraphSubCommand:
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
-    def test_can_generate_reports_with_native_traces(self, tmp_path, simple_test_file):
+    def test_can_generate_reports_with_native_traces(self, tmp_path, simple_test_file_local):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_local, native=True
         )
 
         # WHEN
@@ -790,10 +790,10 @@ class TestFlamegraphSubCommand:
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
-    def test_writes_to_correct_file(self, tmp_path, simple_test_file):
+    def test_writes_to_correct_file(self, tmp_path, simple_test_file_local):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_local, native=True
         )
         output_file = tmp_path / "output.html"
 
@@ -817,7 +817,7 @@ class TestFlamegraphSubCommand:
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
-    def test_output_file_already_exists(self, tmp_path, simple_test_file, monkeypatch):
+    def test_output_file_already_exists(self, tmp_path, simple_test_file_param, monkeypatch):
         """Check that when the output file is derived form the input name, we
         fail when there is already a file with the same name as the output."""
 
@@ -825,7 +825,7 @@ class TestFlamegraphSubCommand:
         monkeypatch.chdir(tmp_path)
         # This will generate "result.bin"
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_param, native=True
         )
         output_file = tmp_path / "memray-flamegraph-result.html"
         output_file.touch()
@@ -836,10 +836,10 @@ class TestFlamegraphSubCommand:
         # THEN
         assert ret != 0
 
-    def test_split_threads_subcommand(self, tmp_path, simple_test_file):
+    def test_split_threads_subcommand(self, tmp_path, simple_test_file_2):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_2, native=True
         )
         output_file = tmp_path / "output.html"
 
@@ -869,13 +869,13 @@ class TestFlamegraphSubCommand:
     def test_leaks_with_pymalloc_warning(
         self,
         tmp_path,
-        simple_test_file,
+        simple_test_file_local,
         trace_python_allocators,
         disable_pymalloc,
     ):
         results_file, _ = generate_sample_results(
             tmp_path,
-            simple_test_file,
+            simple_test_file_local,
             native=True,
             trace_python_allocators=trace_python_allocators,
             disable_pymalloc=disable_pymalloc,
@@ -908,10 +908,10 @@ class TestFlamegraphSubCommand:
 
 
 class TestSummarySubCommand:
-    def test_summary_generated(self, tmp_path, simple_test_file):
+    def test_summary_generated(self, tmp_path, simple_test_file_2):
         # GIVEN
         results_file, _ = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_2, native=True
         )
 
         # WHEN
@@ -930,9 +930,9 @@ class TestSummarySubCommand:
         # THEN
         assert output
 
-    def test_temporary_allocations_summary(self, tmp_path, simple_test_file):
+    def test_temporary_allocations_summary(self, tmp_path, simple_test_file_2):
         # GIVEN
-        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file_2)
 
         # WHEN
         output = subprocess.check_output(
@@ -953,10 +953,10 @@ class TestSummarySubCommand:
 
 
 class TestTreeSubCommand:
-    def test_tree_generated(self, tmp_path, simple_test_file):
+    def test_tree_generated(self, tmp_path, simple_test_file_2):
         # GIVEN
         results_file, _ = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_2, native=True
         )
 
         # WHEN
@@ -977,9 +977,9 @@ class TestTreeSubCommand:
         # THEN
         assert output
 
-    def test_temporary_allocations_tree(self, tmp_path, simple_test_file):
+    def test_temporary_allocations_tree(self, tmp_path, simple_test_file_2):
         # GIVEN
-        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file_2)
 
         # WHEN
         output = subprocess.check_output(
@@ -1002,10 +1002,10 @@ class TestTreeSubCommand:
 
 
 class TestStatsSubCommand:
-    def test_report_generated(self, tmp_path, simple_test_file):
+    def test_report_generated(self, tmp_path, simple_test_file_param):
         # GIVEN
         results_file, _ = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_param, native=True
         )
 
         # WHEN
@@ -1024,9 +1024,9 @@ class TestStatsSubCommand:
         # THEN
         assert "VALLOC" in output
 
-    def test_json_generated(self, tmp_path, simple_test_file):
+    def test_json_generated(self, tmp_path, simple_test_file_param):
         # GIVEN
-        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file_param)
         json_file = tmp_path / "memray-stats-result.bin.json"
 
         # WHEN
@@ -1047,9 +1047,9 @@ class TestStatsSubCommand:
         assert json_file.exists()
         assert isinstance(json.loads(json_file.read_text()), dict)
 
-    def test_json_generated_to_pretty_file_name(self, tmp_path, simple_test_file):
+    def test_json_generated_to_pretty_file_name(self, tmp_path, simple_test_file_param):
         # GIVEN
-        orig_results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        orig_results_file, _ = generate_sample_results(tmp_path, simple_test_file_param)
         results_file = orig_results_file.with_name("memray-foobar.bin")
         orig_results_file.rename(results_file)
         json_file = tmp_path / "memray-stats-foobar.bin.json"
@@ -1072,9 +1072,9 @@ class TestStatsSubCommand:
         assert json_file.exists()
         assert isinstance(json.loads(json_file.read_text()), dict)
 
-    def test_json_generated_to_known_file(self, tmp_path, simple_test_file):
+    def test_json_generated_to_known_file(self, tmp_path, simple_test_file_param):
         # GIVEN
-        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file_param)
         json_file = tmp_path / "output.json"
 
         # WHEN
@@ -1097,9 +1097,9 @@ class TestStatsSubCommand:
         assert json_file.exists()
         assert isinstance(json.loads(json_file.read_text()), dict)
 
-    def test_json_generated_to_existing_known_file(self, tmp_path, simple_test_file):
+    def test_json_generated_to_existing_known_file(self, tmp_path, known_test_file):
         # GIVEN
-        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        results_file, _ = generate_sample_results(tmp_path, known_test_file)
         json_file = tmp_path / "output.json"
         json_file.write_text("oops")
 
@@ -1128,9 +1128,9 @@ class TestStatsSubCommand:
         assert exc is not None
         assert "File already exists, will not overwrite" in exc.stderr
 
-    def test_json_overwrites_existing_known_file(self, tmp_path, simple_test_file):
+    def test_json_overwrites_existing_known_file(self, tmp_path, simple_test_file_param):
         # GIVEN
-        results_file, _ = generate_sample_results(tmp_path, simple_test_file)
+        results_file, _ = generate_sample_results(tmp_path, simple_test_file_param)
         json_file = tmp_path / "output.json"
         json_file.write_text("oops")
 
@@ -1180,10 +1180,10 @@ class TestStatsSubCommand:
 
 
 class TestTableSubCommand:
-    def test_reads_from_correct_file(self, tmp_path, simple_test_file):
+    def test_reads_from_correct_file(self, tmp_path, simple_test_file_param):
         # GIVEN
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_param, native=True
         )
 
         # WHEN
@@ -1273,9 +1273,9 @@ class TestReporterSubCommands:
         )
 
     @pytest.mark.parametrize("report", ["flamegraph", "table"])
-    def test_report_leaks_argument(self, tmp_path, simple_test_file, report):
+    def test_report_leaks_argument(self, tmp_path, simple_test_file_local, report):
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_local, native=True
         )
         output_file = tmp_path / "output.html"
 
@@ -1301,10 +1301,10 @@ class TestReporterSubCommands:
 
     @pytest.mark.parametrize("report", ["flamegraph", "table"])
     def test_report_temporary_allocations_argument(
-        self, tmp_path, simple_test_file, report
+        self, tmp_path, simple_test_file_arg, report
     ):
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_arg, native=True
         )
         output_file = tmp_path / "output.html"
 
@@ -1329,9 +1329,9 @@ class TestReporterSubCommands:
         assert str(source_file) in output_file.read_text()
 
     @pytest.mark.parametrize("report", ["flamegraph", "table"])
-    def test_report_incompatible_arguments(self, tmp_path, simple_test_file, report):
+    def test_report_incompatible_arguments(self, tmp_path, simple_test_file_arg, report):
         results_file, _ = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_arg, native=True
         )
 
         # WHEN
@@ -1357,10 +1357,10 @@ class TestReporterSubCommands:
 
     @pytest.mark.parametrize("report", ["flamegraph", "table", "summary", "tree"])
     def test_report_both_temporary_allocation_arguments(
-        self, tmp_path, simple_test_file, report
+        self, tmp_path, simple_test_file_local, report
     ):
         results_file, _ = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_local, native=True
         )
 
         # WHEN
@@ -1387,7 +1387,7 @@ class TestReporterSubCommands:
 
 
 class TestLiveRemoteSubcommand:
-    def test_live_tracking(self, tmp_path, simple_test_file, free_port):
+    def test_live_tracking(self, tmp_path, simple_test_file_param, free_port):
         # GIVEN
         server = subprocess.Popen(
             [
@@ -1398,7 +1398,7 @@ class TestLiveRemoteSubcommand:
                 "--live-remote",
                 "--live-port",
                 str(free_port),
-                str(simple_test_file),
+                str(simple_test_file_param),
             ],
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -1437,7 +1437,7 @@ class TestLiveRemoteSubcommand:
         assert server.returncode == 0
         assert client.returncode == 0
 
-    def test_live_tracking_waits_for_client(self, simple_test_file):
+    def test_live_tracking_waits_for_client(self, simple_test_file_param):
         # GIVEN/WHEN
         server = subprocess.Popen(
             [
@@ -1446,7 +1446,7 @@ class TestLiveRemoteSubcommand:
                 "memray",
                 "run",
                 "--live-remote",
-                str(simple_test_file),
+                str(simple_test_file_param),
             ],
             env={"PYTHONUNBUFFERED": "1"},
             stdout=subprocess.PIPE,
@@ -1459,7 +1459,7 @@ class TestLiveRemoteSubcommand:
         server.wait(timeout=TIMEOUT)
 
     @pytest.mark.parametrize("port", [0, 2**16, 1000000])
-    def test_run_live_tracking_invalid_port(self, simple_test_file, port):
+    def test_run_live_tracking_invalid_port(self, simple_test_file_param, port):
         # GIVEN/WHEN
         server = subprocess.Popen(
             [
@@ -1470,7 +1470,7 @@ class TestLiveRemoteSubcommand:
                 "--live-remote",
                 "--live-port",
                 str(port),
-                str(simple_test_file),
+                str(simple_test_file_param),
             ],
             env={"PYTHONUNBUFFERED": "1"},
             stdout=subprocess.PIPE,
@@ -1560,7 +1560,7 @@ class TestLiveRemoteSubcommand:
         # THEN
         assert "Encountered error in 'send' call:" not in stderr
 
-    def test_live_tracking_server_exits_properly_on_sigint(self, simple_test_file):
+    def test_live_tracking_server_exits_properly_on_sigint(self, simple_test_file_arg):
         # GIVEN
         server = subprocess.Popen(
             [
@@ -1569,7 +1569,7 @@ class TestLiveRemoteSubcommand:
                 "memray",
                 "run",
                 "--live-remote",
-                str(simple_test_file),
+                str(simple_test_file_arg),
             ],
             env={"PYTHONUNBUFFERED": "1"},
             stdout=subprocess.PIPE,
@@ -1703,9 +1703,9 @@ class TestTransformSubCommands:
             r"Failed to parse allocation records in .*badfile\.bin", proc.stderr
         )
 
-    def test_report_leaks_argument(self, tmp_path, simple_test_file):
+    def test_report_leaks_argument(self, tmp_path, simple_test_file_arg):
         results_file, source_file = generate_sample_results(
-            tmp_path, simple_test_file, native=True
+            tmp_path, simple_test_file_arg, native=True
         )
         output_file = tmp_path / "output.html"
 

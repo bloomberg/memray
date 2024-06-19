@@ -344,8 +344,8 @@ def test_draw_histogram_invalid_input():
         _ = draw_histogram([100, 200, 300], bins=5, hist_scale_factor=0)
 
 
-def test_stats_output(fake_stats):
-    reporter = StatsReporter(fake_stats, 5)
+def test_stats_output(fake_stats_param):
+    reporter = StatsReporter(fake_stats_param, 5)
     with patch("builtins.print") as mocked_print:
         with patch("rich.print", print):
             reporter.render()
@@ -392,9 +392,9 @@ def test_stats_output(fake_stats):
     assert expected == printed
 
 
-def test_stats_output_json(fake_stats, tmp_path):
+def test_stats_output_json(stats, tmp_path):
     output_file = tmp_path / "json.out"
-    reporter = StatsReporter(fake_stats, 5)
+    reporter = StatsReporter(stats, 5)
     reporter.render(json_output_file=output_file)
     expected = {
         "total_num_allocations": 20,

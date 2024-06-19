@@ -817,11 +817,11 @@ def test_merging_allocations_from_all_threads():
         ),
     ],
 )
-def test_tui_basic(terminal_size, press, snapshots, compare):
+def test_tui_basic(terminal_size, press, snapshots, compare_func):
     async def run_before(pilot) -> None:
         pilot.app.add_mock_snapshots(snapshots)
 
-    assert compare(
+    assert compare_func(
         press=press,
         run_before=run_before,
         terminal_size=terminal_size,
@@ -836,7 +836,7 @@ def test_tui_basic(terminal_size, press, snapshots, compare):
         pytest.param((81, 24), True, id="wider-terminal"),
     ],
 )
-def test_tui_pause(terminal_size, disconnected, compare):
+def test_tui_pause(terminal_size, disconnected, compare_func):
     async def run_before(pilot: Pilot) -> None:
         app = cast(MockApp, pilot.app)
         app.add_mock_snapshot(SHORT_SNAPSHOTS[0])
@@ -846,13 +846,13 @@ def test_tui_pause(terminal_size, disconnected, compare):
         await pilot.pause()
         app.add_mock_snapshot(SHORT_SNAPSHOTS[1], disconnected=disconnected)
 
-    assert compare(
+    assert compare_func(
         run_before=run_before,
         terminal_size=terminal_size,
     )
 
 
-def test_tui_gradient(compare):
+def test_tui_gradient(compare_func):
     snapshot = [
         mock_allocation(
             stack=[(f"function{j}", f"/abc/lel_{j}.py", i) for j in range(i, -1, -1)],
@@ -865,7 +865,7 @@ def test_tui_gradient(compare):
     async def run_before(pilot) -> None:
         pilot.app.add_mock_snapshots([snapshot], native=False)
 
-    assert compare(run_before=run_before, terminal_size=(125, 40), native=False)
+    assert compare_func(run_before=run_before, terminal_size=(125, 40), native=False)
 
 
 class TestAggregateResults:
@@ -1024,7 +1024,7 @@ class TestAggregateResults:
         assert me.n_allocations == 3
 
 
-def test_merge_threads(compare):
+def test_merge_threads(compare_func):
     async def run_before(pilot: Pilot) -> None:
         snapshot = [
             mock_allocation(
@@ -1048,13 +1048,13 @@ def test_merge_threads(compare):
         await pilot.pause()
         app.add_mock_snapshot(snapshot)
 
-    assert compare(
+    assert compare_func(
         run_before=run_before,
         terminal_size=(150, 24),
     )
 
 
-def test_unmerge_threads(compare):
+def test_unmerge_threads(compare_func):
     async def run_before(pilot: Pilot) -> None:
         snapshot = [
             mock_allocation(
@@ -1081,7 +1081,7 @@ def test_unmerge_threads(compare):
         await pilot.pause()
         app.add_mock_snapshot(snapshot)
 
-    assert compare(
+    assert compare_func(
         run_before=run_before,
         terminal_size=(150, 24),
     )

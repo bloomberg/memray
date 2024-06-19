@@ -1573,7 +1573,7 @@ def compare(monkeypatch, tmp_path, snap_compare):
 
 
 class TestTUILooks:
-    def test_basic(self, compare):
+    def test_basic(self, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1605,9 +1605,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=[])
+            assert compare_func(peak_allocations, press=[])
 
-    def test_basic_node_selected_not_leaf(self, compare):
+    def test_basic_node_selected_not_leaf(self, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1639,9 +1639,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=[*["down"] * 2])
+            assert compare_func(peak_allocations, press=[*["down"] * 2])
 
-    def test_basic_node_selected_leaf(self, compare):
+    def test_basic_node_selected_leaf(self, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1673,9 +1673,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=[*["down"] * 3])
+            assert compare_func(peak_allocations, press=[*["down"] * 3])
 
-    def test_two_chains(self, compare):
+    def test_two_chains(self, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1720,9 +1720,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=[])
+            assert compare_func(peak_allocations, press=[])
 
-    def test_two_chains_after_expanding_second(self, compare):
+    def test_two_chains_after_expanding_second(self, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1769,9 +1769,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=[*["down"] * 4, "e"])
+            assert compare_func(peak_allocations, press=[*["down"] * 4, "e"])
 
-    def test_hide_import_system(self, compare):
+    def test_hide_import_system(self, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1819,9 +1819,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=["i"])
+            assert compare_func(peak_allocations, press=["i"])
 
-    def test_show_uninteresting(self, compare):
+    def test_show_uninteresting(self, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1869,9 +1869,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=["u"])
+            assert compare_func(peak_allocations, press=["u"])
 
-    def test_show_uninteresting_and_hide_import_system(self, compare):
+    def test_show_uninteresting_and_hide_import_system(self, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1920,9 +1920,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=["u", "i"])
+            assert compare_func(peak_allocations, press=["u", "i"])
 
-    def test_select_screen(self, tmp_path, compare):
+    def test_select_screen(self, tmp_path, compare_func):
         # GIVEN
         code = dedent(
             """\
@@ -1953,9 +1953,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = code.splitlines()
-            assert compare(peak_allocations, press=[*["down"] * 3])
+            assert compare_func(peak_allocations, press=[*["down"] * 3])
 
-    def test_allocations_of_different_sizes(self, compare):
+    def test_allocations_of_different_sizes(self, compare_func):
         # GIVEN
         peak_allocations = [
             MockAllocationRecord(
@@ -1973,9 +1973,9 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = []
-            assert compare(peak_allocations, press=[], terminal_size=(350, 100))
+            assert compare_func(peak_allocations, press=[], terminal_size=(350, 100))
 
-    def test_biggest_allocations(self, compare):
+    def test_biggest_allocations(self, compare_func):
         # GIVEN
         peak_allocations = [
             MockAllocationRecord(
@@ -1995,7 +1995,7 @@ class TestTUILooks:
         # WHEN / THEN
         with patch("linecache.getlines") as getlines:
             getlines.return_value = []
-            assert compare(
+            assert compare_func(
                 peak_allocations,
                 press=["end"],
                 biggest_allocs=10,
