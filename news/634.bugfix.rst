@@ -1,0 +1,1 @@
+Fix a deadlock that could occur on some Linux systems when resolving debug information using debuginfod.

@@ -853,6 +853,8 @@ elf_readlink (struct backtrace_state *state, const char *filename,
 
 #define SYSTEM_BUILD_ID_DIR "/usr/lib/debug/.build-id/"
 
+static int debuginfod_guard = 0;
+
 static int
 elf_open_debugfile_by_debuginfod (const char *buildid_data,
 			       size_t buildid_size,
@@ -4455,7 +4457,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 
       d = elf_open_debugfile_by_buildid (state, buildid_data, buildid_size,
 					 error_callback, data);
-      if (d < 0) {
+      if (d < 0 && !debuginfod_guard) {
           char* env = getenv(DEBUGINFOD_PROGRESS_ENV_VAR);
           if (env) {
             fprintf(stderr, "Trying to download debuginfo for %s\n", filename);
@@ -4930,7 +4932,28 @@ backtrace_initialize (struct backtrace_state *state, const char *filename,
   pd.exe_filename = filename;
   pd.exe_descriptor = ret < 0 ? descriptor : -1;
 
+  /* Here, There Be Dragons: we are about to call dl_iterate_phdr,
+     which is a glibc-internal function that holds a libc internal
+     lock. As this function needs to iterate over all the loaded
+     modules, this lock is shared by dlopen so no new modules can be
+     loaded while is iterating. This is a problem for us, as the
+     debuginfod client will use libcurl to spawn threads to download
+     debuginfo files, and libcurl uses dlopen to load a bunch of stuff
+     for its backend in some versions. This can cause a deadlock because
+     the debuginfod client will wait until the libcurl threads finish but
+     they will never finish because they are waiting for the dlopen lock
+     to be released, which will not happen until the call to dl_iterate_phdr
+     finishes.
+
+     To avoid this, we use a global variable to detect if we are already
+     iterating over the modules, and if so, we skip the query to debuginfod
+     and just try with the other default methods.
+
+     Note this ONLY affects the symbol resolution when retrieving a backtrace,
+     and it doesn't affect offline symbolication.  */
+  debuginfod_guard++;
   dl_iterate_phdr (phdr_callback, (void *) &pd);
+  debuginfod_guard--;
 
   if (!state->threaded)
     {
