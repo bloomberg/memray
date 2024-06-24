@@ -8,6 +8,15 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.13.1 (2024-06-23)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a deadlock that could occur on some Linux systems when resolving debug information using debuginfod. (#634)
+
+
 memray 1.13.0 (2024-06-18)
 --------------------------
 
