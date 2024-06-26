@@ -102,7 +102,7 @@ Symbolification in macOS
 
 .. caution::
 
-    Because most most macOS binaries for Python don't include debug
+    Because most macOS binaries for Python don't include debug
     information, **reports produced in macOS can be much less accurate**.
 
 On Mac OS X there was a decision to not have the linker include all of the
