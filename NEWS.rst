@@ -8,6 +8,21 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.13.2 (2024-06-27)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a bug that could in rare circumstances result in a stack overflow while processing native mode stacks. (#639)
+
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+- Upgrade our vendored copy of ``libbacktrace``, used for reporting native stacks, to the latest version. (#639)
+
+
 memray 1.13.1 (2024-06-23)
 --------------------------
 
