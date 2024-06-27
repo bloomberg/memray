@@ -1,0 +1,1 @@
+Upgrade our vendored copy of ``libbacktrace``, used for reporting native stacks, to the latest version.

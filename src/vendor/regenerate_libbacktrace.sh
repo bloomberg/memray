@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-SNAPSHOT_COMMIT=2446c66076480ce07a6bd868badcbceb3eeecc2e
+SNAPSHOT_COMMIT=4ead348bb45f753121ca0bd44170ff8352d4c514
 LIBBACKTRACE_DIR="libbacktrace"
 
 echo "checking" $(ls)

@@ -412,6 +412,7 @@ SymbolResolver::getBacktraceState(InternedString interned_filename, uintptr_t ad
                         nullptr,
                         0,
                         address_start,
+                        nullptr,
                         errorHandler,
                         &data,
                         &state->fileline_fn,
