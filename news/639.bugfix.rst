@@ -1,1 +1,0 @@
-Fix a bug that could in rare circumstances result in a stack overflow while processing native mode stacks.
