@@ -651,8 +651,16 @@ HAVE_OBJCOPY_DEBUGLINK_FALSE
 HAVE_OBJCOPY_DEBUGLINK_TRUE
 READELF
 OBJCOPY
-HAVE_COMPRESSED_DEBUG_FALSE
-HAVE_COMPRESSED_DEBUG_TRUE
+HAVE_COMPRESSED_DEBUG_ZSTD_FALSE
+HAVE_COMPRESSED_DEBUG_ZSTD_TRUE
+HAVE_ZSTD_FALSE
+HAVE_ZSTD_TRUE
+HAVE_COMPRESSED_DEBUG_ZLIB_GABI_FALSE
+HAVE_COMPRESSED_DEBUG_ZLIB_GABI_TRUE
+HAVE_COMPRESSED_DEBUG_ZLIB_GNU_FALSE
+HAVE_COMPRESSED_DEBUG_ZLIB_GNU_TRUE
+HAVE_BUILDID_FALSE
+HAVE_BUILDID_TRUE
 HAVE_ZLIB_FALSE
 HAVE_ZLIB_TRUE
 HAVE_DWARF5_FALSE
@@ -11272,7 +11280,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11275 "configure"
+#line 11283 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11378,7 +11386,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11381 "configure"
+#line 11389 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12316,26 +12324,31 @@ fi
 
 
 # Check for dl_iterate_phdr.
-for ac_header in link.h
+for ac_header in link.h sys/link.h
 do :
-  ac_fn_c_check_header_mongrel "$LINENO" "link.h" "ac_cv_header_link_h" "$ac_includes_default"
-if test "x$ac_cv_header_link_h" = xyes; then :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
   cat >>confdefs.h <<_ACEOF
-#define HAVE_LINK_H 1
+#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
 _ACEOF
 
 fi
 
 done
 
-if test "$ac_cv_header_link_h" = "no"; then
+if test "$ac_cv_header_link_h" = "no" -a "$ac_cv_header_sys_link_h" = "no"; then
   have_dl_iterate_phdr=no
 else
   if test -n "${with_target_subdir}"; then
+    link_h=link.h
+    if test "$ac_cv_header_link_h" = "no"; then
+       link_h=sys/link.h
+    fi
     # When built as a GCC target library, we can't do a link test.
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#include <link.h>
+#include <$link_h>
 
 _ACEOF
 if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
@@ -12429,6 +12442,34 @@ $as_echo "#define HAVE_LOADQUERY 1" >>confdefs.h
 
 fi
 
+for ac_header in windows.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "windows.h" "ac_cv_header_windows_h" "$ac_includes_default"
+if test "x$ac_cv_header_windows_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_WINDOWS_H 1
+_ACEOF
+
+fi
+
+done
+
+for ac_header in tlhelp32.h
+do :
+  ac_fn_c_check_header_compile "$LINENO" "tlhelp32.h" "ac_cv_header_tlhelp32_h" "#ifdef HAVE_WINDOWS_H
+#  include <windows.h>
+#endif
+"
+if test "x$ac_cv_header_tlhelp32_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_TLHELP32_H 1
+_ACEOF
+
+fi
+
+done
+
+
 # Check for the fcntl function.
 if test -n "${with_target_subdir}"; then
    case "${host}" in
@@ -12505,6 +12546,19 @@ if test "$have_getexecname" = "yes"; then
 $as_echo "#define HAVE_GETEXECNAME 1" >>confdefs.h
 
 fi
+
+# Check for _pgmptr variable, contains the executable filename on windows
+ac_fn_c_check_decl "$LINENO" "_pgmptr" "ac_cv_have_decl__pgmptr" "$ac_includes_default"
+if test "x$ac_cv_have_decl__pgmptr" = xyes; then :
+  ac_have_decl=1
+else
+  ac_have_decl=0
+fi
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL__PGMPTR $ac_have_decl
+_ACEOF
+
 
 # Check for sysctl definitions.
 
@@ -12765,9 +12819,47 @@ else
 fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether --compress-debug-sections is supported" >&5
-$as_echo_n "checking whether --compress-debug-sections is supported... " >&6; }
-if ${libgo_cv_ld_compress+:} false; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether --build-id is supported" >&5
+$as_echo_n "checking whether --build-id is supported... " >&6; }
+if ${libbacktrace_cv_ld_buildid+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  LDFLAGS_hold=$LDFLAGS
+LDFLAGS="$LDFLAGS -Wl,--build-id"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  libbacktrace_cv_ld_buildid=yes
+else
+  libbacktrace_cv_ld_buildid=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LDFLAGS=$LDFLAGS_hold
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libbacktrace_cv_ld_buildid" >&5
+$as_echo "$libbacktrace_cv_ld_buildid" >&6; }
+ if test "$libbacktrace_cv_ld_buildid" = yes; then
+  HAVE_BUILDID_TRUE=
+  HAVE_BUILDID_FALSE='#'
+else
+  HAVE_BUILDID_TRUE='#'
+  HAVE_BUILDID_FALSE=
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether --compress-debug-sections=zlib-gnu is supported" >&5
+$as_echo_n "checking whether --compress-debug-sections=zlib-gnu is supported... " >&6; }
+if ${libgo_cv_ld_compress_zlib_gnu+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   LDFLAGS_hold=$LDFLAGS
@@ -12784,22 +12876,149 @@ main ()
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  libgo_cv_ld_compress=yes
+  libgo_cv_ld_compress_zlib_gnu=yes
 else
-  libgo_cv_ld_compress=no
+  libgo_cv_ld_compress_zlib_gnu=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LDFLAGS=$LDFLAGS_hold
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libgo_cv_ld_compress" >&5
-$as_echo "$libgo_cv_ld_compress" >&6; }
- if test "$libgo_cv_ld_compress" = yes; then
-  HAVE_COMPRESSED_DEBUG_TRUE=
-  HAVE_COMPRESSED_DEBUG_FALSE='#'
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libgo_cv_ld_compress_zlib_gnu" >&5
+$as_echo "$libgo_cv_ld_compress_zlib_gnu" >&6; }
+ if test "$libgo_cv_ld_compress_zlib_gnu" = yes; then
+  HAVE_COMPRESSED_DEBUG_ZLIB_GNU_TRUE=
+  HAVE_COMPRESSED_DEBUG_ZLIB_GNU_FALSE='#'
 else
-  HAVE_COMPRESSED_DEBUG_TRUE='#'
-  HAVE_COMPRESSED_DEBUG_FALSE=
+  HAVE_COMPRESSED_DEBUG_ZLIB_GNU_TRUE='#'
+  HAVE_COMPRESSED_DEBUG_ZLIB_GNU_FALSE=
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether --compress-debug-sections=zlib-gabi is supported" >&5
+$as_echo_n "checking whether --compress-debug-sections=zlib-gabi is supported... " >&6; }
+if ${libgo_cv_ld_compress_zlib_gabi+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  LDFLAGS_hold=$LDFLAGS
+LDFLAGS="$LDFLAGS -Wl,--compress-debug-sections=zlib-gabi"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  libgo_cv_ld_compress_zlib_gabi=yes
+else
+  libgo_cv_ld_compress_zlib_gabi=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LDFLAGS=$LDFLAGS_hold
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libgo_cv_ld_compress_zlib_gabi" >&5
+$as_echo "$libgo_cv_ld_compress_zlib_gabi" >&6; }
+ if test "$libgo_cv_ld_compress_zlib_gabi" = yes; then
+  HAVE_COMPRESSED_DEBUG_ZLIB_GABI_TRUE=
+  HAVE_COMPRESSED_DEBUG_ZLIB_GABI_FALSE='#'
+else
+  HAVE_COMPRESSED_DEBUG_ZLIB_GABI_TRUE='#'
+  HAVE_COMPRESSED_DEBUG_ZLIB_GABI_FALSE=
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for ZSTD_compress in -lzstd" >&5
+$as_echo_n "checking for ZSTD_compress in -lzstd... " >&6; }
+if ${ac_cv_lib_zstd_ZSTD_compress+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lzstd  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char ZSTD_compress ();
+int
+main ()
+{
+return ZSTD_compress ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_zstd_ZSTD_compress=yes
+else
+  ac_cv_lib_zstd_ZSTD_compress=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_zstd_ZSTD_compress" >&5
+$as_echo "$ac_cv_lib_zstd_ZSTD_compress" >&6; }
+if test "x$ac_cv_lib_zstd_ZSTD_compress" = xyes; then :
+
+$as_echo "#define HAVE_ZSTD 1" >>confdefs.h
+
+fi
+
+ if test "$ac_cv_lib_zstd_ZSTD_compress" = yes; then
+  HAVE_ZSTD_TRUE=
+  HAVE_ZSTD_FALSE='#'
+else
+  HAVE_ZSTD_TRUE='#'
+  HAVE_ZSTD_FALSE=
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether --compress-debug-sections=zstd is supported" >&5
+$as_echo_n "checking whether --compress-debug-sections=zstd is supported... " >&6; }
+if ${libgo_cv_ld_compress_zstd+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  LDFLAGS_hold=$LDFLAGS
+LDFLAGS="$LDFLAGS -Wl,--compress-debug-sections=zstd"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  libgo_cv_ld_compress_zstd=yes
+else
+  libgo_cv_ld_compress_zstd=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LDFLAGS=$LDFLAGS_hold
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libgo_cv_ld_compress_zstd" >&5
+$as_echo "$libgo_cv_ld_compress_zstd" >&6; }
+ if test "$libgo_cv_ld_compress_zstd" = yes; then
+  HAVE_COMPRESSED_DEBUG_ZSTD_TRUE=
+  HAVE_COMPRESSED_DEBUG_ZSTD_FALSE='#'
+else
+  HAVE_COMPRESSED_DEBUG_ZSTD_TRUE='#'
+  HAVE_COMPRESSED_DEBUG_ZSTD_FALSE=
 fi
 
 
@@ -12887,7 +13106,7 @@ else
   libbacktrace_cv_objcopy_debuglink=no
 elif ! test -n "${OBJCOPY}"; then
   libbacktrace_cv_objcopy_debuglink=no
-elif ${OBJCOPY} --help | fgrep add-gnu-debuglink >/dev/null 2>&1; then
+elif ${OBJCOPY} --help | grep add-gnu-debuglink >/dev/null 2>&1; then
   libbacktrace_cv_objcopy_debuglink=yes
 else
   libbacktrace_cv_objcopy_debuglink=no
@@ -13345,8 +13564,24 @@ if test -z "${HAVE_ZLIB_TRUE}" && test -z "${HAVE_ZLIB_FALSE}"; then
   as_fn_error $? "conditional \"HAVE_ZLIB\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
-if test -z "${HAVE_COMPRESSED_DEBUG_TRUE}" && test -z "${HAVE_COMPRESSED_DEBUG_FALSE}"; then
-  as_fn_error $? "conditional \"HAVE_COMPRESSED_DEBUG\" was never defined.
+if test -z "${HAVE_BUILDID_TRUE}" && test -z "${HAVE_BUILDID_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_BUILDID\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_COMPRESSED_DEBUG_ZLIB_GNU_TRUE}" && test -z "${HAVE_COMPRESSED_DEBUG_ZLIB_GNU_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_COMPRESSED_DEBUG_ZLIB_GNU\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_COMPRESSED_DEBUG_ZLIB_GABI_TRUE}" && test -z "${HAVE_COMPRESSED_DEBUG_ZLIB_GABI_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_COMPRESSED_DEBUG_ZLIB_GABI\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_ZSTD_TRUE}" && test -z "${HAVE_ZSTD_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_ZSTD\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_COMPRESSED_DEBUG_ZSTD_TRUE}" && test -z "${HAVE_COMPRESSED_DEBUG_ZSTD_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_COMPRESSED_DEBUG_ZSTD\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_OBJCOPY_DEBUGLINK_TRUE}" && test -z "${HAVE_OBJCOPY_DEBUGLINK_FALSE}"; then

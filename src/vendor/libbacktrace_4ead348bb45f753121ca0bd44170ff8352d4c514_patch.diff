@@ -1,5 +1,5 @@
 diff --git a/Makefile.am b/Makefile.am
-index 166a058..998cc67 100644
+index 640f7e7..74bde8f 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -35,7 +35,7 @@ AM_CPPFLAGS =
@@ -12,10 +12,10 @@ index 166a058..998cc67 100644
  lib_LTLIBRARIES = libbacktrace.la
  
 diff --git a/Makefile.in b/Makefile.in
-index b6a57ee..dc1e692 100644
+index 5639974..9ad9623 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -940,7 +940,7 @@ top_srcdir = @top_srcdir@
+@@ -983,7 +983,7 @@ top_srcdir = @top_srcdir@
  ACLOCAL_AMFLAGS = -I config
  AM_CPPFLAGS = 
  AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
@@ -25,10 +25,10 @@ index b6a57ee..dc1e692 100644
  libbacktrace_la_SOURCES = \
  	backtrace.h \
 diff --git a/elf.c b/elf.c
-index 79d5614..fb54165 100644
+index 819e256..107e26c 100644
 --- a/elf.c
 +++ b/elf.c
-@@ -550,7 +550,7 @@ elf_crc32_file (struct backtrace_state *state, int descriptor,
+@@ -557,7 +557,7 @@ elf_crc32_file (struct backtrace_state *state, int descriptor,
  /* A dummy callback function used when we can't find a symbol
     table.  */
  
@@ -37,7 +37,7 @@ index 79d5614..fb54165 100644
  elf_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
  	    uintptr_t addr ATTRIBUTE_UNUSED,
  	    backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
-@@ -624,7 +624,7 @@ elf_symbol_search (const void *vkey, const void *ventry)
+@@ -631,7 +631,7 @@ elf_symbol_search (const void *vkey, const void *ventry)
  
  /* Initialize the symbol table info for elf_syminfo.  */
  
@@ -46,7 +46,7 @@ index 79d5614..fb54165 100644
  elf_initialize_syminfo (struct backtrace_state *state,
  			uintptr_t base_address,
  			const unsigned char *symtab_data, size_t symtab_size,
-@@ -751,7 +751,7 @@ elf_add_syminfo_data (struct backtrace_state *state,
+@@ -758,7 +758,7 @@ elf_add_syminfo_data (struct backtrace_state *state,
  
  /* Return the symbol name and value for an ADDR.  */
  
@@ -55,7 +55,7 @@ index 79d5614..fb54165 100644
  elf_syminfo (struct backtrace_state *state, uintptr_t addr,
  	     backtrace_syminfo_callback callback,
  	     backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
-@@ -1082,7 +1082,7 @@ elf_open_debugfile_by_debuglink (struct backtrace_state *state,
+@@ -1089,7 +1089,7 @@ elf_open_debugfile_by_debuglink (struct backtrace_state *state,
      {
        uint32_t got_crc;
  
@@ -64,7 +64,7 @@ index 79d5614..fb54165 100644
        if (got_crc != debuglink_crc)
  	{
  	  backtrace_close (ddescriptor, error_callback, data);
-@@ -3981,7 +3981,7 @@ backtrace_uncompress_lzma (struct backtrace_state *state,
+@@ -6496,7 +6496,7 @@ backtrace_uncompress_lzma (struct backtrace_state *state,
     elf_add will need to be called on the descriptor again after
     base_address is determined.  */
  
@@ -72,18 +72,9 @@ index 79d5614..fb54165 100644
 +int
  elf_add (struct backtrace_state *state, const char *filename, int descriptor,
  	 const unsigned char *memory, size_t memory_size,
- 	 uintptr_t base_address, backtrace_error_callback error_callback,
-@@ -4355,7 +4355,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
- 
-   if (symtab_shndx == 0)
-     symtab_shndx = dynsym_shndx;
--  if (symtab_shndx != 0 && !debuginfo)
-+  if (symtab_shndx != 0)
-     {
-       const b_elf_shdr *symtab_shdr;
-       unsigned int strtab_shndx;
+ 	 uintptr_t base_address, struct elf_ppc64_opd_data *caller_opd,
 diff --git a/internal.h b/internal.h
-index bb481f3..afe8631 100644
+index c6fc717..d435a55 100644
 --- a/internal.h
 +++ b/internal.h
 @@ -33,6 +33,10 @@ POSSIBILITY OF SUCH DAMAGE.  */
@@ -97,14 +88,16 @@ index bb481f3..afe8631 100644
  /* We assume that <sys/types.h> and "backtrace.h" have already been
     included.  */
  
-@@ -377,4 +381,35 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
+@@ -386,4 +390,37 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
  				      unsigned char **uncompressed,
  				      size_t *uncompressed_size);
  
++struct elf_ppc64_opd_data;
 +extern int elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 +	 const unsigned char *memory, size_t memory_size,
-+	 uintptr_t base_address, backtrace_error_callback error_callback,
-+	 void *data, fileline *fileline_fn, int *found_sym, int *found_dwarf,
++	 uintptr_t base_address, struct elf_ppc64_opd_data *caller_opd,
++	 backtrace_error_callback error_callback, void *data,
++	 fileline *fileline_fn, int *found_sym, int *found_dwarf,
 +	 struct dwarf_data **fileline_entry, int exe, int debuginfo,
 +	 const char *with_buildid_data, uint32_t with_buildid_size);
 +extern void elf_syminfo (struct backtrace_state *state, uintptr_t addr,
@@ -134,7 +127,7 @@ index bb481f3..afe8631 100644
 +
  #endif
 diff --git a/macho.c b/macho.c
-index 66e101e..9422a90 100644
+index d00aea9..4cd700c 100644
 --- a/macho.c
 +++ b/macho.c
 @@ -92,6 +92,7 @@ struct macho_header_fat

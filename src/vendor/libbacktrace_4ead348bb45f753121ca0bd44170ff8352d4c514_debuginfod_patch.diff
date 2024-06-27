@@ -1,5 +1,5 @@
 diff --git a/Makefile.am b/Makefile.am
-index 998cc67..f065ade 100644
+index 74bde8f..3ace91e 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -35,7 +35,7 @@ AM_CPPFLAGS =
@@ -19,7 +19,7 @@ index 998cc67..f065ade 100644
  	posix.c \
  	print.c \
  	sort.c \
-@@ -562,7 +563,7 @@ alloc.lo: config.h backtrace.h internal.h
+@@ -651,7 +652,7 @@ alloc.lo: config.h backtrace.h internal.h
  backtrace.lo: config.h backtrace.h internal.h
  btest.lo: filenames.h backtrace.h backtrace-supported.h
  dwarf.lo: config.h filenames.h backtrace.h internal.h
@@ -29,10 +29,10 @@ index 998cc67..f065ade 100644
  macho.lo: config.h backtrace.h internal.h
  mmap.lo: config.h backtrace.h internal.h
 diff --git a/Makefile.in b/Makefile.in
-index dc1e692..5dde684 100644
+index 9ad9623..632fe8b 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -940,7 +940,7 @@ top_srcdir = @top_srcdir@
+@@ -983,7 +983,7 @@ top_srcdir = @top_srcdir@
  ACLOCAL_AMFLAGS = -I config
  AM_CPPFLAGS = 
  AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
@@ -41,7 +41,7 @@ index dc1e692..5dde684 100644
  lib_LTLIBRARIES = libbacktrace.la
  libbacktrace_la_SOURCES = \
  	backtrace.h \
-@@ -948,6 +948,7 @@ libbacktrace_la_SOURCES = \
+@@ -991,6 +991,7 @@ libbacktrace_la_SOURCES = \
  	dwarf.c \
  	fileline.c \
  	internal.h \
@@ -49,7 +49,7 @@ index dc1e692..5dde684 100644
  	posix.c \
  	print.c \
  	sort.c \
-@@ -2514,7 +2515,7 @@ alloc.lo: config.h backtrace.h internal.h
+@@ -2737,7 +2738,7 @@ alloc.lo: config.h backtrace.h internal.h
  backtrace.lo: config.h backtrace.h internal.h
  btest.lo: filenames.h backtrace.h backtrace-supported.h
  dwarf.lo: config.h filenames.h backtrace.h internal.h
@@ -180,7 +180,7 @@ index 0000000..78f4d8d
 +
 +#endif /* _DEBUGINFOD_CLIENT_H */
 diff --git a/elf.c b/elf.c
-index fb54165..2eb2546 100644
+index 107e26c..3d2b75f 100644
 --- a/elf.c
 +++ b/elf.c
 @@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
@@ -190,8 +190,8 @@ index fb54165..2eb2546 100644
 +#include <dlfcn.h>
  
  #ifdef HAVE_DL_ITERATE_PHDR
- #include <link.h>
-@@ -45,6 +46,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
+  #ifdef HAVE_LINK_H
+@@ -50,6 +51,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
  
  #include "backtrace.h"
  #include "internal.h"
@@ -199,7 +199,7 @@ index fb54165..2eb2546 100644
  
  #ifndef S_ISLNK
   #ifndef S_IFLNK
-@@ -851,6 +853,39 @@ elf_readlink (struct backtrace_state *state, const char *filename,
+@@ -858,6 +860,39 @@ elf_readlink (struct backtrace_state *state, const char *filename,
  
  #define SYSTEM_BUILD_ID_DIR "/usr/lib/debug/.build-id/"
  
@@ -239,7 +239,7 @@ index fb54165..2eb2546 100644
  /* Open a separate debug info file, using the build ID to find it.
     Returns an open file descriptor, or -1.
  
-@@ -4422,6 +4457,14 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
+@@ -6946,6 +6981,14 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
  
        d = elf_open_debugfile_by_buildid (state, buildid_data, buildid_size,
  					 error_callback, data);
@@ -254,7 +254,7 @@ index fb54165..2eb2546 100644
        if (d >= 0)
  	{
  	  int ret;
-@@ -4889,7 +4932,28 @@ backtrace_initialize (struct backtrace_state *state, const char *filename,
+@@ -7421,7 +7464,28 @@ backtrace_initialize (struct backtrace_state *state, const char *filename,
    pd.exe_filename = filename;
    pd.exe_descriptor = ret < 0 ? descriptor : -1;
  

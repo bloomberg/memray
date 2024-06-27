@@ -372,6 +372,15 @@ extern int backtrace_uncompress_zdebug (struct backtrace_state *,
 					unsigned char **uncompressed,
 					size_t *uncompressed_size);
 
+/* A test-only hook for elf_zstd_decompress.  */
+
+extern int backtrace_uncompress_zstd (struct backtrace_state *,
+				      const unsigned char *compressed,
+				      size_t compressed_size,
+				      backtrace_error_callback, void *data,
+				      unsigned char *uncompressed,
+				      size_t uncompressed_size);
+
 /* A test-only hook for elf_uncompress_lzma.  */
 
 extern int backtrace_uncompress_lzma (struct backtrace_state *,
@@ -381,10 +390,12 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
 				      unsigned char **uncompressed,
 				      size_t *uncompressed_size);
 
+struct elf_ppc64_opd_data;
 extern int elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	 const unsigned char *memory, size_t memory_size,
-	 uintptr_t base_address, backtrace_error_callback error_callback,
-	 void *data, fileline *fileline_fn, int *found_sym, int *found_dwarf,
+	 uintptr_t base_address, struct elf_ppc64_opd_data *caller_opd,
+	 backtrace_error_callback error_callback, void *data,
+	 fileline *fileline_fn, int *found_sym, int *found_dwarf,
 	 struct dwarf_data **fileline_entry, int exe, int debuginfo,
 	 const char *with_buildid_data, uint32_t with_buildid_size);
 extern void elf_syminfo (struct backtrace_state *state, uintptr_t addr,
