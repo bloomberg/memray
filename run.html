@@ -1,0 +1,688 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Python allocators" href="python_allocators.html" /><link rel="prev" title="What to learn about next" href="tutorials/additional_features.html" />
+
+    <link rel="shortcut icon" href="_static/favicon.ico"/><!-- Generated with Sphinx 7.3.7 and Furo 2024.05.06 -->
+        <title>The run subcommand - memray</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=387cc868" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=36a5483c" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" /
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">memray</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="_static/logo.png" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Hands-on Tutorial</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">About This Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/1.html">Exercise 1 - Fibonacci Sequence</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/2.html">Exercise 2 - Clinging Onto Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/3.html">Exercise 3 - LRU Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/additional_features.html">What to learn about next</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="current">
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">The <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python_allocators.html">Python allocators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memory.html">Memory overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="temporary_allocations.html">Temporary allocations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="attach.html">Attaching to a running process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native_mode.html">Symbolic information in native mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/README.html">Example Applications for Memray</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Memray API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jupyter_magic.html">Jupyter Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reporters</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="live.html">Live Reporting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="summary.html">Summary Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flamegraph.html">Flame Graph Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="table.html">Table Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tree.html">Tree Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stats.html">Stats Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="transform.html">Transform Reporter</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Information</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="supported_environments.html">Supported environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="licenses.html">Licenses</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/run.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="the-run-subcommand">
+<h1>The <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand<a class="headerlink" href="#the-run-subcommand" title="Link to this heading">¶</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand is used to launch a new Python process and track the memory allocations it
+performs while it runs.</p>
+<section id="basic-tracking">
+<h2>Basic tracking<a class="headerlink" href="#basic-tracking" title="Link to this heading">¶</a></h2>
+<p>The general form of the <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand is one of:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>run<span class="w"> </span><span class="o">[</span>options<span class="o">]</span><span class="w"> </span>file.py<span class="w"> </span><span class="o">[</span>args<span class="o">]</span>
+memray<span class="w"> </span>run<span class="w"> </span><span class="o">[</span>options<span class="o">]</span><span class="w"> </span>-m<span class="w"> </span>module<span class="w"> </span><span class="o">[</span>args<span class="o">]</span>
+</pre></div>
+</div>
+<p>Like the Python interpreter itself, the <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand can take a path to a Python file to run,
+or the name of a Python module to run if you use the <code class="docutils literal notranslate"><span class="pre">-m</span></code> flag. While it runs, memory allocations
+and deallocations throughout the program are tracked. By default they are saved into a file with the
+following pattern:</p>
+<p><code class="docutils literal notranslate"><span class="pre">memray-&lt;script&gt;.&lt;pid&gt;.bin</span></code></p>
+<p>where <code class="docutils literal notranslate"><span class="pre">&lt;script&gt;</span></code> is the name of the executed script and <code class="docutils literal notranslate"><span class="pre">&lt;pid&gt;</span></code> is the process id it ran with.</p>
+<p>A different filename can be provided with the <code class="docutils literal notranslate"><span class="pre">-o</span></code> or <code class="docutils literal notranslate"><span class="pre">--output</span></code> argument.</p>
+</section>
+<section id="native-tracking">
+<span id="id1"></span><h2>Native tracking<a class="headerlink" href="#native-tracking" title="Link to this heading">¶</a></h2>
+<section id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h3>
+<p>Memray supports tracking native C/C++ functions as well as Python functions. This can be especially useful
+when profiling libraries that have extension modules (such as <code class="docutils literal notranslate"><span class="pre">numpy</span></code> or <code class="docutils literal notranslate"><span class="pre">pandas</span></code>) as this
+gives a holistic vision of how much memory is allocated by the extension and how much is allocated by Python itself.</p>
+<p>For instance, consider the Mandelbrot example from the <a class="reference internal" href="examples/README.html#example-applications"><span class="std std-ref">Example Applications for Memray</span></a> section with native tracking
+disabled. Some of the most important allocations happen when operating on NumPy arrays:</p>
+<img alt="_images/mandelbrot_operation_non_native.png" src="_images/mandelbrot_operation_non_native.png" />
+<p>Here, we can see that the allocation happens when doing some math on NumPy arrays but unfortunately this doesn’t inform us
+of what exact operation is allocating memory or how temporaries are being used. We also don’t know if the memory was
+allocated by NumPy or by the interpreter itself. By using the native tracking mode with Memray we can get a much richer report:</p>
+<img alt="_images/mandelbrot_operation_native.png" src="_images/mandelbrot_operation_native.png" />
+<p>In this native report, we can see all the internal C calls that are underneath. We can see that the memory allocation
+happens when the NumPy arrays are being added, due to <code class="docutils literal notranslate"><span class="pre">PyNumber_Add</span></code> appearing in the stack trace. Based on
+<code class="docutils literal notranslate"><span class="pre">PyNumber_Multiply</span></code> not appearing in the stack trace, we can conclude that the temporary array created by NumPy is
+immediately freed (or that it didn’t need to allocate memory in the first place, perhaps because it could reuse some
+already allocated memory).</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Memray will also include <em>inlined</em> functions and <em>macros</em> when native tracking is enabled.</p>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Activating native tracking has a moderate impact on performance as every instruction pointer in the call stack needs
+to be resolved whenever an allocation happens. This effect is more noticeable the more allocations the traced
+application performs.</p>
+</div>
+<p>Check the <a class="reference internal" href="native_mode.html"><span class="doc">section on native symbolification</span></a> for more
+information on how to obtain the best reports with native information, and on
+how to debug problems in reports with native information.</p>
+</section>
+<section id="usage">
+<h3>Usage<a class="headerlink" href="#usage" title="Link to this heading">¶</a></h3>
+<p>To activate native tracking, you need to provide the <code class="docutils literal notranslate"><span class="pre">--native</span></code> argument when using the <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>run<span class="w"> </span>--native<span class="w"> </span>example.py
+</pre></div>
+</div>
+<p>This will add native stack information to the result file, which any reporter will automatically use.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>When generating reports for result files that contain native frames, the report needs to be generated <strong>on the same
+machine</strong> where the result file was generated. This is because the shared libraries that were loaded by the process
+need to be inspected by Memray to get the correct symbol names.</p>
+</div>
+<p>When reporters display native information they will normally use a different color for the Python frames than the native
+frames. This can also be distinguished by looking at the file name in a frame, since Python frames will generally come
+from source files with a <code class="docutils literal notranslate"><span class="pre">.py</span></code> extension.</p>
+</section>
+</section>
+<section id="python-allocator-tracking">
+<h2>Python allocator tracking<a class="headerlink" href="#python-allocator-tracking" title="Link to this heading">¶</a></h2>
+<p>Memray normally tracks allocation and deallocation requests made to the system
+allocator, but by default it won’t see individual Python objects being created.
+That’s because the Python interpreter normally uses its own memory pools for
+creating most objects, only making calls to the system allocator as needed to
+grow or shrink its memory pools. Our documentation on <a class="reference internal" href="python_allocators.html"><span class="doc">python allocators</span></a> describes this memory pooling in greater detail. This
+behavior speeds the Python interpreter up, and by extension speeds up profiling
+with Memray, while still allowing Memray to show you each place where your
+program needs to acquire more memory.</p>
+<p>You can ask Memray to show you each individual object being created and
+destroyed, instead, by providing the <code class="docutils literal notranslate"><span class="pre">--trace-python-allocators</span></code> argument to
+the <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand. This records a lot more data and makes profiling much
+slower. It will show you all allocations, even ones that don’t result in your
+program requesting more memory from the system because the interpreter already
+had memory available for reuse. It can be useful in some cases, though,
+especially when tracking down memory leaks.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This acts also as an alternative way to run with <code class="docutils literal notranslate"><span class="pre">PYTHONMALLOC=malloc</span></code> but
+in a way that allows distiguishing allocations made by using the system
+allocator directly and ones made by using the Python allocator.</p>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>run<span class="w"> </span>--trace-python-allocators<span class="w"> </span>example.py
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Tracking the Python allocators will result in much larger report files and
+slower profiling due to the larger amount of data that needs to be collected.</p>
+</div>
+</section>
+<section id="live-tracking">
+<span id="id2"></span><h2>Live tracking<a class="headerlink" href="#live-tracking" title="Link to this heading">¶</a></h2>
+<section id="id3">
+<h3>Overview<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p>Memray supports presenting a “live” view for observing the memory usage of a running Python program.</p>
+<img alt="_images/live_running.png" src="_images/live_running.png" />
+</section>
+<section id="id4">
+<h3>Usage<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>You can run a program in live mode using <code class="docutils literal notranslate"><span class="pre">run</span> <span class="pre">--live</span></code>:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray3.9<span class="w"> </span>run<span class="w"> </span>--live<span class="w"> </span>application.py
+</pre></div>
+</div>
+<p>Immediately Memray will start your application in the background and will run a TUI in the foreground that you can use
+to analyze your application’s memory usage. If you don’t want to run your program in the background, you can instead
+use <code class="docutils literal notranslate"><span class="pre">run</span> <span class="pre">--live-remote</span></code>:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray3.9<span class="w"> </span>run<span class="w"> </span>--live-remote<span class="w"> </span>application.py
+</pre></div>
+</div>
+<p>In this mode, Memray will choose an unused port, bind to it, and display a message saying:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Run &#39;memray live &lt;port&gt;&#39; in another shell to see live results
+</pre></div>
+</div>
+<p>It will wait for you to run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray3.9<span class="w"> </span>live<span class="w"> </span>&lt;port&gt;
+</pre></div>
+</div>
+<p>in another terminal window to attach to it. Regardless of whether you choose to use one terminal or two, the resulting
+TUI is exactly the same. See <a class="reference internal" href="live.html"><span class="doc">Live Reporting</span></a> for details on how to interpret and control the TUI.</p>
+</section>
+</section>
+<section id="tracking-across-forks">
+<span id="id5"></span><h2>Tracking across forks<a class="headerlink" href="#tracking-across-forks" title="Link to this heading">¶</a></h2>
+<section id="id6">
+<h3>Overview<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<p>Memray can optionally continue tracking in a child process after a parent process forks. This can be useful when using
+<code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code>, or a framework utilizing a pre-fork pattern like Celery or Gunicorn.</p>
+</section>
+<section id="id7">
+<h3>Usage<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
+<p>To activate tracking through forks, you need to provide the <code class="docutils literal notranslate"><span class="pre">--follow-fork</span></code> argument to the <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>run<span class="w"> </span>--follow-fork<span class="w"> </span>example.py
+</pre></div>
+</div>
+<p>In this mode, each time the process forks, a new output file will be created for the new child process, with the new
+child’s process ID appended to the original capture file’s name. The capture files for child processes are exactly like
+any other capture file, and can be fed into any reporter of your choosing.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">--follow-fork</span></code> mode can only be used with an output file. It is incompatible with <code class="docutils literal notranslate"><span class="pre">--live</span></code>
+mode and <code class="docutils literal notranslate"><span class="pre">--live-remote</span></code> mode, since the TUI can’t be attached to multiple processes at once.</p>
+</div>
+</section>
+</section>
+<section id="losing-capture-files-after-oom-errors">
+<h2>Losing capture files after OOM Errors<a class="headerlink" href="#losing-capture-files-after-oom-errors" title="Link to this heading">¶</a></h2>
+<p>When a process runs out of memory, this commonly causes an Out Of Memory error,
+or “OOM Error”. That causes the process to be killed by its operating system.
+Within orchestrations like Kubernetes the termination of the main process might
+immediately lead to the destruction of the container and the loss of the files
+that Memray uses to collect its results.</p>
+<p>When running <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span> <span class="pre">myprogram.py</span></code> a capture file gets created on the file
+system, but the entire file system will be thrown away as soon as the
+orchestration cleans up the container. If the program exits unexpectedly,
+perhaps because the kernel kills it due to an OOM error, the orchestration might
+throw away the capture file before you ever get a chance to use it. Since Memray
+is often used to chase memory leaks, this condition might happen more often than
+you’d like.</p>
+<p>Since Memray is running in the same process as your application, it has no way
+to prevent this data loss (by sending it over the network, for example) because
+any work it does will be terminated when the process crashes.</p>
+<p>Instead of directly calling <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span> <span class="pre">myprogram.py</span></code> you can wrap it in
+a script that will run Memray and run post-processing operations on the capture
+file. That way, the container won’t be destroyed by the orchestration until
+after the wrapper script exits, rather than being destroyed as soon as the
+Python script being tracked by Memray exits.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>run<span class="w"> </span>--output<span class="w"> </span>/tmp/capture.bin<span class="w"> </span>myprogram.py
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Program finished&quot;</span>
+<span class="c1"># Do your post-processing here. This example just logs a summary of what&#39;s</span>
+<span class="c1"># in the capture file, but you might want to generate reports from it and</span>
+<span class="c1"># copy them over the network to some persistent storage, for instance.</span>
+memray<span class="w"> </span>summary<span class="w"> </span>/tmp/capture.bin
+</pre></div>
+</div>
+</section>
+<section id="aggregated-capture-files">
+<span id="id8"></span><h2>Aggregated capture files<a class="headerlink" href="#aggregated-capture-files" title="Link to this heading">¶</a></h2>
+<p>If you supply the <code class="docutils literal notranslate"><span class="pre">--aggregate</span></code> argument to <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span></code>, it will write
+much smaller capture files. Instead of containing information about every
+individual allocation performed by the tracked program, a capture file produced
+using <code class="docutils literal notranslate"><span class="pre">--aggregate</span></code> will contain some statistics about the process’s
+allocations aggregated by the location where the allocation happened.</p>
+<p>Specifically, for every location where the tracked process performed any
+allocations, an aggregated capture file includes a count of:</p>
+<ul class="simple">
+<li><p>How many allocations at that location had not yet been deallocated when the
+process reached its heap memory high water mark</p></li>
+<li><p>How many bytes had been allocated at that location and not yet deallocated
+when the process reached its heap memory high water mark</p></li>
+<li><p>How many allocations at that location were leaked (i.e. not deallocated
+before tracking stopped)</p></li>
+<li><p>How many bytes were leaked by allocations at that location</p></li>
+</ul>
+<p>These counts provide enough information to generate flame graphs. In fact, this
+information is enough to run most of our reporters, with just a few exceptions:</p>
+<ul class="simple">
+<li><p>You cannot find <a class="reference internal" href="temporary_allocations.html"><span class="doc">temporary allocations</span></a> using
+this capture file format, since finding temporary allocations requires
+knowing when each individual allocation was deallocated.</p></li>
+<li><p>You cannot use the <a class="reference internal" href="stats.html"><span class="doc">stats reporter</span></a> with this capture file
+format, because it needs to see each individual allocation’s size.</p></li>
+<li><p>You cannot use <code class="docutils literal notranslate"><span class="pre">--aggregate</span></code> with <a class="reference internal" href="#live-tracking"><span class="std std-ref">live tracking</span></a>,
+since the live TUI needs to see each allocation as it happens.</p></li>
+</ul>
+<p>Also, note that if the process is killed before tracking ends (for instance, by
+the Linux OOM killer), then the process will die before it finishes calculating
+its statistics, and so no useful information is ever written to the capture
+file. With the default file format, the capture file is usually still usable
+even if the process crashes or is killed, but with the aggregated file format
+it is not.</p>
+<p>If you can live with these limitations, then using <code class="docutils literal notranslate"><span class="pre">--aggregate</span></code> results in
+much smaller capture files that can be used seamlessly with most reporters.</p>
+</section>
+<section id="cli-reference">
+<h2>CLI Reference<a class="headerlink" href="#cli-reference" title="Link to this heading">¶</a></h2>
+<p><p>Run the specified application and track memory usage</p>
+</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">memray</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">module</span> <span class="o">|</span> <span class="o">-</span><span class="n">c</span> <span class="n">cmd</span> <span class="o">|</span> <span class="n">file</span><span class="p">]</span> <span class="p">[</span><span class="n">args</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="named-arguments">
+<h3>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">¶</a></h3>
+<dl class="option-list">
+<dt><kbd>-o, --output</kbd></dt>
+<dd><p>Output file name (default: &lt;process_name&gt;.&lt;pid&gt;.bin)</p>
+</dd>
+<dt><kbd>--live</kbd></dt>
+<dd><p>Start a live tracking session and immediately connect a live server</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--live-remote</kbd></dt>
+<dd><p>Start a live tracking session and wait until a client connects</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--live-port, -p</kbd></dt>
+<dd><p>Port to use when starting live tracking (default: random free port)</p>
+</dd>
+<dt><kbd>--aggregate</kbd></dt>
+<dd><p>Write aggregated stats to the output file instead of all allocations</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--native</kbd></dt>
+<dd><p>Track native (C/C++) stack frames as well</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--follow-fork</kbd></dt>
+<dd><p>Record allocations in child processes forked from the tracked script</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--trace-python-allocators</kbd></dt>
+<dd><p>Record allocations made by the pymalloc allocator</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-q, --quiet</kbd></dt>
+<dd><p>Don’t show any tracking-specific output while running</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-f, --force</kbd></dt>
+<dd><p>If the output file already exists, overwrite it</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--compress-on-exit</kbd></dt>
+<dd><p>Compress the resulting file using lz4 after tracking completes</p>
+<p>Default: True</p>
+</dd>
+<dt><kbd>--no-compress</kbd></dt>
+<dd><p>Do not compress the resulting file using lz4</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-c</kbd></dt>
+<dd><p>Program passed in as string</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-m</kbd></dt>
+<dd><p>Run library module as a script (terminates option list)</p>
+<p>Default: False</p>
+</dd>
+</dl>
+</section>
+<p><p>Please submit feedback, ideas, and bug reports by filing a new issue at
+<a class="reference external" href="https://github.com/bloomberg/memray/issues">https://github.com/bloomberg/memray/issues</a></p>
+</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="python_allocators.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Python allocators</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="tutorials/additional_features.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">What to learn about next</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">The <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand</a><ul>
+<li><a class="reference internal" href="#basic-tracking">Basic tracking</a></li>
+<li><a class="reference internal" href="#native-tracking">Native tracking</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#python-allocator-tracking">Python allocator tracking</a></li>
+<li><a class="reference internal" href="#live-tracking">Live tracking</a><ul>
+<li><a class="reference internal" href="#id3">Overview</a></li>
+<li><a class="reference internal" href="#id4">Usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tracking-across-forks">Tracking across forks</a><ul>
+<li><a class="reference internal" href="#id6">Overview</a></li>
+<li><a class="reference internal" href="#id7">Usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#losing-capture-files-after-oom-errors">Losing capture files after OOM Errors</a></li>
+<li><a class="reference internal" href="#aggregated-capture-files">Aggregated capture files</a></li>
+<li><a class="reference internal" href="#cli-reference">CLI Reference</a><ul>
+<li><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=4e2eecee"></script>
+    </body>
+</html>

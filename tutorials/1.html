@@ -1,0 +1,633 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Exercise 2 - Clinging Onto Memory" href="2.html" /><link rel="prev" title="About This Tutorial" href="index.html" />
+
+    <link rel="shortcut icon" href="../_static/favicon.ico"/><!-- Generated with Sphinx 7.3.7 and Furo 2024.05.06 -->
+        <title>Exercise 1 - Fibonacci Sequence - memray</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=387cc868" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" /
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">memray</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/logo.png" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting started</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Hands-on Tutorial</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">About This Tutorial</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Exercise 1 - Fibonacci Sequence</a></li>
+<li class="toctree-l1"><a class="reference internal" href="2.html">Exercise 2 - Clinging Onto Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="3.html">Exercise 3 - LRU Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="additional_features.html">What to learn about next</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../run.html">The <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python_allocators.html">Python allocators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../memory.html">Memory overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../temporary_allocations.html">Temporary allocations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../attach.html">Attaching to a running process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../native_mode.html">Symbolic information in native mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/README.html">Example Applications for Memray</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">Memray API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../jupyter_magic.html">Jupyter Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reporters</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../live.html">Live Reporting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../summary.html">Summary Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../flamegraph.html">Flame Graph Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../table.html">Table Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tree.html">Tree Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../stats.html">Stats Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../transform.html">Transform Reporter</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Information</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../supported_environments.html">Supported environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../licenses.html">Licenses</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/tutorials/1.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="exercise-1-fibonacci-sequence">
+<h1>Exercise 1 - Fibonacci Sequence<a class="headerlink" href="#exercise-1-fibonacci-sequence" title="Link to this heading">¶</a></h1>
+<section id="intro">
+<h2>Intro<a class="headerlink" href="#intro" title="Link to this heading">¶</a></h2>
+<p>This first lesson is meant to familiarize you with the methods and tools we will be using for the
+rest of the exercises. By the end of it, you should understand:</p>
+<ul class="simple">
+<li><p>Basic integration of Memray with pytest</p></li>
+<li><p>How to run a python script with Memray</p></li>
+<li><p>How to generate and interpret a flame graph</p></li>
+</ul>
+<p>In this first example, we will be calculating and printing the results of a Fibonacci sequence of a
+specified number of elements. Python has some great standardized practices for iterating over large
+sequences that you will have an opportunity to learn about.</p>
+<p>This tutorial supports two modes of development: GitHub Codespaces or a local virtual environment.
+Feel free to choose the option more suitable to you below.</p>
+</section>
+<section id="development-environment-setup">
+<h2>Development Environment Setup<a class="headerlink" href="#development-environment-setup" title="Link to this heading">¶</a></h2>
+<section id="codespaces-environment">
+<h3>Codespaces Environment<a class="headerlink" href="#codespaces-environment" title="Link to this heading">¶</a></h3>
+<p>To create a new Codespace, click this button, and follow the prompts. It should take approximately 1-2 minutes to setup.</p>
+<a href='https://codespaces.new/bloomberg/memray?devcontainer_path=.devcontainer%2Ftutorials%2Fdevcontainer.json'><img src='https://github.com/codespaces/badge.svg' alt='Open in GitHub Codespaces' style='max-width: 100%;'></a></section>
+<section id="local-virtual-environment">
+<h3>Local Virtual Environment<a class="headerlink" href="#local-virtual-environment" title="Link to this heading">¶</a></h3>
+<p>Navigate to the <a class="reference external" href="https://github.com/bloomberg/memray">Memray GitHub repo</a> and get a copy of the
+source code. You can either clone it, or just download the zip, whatever is your preference here.</p>
+<p>You will also need a terminal with <code class="docutils literal notranslate"><span class="pre">python3</span></code> installed, preferably one of the latest versions.
+You can see which versions of <code class="docutils literal notranslate"><span class="pre">python3</span></code> are currently supported at the Memray GitHub page as well.</p>
+<p>Once you have the repo ready to navigate, <code class="docutils literal notranslate"><span class="pre">cd</span></code> into the docs/tutorials folder:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs/tutorials/
+</pre></div>
+</div>
+<p>It is here where we will be running the tests and exercises for the remainder of the tutorial.
+For reference here are the official <a class="reference external" href="https://docs.python.org/3/library/venv.html">python3 venv docs</a>.
+You can also just follow along with the commands below.</p>
+<p>Let’s go ahead and setup our virtual environment.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+</pre></div>
+</div>
+<p>Once your virtual environment has been created, you can activate it like so:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</pre></div>
+</div>
+<p>You can confirm activation was successful if your terminal prompt is prefixed with <code class="docutils literal notranslate"><span class="pre">(.venv)</span></code>.
+With our virtual environment ready, we can go ahead and install all the dependencies required
+for the tutorial.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-tutorial.txt
+</pre></div>
+</div>
+<p>Keep your virtual environment activated for the rest of the tutorial, and you should be able to run
+any of the commands in the exercises.</p>
+</section>
+</section>
+<section id="pytest-plugin-for-memray">
+<h2>Pytest plugin for Memray<a class="headerlink" href="#pytest-plugin-for-memray" title="Link to this heading">¶</a></h2>
+<p>Memray supports the ability to augment your pytest tests to enforce an upper bound on your code’s
+memory usage. This will then cause the test to fail if it uses more than the allowed amount of
+memory during the tests execution. Take a look at exercise 1’s test: there is a line that specifies
+<code class="docutils literal notranslate"><span class="pre">&#64;pytest.mark.limit_memory</span></code> . This is how we set our upper bound memory limit. Markers like this
+are used for all of the tests covered in this workshop.</p>
+<section id="codespaces-test-execution">
+<h3>Codespaces Test Execution<a class="headerlink" href="#codespaces-test-execution" title="Link to this heading">¶</a></h3>
+<p>Your Codespace should be pre-configured to include the testing plugin. Click the flask on the
+navigator (circled in green below). This will open the Testing tab, which will include all the
+tests we will be running during this tutorial. Drill down into exercise 1: here you will see
+a handful of tests configured for your first exercise. You can execute this group of tests by
+clicking the play button (circled in red below).</p>
+<img alt="../_images/codespaces_testing_tab.png" src="../_images/codespaces_testing_tab.png" />
+</section>
+<section id="local-virtualenv-test-execution">
+<h3>Local Virtualenv Test Execution<a class="headerlink" href="#local-virtualenv-test-execution" title="Link to this heading">¶</a></h3>
+<p>Pytest is already installed in your virtual environment, so you can simply invoke it to execute your tests.
+Run the following command in your terminal, it will search all subdirectories for tests.
+This will test the entire workshop.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pytest
+</pre></div>
+</div>
+<p>It can be tedious to test all exercises when we are working on 1 exercise at a time. To save time,
+let’s run only the tests for exercise 1.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>tests/test_exercise_1.py
+</pre></div>
+</div>
+<img alt="../_images/pytest_cli_output.png" src="../_images/pytest_cli_output.png" />
+</section>
+<section id="understanding-the-results">
+<h3>Understanding the results<a class="headerlink" href="#understanding-the-results" title="Link to this heading">¶</a></h3>
+<p>Do you notice any issues with your test case? Initially we should see that the test is failing with
+some additional information. Looks like our test case allocated more memory than we allotted for. We
+will be taking advantage of this amazing feature included with Memray to help run our workshop. Your
+goal for each exercise will be to modify the exercises (NOT the tests), in order to respect these memory limits.</p>
+</section>
+</section>
+<section id="flame-graphs-what-are-they">
+<h2>Flame graphs, what are they?<a class="headerlink" href="#flame-graphs-what-are-they" title="Link to this heading">¶</a></h2>
+<p>OK, so we know our test is broken. How can we use Memray to help us dive deeper into the underlying
+problem? The answer is: a flame graph! A flame graph is a tool used to visualize the memory usage of
+a program at a particular point in time. Memray can generate an HTML file that renders a <em>flamegraph
+report</em>.</p>
+<img alt="../_images/exercise1_flamegraph.png" src="../_images/exercise1_flamegraph.png" />
+<p>The <em>flamegraph report</em> is made up of three sections. At the top we have some controls to adjust the
+appearance of our report. The middle portion of the screen shows a line plot where we can see total
+memory usage of our program plotted over time. The vertical (Y) axis is memory used, and the
+horizontal (X) axis is time. The bottom portion is the flame graph, which displays a snapshot of the
+program’s memory usage from only a single moment in time out of the entire execution runtime of the
+program. By default, Memray generates reports showing the point when the program’s memory usage
+reached its peak. Each row in the flame graph is a frame in your stack trace. The width of each box
+represents the relative amount of memory used. In <em>icicles</em> mode, the lowest row is the top of the
+stack, and shows the functions that allocated memory, while in <em>flames</em> mode, the rows are flipped
+such that the top row shows the top of the stack and is the location where memory is allocated.</p>
+<p>You can click on a particular box to filter out less recent frames from the stack, focusing on a
+particular frame and the functions it called into.</p>
+<p>More information on the <a class="reference internal" href="../flamegraph.html"><span class="doc">flame graph reporter</span></a> and how to
+<a class="reference internal" href="../flamegraph.html#interpreting-flame-graphs"><span class="std std-ref">interperet flame graphs</span></a> are available in the docs.</p>
+</section>
+<section id="generating-a-flame-graph">
+<h2>Generating a Flame Graph<a class="headerlink" href="#generating-a-flame-graph" title="Link to this heading">¶</a></h2>
+<section id="codespaces-flame-graph-generation">
+<h3>Codespaces Flame Graph Generation<a class="headerlink" href="#codespaces-flame-graph-generation" title="Link to this heading">¶</a></h3>
+<p>From VS Code, open up 2 terminals. You can do this by typing Ctrl+Shift+P (Cmd+Shift+P on macOS) to
+open the “command palette”, and then typing “terminal” in the search box and selecting “Python:
+Create Terminal”.</p>
+<p>We need to launch an HTTP server to view our generated flame graphs. Run this command in one of your
+terminals:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="w"> </span><span class="m">3000</span>
+</pre></div>
+</div>
+<p>You should now see a prompt to launch the application in your browser, and should click “Open in
+Browser” in the bottom right. If that prompt doesn’t appear, you can navigate to the <em>Ports</em> tab
+(circled in orange below) and click the <em>Open in Browser</em> button (circled in green below). This will
+give you an HTTP server we will use in order to launch and view our generated flame graphs.</p>
+<img alt="../_images/ports_tab.png" src="../_images/ports_tab.png" />
+<p>In your second terminal, navigate to the <code class="docutils literal notranslate"><span class="pre">exercise_1</span></code> directory via</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs/tutorials/exercise_1/
+</pre></div>
+</div>
+<p>Run the first exercise labeled <code class="docutils literal notranslate"><span class="pre">fibonacci.py</span></code>, but make sure to have Memray wrap this call.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>run<span class="w"> </span>fibonacci.py
+</pre></div>
+</div>
+<p>After the run is complete, Memray will conveniently print the command to generate a flame graph from
+the Memray output file. For example, we will run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>flamegraph<span class="w"> </span>memray-fibonacci.py.&lt;run-id&gt;.bin
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The run id will change each time you run the command.</p>
+</div>
+<p>Now that we have generated our flame graph, let’s load it up and have a look at it.
+To do so, open the tab in your browser with your HTTP server, click on <code class="docutils literal notranslate"><span class="pre">docs/tutorials/exercise_1</span></code>
+directory, and then click on the flame graph (it should have an html file extension)</p>
+<p>Voila! We have generated our very first flame graph. Try clicking around the graph and exploring some
+of the features of Memray.</p>
+<img alt="../_images/exercise1_flamegraph.png" src="../_images/exercise1_flamegraph.png" />
+</section>
+<section id="venv-flame-graph-generation">
+<h3>Venv Flame Graph Generation<a class="headerlink" href="#venv-flame-graph-generation" title="Link to this heading">¶</a></h3>
+<p>Run the first exercise labeled <code class="docutils literal notranslate"><span class="pre">fibonacci.py</span></code>, but make sure to have Memray wrap this call.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>run<span class="w"> </span>exercise_1/fibonacci.py
+</pre></div>
+</div>
+<p>After the run is complete, Memray will conveniently print the command to generate a flame graph from
+the Memray output file. For example, we will run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>memray<span class="w"> </span>flamegraph<span class="w"> </span>exercise_1/memray-fibonacci.py.&lt;run-id&gt;.bin
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The run id will change each time you run the command.</p>
+</div>
+<p>Now that we have generated our flame graph, you can launch the HTML output file in your web browser.</p>
+</section>
+</section>
+<section id="challenge">
+<h2>Challenge<a class="headerlink" href="#challenge" title="Link to this heading">¶</a></h2>
+<p>Take a closer look at the stack on the flame graph — you will notice that the <code class="docutils literal notranslate"><span class="pre">output.append</span></code> call
+appears to be the source of almost all of our script’s allocations. Maybe that could be used as
+a clue as to what in particular we may want to change to pass our test?</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">fibonacci</span><span class="p">(</span><span class="n">length</span><span class="p">):</span>
+    <span class="c1"># edge cases</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">output</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">length</span> <span class="o">-</span> <span class="mi">2</span><span class="p">):</span>
+<span class="hll">        <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">output</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>  <span class="c1"># &lt;- Here!</span>
+</span>
+    <span class="k">return</span> <span class="n">output</span>
+</pre></div>
+</div>
+<p>Try to edit <code class="docutils literal notranslate"><span class="pre">fibonacci.py</span></code> to make the program more memory efficient. Test your solution by running
+the <code class="docutils literal notranslate"><span class="pre">test_exercise_1.py</span></code> unit test, and inspect the effect your changes have on the memory allocation by
+generating new flame graphs. Ensure you don’t break any of the correctness tests along the way!</p>
+<details>
+<summary><i>Toggle to see the sample solution</i></summary><p>After examining the flame graph, we can see that the problem is caused by this intermediate array
+<code class="docutils literal notranslate"><span class="pre">output</span></code> that we are using in order to capture and return the results of the calculation.</p>
+<p>Python has an amazing construct that works well in this situation called
+<a class="reference external" href="https://wiki.python.org/moin/Generators">generators</a>.</p>
+<p>Essentially, a generator works by pausing execution of your function when a <code class="docutils literal notranslate"><span class="pre">yield</span></code> statement is
+reached, saving the state of the function for later. After each iteration, we can resume that paused
+function in order to retrieve the next value that is needed. This is more memory efficient than
+processing the entire loop and saving the results in memory — especially when you have 100,000
+iterations!</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">fibonacci</span><span class="p">(</span><span class="n">length</span><span class="p">):</span>
+    <span class="c1"># edge cases</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="mi">1</span>
+        <span class="k">return</span>
+
+    <span class="n">left</span> <span class="o">=</span> <span class="n">right</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">yield</span> <span class="n">left</span>
+    <span class="k">yield</span> <span class="n">right</span>
+
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">length</span> <span class="o">-</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">=</span> <span class="n">right</span><span class="p">,</span> <span class="n">left</span> <span class="o">+</span> <span class="n">right</span>
+        <span class="k">yield</span> <span class="n">right</span>
+</pre></div>
+</div>
+<p>Full code solution <a class="reference external" href="https://github.com/bloomberg/memray/blob/main/docs/tutorials/solutions/exercise_1/fibonacci.py">here</a>.</p>
+</details></section>
+<section id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Link to this heading">¶</a></h2>
+<p>We should try to avoid loading the entire result set into memory (like into a list) when we plan to
+iterate on that result set anyways. This is especially true when your result set is very large. It is
+typically best to work with generators in these types of situations.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Sometimes it is better to do all the calculations up front. Generators are far more memory
+efficient than lists, but iterating over generators is slightly slower than iterating over
+lists, and generators can only be iterated over once. The solution with the best trade-offs will
+vary from case to case.</p>
+</div>
+<p>Using Memray’s flame graph can be a quick and easy way to identify where your application has
+a memory bottleneck.</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="2.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Exercise 2 - Clinging Onto Memory</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="index.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">About This Tutorial</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Exercise 1 - Fibonacci Sequence</a><ul>
+<li><a class="reference internal" href="#intro">Intro</a></li>
+<li><a class="reference internal" href="#development-environment-setup">Development Environment Setup</a><ul>
+<li><a class="reference internal" href="#codespaces-environment">Codespaces Environment</a></li>
+<li><a class="reference internal" href="#local-virtual-environment">Local Virtual Environment</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#pytest-plugin-for-memray">Pytest plugin for Memray</a><ul>
+<li><a class="reference internal" href="#codespaces-test-execution">Codespaces Test Execution</a></li>
+<li><a class="reference internal" href="#local-virtualenv-test-execution">Local Virtualenv Test Execution</a></li>
+<li><a class="reference internal" href="#understanding-the-results">Understanding the results</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#flame-graphs-what-are-they">Flame graphs, what are they?</a></li>
+<li><a class="reference internal" href="#generating-a-flame-graph">Generating a Flame Graph</a><ul>
+<li><a class="reference internal" href="#codespaces-flame-graph-generation">Codespaces Flame Graph Generation</a></li>
+<li><a class="reference internal" href="#venv-flame-graph-generation">Venv Flame Graph Generation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#challenge">Challenge</a></li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=4e2eecee"></script>
+    </body>
+</html>
