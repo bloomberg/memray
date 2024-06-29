@@ -146,7 +146,7 @@ You can click on a particular box to filter out less recent frames from the stac
 particular frame and the functions it called into.
 
 More information on the :doc:`flame graph reporter <../flamegraph>` and how to
-:ref:`interperet flame graphs <interpreting flame graphs>` are available in the docs.
+:ref:`interpret flame graphs <interpreting flame graphs>` are available in the docs.
 
 Generating a Flame Graph
 ------------------------
