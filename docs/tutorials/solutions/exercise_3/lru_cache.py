@@ -1,6 +1,11 @@
 import functools
 from collections import Counter
 
+# DO NOT CHANGE
+FIRST_COUNTER_RANGE = 500
+SECOND_COUNTER_RANGE = 1000
+# DO NOT CHANGE
+
 
 class Algorithms:
     def __init__(self, inc: int):
@@ -19,8 +24,12 @@ def generate_factorial_plus_last_digit(plus_range: int, factorial_range: int):
 
 
 def compare_counts_different_factorials():
-    counts_500 = Counter(generate_factorial_plus_last_digit(500, 500))
-    counts_1000 = Counter(generate_factorial_plus_last_digit(1000, 1000))
+    counts_500 = Counter(
+        generate_factorial_plus_last_digit(FIRST_COUNTER_RANGE, FIRST_COUNTER_RANGE)
+    )
+    counts_1000 = Counter(
+        generate_factorial_plus_last_digit(SECOND_COUNTER_RANGE, SECOND_COUNTER_RANGE)
+    )
     print(counts_500.most_common())
     print(counts_1000.most_common())
 
