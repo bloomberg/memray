@@ -132,8 +132,7 @@ There are many different approaches to fix this memory issue - here are a few of
             self.factorial_plus = functools.cache(self._uncached_factorial_plus)
 
         def _uncached_factorial_plus(self, n: int) -> int:
-            return n * self.factorial_plus(n - 1) + self.inc if n else 1 + self.inc
-
+            return n * self.factorial_plus(n - 1) + self.inc if n > 1 else 1 + self.inc
 
     def generate_factorial_plus_last_digit(plus_range: int, factorial_range: int):
         for i in range(plus_range):
@@ -144,21 +143,7 @@ There are many different approaches to fix this memory issue - here are a few of
    Full code solution `here
    <https://github.com/bloomberg/memray/blob/main/docs/tutorials/solutions/exercise_3/lru_cache.py>`_.
 
-2. Or you can use a ``classmethod`` for the cache instead of an instance method::
-
-    class Algorithms:
-        def __init__(self, inc: int):
-            self.inc = inc
-
-        def factorial_plus(self, n: int) -> int:
-            return self.factorial_plus_impl(n, self.inc)
-
-        @classmethod
-        @functools.cache
-        def factorial_plus_impl(cls, n: int, inc: int) -> int:
-            return n * cls.factorial_plus_impl(n - 1, inc) + inc if n > 1 else 1 + inc
-
-3. Another approach would be setting a maximum size for the cache. We can do
+2. Another approach would be setting a maximum size for the cache. We can do
    that by passing an argument to ``@lru_cache`` decorator directly.
 
    .. note::
@@ -175,7 +160,7 @@ There are many different approaches to fix this memory issue - here are a few of
 
    ``maxsize=`` here sets the maximum number of values stored in the cache.
 
-4. Finally, we can periodically manually invoke the cleanup of the cache. This can be done by calling
+3. Finally, we can periodically manually invoke the cleanup of the cache. This can be done by calling
    ``Algorithms.factorial_plus.cache_clear()``
 
 .. raw:: html
