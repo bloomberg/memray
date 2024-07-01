@@ -13,13 +13,9 @@ class Algorithms:
     def __init__(self, inc: int):
         self.inc = inc
 
+    @functools.cache    # pylint: disable=W1518
     def factorial_plus(self, n: int) -> int:
-        return self.factorial_plus_impl(n, self.inc)
-
-    @classmethod
-    @functools.cache
-    def factorial_plus_impl(cls, n: int, inc: int) -> int:
-        return n * cls.factorial_plus_impl(n - 1, inc) + inc if n > 1 else 1 + inc
+        return n * self.factorial_plus(n - 1) + self.inc if n > 1 else 1 + self.inc
 
 
 def generate_factorial_plus_last_digit(plus_range: int, factorial_range: int):
@@ -27,7 +23,6 @@ def generate_factorial_plus_last_digit(plus_range: int, factorial_range: int):
         A = Algorithms(i)
         for j in range(factorial_range):
             yield A.factorial_plus(j) % 10
-
 
 def compare_counts_different_factorials():
     counts_500 = Counter(
