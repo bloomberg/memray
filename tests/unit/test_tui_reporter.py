@@ -462,8 +462,9 @@ def test_update_thread(native_traces):
 
     # WHEN
     async def run_test():
-        async with app.run_test():
+        async with app.run_test() as pilot:
             await all_messages_received.wait()
+            await pilot.pause()
 
     async_run(run_test())
 
