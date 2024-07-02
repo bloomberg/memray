@@ -76,11 +76,17 @@ from ._metadata import Metadata
 from ._stats import Stats
 from ._thread_name_interceptor import ThreadNameInterceptor
 
-os.register_at_fork(
-    before=NativeTracker.prepareFork,
-    after_in_parent=NativeTracker.parentFork,
-    after_in_child=NativeTracker.childFork,
-)
+
+cdef extern from "pthread.h" nogil:
+    int pthread_atfork(void (*prepare)(), void (*parent)(), void (*child)())
+
+# NOTE: We can't reinitialize tracking in a child process until the interpreter
+#       has reinitialized its locks, so we do it in a Python fork handler.
+#       But, Python fork handlers aren't guaranteed to run for every fork, and
+#       the child process must never inherit an active tracker, so we must use
+#       a pthread fork handler to disable tracking before forking.
+pthread_atfork(&NativeTracker.prepareFork, &NativeTracker.parentFork, NULL)
+os.register_at_fork(after_in_child=NativeTracker.childFork)
 
 
 def set_log_level(int level):
