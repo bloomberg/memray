@@ -853,7 +853,7 @@ class TestTreeTui:
 
         # THEN
         assert tree_to_dict(root) == TreeElement(
-            label="📂 1.000KB (100.00 %) <ROOT>  ",
+            label="📂 1.000KB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
                     label="📂 1.000KB (100.00 %) grandparent  fun.py:4",
@@ -940,7 +940,7 @@ class TestTreeTui:
 
         # THEN
         assert tree_to_dict(root) == TreeElement(
-            label="📂 10.000KB (100.00 %) <ROOT>  ",
+            label="📂 10.000KB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
                     label="📂 6.000KB (60.00 %) grandparent2  fun2.py:4",
@@ -1045,7 +1045,7 @@ class TestTreeTui:
 
         # THEN
         assert first_tree == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            label="📂 11.000KB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
                     label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
@@ -1078,7 +1078,7 @@ class TestTreeTui:
             is_expanded=True,
         )
         assert second_tree == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            label="📂 11.000KB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
                     label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
@@ -1214,7 +1214,7 @@ class TestTreeTui:
         # THEN
 
         assert tree_to_dict(root) == TreeElement(
-            label="📂 1.000KB (100.00 %) <ROOT>  ",
+            label="📂 1.000KB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
                     label="📄 1.000KB (100.00 %) me  foo.py:12",
@@ -1278,7 +1278,7 @@ class TestTreeTui:
 
         # THEN
         assert first_tree == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            label="📂 11.000KB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
                     label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
@@ -1305,7 +1305,7 @@ class TestTreeTui:
             is_expanded=True,
         )
         assert second_tree == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            label="📂 11.000KB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
                     label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
@@ -1437,7 +1437,7 @@ class TestTreeTui:
 
         # THEN
         assert tree_to_dict(root) == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>  ",
+            label="📂 11.000KB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
                     label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
@@ -1510,7 +1510,7 @@ class TestTreeTui:
 
         root = async_run(run_test())
 
-        assert str(root.label) == "📂 1.000KB (100.00 %) <ROOT>  "
+        assert str(root.label) == "📂 1.000KB (100.00 %) <ROOT>"
         assert len(root.children) == 1
         current_node = root.children[0]
         for i in range(1, MAX_STACKS + 2):

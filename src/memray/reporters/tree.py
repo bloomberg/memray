@@ -308,11 +308,9 @@ class TreeScreen(Screen[None]):
             code_position = (
                 f"{_filename_to_module_name(file)}:{lineno}" if lineno != 0 else file
             )
-            ret.append_text(
-                Text.from_markup(
-                    f"[bold]{function}[/bold]  [dim cyan]{code_position}[/dim cyan]"
-                )
-            )
+            ret.append_text(Text.from_markup(f"[bold]{function}[/]"))
+            if code_position:
+                ret.append_text(Text.from_markup(f"  [dim cyan]{code_position}[/]"))
         else:
             ret.append_text(Text("hidden"))
         return ret
