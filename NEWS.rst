@@ -8,6 +8,15 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.13.3 (2024-07-02)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a bug that could result in truncated reports for applications that fork without calling :c:func:`PyOS_BeforeFork`, including by using `multiprocessing` with the "spawn" start method (the default on macOS). (#644)
+
+
 memray 1.13.2 (2024-06-27)
 --------------------------
 
