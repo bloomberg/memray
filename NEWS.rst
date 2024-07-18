@@ -8,6 +8,15 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.13.4 (2024-07-18)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- A backwards-incompatible change released in Textual 0.73 caused the ``memray tree`` reporter to start with no nodes expanded. This release adds a workaround to restore the old behavior of expanding the first child of each node. (#648)
+
+
 memray 1.13.3 (2024-07-02)
 --------------------------
 
