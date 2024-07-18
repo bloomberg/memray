@@ -277,7 +277,9 @@ class TreeScreen(Screen[None]):
         self.add_children(tree.root, self.data.children.values())
         self.add_elided_locations_node(tree.root)
         tree.root.expand()
-        tree.select_node(tree.root)
+        # From Textual 0.73 on, Tree.select_node toggles the node's expanded
+        # state. The new Tree.move_cursor method selects without expanding.
+        getattr(tree, "move_cursor", tree.select_node)(tree.root)
         self.expand_first_child(tree.root)
 
     def action_expand_linear_group(self) -> None:

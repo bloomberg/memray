@@ -1428,7 +1428,9 @@ class TestTreeTui:
                 await pilot.pause()
                 tree = app.query_one(Tree)
                 child = tree.root.children[1]
-                tree.select_node(child)
+                # From Textual 0.73 on, Tree.select_node toggles the node's expanded
+                # state. The new Tree.move_cursor method selects without expanding.
+                getattr(tree, "move_cursor", tree.select_node)(child)
                 await pilot.press("e")
                 await pilot.pause()
                 return tree.root
