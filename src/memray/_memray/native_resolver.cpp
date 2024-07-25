@@ -403,6 +403,7 @@ SymbolResolver::getBacktraceState(InternedString interned_filename, uintptr_t ad
     const int descriptor = backtrace_open(data.fileName, errorHandler, &data, nullptr);
     if (descriptor >= 1) {
         int foundSym = 0;
+        struct libbacktrace_base_address base_address = {address_start};
 #ifdef __linux__
         int foundDwarf = 0;
         auto ret =
@@ -411,7 +412,7 @@ SymbolResolver::getBacktraceState(InternedString interned_filename, uintptr_t ad
                         descriptor,
                         nullptr,
                         0,
-                        address_start,
+                        base_address,
                         nullptr,
                         errorHandler,
                         &data,
@@ -431,7 +432,7 @@ SymbolResolver::getBacktraceState(InternedString interned_filename, uintptr_t ad
                 descriptor,
                 0,
                 nullptr,
-                address_start,
+                base_address,
                 0,
                 errorHandler,
                 &data,

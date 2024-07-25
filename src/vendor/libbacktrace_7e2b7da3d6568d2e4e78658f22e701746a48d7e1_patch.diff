@@ -1,5 +1,5 @@
 diff --git a/Makefile.am b/Makefile.am
-index 640f7e7..74bde8f 100644
+index 4d509a2..f80a9e6 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -35,7 +35,7 @@ AM_CPPFLAGS =
@@ -12,10 +12,10 @@ index 640f7e7..74bde8f 100644
  lib_LTLIBRARIES = libbacktrace.la
  
 diff --git a/Makefile.in b/Makefile.in
-index 5639974..9ad9623 100644
+index 4df8436..eafad7d 100644
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -983,7 +983,7 @@ top_srcdir = @top_srcdir@
+@@ -994,7 +994,7 @@ top_srcdir = @top_srcdir@
  ACLOCAL_AMFLAGS = -I config
  AM_CPPFLAGS = 
  AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
@@ -25,7 +25,7 @@ index 5639974..9ad9623 100644
  libbacktrace_la_SOURCES = \
  	backtrace.h \
 diff --git a/elf.c b/elf.c
-index 819e256..107e26c 100644
+index 0040479..80482a4 100644
 --- a/elf.c
 +++ b/elf.c
 @@ -557,7 +557,7 @@ elf_crc32_file (struct backtrace_state *state, int descriptor,
@@ -44,9 +44,9 @@ index 819e256..107e26c 100644
 -static int
 +int
  elf_initialize_syminfo (struct backtrace_state *state,
- 			uintptr_t base_address,
+ 			struct libbacktrace_base_address base_address,
  			const unsigned char *symtab_data, size_t symtab_size,
-@@ -758,7 +758,7 @@ elf_add_syminfo_data (struct backtrace_state *state,
+@@ -759,7 +759,7 @@ elf_add_syminfo_data (struct backtrace_state *state,
  
  /* Return the symbol name and value for an ADDR.  */
  
@@ -55,7 +55,7 @@ index 819e256..107e26c 100644
  elf_syminfo (struct backtrace_state *state, uintptr_t addr,
  	     backtrace_syminfo_callback callback,
  	     backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
-@@ -1089,7 +1089,7 @@ elf_open_debugfile_by_debuglink (struct backtrace_state *state,
+@@ -1090,7 +1090,7 @@ elf_open_debugfile_by_debuglink (struct backtrace_state *state,
      {
        uint32_t got_crc;
  
@@ -64,7 +64,7 @@ index 819e256..107e26c 100644
        if (got_crc != debuglink_crc)
  	{
  	  backtrace_close (ddescriptor, error_callback, data);
-@@ -6496,7 +6496,7 @@ backtrace_uncompress_lzma (struct backtrace_state *state,
+@@ -6497,7 +6497,7 @@ backtrace_uncompress_lzma (struct backtrace_state *state,
     elf_add will need to be called on the descriptor again after
     base_address is determined.  */
  
@@ -72,9 +72,9 @@ index 819e256..107e26c 100644
 +int
  elf_add (struct backtrace_state *state, const char *filename, int descriptor,
  	 const unsigned char *memory, size_t memory_size,
- 	 uintptr_t base_address, struct elf_ppc64_opd_data *caller_opd,
+ 	 struct libbacktrace_base_address base_address,
 diff --git a/internal.h b/internal.h
-index c6fc717..d435a55 100644
+index fe2abe5..fdadc24 100644
 --- a/internal.h
 +++ b/internal.h
 @@ -33,6 +33,10 @@ POSSIBILITY OF SUCH DAMAGE.  */
@@ -88,29 +88,31 @@ index c6fc717..d435a55 100644
  /* We assume that <sys/types.h> and "backtrace.h" have already been
     included.  */
  
-@@ -386,4 +390,37 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
+@@ -425,4 +429,39 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
  				      unsigned char **uncompressed,
  				      size_t *uncompressed_size);
  
 +struct elf_ppc64_opd_data;
 +extern int elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 +	 const unsigned char *memory, size_t memory_size,
-+	 uintptr_t base_address, struct elf_ppc64_opd_data *caller_opd,
++	 struct libbacktrace_base_address base_address,
++	 struct elf_ppc64_opd_data *caller_opd,
 +	 backtrace_error_callback error_callback, void *data,
 +	 fileline *fileline_fn, int *found_sym, int *found_dwarf,
 +	 struct dwarf_data **fileline_entry, int exe, int debuginfo,
 +	 const char *with_buildid_data, uint32_t with_buildid_size);
 +extern void elf_syminfo (struct backtrace_state *state, uintptr_t addr,
-+			 backtrace_syminfo_callback callback,
-+			 backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
-+			 void *data);
++	     backtrace_syminfo_callback callback,
++	     backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
++	     void *data);
 +extern void elf_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
-+			uintptr_t addr ATTRIBUTE_UNUSED,
-+			backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
-+			backtrace_error_callback error_callback, void *data);
++	    uintptr_t addr ATTRIBUTE_UNUSED,
++	    backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
++	    backtrace_error_callback error_callback, void *data);
++
 +extern int macho_add (struct backtrace_state *state, const char *filename, int descriptor,
 +	   off_t offset, const unsigned char *match_uuid,
-+	   uintptr_t base_address, int skip_symtab,
++	   struct libbacktrace_base_address base_address, int skip_symtab,
 +	   backtrace_error_callback error_callback, void *data,
 +	   fileline *fileline_fn, int *found_sym);
 +extern void macho_syminfo (struct backtrace_state *state, uintptr_t addr,
@@ -127,7 +129,7 @@ index c6fc717..d435a55 100644
 +
  #endif
 diff --git a/macho.c b/macho.c
-index d00aea9..4cd700c 100644
+index fc4c959..527c5ac 100644
 --- a/macho.c
 +++ b/macho.c
 @@ -92,6 +92,7 @@ struct macho_header_fat
@@ -138,31 +140,31 @@ index d00aea9..4cd700c 100644
  #define MACH_O_MH_DSYM		0x0a
  
  /* A component of a fat file.  A fat file starts with a
-@@ -278,6 +279,10 @@ struct macho_nlist_64
- #define MACH_O_N_TYPE	0x0e	/* Mask for type bits */
- #define MACH_O_N_STAB	0xe0	/* Stabs debugging symbol */
+@@ -279,6 +280,9 @@ struct macho_nlist_64
+ #define MACH_O_N_ABS	0x02	/* Absolute symbol */
+ #define MACH_O_N_SECT	0x0e	/* Defined in section from n_sect field */
  
 +#define MACH_O_GLOBAL   0x0f    /* global symbol */
 +#define MACH_O_N_FNAME  0x26    /* static symbol: name,,n_sect,type,address */
 +#define MACH_O_N_FUN    0x24    /* procedure: name,,n_sect,linenumber,address */
-+
+ 
  /* Information we keep for a Mach-O symbol.  */
  
- struct macho_symbol
-@@ -310,12 +315,6 @@ static const char * const dwarf_section_names[DEBUG_MAX] =
+@@ -312,13 +316,6 @@ static const char * const dwarf_section_names[DEBUG_MAX] =
    "__debug_rnglists"
  };
  
 -/* Forward declaration.  */
 -
 -static int macho_add (struct backtrace_state *, const char *, int, off_t,
--		      const unsigned char *, uintptr_t, int,
--		      backtrace_error_callback, void *, fileline *, int *);
+-		      const unsigned char *, struct libbacktrace_base_address,
+-		      int, backtrace_error_callback, void *, fileline *,
+-		      int *);
 -
  /* A dummy callback function used when we can't find any debug info.  */
  
  static int
-@@ -331,7 +330,7 @@ macho_nodebug (struct backtrace_state *state ATTRIBUTE_UNUSED,
+@@ -334,7 +331,7 @@ macho_nodebug (struct backtrace_state *state ATTRIBUTE_UNUSED,
  /* A dummy callback function used when we can't find a symbol
     table.  */
  
@@ -171,7 +173,7 @@ index d00aea9..4cd700c 100644
  macho_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
  	      uintptr_t addr ATTRIBUTE_UNUSED,
  	      backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
-@@ -491,13 +490,24 @@ static int
+@@ -494,13 +491,22 @@ static int
  macho_defined_symbol (uint8_t type)
  {
    if ((type & MACH_O_N_STAB) != 0)
@@ -187,19 +189,16 @@ index d00aea9..4cd700c 100644
 +      return 0;
 +     }
 +  }
-   if ((type & MACH_O_N_EXT) != 0)
--    return 0;
-+    {
-+     return type == MACH_O_GLOBAL;
-+    }
    switch (type & MACH_O_N_TYPE)
      {
+     case MACH_O_N_UNDF:
+       return 0;
      case MACH_O_N_ABS:
 -      return 1;
      case MACH_O_N_SECT:
        return 1;
      default:
-@@ -701,7 +711,7 @@ macho_add_symtab (struct backtrace_state *state, int descriptor,
+@@ -703,7 +709,7 @@ macho_add_symtab (struct backtrace_state *state, int descriptor,
  
  /* Return the symbol name and value for an ADDR.  */
  
@@ -208,7 +207,7 @@ index d00aea9..4cd700c 100644
  macho_syminfo (struct backtrace_state *state, uintptr_t addr,
  	       backtrace_syminfo_callback callback,
  	       backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
-@@ -974,7 +984,7 @@ macho_add_dsym (struct backtrace_state *state, const char *filename,
+@@ -978,7 +984,7 @@ macho_add_dsym (struct backtrace_state *state, const char *filename,
     FOUND_SYM: set to non-zero if we found the symbol table.
  */
  
@@ -216,8 +215,8 @@ index d00aea9..4cd700c 100644
 +int
  macho_add (struct backtrace_state *state, const char *filename, int descriptor,
  	   off_t offset, const unsigned char *match_uuid,
- 	   uintptr_t base_address, int skip_symtab,
-@@ -1059,6 +1069,7 @@ macho_add (struct backtrace_state *state, const char *filename, int descriptor,
+ 	   struct libbacktrace_base_address base_address, int skip_symtab,
+@@ -1063,6 +1069,7 @@ macho_add (struct backtrace_state *state, const char *filename, int descriptor,
      case MACH_O_MH_EXECUTE:
      case MACH_O_MH_DYLIB:
      case MACH_O_MH_DSYM:
