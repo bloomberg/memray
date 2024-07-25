@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-SNAPSHOT_COMMIT=4ead348bb45f753121ca0bd44170ff8352d4c514
+SNAPSHOT_COMMIT=7e2b7da3d6568d2e4e78658f22e701746a48d7e1
 LIBBACKTRACE_DIR="libbacktrace"
 
 echo "checking" $(ls)
 
 echo ">>> Cloning libbacktrace"
 rm -rf "$LIBBACKTRACE_DIR"
-git clone https://github.com/ianlancetaylor/libbacktrace.git "$LIBBACKTRACE_DIR" 
+git clone https://github.com/ianlancetaylor/libbacktrace.git "$LIBBACKTRACE_DIR"
 
 echo ">>> Checking out commit ${SNAPSHOT_COMMIT}"
 cd "$LIBBACKTRACE_DIR"
