@@ -682,6 +682,8 @@ PIC_FLAG
 WARN_FLAGS
 EXTRA_FLAGS
 BACKTRACE_FILE
+ENABLE_DARWIN_AT_RPATH_FALSE
+ENABLE_DARWIN_AT_RPATH_TRUE
 OTOOL64
 OTOOL
 LIPO
@@ -806,6 +808,7 @@ with_pic
 enable_fast_install
 with_gnu_ld
 enable_libtool_lock
+enable_darwin_at_rpath
 enable_largefile
 enable_werror
 with_system_libunwind
@@ -1453,6 +1456,9 @@ Optional Features:
   --enable-fast-install[=PKGS]
                           optimize for fast installation [default=yes]
   --disable-libtool-lock  avoid locking (might break parallel builds)
+  --enable-darwin-at-rpath
+                          install libraries with @rpath/library-name, requires
+                          rpaths to be added to executables
   --disable-largefile     omit support for large files
   --disable-werror        disable building with -Werror
   --enable-host-shared    build host code as shared libraries
@@ -5619,48 +5625,55 @@ if ${lt_cv_path_NM+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   if test -n "$NM"; then
-  # Let the user override the test.
-  lt_cv_path_NM="$NM"
-else
-  lt_nm_to_check="${ac_tool_prefix}nm"
-  if test -n "$ac_tool_prefix" && test "$build" = "$host"; then
-    lt_nm_to_check="$lt_nm_to_check nm"
-  fi
-  for lt_tmp_nm in $lt_nm_to_check; do
-    lt_save_ifs="$IFS"; IFS=$PATH_SEPARATOR
-    for ac_dir in $PATH /usr/ccs/bin/elf /usr/ccs/bin /usr/ucb /bin; do
-      IFS="$lt_save_ifs"
-      test -z "$ac_dir" && ac_dir=.
-      tmp_nm="$ac_dir/$lt_tmp_nm"
-      if test -f "$tmp_nm" || test -f "$tmp_nm$ac_exeext" ; then
-	# Check to see if the nm accepts a BSD-compat flag.
-	# Adding the `sed 1q' prevents false positives on HP-UX, which says:
-	#   nm: unknown option "B" ignored
-	# Tru64's nm complains that /dev/null is an invalid object file
-	case `"$tmp_nm" -B /dev/null 2>&1 | sed '1q'` in
-	*/dev/null* | *'Invalid file or object type'*)
-	  lt_cv_path_NM="$tmp_nm -B"
-	  break
-	  ;;
-	*)
-	  case `"$tmp_nm" -p /dev/null 2>&1 | sed '1q'` in
-	  */dev/null*)
-	    lt_cv_path_NM="$tmp_nm -p"
-	    break
-	    ;;
-	  *)
-	    lt_cv_path_NM=${lt_cv_path_NM="$tmp_nm"} # keep the first match, but
-	    continue # so that we can try to find one that supports BSD flags
-	    ;;
-	  esac
-	  ;;
-	esac
-      fi
-    done
-    IFS="$lt_save_ifs"
-  done
-  : ${lt_cv_path_NM=no}
-fi
+   # Let the user override the nm to test.
+   lt_nm_to_check="$NM"
+ else
+   lt_nm_to_check="${ac_tool_prefix}nm"
+   if test -n "$ac_tool_prefix" && test "$build" = "$host"; then
+     lt_nm_to_check="$lt_nm_to_check nm"
+   fi
+ fi
+ for lt_tmp_nm in "$lt_nm_to_check"; do
+   lt_save_ifs="$IFS"; IFS=$PATH_SEPARATOR
+   for ac_dir in $PATH /usr/ccs/bin/elf /usr/ccs/bin /usr/ucb /bin; do
+     IFS="$lt_save_ifs"
+     test -z "$ac_dir" && ac_dir=.
+     # Strip out any user-provided options from the nm to test twice,
+     # the first time to test to see if nm (rather than its options) has
+     # an explicit path, the second time to yield a file which can be
+     # nm'ed itself.
+     tmp_nm_path="`$ECHO "$lt_tmp_nm" | sed 's, -.*$,,'`"
+     case "$tmp_nm_path" in
+     */*|*\\*) tmp_nm="$lt_tmp_nm";;
+     *) tmp_nm="$ac_dir/$lt_tmp_nm";;
+     esac
+     tmp_nm_to_nm="`$ECHO "$tmp_nm" | sed 's, -.*$,,'`"
+     if test -f "$tmp_nm_to_nm" || test -f "$tmp_nm_to_nm$ac_exeext" ; then
+       # Check to see if the nm accepts a BSD-compat flag.
+       # Adding the `sed 1q' prevents false positives on HP-UX, which says:
+       #   nm: unknown option "B" ignored
+       case `"$tmp_nm" -B "$tmp_nm_to_nm" 2>&1 | grep -v '^ *$' | sed '1q'` in
+       *$tmp_nm*) lt_cv_path_NM="$tmp_nm -B"
+	 break
+	 ;;
+       *)
+	 case `"$tmp_nm" -p "$tmp_nm_to_nm" 2>&1 | grep -v '^ *$' | sed '1q'` in
+	 *$tmp_nm*)
+	   lt_cv_path_NM="$tmp_nm -p"
+	   break
+	   ;;
+	 *)
+	   lt_cv_path_NM=${lt_cv_path_NM="$tmp_nm"} # keep the first match, but
+	   continue # so that we can try to find one that supports BSD flags
+	   ;;
+	 esac
+	 ;;
+       esac
+     fi
+   done
+   IFS="$lt_save_ifs"
+ done
+ : ${lt_cv_path_NM=no}
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $lt_cv_path_NM" >&5
 $as_echo "$lt_cv_path_NM" >&6; }
@@ -6357,6 +6370,11 @@ sysv4 | sysv4.3*)
 tpf*)
   lt_cv_deplibs_check_method=pass_all
   ;;
+vxworks*)
+  # Assume VxWorks cross toolchains are built on Linux, possibly
+  # as canadian for Windows hosts.
+  lt_cv_deplibs_check_method=pass_all
+  ;;
 esac
 
 fi
@@ -6376,6 +6394,19 @@ test -z "$deplibs_check_method" && deplibs_check_method=unknown
 
 
 
+
+plugin_option=
+plugin_names="liblto_plugin.so liblto_plugin-0.dll cyglto_plugin-0.dll"
+for plugin in $plugin_names; do
+  plugin_so=`${CC} ${CFLAGS} --print-prog-name $plugin`
+  if test x$plugin_so = x$plugin; then
+    plugin_so=`${CC} ${CFLAGS} --print-file-name $plugin`
+  fi
+  if test x$plugin_so != x$plugin; then
+    plugin_option="--plugin $plugin_so"
+    break
+  fi
+done
 
 if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}ar", so it can be a program name with args.
@@ -6470,6 +6501,19 @@ else
 fi
 
 test -z "$AR" && AR=ar
+if test -n "$plugin_option"; then
+  if $AR --help 2>&1 | grep -q "\--plugin"; then
+    touch conftest.c
+    $AR $plugin_option rc conftest.a conftest.c
+    if test "$?" != 0; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Failed: $AR $plugin_option rc" >&5
+$as_echo "$as_me: WARNING: Failed: $AR $plugin_option rc" >&2;}
+    else
+      AR="$AR $plugin_option"
+    fi
+    rm -f conftest.*
+  fi
+fi
 test -z "$AR_FLAGS" && AR_FLAGS=cru
 
 
@@ -6674,6 +6718,11 @@ else
 fi
 
 test -z "$RANLIB" && RANLIB=:
+if test -n "$plugin_option" && test "$RANLIB" != ":"; then
+  if $RANLIB --help 2>&1 | grep -q "\--plugin"; then
+    RANLIB="$RANLIB $plugin_option"
+  fi
+fi
 
 
 
@@ -6788,7 +6837,7 @@ osf*)
   symcode='[BCDEGQRST]'
   ;;
 solaris*)
-  symcode='[BDRT]'
+  symcode='[BCDRT]'
   ;;
 sco3.2v5*)
   symcode='[DT]'
@@ -7798,7 +7847,7 @@ $as_echo "$lt_cv_ld_force_load" >&6; }
       # darwin 5.x (macOS 10.1) onwards we only need to adjust when the
       # deployment target is forced to an earlier version.
       case ${MACOSX_DEPLOYMENT_TARGET-UNSET},$host in
-	UNSET,*-darwin[89]*|UNSET,*-darwin[12][0123456789]*)
+	UNSET,*-darwin[89]*|UNSET,*-darwin[12][0-9]*)
 	  ;;
 	10.[012][,.]*)
 	  _lt_dar_allow_undefined='${wl}-flat_namespace ${wl}-undefined ${wl}suppress'
@@ -9474,6 +9523,49 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
     darwin* | rhapsody*)
 
 
+
+  # Publish an arg to allow the user to select that Darwin host (and target)
+  # libraries should be given install-names like @rpath/libfoo.dylib.  This
+  # requires that the user of the library then adds an 'rpath' to the DSO that
+  # needs access.
+  # NOTE: there are defaults below, for systems that support rpaths.  The person
+  # configuring can override the defaults for any system version that supports
+  # them - they are, however, forced off for system versions without support.
+  # Check whether --enable-darwin-at-rpath was given.
+if test "${enable_darwin_at_rpath+set}" = set; then :
+  enableval=$enable_darwin_at_rpath; if test "x$enable_darwin_at_rpath" = "xyes"; then
+    # This is not supported before macOS 10.5 / Darwin9.
+    case ${MACOSX_DEPLOYMENT_TARGET-UNSET},$host_os in
+      UNSET,darwin[4-8]*|UNSET,rhapsody*|10.[0-4][,.]*)
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Darwin @rpath library names are incompatible with OSX versions earlier than 10.5 (rpaths disabled)" >&5
+$as_echo "$as_me: WARNING: Darwin @rpath library names are incompatible with OSX versions earlier than 10.5 (rpaths disabled)" >&2;}
+	enable_darwin_at_rpath=no
+      ;;
+    esac
+   fi
+else
+  case ${MACOSX_DEPLOYMENT_TARGET-UNSET},$host_os in
+    # As above, before 10.5 / Darwin9 this does not work.
+     UNSET,darwin[4-8]*|UNSET,rhapsody*|10.[0-4][,.]*)
+       enable_darwin_at_rpath=no
+       ;;
+
+    # We cannot build and test reliably on macOS 10.11+ (Darwin15+) without use
+    # of rpaths, since runpaths set via DYLD_LIBRARY_PATH are elided by key
+    # system executables (e.g. /bin/sh).  Force rpaths on for these systems.
+      UNSET,darwin1[5-9]*|UNSET,darwin2*|10.1[1-9][,.]*|1[1-9].*[,.]* )
+      { $as_echo "$as_me:${as_lineno-$LINENO}: @rpath library names are needed on macOS versions later than 10.11 (rpaths have been enabled)" >&5
+$as_echo "$as_me: @rpath library names are needed on macOS versions later than 10.11 (rpaths have been enabled)" >&6;}
+      enable_darwin_at_rpath=yes
+      ;;
+    # NOTE: we are not (yet) doing anything for 10.5 .. 10.10, since they can
+    # work with either DYLD_LIBRARY_PATH or embedded rpaths.
+
+    esac
+
+fi
+
+
   archive_cmds_need_lc=no
   hardcode_direct=no
   hardcode_automatic=yes
@@ -9491,9 +9583,13 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
   esac
   if test "$_lt_dar_can_shared" = "yes"; then
     output_verbose_link_cmd=func_echo_all
-    archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod${_lt_dsymutil}"
+    _lt_install_name='\$rpath/\$soname'
+    if test "x$enable_darwin_at_rpath" = "xyes"; then
+      _lt_install_name='@rpath/\$soname'
+    fi
+    archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name ${_lt_install_name} \$verstring ${_lt_dsymutil}"
     module_cmds="\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dsymutil}"
-    archive_expsym_cmds="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring ${_lt_dar_single_mod}${_lt_dar_export_syms}${_lt_dsymutil}"
+    archive_expsym_cmds="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name ${_lt_install_name} \$verstring ${_lt_dar_export_syms}${_lt_dsymutil}"
     module_expsym_cmds="sed -e 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dar_export_syms}${_lt_dsymutil}"
 
   else
@@ -10479,7 +10575,7 @@ haiku*)
   soname_spec='${libname}${release}${shared_ext}$major'
   shlibpath_var=LIBRARY_PATH
   shlibpath_overrides_runpath=yes
-  sys_lib_dlsearch_path_spec='/boot/home/config/lib /boot/common/lib /boot/beos/system/lib'
+  sys_lib_dlsearch_path_spec='/boot/home/config/lib /boot/common/lib /boot/system/lib'
   hardcode_into_libs=yes
   ;;
 
@@ -10839,6 +10935,25 @@ uts4*)
   shlibpath_var=LD_LIBRARY_PATH
   ;;
 
+# Shared libraries for VwWorks, >= 7 only at this stage
+# and (fpic) still incompatible with "large" code models
+# in a few configurations. Only for RTP mode in any case,
+# and upon explicit request at configure time.
+vxworks7*)
+  dynamic_linker=no
+  case ${with_multisubdir}-${enable_shared} in
+    *large*)
+      ;;
+    *mrtp*-yes)
+      version_type=linux
+      need_lib_prefix=no
+      need_version=no
+      library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
+      soname_spec='${libname}${release}${shared_ext}$major'
+      dynamic_linker="$host_os module_loader"
+      ;;
+  esac
+  ;;
 *)
   dynamic_linker=no
   ;;
@@ -11280,7 +11395,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11283 "configure"
+#line 11398 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11386,7 +11501,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11389 "configure"
+#line 11504 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11623,6 +11738,15 @@ CC="$lt_save_CC"
 # Only expand once:
 
 
+
+
+ if test x$enable_darwin_at_rpath = xyes; then
+  ENABLE_DARWIN_AT_RPATH_TRUE=
+  ENABLE_DARWIN_AT_RPATH_FALSE='#'
+else
+  ENABLE_DARWIN_AT_RPATH_TRUE='#'
+  ENABLE_DARWIN_AT_RPATH_FALSE=
+fi
 
 
 # Check whether --enable-largefile was given.
@@ -11931,7 +12055,8 @@ WARN_FLAGS=
 save_CFLAGS="$CFLAGS"
 for real_option in -W -Wall -Wwrite-strings -Wstrict-prototypes \
 			  -Wmissing-prototypes -Wold-style-definition \
-			  -Wmissing-format-attribute -Wcast-qual; do
+			  -Wmissing-format-attribute -Wcast-qual \
+			  -Wno-attributes -Wno-unknown-attributes; do
   # Do the check with the no- prefix removed since gcc silently
   # accepts any -Wno-* option on purpose
   case $real_option in
@@ -13546,6 +13671,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_DWZ_TRUE}" && test -z "${HAVE_DWZ_FALSE}"; then
   as_fn_error $? "conditional \"HAVE_DWZ\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ENABLE_DARWIN_AT_RPATH_TRUE}" && test -z "${ENABLE_DARWIN_AT_RPATH_FALSE}"; then
+  as_fn_error $? "conditional \"ENABLE_DARWIN_AT_RPATH\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_ELF_TRUE}" && test -z "${HAVE_ELF_FALSE}"; then

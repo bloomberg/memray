@@ -1005,7 +1005,7 @@ _LT_EOF
       # darwin 5.x (macOS 10.1) onwards we only need to adjust when the
       # deployment target is forced to an earlier version.
       case ${MACOSX_DEPLOYMENT_TARGET-UNSET},$host in
-	UNSET,*-darwin[[89]]*|UNSET,*-darwin[[12]][[0123456789]]*)
+	UNSET,*-darwin[[89]]*|UNSET,*-darwin[[12]][[0-9]]*)
 	  ;;
 	10.[[012]][[,.]]*)
 	  _lt_dar_allow_undefined='${wl}-flat_namespace ${wl}-undefined ${wl}suppress'
@@ -1039,6 +1039,45 @@ _LT_EOF
 m4_defun([_LT_DARWIN_LINKER_FEATURES],
 [
   m4_require([_LT_REQUIRED_DARWIN_CHECKS])
+
+  # Publish an arg to allow the user to select that Darwin host (and target)
+  # libraries should be given install-names like @rpath/libfoo.dylib.  This
+  # requires that the user of the library then adds an 'rpath' to the DSO that
+  # needs access.
+  # NOTE: there are defaults below, for systems that support rpaths.  The person
+  # configuring can override the defaults for any system version that supports
+  # them - they are, however, forced off for system versions without support.
+  AC_ARG_ENABLE([darwin-at-rpath],
+    AS_HELP_STRING([--enable-darwin-at-rpath],
+      [install libraries with @rpath/library-name, requires rpaths to be added to executables]),
+  [if test "x$enable_darwin_at_rpath" = "xyes"; then
+    # This is not supported before macOS 10.5 / Darwin9.
+    case ${MACOSX_DEPLOYMENT_TARGET-UNSET},$host_os in
+      UNSET,darwin[[4-8]]*|UNSET,rhapsody*|10.[[0-4]][[,.]]*)
+	AC_MSG_WARN([Darwin @rpath library names are incompatible with OSX versions earlier than 10.5 (rpaths disabled)])
+	enable_darwin_at_rpath=no
+      ;;
+    esac
+   fi],
+  [case ${MACOSX_DEPLOYMENT_TARGET-UNSET},$host_os in
+    # As above, before 10.5 / Darwin9 this does not work.
+     UNSET,darwin[[4-8]]*|UNSET,rhapsody*|10.[[0-4]][[,.]]*)
+       enable_darwin_at_rpath=no
+       ;;
+
+    # We cannot build and test reliably on macOS 10.11+ (Darwin15+) without use
+    # of rpaths, since runpaths set via DYLD_LIBRARY_PATH are elided by key
+    # system executables (e.g. /bin/sh).  Force rpaths on for these systems.
+      UNSET,darwin1[[5-9]]*|UNSET,darwin2*|10.1[[1-9]][[,.]]*|1[[1-9]].*[[,.]]* )
+      AC_MSG_NOTICE([@rpath library names are needed on macOS versions later than 10.11 (rpaths have been enabled)])
+      enable_darwin_at_rpath=yes
+      ;;
+    # NOTE: we are not (yet) doing anything for 10.5 .. 10.10, since they can
+    # work with either DYLD_LIBRARY_PATH or embedded rpaths.
+
+    esac
+  ])
+
   _LT_TAGVAR(archive_cmds_need_lc, $1)=no
   _LT_TAGVAR(hardcode_direct, $1)=no
   _LT_TAGVAR(hardcode_automatic, $1)=yes
@@ -1056,13 +1095,21 @@ m4_defun([_LT_DARWIN_LINKER_FEATURES],
   esac
   if test "$_lt_dar_can_shared" = "yes"; then
     output_verbose_link_cmd=func_echo_all
-    _LT_TAGVAR(archive_cmds, $1)="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod${_lt_dsymutil}"
+    _lt_install_name='\$rpath/\$soname'
+    if test "x$enable_darwin_at_rpath" = "xyes"; then
+      _lt_install_name='@rpath/\$soname'
+    fi
+    _LT_TAGVAR(archive_cmds, $1)="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name ${_lt_install_name} \$verstring ${_lt_dsymutil}"
     _LT_TAGVAR(module_cmds, $1)="\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dsymutil}"
-    _LT_TAGVAR(archive_expsym_cmds, $1)="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring ${_lt_dar_single_mod}${_lt_dar_export_syms}${_lt_dsymutil}"
+    _LT_TAGVAR(archive_expsym_cmds, $1)="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name ${_lt_install_name} \$verstring ${_lt_dar_export_syms}${_lt_dsymutil}"
     _LT_TAGVAR(module_expsym_cmds, $1)="sed -e 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dar_export_syms}${_lt_dsymutil}"
     m4_if([$1], [CXX],
 [   if test "$lt_cv_apple_cc_single_mod" != "yes"; then
-      _LT_TAGVAR(archive_cmds, $1)="\$CC -r -keep_private_externs -nostdlib -o \${lib}-master.o \$libobjs~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \${lib}-master.o \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring${_lt_dsymutil}"
+      _lt_install_name='\$rpath/\$soname'
+      if test "x$enable_darwin_at_rpath" = "xyes"; then
+        _lt_install_name='@rpath/\$soname'
+      fi
+      _LT_TAGVAR(archive_cmds, $1)="\$CC -r -keep_private_externs -nostdlib -o \${lib}-master.o \$libobjs~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \${lib}-master.o \$deplibs \$compiler_flags -install_name ${_lt_install_name} \$verstring${_lt_dsymutil}"
       _LT_TAGVAR(archive_expsym_cmds, $1)="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -r -keep_private_externs -nostdlib -o \${lib}-master.o \$libobjs~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \${lib}-master.o \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring${_lt_dar_export_syms}${_lt_dsymutil}"
     fi
 ],[])
@@ -1325,8 +1372,33 @@ need_locks="$enable_libtool_lock"
 # _LT_CMD_OLD_ARCHIVE
 # -------------------
 m4_defun([_LT_CMD_OLD_ARCHIVE],
-[AC_CHECK_TOOL(AR, ar, false)
+[plugin_option=
+plugin_names="liblto_plugin.so liblto_plugin-0.dll cyglto_plugin-0.dll"
+for plugin in $plugin_names; do
+  plugin_so=`${CC} ${CFLAGS} --print-prog-name $plugin`
+  if test x$plugin_so = x$plugin; then
+    plugin_so=`${CC} ${CFLAGS} --print-file-name $plugin`
+  fi
+  if test x$plugin_so != x$plugin; then
+    plugin_option="--plugin $plugin_so"
+    break
+  fi
+done
+
+AC_CHECK_TOOL(AR, ar, false)
 test -z "$AR" && AR=ar
+if test -n "$plugin_option"; then
+  if $AR --help 2>&1 | grep -q "\--plugin"; then
+    touch conftest.c
+    $AR $plugin_option rc conftest.a conftest.c
+    if test "$?" != 0; then
+      AC_MSG_WARN([Failed: $AR $plugin_option rc])
+    else
+      AR="$AR $plugin_option"
+    fi
+    rm -f conftest.*
+  fi
+fi
 test -z "$AR_FLAGS" && AR_FLAGS=cru
 _LT_DECL([], [AR], [1], [The archiver])
 _LT_DECL([], [AR_FLAGS], [1])
@@ -1337,6 +1409,11 @@ _LT_DECL([], [STRIP], [1], [A symbol stripping program])
 
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 test -z "$RANLIB" && RANLIB=:
+if test -n "$plugin_option" && test "$RANLIB" != ":"; then
+  if $RANLIB --help 2>&1 | grep -q "\--plugin"; then
+    RANLIB="$RANLIB $plugin_option"
+  fi
+fi
 _LT_DECL([], [RANLIB], [1],
     [Commands used to install an old-style archive])
 
@@ -2334,7 +2411,7 @@ haiku*)
   soname_spec='${libname}${release}${shared_ext}$major'
   shlibpath_var=LIBRARY_PATH
   shlibpath_overrides_runpath=yes
-  sys_lib_dlsearch_path_spec='/boot/home/config/lib /boot/common/lib /boot/beos/system/lib'
+  sys_lib_dlsearch_path_spec='/boot/home/config/lib /boot/common/lib /boot/system/lib'
   hardcode_into_libs=yes
   ;;
 
@@ -2675,6 +2752,25 @@ uts4*)
   shlibpath_var=LD_LIBRARY_PATH
   ;;
 
+# Shared libraries for VwWorks, >= 7 only at this stage
+# and (fpic) still incompatible with "large" code models
+# in a few configurations. Only for RTP mode in any case,
+# and upon explicit request at configure time.
+vxworks7*)
+  dynamic_linker=no
+  case ${with_multisubdir}-${enable_shared} in
+    *large*)
+      ;;
+    *mrtp*-yes)
+      version_type=linux
+      need_lib_prefix=no
+      need_version=no
+      library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
+      soname_spec='${libname}${release}${shared_ext}$major'
+      dynamic_linker="$host_os module_loader"
+      ;;
+  esac
+  ;;
 *)
   dynamic_linker=no
   ;;
@@ -3162,6 +3258,11 @@ sysv4 | sysv4.3*)
 tpf*)
   lt_cv_deplibs_check_method=pass_all
   ;;
+vxworks*)
+  # Assume VxWorks cross toolchains are built on Linux, possibly
+  # as canadian for Windows hosts.
+  lt_cv_deplibs_check_method=pass_all
+  ;;
 esac
 ])
 file_magic_cmd=$lt_cv_file_magic_cmd
@@ -3177,53 +3278,61 @@ _LT_DECL([], [file_magic_cmd], [1],
 
 # LT_PATH_NM
 # ----------
-# find the pathname to a BSD- or MS-compatible name lister
+# find the pathname to a BSD- or MS-compatible name lister, and any flags
+# needed to make it compatible
 AC_DEFUN([LT_PATH_NM],
 [AC_REQUIRE([AC_PROG_CC])dnl
 AC_CACHE_CHECK([for BSD- or MS-compatible name lister (nm)], lt_cv_path_NM,
 [if test -n "$NM"; then
-  # Let the user override the test.
-  lt_cv_path_NM="$NM"
-else
-  lt_nm_to_check="${ac_tool_prefix}nm"
-  if test -n "$ac_tool_prefix" && test "$build" = "$host"; then
-    lt_nm_to_check="$lt_nm_to_check nm"
-  fi
-  for lt_tmp_nm in $lt_nm_to_check; do
-    lt_save_ifs="$IFS"; IFS=$PATH_SEPARATOR
-    for ac_dir in $PATH /usr/ccs/bin/elf /usr/ccs/bin /usr/ucb /bin; do
-      IFS="$lt_save_ifs"
-      test -z "$ac_dir" && ac_dir=.
-      tmp_nm="$ac_dir/$lt_tmp_nm"
-      if test -f "$tmp_nm" || test -f "$tmp_nm$ac_exeext" ; then
-	# Check to see if the nm accepts a BSD-compat flag.
-	# Adding the `sed 1q' prevents false positives on HP-UX, which says:
-	#   nm: unknown option "B" ignored
-	# Tru64's nm complains that /dev/null is an invalid object file
-	case `"$tmp_nm" -B /dev/null 2>&1 | sed '1q'` in
-	*/dev/null* | *'Invalid file or object type'*)
-	  lt_cv_path_NM="$tmp_nm -B"
-	  break
-	  ;;
-	*)
-	  case `"$tmp_nm" -p /dev/null 2>&1 | sed '1q'` in
-	  */dev/null*)
-	    lt_cv_path_NM="$tmp_nm -p"
-	    break
-	    ;;
-	  *)
-	    lt_cv_path_NM=${lt_cv_path_NM="$tmp_nm"} # keep the first match, but
-	    continue # so that we can try to find one that supports BSD flags
-	    ;;
-	  esac
-	  ;;
-	esac
-      fi
-    done
-    IFS="$lt_save_ifs"
-  done
-  : ${lt_cv_path_NM=no}
-fi])
+   # Let the user override the nm to test.
+   lt_nm_to_check="$NM"
+ else
+   lt_nm_to_check="${ac_tool_prefix}nm"
+   if test -n "$ac_tool_prefix" && test "$build" = "$host"; then
+     lt_nm_to_check="$lt_nm_to_check nm"
+   fi
+ fi
+ for lt_tmp_nm in "$lt_nm_to_check"; do
+   lt_save_ifs="$IFS"; IFS=$PATH_SEPARATOR
+   for ac_dir in $PATH /usr/ccs/bin/elf /usr/ccs/bin /usr/ucb /bin; do
+     IFS="$lt_save_ifs"
+     test -z "$ac_dir" && ac_dir=.
+     # Strip out any user-provided options from the nm to test twice,
+     # the first time to test to see if nm (rather than its options) has
+     # an explicit path, the second time to yield a file which can be
+     # nm'ed itself.
+     tmp_nm_path="`$ECHO "$lt_tmp_nm" | sed 's, -.*$,,'`"
+     case "$tmp_nm_path" in
+     */*|*\\*) tmp_nm="$lt_tmp_nm";;
+     *) tmp_nm="$ac_dir/$lt_tmp_nm";;
+     esac
+     tmp_nm_to_nm="`$ECHO "$tmp_nm" | sed 's, -.*$,,'`"
+     if test -f "$tmp_nm_to_nm" || test -f "$tmp_nm_to_nm$ac_exeext" ; then
+       # Check to see if the nm accepts a BSD-compat flag.
+       # Adding the `sed 1q' prevents false positives on HP-UX, which says:
+       #   nm: unknown option "B" ignored
+       case `"$tmp_nm" -B "$tmp_nm_to_nm" 2>&1 | grep -v '^ *$' | sed '1q'` in
+       *$tmp_nm*) lt_cv_path_NM="$tmp_nm -B"
+	 break
+	 ;;
+       *)
+	 case `"$tmp_nm" -p "$tmp_nm_to_nm" 2>&1 | grep -v '^ *$' | sed '1q'` in
+	 *$tmp_nm*)
+	   lt_cv_path_NM="$tmp_nm -p"
+	   break
+	   ;;
+	 *)
+	   lt_cv_path_NM=${lt_cv_path_NM="$tmp_nm"} # keep the first match, but
+	   continue # so that we can try to find one that supports BSD flags
+	   ;;
+	 esac
+	 ;;
+       esac
+     fi
+   done
+   IFS="$lt_save_ifs"
+ done
+ : ${lt_cv_path_NM=no}])
 if test "$lt_cv_path_NM" != "no"; then
   NM="$lt_cv_path_NM"
 else
@@ -3372,7 +3481,7 @@ osf*)
   symcode='[[BCDEGQRST]]'
   ;;
 solaris*)
-  symcode='[[BDRT]]'
+  symcode='[[BCDRT]]'
   ;;
 sco3.2v5*)
   symcode='[[DT]]'
@@ -6396,8 +6505,9 @@ if test "$_lt_caught_CXX_error" != yes; then
         ;;
 
       vxworks*)
-        # FIXME: insert proper C++ library support
-        _LT_TAGVAR(ld_shlibs, $1)=no
+        # For VxWorks ports, we assume the use of a GNU linker with
+        # standard elf conventions.
+        _LT_TAGVAR(ld_shlibs, $1)=yes
         ;;
 
       *)
@@ -6440,7 +6550,6 @@ fi # test "$_lt_caught_CXX_error" != yes
 
 AC_LANG_POP
 ])# _LT_LANG_CXX_CONFIG
-
 
 # _LT_SYS_HIDDEN_LIBDEPS([TAGNAME])
 # ---------------------------------

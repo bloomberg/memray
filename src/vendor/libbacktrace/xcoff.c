@@ -1,5 +1,5 @@
 /* xcoff.c -- Get debug data from an XCOFF file for backtraces.
-   Copyright (C) 2012-2021 Free Software Foundation, Inc.
+   Copyright (C) 2012-2024 Free Software Foundation, Inc.
    Adapted from elf.c.
 
 Redistribution and use in source and binary forms, with or without
@@ -133,6 +133,7 @@ typedef struct {
 #define SSUBTYP_DWARNGE	0x50000	/* DWARF aranges section.  */
 #define SSUBTYP_DWABREV	0x60000	/* DWARF abbreviation section.  */
 #define SSUBTYP_DWSTR	0x70000	/* DWARF strings section.  */
+#define SSUBTYP_DWRNGES	0x80000	/* DWARF ranges section.  */
 
 /* XCOFF symbol.  */
 
@@ -586,7 +587,6 @@ xcoff_symname (const b_xcoff_syment *asym,
 static int
 xcoff_initialize_syminfo (struct backtrace_state *state,
 			  uintptr_t base_address,
-			  const b_xcoff_scnhdr *sects,
 			  const b_xcoff_syment *syms, size_t nsyms,
 			  const unsigned char *strtab, size_t strtab_size,
 			  backtrace_error_callback error_callback, void *data,
@@ -628,8 +628,7 @@ xcoff_initialize_syminfo (struct backtrace_state *state,
 	{
 	  const b_xcoff_auxent *aux = (const b_xcoff_auxent *) (asym + 1);
 	  xcoff_symbols[j].name = xcoff_symname (asym, strtab, strtab_size);
-	  xcoff_symbols[j].address = base_address + asym->n_value
-				   - sects[asym->n_scnum - 1].s_paddr;
+	  xcoff_symbols[j].address = base_address + asym->n_value;
 	  /* x_fsize will be 0 if there is no debug information.  */
 	  xcoff_symbols[j].size = aux->x_fcn.x_fsize;
 	  ++j;
@@ -767,7 +766,7 @@ xcoff_lookup_pc (struct backtrace_state *state ATTRIBUTE_UNUSED,
       lineno = (const b_xcoff_lineno *) lineptr;
       if (lineno->l_lnno == 0)
 	break;
-      if (pc <= fdata->base_address + lineno->l_addr.l_paddr - fn->sect_base)
+      if (pc <= fdata->base_address + lineno->l_addr.l_paddr)
 	break;
       match = lnnoptr;
       lnno = lineno->l_lnno;
@@ -1002,7 +1001,7 @@ xcoff_initialize_fileline (struct backtrace_state *state,
 	    fn->name = xcoff_symname (fsym, strtab, strtab_size);
 	    fn->filename = filename;
 	    fn->sect_base = sects[fsym->n_scnum - 1].s_paddr;
-	    fn->pc = base_address + fsym->n_value - fn->sect_base;
+	    fn->pc = base_address + fsym->n_value;
 	    fn->size = fsize;
 	    fn->lnno = lnno;
 	    fn->lnnoptr = lnnoptr;
@@ -1153,8 +1152,16 @@ xcoff_add (struct backtrace_state *state, int descriptor, off_t offset,
 
   stext = &sects[i];
 
-  /* AIX ldinfo_textorg includes the XCOFF headers.  */
-  base_address = (exe ? XCOFF_AIX_TEXTBASE : base_address) + stext->s_scnptr;
+  /* base_address represents the difference between the
+     virtual memory address of the shared object or a loaded
+     executable and the offset of that object in the file
+     from which it was loaded.
+     On AIX, virtual address is either fixed for executable
+     or given by ldinfo.  This address will include the XCOFF
+     headers.  */
+  base_address = ((exe ? XCOFF_AIX_TEXTBASE : base_address)
+		  + stext->s_scnptr
+		  - stext->s_paddr);
 
   lnnoptr = stext->s_lnnoptr;
   nlnno = stext->s_nlnno;
@@ -1212,7 +1219,7 @@ xcoff_add (struct backtrace_state *state, int descriptor, off_t offset,
       if (sdata == NULL)
 	goto fail;
 
-      if (!xcoff_initialize_syminfo (state, base_address, sects,
+      if (!xcoff_initialize_syminfo (state, base_address,
 				     syms_view.data, fhdr.f_nsyms,
 				     str_view.data, str_size,
 				     error_callback, data, sdata))
@@ -1252,7 +1259,7 @@ xcoff_add (struct backtrace_state *state, int descriptor, off_t offset,
 	  case SSUBTYP_DWABREV:
 	    idx = DEBUG_ABBREV;
 	    break;
-	  case SSUBTYP_DWARNGE:
+	  case SSUBTYP_DWRNGES:
 	    idx = DEBUG_RANGES;
 	    break;
 	  case SSUBTYP_DWSTR:
@@ -1290,13 +1297,7 @@ xcoff_add (struct backtrace_state *state, int descriptor, off_t offset,
 
       dwarf_sections.data[DEBUG_INFO] = dwsect[DEBUG_INFO].data;
       dwarf_sections.size[DEBUG_INFO] = dwsect[DEBUG_INFO].size;
-#if BACKTRACE_XCOFF_SIZE == 32
-      /* XXX workaround for broken lineoff */
-      dwarf_sections.data[DEBUG_LINE] = dwsect[DEBUG_LINE].data - 4;
-#else
-      /* XXX workaround for broken lineoff */
-      dwarf_sections.data[DEBUG_LINE] = dwsect[DEBUG_LINE].data - 12;
-#endif
+      dwarf_sections.data[DEBUG_LINE] = dwsect[DEBUG_LINE].data;
       dwarf_sections.size[DEBUG_LINE] = dwsect[DEBUG_LINE].size;
       dwarf_sections.data[DEBUG_ABBREV] = dwsect[DEBUG_ABBREV].data;
       dwarf_sections.size[DEBUG_ABBREV] = dwsect[DEBUG_ABBREV].size;
@@ -1305,7 +1306,7 @@ xcoff_add (struct backtrace_state *state, int descriptor, off_t offset,
       dwarf_sections.data[DEBUG_STR] = dwsect[DEBUG_STR].data;
       dwarf_sections.size[DEBUG_STR] = dwsect[DEBUG_STR].size;
 
-      if (!backtrace_dwarf_add (state, 0, &dwarf_sections,
+      if (!backtrace_dwarf_add (state, base_address, &dwarf_sections,
 				1, /* big endian */
 				NULL, /* altlink */
 				error_callback, data, fileline_fn,

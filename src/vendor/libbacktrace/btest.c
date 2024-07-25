@@ -1,5 +1,5 @@
 /* btest.c -- Test for libbacktrace library
-   Copyright (C) 2012-2021 Free Software Foundation, Inc.
+   Copyright (C) 2012-2024 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "filenames.h"
 
@@ -48,7 +49,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
 
 /* Test the backtrace function with non-inlined functions.  */
 
-static int test1 (void) __attribute__ ((noinline, noclone, unused));
+static int test1 (void) __attribute__ ((noinline, noclone, optnone, unused));
 static int f2 (int) __attribute__ ((noinline, noclone));
 static int f3 (int, int) __attribute__ ((noinline, noclone));
 
@@ -162,7 +163,7 @@ f13 (int f1line, int f2line)
 
 /* Test the backtrace_simple function with non-inlined functions.  */
 
-static int test3 (void) __attribute__ ((noinline, noclone, unused));
+static int test3 (void) __attribute__ ((noinline, noclone, optnone, unused));
 static int f22 (int) __attribute__ ((noinline, noclone));
 static int f23 (int, int) __attribute__ ((noinline, noclone));
 
@@ -439,7 +440,7 @@ test5 (void)
 		   (unsigned long) (uintptr_t) &global);
 	  symdata.failed = 1;
 	}
-      else if (symdata.size != sizeof (global))
+      else if (symdata.size != sizeof (global) && symdata.size != 0)
 	{
 	  fprintf (stderr,
 		   "test5: unexpected syminfo size got %lx expected %lx\n",
@@ -458,16 +459,29 @@ test5 (void)
   return failures;
 }
 
+#define MIN_DESCRIPTOR 3
+#define MAX_DESCRIPTOR 10
+
+static int fstat_status[MAX_DESCRIPTOR];
+
+/* Check files that are available.  */
+
+static void
+check_available_files (void)
+{
+  struct stat s;
+  for (unsigned i = MIN_DESCRIPTOR; i < MAX_DESCRIPTOR; i++)
+    fstat_status[i] = fstat (i, &s);
+}
+
 /* Check that are no files left open.  */
 
 static void
 check_open_files (void)
 {
-  int i;
-
-  for (i = 3; i < 10; i++)
+  for (unsigned i = MIN_DESCRIPTOR; i < MAX_DESCRIPTOR; i++)
     {
-      if (close (i) == 0)
+      if (fstat_status[i] != 0 && close (i) == 0)
 	{
 	  fprintf (stderr,
 		   "ERROR: descriptor %d still open after tests complete\n",
@@ -482,6 +496,8 @@ check_open_files (void)
 int
 main (int argc ATTRIBUTE_UNUSED, char **argv)
 {
+  check_available_files ();
+
   state = backtrace_create_state (argv[0], BACKTRACE_SUPPORTS_THREADS,
 				  error_callback_create, NULL);
 

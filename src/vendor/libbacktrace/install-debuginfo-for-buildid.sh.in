@@ -2,7 +2,7 @@
 
 # install-debug-info-for-buildid.sh -- Helper script for libbacktrace library
 # testing.
-# Copyright (C) 2019-2021 Free Software Foundation, Inc.
+# Copyright (C) 2019-2024 Free Software Foundation, Inc.
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -47,7 +47,7 @@ mkdir_p="@MKDIR_P@"
 build_id_dir="$1"
 src="$2"
 
-buildid=$($readelf -n $src \
+buildid=$(LANG=C $readelf -n $src \
 	      | $grep "Build ID" \
 	      | $awk '{print $3}')
 

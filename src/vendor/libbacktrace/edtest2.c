@@ -1,5 +1,5 @@
 /* edtest2.c -- Test for libbacktrace storage allocation stress handling (p2)
-   Copyright (C) 2017-2021 Free Software Foundation, Inc.
+   Copyright (C) 2017-2024 Free Software Foundation, Inc.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
