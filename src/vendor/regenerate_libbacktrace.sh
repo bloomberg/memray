@@ -1,23 +1,39 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-SNAPSHOT_COMMIT=7e2b7da3d6568d2e4e78658f22e701746a48d7e1
-LIBBACKTRACE_DIR="libbacktrace"
+if [[ $# -ne 0 ]] && [[ $# -ne 1 ]]; then
+    echo "Usage: $0 [new-commit]"
+    exit 1
+fi
 
-echo "checking" $(ls)
+old_snapshot=7e2b7da3d6568d2e4e78658f22e701746a48d7e1
+new_snapshot=${1:-}
 
 echo ">>> Cloning libbacktrace"
-rm -rf "$LIBBACKTRACE_DIR"
-git clone https://github.com/ianlancetaylor/libbacktrace.git "$LIBBACKTRACE_DIR"
+rm -rf libbacktrace
+git clone https://github.com/ianlancetaylor/libbacktrace.git libbacktrace
 
-echo ">>> Checking out commit ${SNAPSHOT_COMMIT}"
-cd "$LIBBACKTRACE_DIR"
-git checkout $SNAPSHOT_COMMIT 1>/dev/null
+echo "Applying patches"
+cd libbacktrace
+git checkout "$old_snapshot"
+git am ../libbacktrace-patches/*
 
-echo ">>> Applying main patch for commit ${SNAPSHOT_COMMIT}"
-git apply ../libbacktrace_${SNAPSHOT_COMMIT}_patch.diff
-echo ">>> Applying debuginfod patch for commit ${SNAPSHOT_COMMIT}"
-git apply ../libbacktrace_${SNAPSHOT_COMMIT}_debuginfod_patch.diff
+if [[ -n "$new_snapshot" ]]; then
+    echo "Rebasing on $new_snapshot"
+    if git rebase "$new_snapshot"; then
+        echo "Rebased successfully. Updating patches."
+        (cd ../libbacktrace-patches && git rm -f 0*)
+        git format-patch "$new_snapshot" --no-numbered --output-directory=../libbacktrace-patches
+        (cd ../libbacktrace-patches && git add 0*)
+    else
+        echo "Failed to apply patches. You must finish rebasing manually."
+        echo "When you are satisfied, update the patches by running:"
+        echo "  git format-patch $new_snapshot --no-numbered --output-directory=../libbacktrace-patches"
+        echo "Be sure to remove the old patches first if the file names will change."
+        exit 1
+    fi
+fi
+
 rm -rf .git
 
 echo "Regenerated vendored libbacktrace"
