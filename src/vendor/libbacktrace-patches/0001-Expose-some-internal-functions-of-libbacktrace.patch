@@ -1,3 +1,17 @@
+From d99c0a30bacfe6cae604a85250f12587d0fee932 Mon Sep 17 00:00:00 2001
+From: Matt Wozniski <mwozniski@bloomberg.net>
+Date: Thu, 25 Jul 2024 18:59:09 -0400
+Subject: [PATCH] Expose some internal functions of libbacktrace
+
+Memray uses these for more control than the public entry points give.
+---
+ Makefile.am |  2 +-
+ Makefile.in |  2 +-
+ elf.c       | 10 +++++-----
+ internal.h  | 39 +++++++++++++++++++++++++++++++++++++++
+ macho.c     | 31 +++++++++++++++++++------------
+ 5 files changed, 65 insertions(+), 19 deletions(-)
+
 diff --git a/Makefile.am b/Makefile.am
 index 4d509a2..f80a9e6 100644
 --- a/Makefile.am
@@ -224,3 +238,6 @@ index fc4c959..527c5ac 100644
        break;
      default:
        error_callback (data, "executable file is not an executable", 0);
+-- 
+2.42.3
+

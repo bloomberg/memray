@@ -1,3 +1,17 @@
+From b052eda140ac673de19a3060523fb250d898ffb6 Mon Sep 17 00:00:00 2001
+From: Matt Wozniski <mwozniski@bloomberg.net>
+Date: Thu, 25 Jul 2024 18:59:10 -0400
+Subject: [PATCH] Add debuginfod support to libbacktrace
+
+Allow fetching debug info from a debuginfod server when unwinding.
+---
+ Makefile.am          |   5 +-
+ Makefile.in          |   5 +-
+ debuginfod_support.h | 115 +++++++++++++++++++++++++++++++++++++++++++
+ elf.c                |  64 ++++++++++++++++++++++++
+ 4 files changed, 185 insertions(+), 4 deletions(-)
+ create mode 100644 debuginfod_support.h
+
 diff --git a/Makefile.am b/Makefile.am
 index f80a9e6..15e87c7 100644
 --- a/Makefile.am
@@ -283,3 +297,6 @@ index 80482a4..61f08af 100644
  
    if (!state->threaded)
      {
+-- 
+2.42.3
+
