@@ -1,5 +1,5 @@
 /* pecoff.c -- Get debug data from a PE/COFFF file for backtraces.
-   Copyright (C) 2015-2021 Free Software Foundation, Inc.
+   Copyright (C) 2015-2024 Free Software Foundation, Inc.
    Adapted from elf.c by Tristan Gingold, AdaCore.
 
 Redistribution and use in source and binary forms, with or without
@@ -240,7 +240,7 @@ coff_nodebug (struct backtrace_state *state ATTRIBUTE_UNUSED,
 	      backtrace_full_callback callback ATTRIBUTE_UNUSED,
 	      backtrace_error_callback error_callback, void *data)
 {
-  error_callback (data, "no debug info in PE/COFF executable", -1);
+  error_callback (data, "no debug info in PE/COFF executable (make sure to compile with -g)", -1);
   return 0;
 }
 
@@ -382,10 +382,11 @@ coff_is_function_symbol (const b_coff_internal_symbol *isym)
 
 static int
 coff_initialize_syminfo (struct backtrace_state *state,
-			 uintptr_t base_address, int is_64,
-			 const b_coff_section_header *sects, size_t sects_num,
-			 const b_coff_external_symbol *syms, size_t syms_size,
-			 const unsigned char *strtab, size_t strtab_size,
+			 struct libbacktrace_base_address base_address,
+			 int is_64, const b_coff_section_header *sects,
+			 size_t sects_num, const b_coff_external_symbol *syms,
+			 size_t syms_size, const unsigned char *strtab,
+			 size_t strtab_size,
 			 backtrace_error_callback error_callback,
 			 void *data, struct coff_syminfo_data *sdata)
 {
@@ -490,9 +491,10 @@ coff_initialize_syminfo (struct backtrace_state *state,
 	  secnum = coff_read2 (asym->section_number);
 
 	  coff_sym->name = name;
-	  coff_sym->address = (coff_read4 (asym->value)
-			       + sects[secnum - 1].virtual_address
-			       + base_address);
+	  coff_sym->address =
+	    libbacktrace_add_base ((coff_read4 (asym->value)
+				    + sects[secnum - 1].virtual_address),
+				   base_address);
 	  coff_sym++;
 	}
 
@@ -662,8 +664,8 @@ coff_add (struct backtrace_state *state, int descriptor,
   struct backtrace_view debug_view;
   int debug_view_valid;
   int is_64;
-  uintptr_t image_base;
-  uintptr_t base_address = 0;
+  struct libbacktrace_base_address image_base;
+  struct libbacktrace_base_address base_address;
   struct dwarf_sections dwarf_sections;
 
   *found_sym = 0;
@@ -739,13 +741,14 @@ coff_add (struct backtrace_state *state, int descriptor,
     (sects_view.data + fhdr.size_of_optional_header);
 
   is_64 = 0;
+  memset (&image_base, 0, sizeof image_base);
   if (fhdr.size_of_optional_header > sizeof (*opt_hdr))
     {
       if (opt_hdr->magic == PE_MAGIC)
-	image_base = opt_hdr->u.pe.image_base;
+	image_base.m = opt_hdr->u.pe.image_base;
       else if (opt_hdr->magic == PEP_MAGIC)
 	{
-	  image_base = opt_hdr->u.pep.image_base;
+	  image_base.m = opt_hdr->u.pep.image_base;
 	  is_64 = 1;
 	}
       else
@@ -754,8 +757,6 @@ coff_add (struct backtrace_state *state, int descriptor,
 	  goto fail;
 	}
     }
-  else
-    image_base = 0;
 
   /* Read the symbol table and the string table.  */
 
@@ -910,8 +911,9 @@ coff_add (struct backtrace_state *state, int descriptor,
 				  + (sections[i].offset - min_offset));
     }
 
+  memset (&base_address, 0, sizeof base_address);
 #ifdef HAVE_WINDOWS_H
-  base_address = module_handle - image_base;
+  base_address.m = module_handle - image_base.m;
 #endif
 
   if (!backtrace_dwarf_add (state, base_address, &dwarf_sections,

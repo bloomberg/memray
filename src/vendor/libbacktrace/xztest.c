@@ -1,5 +1,5 @@
 /* xztest.c -- Test for libbacktrace LZMA decoder.
-   Copyright (C) 2020-2021 Free Software Foundation, Inc.
+   Copyright (C) 2020-2024 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -172,7 +172,7 @@ test_samples (struct backtrace_state *state)
 		       tests[i].name, uncompressed_len, v);
 	      ++failures;
 	    }
-	  else if (memcmp (tests[i].uncompressed, uncompressed, v) != 0)
+	  else if (v > 0 && memcmp (tests[i].uncompressed, uncompressed, v) != 0)
 	    {
 	      size_t j;
 

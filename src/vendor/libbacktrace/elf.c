@@ -1,5 +1,5 @@
 /* elf.c -- Get debug data from an ELF file for backtraces.
-   Copyright (C) 2012-2021 Free Software Foundation, Inc.
+   Copyright (C) 2012-2024 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -591,7 +591,7 @@ elf_nodebug (struct backtrace_state *state, uintptr_t pc,
       return bdata.ret;
     }
 
-  error_callback (data, "no debug info in ELF executable", -1);
+  error_callback (data, "no debug info in ELF executable (make sure to compile with -g)", -1);
   return 0;
 }
 
@@ -635,7 +635,7 @@ elf_symbol_search (const void *vkey, const void *ventry)
 
 int
 elf_initialize_syminfo (struct backtrace_state *state,
-			uintptr_t base_address,
+			struct libbacktrace_base_address base_address,
 			const unsigned char *symtab_data, size_t symtab_size,
 			const unsigned char *strtab, size_t strtab_size,
 			backtrace_error_callback error_callback,
@@ -701,7 +701,8 @@ elf_initialize_syminfo (struct backtrace_state *state,
 	  = *(const b_elf_addr *) (opd->data + (sym->st_value - opd->addr));
       else
 	elf_symbols[j].address = sym->st_value;
-      elf_symbols[j].address += base_address;
+      elf_symbols[j].address =
+	libbacktrace_add_base (elf_symbols[j].address, base_address);
       elf_symbols[j].size = sym->st_size;
       ++j;
     }
@@ -4882,25 +4883,25 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
 		  {
 		  case 8:
 		    *pout++ = *plit++;
-		    /* FALLTHROUGH */
+		    ATTRIBUTE_FALLTHROUGH;
 		  case 7:
 		    *pout++ = *plit++;
-		    /* FALLTHROUGH */
+		    ATTRIBUTE_FALLTHROUGH;
 		  case 6:
 		    *pout++ = *plit++;
-		    /* FALLTHROUGH */
+		    ATTRIBUTE_FALLTHROUGH;
 		  case 5:
 		    *pout++ = *plit++;
-		    /* FALLTHROUGH */
+		    ATTRIBUTE_FALLTHROUGH;
 		  case 4:
 		    *pout++ = *plit++;
-		    /* FALLTHROUGH */
+		    ATTRIBUTE_FALLTHROUGH;
 		  case 3:
 		    *pout++ = *plit++;
-		    /* FALLTHROUGH */
+		    ATTRIBUTE_FALLTHROUGH;
 		  case 2:
 		    *pout++ = *plit++;
-		    /* FALLTHROUGH */
+		    ATTRIBUTE_FALLTHROUGH;
 		  case 1:
 		    *pout++ = *plit++;
 		    break;
@@ -5722,10 +5723,10 @@ elf_uncompress_lzma_block (const unsigned char *compressed,
   /* Block header CRC.  */
   computed_crc = elf_crc32 (0, compressed + block_header_offset,
 			    block_header_size - 4);
-  stream_crc = (compressed[off]
-		| (compressed[off + 1] << 8)
-		| (compressed[off + 2] << 16)
-		| (compressed[off + 3] << 24));
+  stream_crc = ((uint32_t)compressed[off]
+		| ((uint32_t)compressed[off + 1] << 8)
+		| ((uint32_t)compressed[off + 2] << 16)
+		| ((uint32_t)compressed[off + 3] << 24));
   if (unlikely (computed_crc != stream_crc))
     {
       elf_uncompress_failed ();
@@ -6335,10 +6336,10 @@ elf_uncompress_lzma (struct backtrace_state *state,
 
   /* Next comes a CRC of the stream flags.  */
   computed_crc = elf_crc32 (0, compressed + 6, 2);
-  stream_crc = (compressed[8]
-		| (compressed[9] << 8)
-		| (compressed[10] << 16)
-		| (compressed[11] << 24));
+  stream_crc = ((uint32_t)compressed[8]
+		| ((uint32_t)compressed[9] << 8)
+		| ((uint32_t)compressed[10] << 16)
+		| ((uint32_t)compressed[11] << 24));
   if (unlikely (computed_crc != stream_crc))
     {
       elf_uncompress_failed ();
@@ -6379,10 +6380,10 @@ elf_uncompress_lzma (struct backtrace_state *state,
 
   /* Before that is a footer CRC.  */
   computed_crc = elf_crc32 (0, compressed + offset, 6);
-  stream_crc = (compressed[offset - 4]
-		| (compressed[offset - 3] << 8)
-		| (compressed[offset - 2] << 16)
-		| (compressed[offset - 1] << 24));
+  stream_crc = ((uint32_t)compressed[offset - 4]
+		| ((uint32_t)compressed[offset - 3] << 8)
+		| ((uint32_t)compressed[offset - 2] << 16)
+		| ((uint32_t)compressed[offset - 1] << 24));
   if (unlikely (computed_crc != stream_crc))
     {
       elf_uncompress_failed ();
@@ -6438,10 +6439,10 @@ elf_uncompress_lzma (struct backtrace_state *state,
   /* Next is a CRC of the index.  */
   computed_crc = elf_crc32 (0, compressed + index_offset,
 			    offset - index_offset);
-  stream_crc = (compressed[offset]
-		| (compressed[offset + 1] << 8)
-		| (compressed[offset + 2] << 16)
-		| (compressed[offset + 3] << 24));
+  stream_crc = ((uint32_t)compressed[offset]
+		| ((uint32_t)compressed[offset + 1] << 8)
+		| ((uint32_t)compressed[offset + 2] << 16)
+		| ((uint32_t)compressed[offset + 3] << 24));
   if (unlikely (computed_crc != stream_crc))
     {
       elf_uncompress_failed ();
@@ -6534,7 +6535,8 @@ backtrace_uncompress_lzma (struct backtrace_state *state,
 int
 elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	 const unsigned char *memory, size_t memory_size,
-	 uintptr_t base_address, struct elf_ppc64_opd_data *caller_opd,
+	 struct libbacktrace_base_address base_address,
+	 struct elf_ppc64_opd_data *caller_opd,
 	 backtrace_error_callback error_callback, void *data,
 	 fileline *fileline_fn, int *found_sym, int *found_dwarf,
 	 struct dwarf_data **fileline_entry, int exe, int debuginfo,
@@ -7392,6 +7394,7 @@ phdr_callback (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
   const char *filename;
   int descriptor;
   int does_not_exist;
+  struct libbacktrace_base_address base_address;
   fileline elf_fileline_fn;
   int found_dwarf;
 
@@ -7421,7 +7424,8 @@ phdr_callback (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
 	return 0;
     }
 
-  if (elf_add (pd->state, filename, descriptor, NULL, 0, info->dlpi_addr, NULL,
+  base_address.m = info->dlpi_addr;
+  if (elf_add (pd->state, filename, descriptor, NULL, 0, base_address, NULL,
 	       pd->error_callback, pd->data, &elf_fileline_fn, pd->found_sym,
 	       &found_dwarf, NULL, 0, 0, NULL, 0))
     {
@@ -7450,11 +7454,20 @@ backtrace_initialize (struct backtrace_state *state, const char *filename,
   fileline elf_fileline_fn = elf_nodebug;
   struct phdr_data pd;
 
-  ret = elf_add (state, filename, descriptor, NULL, 0, 0, NULL, error_callback,
-		 data, &elf_fileline_fn, &found_sym, &found_dwarf, NULL, 1, 0,
-		 NULL, 0);
-  if (!ret)
-    return 0;
+  /* When using fdpic we must use dl_iterate_phdr for all modules, including
+     the main executable, so that we can get the right base address
+     mapping.  */
+  if (!libbacktrace_using_fdpic ())
+    {
+      struct libbacktrace_base_address zero_base_address;
+
+      memset (&zero_base_address, 0, sizeof zero_base_address);
+      ret = elf_add (state, filename, descriptor, NULL, 0, zero_base_address,
+		     NULL, error_callback, data, &elf_fileline_fn, &found_sym,
+		     &found_dwarf, NULL, 1, 0, NULL, 0);
+      if (!ret)
+	return 0;
+    }
 
   pd.state = state;
   pd.error_callback = error_callback;

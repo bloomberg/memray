@@ -1,5 +1,5 @@
 /* internal.h -- Internal header file for stack backtrace library.
-   Copyright (C) 2012-2021 Free Software Foundation, Inc.
+   Copyright (C) 2012-2024 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -60,6 +60,11 @@ extern "C" {
 # endif
 #endif
 
+#ifdef __has_attribute
+# if __has_attribute(fallthrough)
+#  define ATTRIBUTE_FALLTHROUGH __attribute__ ((fallthrough))
+# endif
+#endif
 #ifndef ATTRIBUTE_FALLTHROUGH
 # if (GCC_VERSION >= 7000)
 #  define ATTRIBUTE_FALLTHROUGH __attribute__ ((__fallthrough__))
@@ -327,10 +332,44 @@ struct dwarf_sections
 
 struct dwarf_data;
 
+/* The load address mapping.  */
+
+#if defined(__FDPIC__) && defined(HAVE_DL_ITERATE_PHDR) && (defined(HAVE_LINK_H) || defined(HAVE_SYS_LINK_H))
+
+#ifdef HAVE_LINK_H
+ #include <link.h>
+#endif
+#ifdef HAVE_SYS_LINK_H
+ #include <sys/link.h>
+#endif
+
+#define libbacktrace_using_fdpic() (1)
+
+struct libbacktrace_base_address
+{
+  struct elf32_fdpic_loadaddr m;
+};
+
+#define libbacktrace_add_base(pc, base) \
+  ((uintptr_t) (__RELOC_POINTER ((pc), (base).m)))
+
+#else /* not _FDPIC__ */
+
+#define libbacktrace_using_fdpic() (0)
+
+struct libbacktrace_base_address
+{
+  uintptr_t m;
+};
+
+#define libbacktrace_add_base(pc, base) ((pc) + (base).m)
+
+#endif /* not _FDPIC__ */
+
 /* Add file/line information for a DWARF module.  */
 
 extern int backtrace_dwarf_add (struct backtrace_state *state,
-				uintptr_t base_address,
+				struct libbacktrace_base_address base_address,
 				const struct dwarf_sections *dwarf_sections,
 				int is_bigendian,
 				struct dwarf_data *fileline_altlink,
@@ -393,22 +432,24 @@ extern int backtrace_uncompress_lzma (struct backtrace_state *,
 struct elf_ppc64_opd_data;
 extern int elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	 const unsigned char *memory, size_t memory_size,
-	 uintptr_t base_address, struct elf_ppc64_opd_data *caller_opd,
+	 struct libbacktrace_base_address base_address,
+	 struct elf_ppc64_opd_data *caller_opd,
 	 backtrace_error_callback error_callback, void *data,
 	 fileline *fileline_fn, int *found_sym, int *found_dwarf,
 	 struct dwarf_data **fileline_entry, int exe, int debuginfo,
 	 const char *with_buildid_data, uint32_t with_buildid_size);
 extern void elf_syminfo (struct backtrace_state *state, uintptr_t addr,
-			 backtrace_syminfo_callback callback,
-			 backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
-			 void *data);
+	     backtrace_syminfo_callback callback,
+	     backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
+	     void *data);
 extern void elf_nosyms (struct backtrace_state *state ATTRIBUTE_UNUSED,
-			uintptr_t addr ATTRIBUTE_UNUSED,
-			backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
-			backtrace_error_callback error_callback, void *data);
+	    uintptr_t addr ATTRIBUTE_UNUSED,
+	    backtrace_syminfo_callback callback ATTRIBUTE_UNUSED,
+	    backtrace_error_callback error_callback, void *data);
+
 extern int macho_add (struct backtrace_state *state, const char *filename, int descriptor,
 	   off_t offset, const unsigned char *match_uuid,
-	   uintptr_t base_address, int skip_symtab,
+	   struct libbacktrace_base_address base_address, int skip_symtab,
 	   backtrace_error_callback error_callback, void *data,
 	   fileline *fileline_fn, int *found_sym);
 extern void macho_syminfo (struct backtrace_state *state, uintptr_t addr,
