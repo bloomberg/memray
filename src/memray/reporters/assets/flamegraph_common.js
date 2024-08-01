@@ -258,6 +258,9 @@ export function initThreadsDropdown(data, merge_threads) {
 }
 
 export function drawChart(chart_data) {
+  // Retain the "invertedness" if there's an existing graph.
+  let invert = chart ? chart.inverted() : true;
+
   // Clear any existing chart
   if (chart) {
     chart.destroy();
@@ -270,8 +273,7 @@ export function drawChart(chart_data) {
     // smooth transitions
     .transitionDuration(250)
     .transitionEase(d3.easeCubic)
-    // invert the graph by default
-    .inverted(true)
+    .inverted(invert)
     // make each row a little taller
     .cellHeight(20)
     // don't show elements that are less than 5px wide
