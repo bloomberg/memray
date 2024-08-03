@@ -120,6 +120,7 @@ test_requires = [
     "setuptools; python_version >= '3.12'",
     "pytest-textual-snapshot",
     "textual >= 0.43, != 0.65.2, != 0.66",
+    "packaging",
 ]
 
 benchmark_requires = [
