@@ -196,10 +196,6 @@ jobs:
           rmdir dist/{sdist,*-wheels}
           rm -r dist/tests
           ls -R dist
-      - name: Avoid publishing Python 3.13 wheels
-        run: |
-          rm -f dist/*cp313*
-          ls -l dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip_existing: true
