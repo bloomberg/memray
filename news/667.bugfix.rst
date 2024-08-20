@@ -1,0 +1,1 @@
+Fix a race condition that was able to cause strange exception messages if two different threads tried to initialize Memray tracking at once.
