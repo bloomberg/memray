@@ -104,8 +104,7 @@ before-all = [
   "make install",
 
   # Install Memray's other build and test dependencies
-  "yum install -y libunwind-devel gdb",
-  "if ! yum install -y lldb; then echo lldb is not available; fi"
+  "yum install -y libunwind-devel",
 ]
 
 [tool.cibuildwheel.macos]
@@ -177,5 +176,5 @@ before-all = [
   "make install",
 
   # Install Memray's other build and test dependencies
-  "apk add --update libunwind-dev lz4-dev gdb lldb"
+  "apk add --update libunwind-dev lz4-dev"
 ]
