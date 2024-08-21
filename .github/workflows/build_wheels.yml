@@ -174,12 +174,15 @@ jobs:
     name: Build and test wheels
     needs: [build_linux_wheels, build_macosx_wheels]
     runs-on: ubuntu-latest
+    if: always() # Don't skip this step if a predecessor failed!
     steps:
       # We can't make a matrix job itself a required check in GitHub,
       # so we instead add a job that depends on the two matrix jobs,
       # and we mark this job as required instead. This job doesn't do
       # any work, it just lets us better manage our required checks.
-      - run: echo "Done!"
+      - if: "!success()"
+        run: echo "Some builds failed" && exit 1
+      - run: echo "All builds succeeded!"
 
   upload_pypi:
     needs: [build_and_test_wheels, build_sdist]
