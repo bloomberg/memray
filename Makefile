@@ -25,7 +25,7 @@ build: build-js build-ext  ## (default) Build package extensions and assets in-p
 
 .PHONY: build-ext
 build-ext:  ## Build package extensions in-place
-	$(PYTHON) setup.py build_ext --inplace
+	$(PYTHON) -m pip install --no-build-isolation --config-settings=editable.rebuild=true -Cbuild-dir=build -ve.
 
 $(reporters_path)/templates/assets/%.js: $(reporters_path)/assets/%.js
 	$(NPM) install

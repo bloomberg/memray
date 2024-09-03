@@ -1,13 +1,92 @@
-[build-system]
-
-requires = [
-     "setuptools",
-     "wheel",
-     "pkgconfig",
-     "Cython>=0.29.31"
+[project]
+name = "memray"
+version = "1.11.0"
+description = "A memory profiler for Python applications"
+readme = "README.md"
+requires-python = ">=3.7.0"
+license = { text = "Apache 2.0" }
+authors = [{ name = "Pablo Galindo Salgado" }]
+classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Debuggers",
+]
+dependencies = [
+  "jinja2 >= 2.9",
+  "typing_extensions; python_version < '3.8.0'",
+  "rich >= 11.2.0",
+  "textual >= 0.41.0",
 ]
 
-build-backend = 'setuptools.build_meta'
+[project.optional-dependencies]
+test = [
+  "Cython",
+  "greenlet; python_version < '3.12'",
+  "pytest",
+  "pytest-cov",
+  "ipython",
+  "setuptools; python_version >= '3.12'",
+  "pytest-textual-snapshot",
+]
+docs = [
+  "IPython",
+  "bump2version",
+  "sphinx",
+  "furo",
+  "sphinx-argparse",
+  "towncrier",
+]
+lint = ["black", "flake8", "isort", "mypy", "check-manifest"]
+benchmark = ["asv"]
+dev = [
+  "Cython",
+  "greenlet; python_version < '3.12'",
+  "pytest",
+  "pytest-cov",
+  "ipython",
+  "setuptools; python_version >= '3.12'",
+  "pytest-textual-snapshot",
+  "black",
+  "flake8",
+  "isort",
+  "mypy",
+  "check-manifest",
+  "IPython",
+  "bump2version",
+  "sphinx",
+  "furo",
+  "sphinx-argparse",
+  "towncrier",
+  "asv",
+]
+
+[project.urls]
+Homepage = "https://github.com/bloomberg/memray"
+
+[project.scripts]
+memray = "memray.__main__:main"
+"memray3.7" = "memray.__main__:main"
+"memray3.8" = "memray.__main__:main"
+"memray3.9" = "memray.__main__:main"
+"memray3.10" = "memray.__main__:main"
+"memray3.11" = "memray.__main__:main"
+"memray3.12" = "memray.__main__:main"
+
+[build-system]
+requires = ["scikit-build-core", "cython"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+wheel.packages = ["src/memray"]
+
 
 [tool.ruff]
 line-length = 95
@@ -17,7 +96,7 @@ fix = true
 [tool.ruff.isort]
 force-single-line = true
 known-first-party = ["memray"]
-known-third-party=["rich", "elftools", "pytest"]
+known-third-party = ["rich", "elftools", "pytest"]
 
 [tool.ruff.per-file-ignores]
 "benchmarks/*" = ["C4", "PERF"]
@@ -29,8 +108,8 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 line_length = 88
-known_first_party=["memray"]
-known_third_party=["rich", "elftools", "pytest"]
+known_first_party = ["memray"]
+known_third_party = ["rich", "elftools", "pytest"]
 
 [tool.towncrier]
 package = "memray"
@@ -38,34 +117,29 @@ package_dir = "src"
 filename = "NEWS.rst"
 directory = "news"
 type = [
-  { name = "Features",                  directory = "feature", showcontent = true },
+  { name = "Features", directory = "feature", showcontent = true },
   { name = "Deprecations and Removals", directory = "removal", showcontent = true },
-  { name = "Bug Fixes",                 directory = "bugfix",  showcontent = true },
-  { name = "Improved Documentation",    directory = "doc",     showcontent = true },
-  { name = "Miscellaneous",             directory = "misc",    showcontent = true },
+  { name = "Bug Fixes", directory = "bugfix", showcontent = true },
+  { name = "Improved Documentation", directory = "doc", showcontent = true },
+  { name = "Miscellaneous", directory = "misc", showcontent = true },
 ]
 underlines = "-~"
 
 [tool.pytest.ini_options]
-markers = [
-    "valgrind",
-]
+markers = ["valgrind"]
 xfail_strict = true
 
 [tool.check-manifest]
-ignore = [
-  "src/memray/reporters/templates/assets/*.js",
-]
+ignore = ["src/memray/reporters/templates/assets/*.js"]
 
 [tool.mypy]
-exclude="tests/integration/(native_extension|multithreaded_extension)/"
+exclude = "tests/integration/(native_extension|multithreaded_extension)/"
 
 [tool.cibuildwheel]
 build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
 skip = "*musllinux*{i686,aarch64}*"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
-musllinux-x86_64-image = "musllinux_1_1"
 
 [[tool.cibuildwheel.overrides]]
 select = "cp3{7,8,9,10}-*"
@@ -74,37 +148,8 @@ manylinux-i686-image = "manylinux2010"
 
 [tool.cibuildwheel.linux]
 before-all = [
-  # Build the latest curl from source.
-  "yum install -y openssl-devel",
-  "cd /",
-  "CURL_VERS=8.7.1",
-  "curl -LO https://curl.se/download/curl-$CURL_VERS.tar.bz2",
-  "tar xf ./curl-$CURL_VERS.tar.bz2",
-  "cd curl-$CURL_VERS",
-  "./configure --with-openssl",
-  "make install",
-
-  # Build the latest zstd from source
-  "yum install -y lz4-devel xz-devel",
-  "cd /",
-  "ZSTD_VERS=1.5.6",
-  "/usr/bin/curl -LO https://github.com/facebook/zstd/releases/download/v1.5.6/zstd-$ZSTD_VERS.tar.gz",
-  "tar xf ./zstd-$ZSTD_VERS.tar.gz",
-  "cd zstd-$ZSTD_VERS",
-  "V=1 LDLIBS=-lrt make install",
-
-  # Build the latest elfutils from source.
-  "yum install -y lz4-devel",
-  "cd /",
-  "VERS=0.191",
-  "/usr/bin/curl https://sourceware.org/elfutils/ftp/$VERS/elfutils-$VERS.tar.bz2 > ./elfutils.tar.bz2",
-  "tar -xf elfutils.tar.bz2",
-  "cd elfutils-$VERS",
-  "CFLAGS='-Wno-error -g -O3' CXXFLAGS='-Wno-error -g -O3' LDFLAGS=-lrt ./configure --enable-libdebuginfod --disable-debuginfod --disable-nls --with-zstd",
-  "make install",
-
-  # Install Memray's other build and test dependencies
-  "yum install -y libunwind-devel",
+  "yum install -y libunwind-devel lz4-devel gdb",
+  "if ! yum install -y lldb; then echo lldb is not available; fi",
 ]
 
 [tool.cibuildwheel.macos]
@@ -112,8 +157,7 @@ before-all = [
   "git clone --depth 1 --branch v1.9.4 https://github.com/lz4/lz4 lz4",
   "cd lz4",
   "make",
-  "make install PREFIX=$LZ4_INSTALL_DIR",
-  "find $LZ4_INSTALL_DIR",
+  "make install DESTDIR=/tmp/lz4_install",
 ]
 before-test = [
   "codesign --remove-signature /Library/Frameworks/Python.framework/Versions/*/bin/python3 || true",
@@ -121,18 +165,11 @@ before-test = [
 ]
 
 [tool.coverage.run]
-plugins = [
-  "Cython.Coverage",
-]
-source = [
-  "src/memray",
-  "tests/",
-]
+plugins = ["Cython.Coverage"]
+source = ["src/memray", "tests/"]
 branch = true
 parallel = true
-omit = [
-  "*__init__.py",
-]
+omit = ["*__init__.py"]
 
 [tool.coverage.report]
 skip_covered = true
@@ -142,39 +179,4 @@ show_missing = true
 # Override the default linux before-all for musl linux
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
-before-all = [
-  # Remove gettext-dev, which conficts with the musl-libintl, which is a build
-  # dependency of elfutils.
-  "apk del gettext-dev glib-dev",
-
-  # Build musl-fts from source. This is a build dependency of elfutils, but
-  # isn't in the Alpine repos of the musllinux_1_1 image. The build steps come
-  # from https://git.alpinelinux.org/aports/tree/main/musl-fts/APKBUILD
-  # Setting PATH before calling boostrap.sh fixes an automake failure. I think
-  # the failure may be caused by a different pkg-config in /usr/local/bin.
-  "cd /",
-  "apk add --update automake autoconf libtool",
-  "VERS=1.2.7",
-  "curl -L https://github.com/void-linux/musl-fts/archive/refs/tags/v$VERS.tar.gz > ./musl-fts.tar.gz",
-  "tar -xf musl-fts.tar.gz",
-  "cd musl-fts-$VERS",
-  "PATH=/usr/bin:/bin ./bootstrap.sh",
-  "CFLAGS=-fPIC ./configure",
-  "make install",
-
-  # Build the latest elfutils from source. The build steps come from
-  # https://git.alpinelinux.org/aports/tree/main/elfutils, and the need to
-  # set the FNM_EXTMATCH macro to get the build to succeed is seen here:
-  # https://git.alpinelinux.org/aports/tree/main/elfutils/musl-macros.patch
-  "cd /",
-  "apk add --update argp-standalone bison bsd-compat-headers bzip2-dev curl-dev flex-dev libtool linux-headers musl-libintl musl-obstack-dev xz-dev zlib-dev zstd-dev",
-  "VERS=0.191",
-  "curl https://sourceware.org/elfutils/ftp/$VERS/elfutils-$VERS.tar.bz2 > ./elfutils.tar.bz2",
-  "tar -xf elfutils.tar.bz2",
-  "cd elfutils-$VERS",
-  "CFLAGS='-Wno-error -DFNM_EXTMATCH=0 -g -O3' CXXFLAGS='-Wno-error -g -O3' ./configure --enable-libdebuginfod --disable-debuginfod --disable-nls --with-zstd",
-  "make install",
-
-  # Install Memray's other build and test dependencies
-  "apk add --update libunwind-dev lz4-dev"
-]
+before-all = ["apk add --update libunwind-dev lz4-dev gdb lldb"]
