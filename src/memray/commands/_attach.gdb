@@ -19,7 +19,7 @@ set scheduler-locking on
 call (int)Py_AddPendingCall(&PyCallable_Check, (void*)0)
 
 p "Checking if we can access the library"
-set $result = (int)access($libpath, 5)
+set $result = (int)access($libpath, 4)
 if $result != 0
     p "cannot open shared object file"
     quit 1
