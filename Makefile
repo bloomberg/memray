@@ -39,7 +39,7 @@ build: build-js build-vendor build-ext  ## (default) Build package extensions, J
 
 .PHONY: build-ext
 build-ext:  ## Build package extensions in-place
-	$(PYTHON) setup.py build_ext --inplace
+	$(PYTHON) -m pip install --no-build-isolation --config-settings=editable.rebuild=true -ve .
 
 $(reporters_path)/templates/assets/%.js: $(reporters_path)/assets/%.js
 	$(NPM) install
@@ -128,7 +128,7 @@ ccoverage:  ## Run the test suite, with C++ code coverage
 	$(MAKE) clean
 	CFLAGS="$(CFLAGS) -O0 -pg --coverage" CXXFLAGS="$(CXXFLAGS) -O0 -pg --coverage" $(MAKE) build
 	$(MAKE) check
-	gcov -i build/*/src/memray/_memray -i -d
+	gcov -i build/CMakeFiles/_memray.dir/src/memray/_memray/*.gcno -d
 	lcov --capture --directory .  --output-file cppcoverage.lcov
 	lcov --extract cppcoverage.lcov '*/src/memray/_memray/*' --output-file cppcoverage.lcov
 	genhtml *coverage.lcov --branch-coverage --output-directory memray-coverage

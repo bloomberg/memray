@@ -57,7 +57,7 @@ jobs:
           echo /home/runner/node_modules/.bin >>"$GITHUB_PATH"
       - name: Install Python dependencies
         run: |
-          ${PYTHON} -m pip install --upgrade pip cython pkgconfig
+          ${PYTHON} -m pip install --upgrade pip scikit-build-core cython pkgconfig
           make test-install
       - name: Disable ptrace security restrictions
         run: |
