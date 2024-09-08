@@ -4,15 +4,15 @@
 
 ---
 
-![OS Linux](https://img.shields.io/badge/OS-Linux-blue)
-![OS MacOS](https://img.shields.io/badge/OS-MacOs-blue)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/memray)
-![PyPI - Implementation](https://img.shields.io/pypi/implementation/memray)
-![PyPI](https://img.shields.io/pypi/v/memray)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/memray)
+[![OS Linux](https://img.shields.io/badge/OS-Linux-blue)](https://pypi.org/project/memray)
+[![OS MacOS](https://img.shields.io/badge/OS-macOS-blue)](https://pypi.org/project/memray)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/memray)](https://pypi.org/project/memray)
+[![PyPI - Implementation](https://img.shields.io/pypi/implementation/memray)](https://pypi.org/project/memray)
+[![PyPI](https://img.shields.io/pypi/v/memray)](https://pypi.org/project/memray)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/memray)](https://pypistats.org/packages/memray)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/memray.svg)](https://anaconda.org/conda-forge/memray)
 [![Tests](https://github.com/bloomberg/memray/actions/workflows/build.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build.yml)
-![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)
+[![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 <p align="center"><img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/output.png" alt="Memray output"></p>
 
