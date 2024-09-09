@@ -1,3 +1,0 @@
-Ensure flame graphs stay in flame mode when the user has selected it.
-Previously clicking the "Hide Irrelevant Frames" or "Hide Import System Frames"
-checkboxes would switch the flame graph back to icicle mode.
