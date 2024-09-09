@@ -8,6 +8,25 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.14.0 (2024-09-09)
+--------------------------
+
+Features
+~~~~~~~~
+
+- Wheels are now published for Python 3.13, though we don't yet support free-threaded (no GIL) builds. (#658)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a lock ordering deadlock in libc between a Memray lock and a lock internal to dlopen. (#549)
+- Ensure flame graphs stay in flame mode when the user has selected it.
+  Previously clicking the "Hide Irrelevant Frames" or "Hide Import System Frames"
+  checkboxes would switch the flame graph back to icicle mode. (#656)
+- Fix a race condition that was able to cause strange exception messages if two different threads tried to initialize Memray tracking at once. (#667)
+
+
 memray 1.13.4 (2024-07-18)
 --------------------------
 
