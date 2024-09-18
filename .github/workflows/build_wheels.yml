@@ -105,7 +105,7 @@ jobs:
         run: |
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.20.0
+        uses: pypa/cibuildwheel@v2.21.1
         env:
           CIBW_BUILD: "cp3{7..13}-${{ matrix.wheel_type }}"
           CIBW_ARCHS_LINUX: auto aarch64
@@ -154,7 +154,7 @@ jobs:
         run: |
           echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.20.0
+        uses: pypa/cibuildwheel@v2.21.1
         env:
           CIBW_BUILD: "cp3{8..13}-*"
           CIBW_PRERELEASE_PYTHONS: True
