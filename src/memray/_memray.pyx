@@ -69,12 +69,12 @@ from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
-from memray._destination import Destination
-from memray._destination import FileDestination
-from memray._destination import SocketDestination
-from memray._metadata import Metadata
-from memray._stats import Stats
-from memray._thread_name_interceptor import ThreadNameInterceptor
+from ._destination import Destination
+from ._destination import FileDestination
+from ._destination import SocketDestination
+from ._metadata import Metadata
+from ._stats import Stats
+from ._thread_name_interceptor import ThreadNameInterceptor
 
 
 cdef extern from "pthread.h" nogil:
