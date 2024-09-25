@@ -41,15 +41,15 @@ dist:  ## Generate Python distribution files
 
 .PHONY: install-sdist
 install-sdist: dist  ## Install from source distribution
-	$(ENV) $(PIP_INSTALL) $(wildcard dist/*.tar.gz)
+	$(PIP_INSTALL) $(wildcard dist/*.tar.gz)
 
 .PHONY: test-install
 test-install: build-js ## Install with test dependencies
-	$(ENV) CYTHON_TEST_MACROS=1 $(PIP_INSTALL) -e .[test]
+	$(PIP_INSTALL) -e .[test]
 
 .PHONY: dev-install
 dev-install: build-js ## Install with dev dependencies
-	$(ENV) CYTHON_TEST_MACROS=1 $(PIP_INSTALL) -e .[dev]
+	$(PIP_INSTALL) -e .[dev]
 
 .PHONY: check
 check: check-python check-js  ## Run all the tests
