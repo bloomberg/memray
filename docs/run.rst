@@ -140,7 +140,7 @@ You can run a program in live mode using ``run --live``:
 
 .. code:: shell
 
-  memray3.9 run --live application.py
+  memray run --live application.py
 
 Immediately Memray will start your application in the background and will run a TUI in the foreground that you can use
 to analyze your application's memory usage. If you don't want to run your program in the background, you can instead
@@ -148,7 +148,7 @@ use ``run --live-remote``:
 
 .. code:: shell
 
-  memray3.9 run --live-remote application.py
+  memray run --live-remote application.py
 
 In this mode, Memray will choose an unused port, bind to it, and display a message saying:
 
@@ -160,7 +160,7 @@ It will wait for you to run:
 
 .. code:: shell
 
-   memray3.9 live <port>
+   memray live <port>
 
 in another terminal window to attach to it. Regardless of whether you choose to use one terminal or two, the resulting
 TUI is exactly the same. See :doc:`live` for details on how to interpret and control the TUI.
