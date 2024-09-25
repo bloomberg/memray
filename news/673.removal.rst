@@ -1,0 +1,1 @@
+Memray no longer provides an entry point named ``memray3.N`` (where "3.N" is the Python version that Memray was installed for). You can use ``python3.N -m memray`` instead.
