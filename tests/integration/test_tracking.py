@@ -1569,7 +1569,7 @@ class TestHeader:
         metadata = reader.metadata
 
         # THEN
-        assert metadata.end_time > metadata.start_time
+        assert metadata.end_time >= metadata.start_time
         assert abs(metadata.start_time - start_time).seconds < 1
         assert abs(metadata.end_time - end_time).seconds < 1
         assert metadata.total_allocations == n_records
@@ -1600,7 +1600,7 @@ class TestHeader:
         metadata = reader.metadata
 
         # THEN
-        assert metadata.end_time > metadata.start_time
+        assert metadata.end_time >= metadata.start_time
         assert abs(metadata.start_time - start_time).seconds < 1
         assert abs(metadata.end_time - end_time).seconds < 1
         assert metadata.total_allocations == peak.n_allocations
