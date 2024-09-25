@@ -102,7 +102,7 @@ helgrind:  ## Run helgrind, with the correct configuration
 .PHONY: ccoverage
 ccoverage:  ## Run the test suite, with C++ code coverage
 	$(MAKE) clean
-	CFLAGS="$(CFLAGS) -O0 -pg --coverage" $(MAKE) build
+	CFLAGS="$(CFLAGS) -O0 -pg --coverage" CXXFLAGS="$(CXXFLAGS) -O0 -pg --coverage" $(MAKE) build
 	$(MAKE) check
 	gcov -i build/*/src/memray/_memray -i -d
 	lcov --capture --directory .  --output-file cppcoverage.lcov
