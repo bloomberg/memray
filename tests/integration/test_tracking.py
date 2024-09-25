@@ -1,6 +1,7 @@
 import collections
 import datetime
 import mmap
+import os
 import signal
 import subprocess
 import sys
@@ -1599,6 +1600,8 @@ class TestHeader:
     def test_header_allocator(self, allocator, allocator_name, tmpdir):
         # GIVEN
         output = Path(tmpdir) / "test.bin"
+        env = os.environ.copy()
+        env["PYTHONMALLOC"] = allocator
 
         # WHEN
 
@@ -1617,7 +1620,7 @@ class TestHeader:
         subprocess.run(
             [sys.executable, "-c", subprocess_code],
             timeout=5,
-            env={"PYTHONMALLOC": allocator},
+            env=env,
         )
 
         reader = FileReader(output)
