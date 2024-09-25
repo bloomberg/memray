@@ -143,7 +143,7 @@ def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | 
         abi = "abi3t"
     else:
         abi = "abi3"
-    injecter = pathlib.Path(memray.__file__).parent / f"_inject.{abi}.so"
+    injecter = pathlib.Path(memray._memray.__file__).parent / f"_inject.{abi}.so"
     assert injecter.exists()
 
     gdb_cmd = [
