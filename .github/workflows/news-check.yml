@@ -18,6 +18,8 @@ jobs:
       - name: "Check for news entry"
         uses: brettcannon/check-for-changed-files@v1
         with:
-          file-pattern: "news/*.rst"
+          file-pattern: |
+            news/*.rst
+            NEWS.rst
           skip-label: "skip news"
           failure-message: "Missing a news file in ${file-pattern}; please add one or apply the ${skip-label} label to the pull request"
