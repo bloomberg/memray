@@ -64,7 +64,8 @@ class StreamingRecordWriter : public RecordWriter
             std::unique_ptr<memray::io::Sink> sink,
             const std::string& command_line,
             bool native_traces,
-            bool trace_python_allocators);
+            bool trace_python_allocators,
+            bool track_object_lifetimes);
 
     StreamingRecordWriter(StreamingRecordWriter& other) = delete;
     StreamingRecordWriter(StreamingRecordWriter&& other) = delete;
@@ -81,6 +82,7 @@ class StreamingRecordWriter : public RecordWriter
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record) override;
 
     bool writeHeader(bool seek_to_start) override;
     bool writeTrailer() override;
@@ -125,7 +127,8 @@ class AggregatingRecordWriter : public RecordWriter
             std::unique_ptr<memray::io::Sink> sink,
             const std::string& command_line,
             bool native_traces,
-            bool trace_python_allocators);
+            bool trace_python_allocators,
+            bool track_object_lifetimes);
 
     AggregatingRecordWriter(StreamingRecordWriter& other) = delete;
     AggregatingRecordWriter(StreamingRecordWriter&& other) = delete;
@@ -142,6 +145,7 @@ class AggregatingRecordWriter : public RecordWriter
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record) override;
 
     bool writeHeader(bool seek_to_start) override;
     bool writeTrailer() override;
@@ -165,6 +169,7 @@ class AggregatingRecordWriter : public RecordWriter
     std::unordered_map<thread_id_t, std::string> d_thread_name_by_tid;
     FrameTree d_python_frame_tree;
     python_stack_ids_by_tid d_python_stack_ids_by_thread;
+    std::unordered_map<uintptr_t, frame_id_t> d_surviving_objects;
     DeltaEncodedFields d_last;
     api::HighWaterMarkAggregator d_high_water_mark_aggregator;
 };
@@ -175,7 +180,8 @@ createRecordWriter(
         const std::string& command_line,
         bool native_traces,
         FileFormat file_format,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        bool track_object_lifetimes)
 {
     switch (file_format) {
         case FileFormat::ALL_ALLOCATIONS:
@@ -183,13 +189,15 @@ createRecordWriter(
                     std::move(sink),
                     command_line,
                     native_traces,
-                    trace_python_allocators);
+                    trace_python_allocators,
+                    track_object_lifetimes);
         case FileFormat::AGGREGATED_ALLOCATIONS:
             return std::make_unique<AggregatingRecordWriter>(
                     std::move(sink),
                     command_line,
                     native_traces,
-                    trace_python_allocators);
+                    trace_python_allocators,
+                    track_object_lifetimes);
         default:
             throw std::runtime_error("Invalid file format enumerator");
     }
@@ -199,7 +207,8 @@ StreamingRecordWriter::StreamingRecordWriter(
         std::unique_ptr<memray::io::Sink> sink,
         const std::string& command_line,
         bool native_traces,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        bool track_object_lifetimes)
 : RecordWriter(std::move(sink))
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
@@ -215,7 +224,8 @@ StreamingRecordWriter::StreamingRecordWriter(
             0,
             0,
             getPythonAllocator(),
-            trace_python_allocators};
+            trace_python_allocators,
+            track_object_lifetimes};
     strncpy(d_header.magic, MAGIC, sizeof(d_header.magic));
 }
 
@@ -428,6 +438,33 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ThreadRe
 }
 
 bool
+StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record)
+{
+    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
+        return false;
+    }
+
+    // OBJECT_RECORD ENCODING: 0b001ppppc
+    // c: creation (1) or destruction (0)
+    // p: 4 bit pointer cache exactly as in ALLOCATION
+    // This byte is followed by the pointer on cache misses, exactly as in ALLOCATION.
+    // For creations that is followed by the native frame id if native tracking is enabled.
+    auto token = static_cast<unsigned char>(RecordType::OBJECT_RECORD);
+    if (record.is_created) {
+        token |= 1;
+    }
+
+    int pointer_cache_index = pointerCacheIndex(record.address);
+    token |= (pointer_cache_index & 0x0f) << 1;
+
+    return writeSimpleType(token)
+           && (pointer_cache_index != -1
+               || writeIntegralDelta(&d_last.data_pointer, record.address >> 3))
+           && (!d_header.native_traces || !record.is_created
+               || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id));
+}
+
+bool
 StreamingRecordWriter::writeHeader(bool seek_to_start)
 {
     if (seek_to_start) {
@@ -451,7 +488,8 @@ RecordWriter::writeHeaderCommon(const HeaderRecord& header)
         or !writeSimpleType(header.file_format) or !writeSimpleType(header.stats)
         or !writeString(header.command_line.c_str()) or !writeSimpleType(header.pid)
         or !writeSimpleType(header.main_tid) or !writeSimpleType(header.skipped_frames_on_main_tid)
-        or !writeSimpleType(header.python_allocator) or !writeSimpleType(header.trace_python_allocators))
+        or !writeSimpleType(header.python_allocator) or !writeSimpleType(header.trace_python_allocators)
+        or !writeSimpleType(header.track_object_lifetimes))
     {
         return false;
     }
@@ -478,14 +516,16 @@ StreamingRecordWriter::cloneInChildProcess()
             std::move(new_sink),
             d_header.command_line,
             d_header.native_traces,
-            d_header.trace_python_allocators);
+            d_header.trace_python_allocators,
+            d_header.track_object_lifetimes);
 }
 
 AggregatingRecordWriter::AggregatingRecordWriter(
         std::unique_ptr<memray::io::Sink> sink,
         const std::string& command_line,
         bool native_traces,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        bool track_object_lifetimes)
 : RecordWriter(std::move(sink))
 {
     memcpy(d_header.magic, MAGIC, sizeof(d_header.magic));
@@ -497,6 +537,7 @@ AggregatingRecordWriter::AggregatingRecordWriter(
     d_header.pid = ::getpid();
     d_header.python_allocator = getPythonAllocator();
     d_header.trace_python_allocators = trace_python_allocators;
+    d_header.track_object_lifetimes = track_object_lifetimes;
 
     d_stats.start_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
@@ -595,6 +636,15 @@ AggregatingRecordWriter::writeTrailer()
         }
     }
 
+    // Write surviving objects
+    for (const auto& [address, native_frame_id] : d_surviving_objects) {
+        if (!writeSimpleType(AggregatedRecordType::SURVIVING_OBJECT) || !writeVarint(address >> 3)
+            || (d_header.native_traces && !writeVarint(native_frame_id)))
+        {
+            return false;
+        }
+    }
+
     d_high_water_mark_aggregator.visitAllocations([&](const AggregatedAllocation& allocation) {
         if (allocation.n_allocations_in_high_water_mark == 0 && allocation.n_allocations_leaked == 0) {
             return true;
@@ -624,7 +674,8 @@ AggregatingRecordWriter::cloneInChildProcess()
             std::move(new_sink),
             d_header.command_line,
             d_header.native_traces,
-            d_header.trace_python_allocators);
+            d_header.trace_python_allocators,
+            d_header.track_object_lifetimes);
 }
 
 bool
@@ -714,6 +765,17 @@ bool
 AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record)
 {
     d_thread_name_by_tid[tid] = record.name;
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record)
+{
+    if (record.is_created) {
+        d_surviving_objects[record.address] = record.native_frame_id;
+    } else {
+        d_surviving_objects.erase(record.address);
+    }
     return true;
 }
 

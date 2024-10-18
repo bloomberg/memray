@@ -770,12 +770,14 @@ Tracker::Tracker(
         bool native_traces,
         unsigned int memory_interval,
         bool follow_fork,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        bool reference_tracking)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
+, d_reference_tracking(reference_tracking)
 {
     static std::once_flag once;
     call_once(once, [] {
@@ -836,6 +838,9 @@ Tracker::Tracker(
 
     PythonStackTracker::s_native_tracking_enabled = native_traces;
     PythonStackTracker::installProfileHooks();
+    if (d_reference_tracking) {
+        registerReferenceTrackingHooks();
+    }
     if (d_trace_python_allocators) {
         registerPymallocHooks();
     }
@@ -862,6 +867,11 @@ Tracker::~Tracker()
         PyGILState_STATE gstate;
         gstate = PyGILState_Ensure();
 
+        if (d_reference_tracking) {
+            std::scoped_lock<std::mutex> lock(*s_mutex);
+            unregisterReferenceTrackingHooks();
+        }
+
         if (d_trace_python_allocators) {
             std::scoped_lock<std::mutex> lock(*s_mutex);
             unregisterPymallocHooks();
@@ -873,6 +883,7 @@ Tracker::~Tracker()
     }
 
     std::scoped_lock<std::mutex> lock(*s_mutex);
+    d_tracked_objects.clear();
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
     d_writer.reset();
@@ -1055,7 +1066,8 @@ Tracker::childFork()
             old_tracker->d_unwind_native_frames,
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
-            old_tracker->d_trace_python_allocators));
+            old_tracker->d_trace_python_allocators,
+            old_tracker->d_reference_tracking));
 
     StopTheWorldGuard stop_the_world;
     std::unique_lock<std::mutex> lock(*s_mutex);
@@ -1132,6 +1144,48 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
     if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
         deactivate();
+    }
+}
+
+void
+Tracker::trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTrace>& trace)
+{
+    registerCachedThreadName();
+    PythonStackTracker::get().emitPendingPushesAndPops();
+
+    if (event == 0) {  // Creation event
+        d_tracked_objects.emplace(obj);
+
+        if (d_unwind_native_frames) {
+            frame_id_t native_index = 0;
+            // Skip the internal frames so we don't need to filter them later.
+            if (trace && trace.value().size()) {
+                native_index = d_native_trace_tree.getTraceIndex(
+                        trace.value(),
+                        [&](frame_id_t ip, uint32_t index) {
+                            return d_writer->writeRecord(UnresolvedNativeFrame{ip, index});
+                        });
+            }
+
+            ObjectRecord record{reinterpret_cast<uintptr_t>(obj), true, native_index};
+            if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
+                std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+                deactivate();
+            }
+        } else {
+            ObjectRecord record{reinterpret_cast<uintptr_t>(obj), true};
+            if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
+                std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+                deactivate();
+            }
+        }
+    } else {  // Destruction event
+        d_tracked_objects.erase(obj);
+        ObjectRecord record{reinterpret_cast<uintptr_t>(obj), false};
+        if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
+            std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+            deactivate();
+        }
     }
 }
 
@@ -1251,6 +1305,55 @@ Tracker::dropCachedThreadName()
     d_cached_thread_names.erase((uint64_t)(pthread_self()));
 }
 
+void
+Tracker::registerReferenceTrackingHooks() const noexcept
+{
+    compat::refTracerSetTracer(intercept::pyreftracer, nullptr);
+}
+
+void
+Tracker::unregisterReferenceTrackingHooks() const noexcept
+{
+    compat::refTracerSetTracer(nullptr, nullptr);
+}
+
+std::unordered_set<PyObject*>
+Tracker::getSurvivingObjects()
+{
+    std::scoped_lock<std::mutex> lock(*s_mutex);
+    RecursionGuard guard;
+
+    std::unordered_set<PyObject*> surviving_objects;
+    // remove everything with 0 refcount
+    for (auto obj : d_tracked_objects) {
+#ifndef Py_GIL_DISABLED
+        // CPython used to have some bugs where deallocation of objects
+        // wasn't triggering the tracking hooks and that was causing us
+        // to see deleted objects at this stage. This check is left here
+        // as a precaution to know if CPython is still missing some cases
+        // still. The check is not done in free-threaded builds because
+        // the semantics of Py_REFCNT are more complicated and this may not
+        // do what we want.
+        if (Py_REFCNT(obj) == 0) {
+            Py_UNREACHABLE();
+        }
+#endif
+        Py_INCREF(obj);
+        surviving_objects.insert(obj);
+    }
+    d_tracked_objects.clear();
+
+    // While we hold s_mutex and our reference tracking hooks are installed,
+    // other threads can't destroy any objects. As soon as we uninstall the
+    // tracking hooks, objects can be destroyed by background threads without
+    // us finding out. This means we can't uninstall the hooks until after
+    // we've incremented the reference count of all the surviving objects.
+    if (d_reference_tracking) {
+        unregisterReferenceTrackingHooks();
+    }
+    return surviving_objects;
+}
+
 code_object_id_t
 Tracker::registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj)
 {
@@ -1337,14 +1440,16 @@ Tracker::createTracker(
         bool native_traces,
         unsigned int memory_interval,
         bool follow_fork,
-        bool trace_python_allocators)
+        bool trace_python_allocators,
+        bool reference_tracking)
 {
     s_instance_owner.reset(new Tracker(
             std::move(record_writer),
             native_traces,
             memory_interval,
             follow_fork,
-            trace_python_allocators));
+            trace_python_allocators,
+            reference_tracking));
 
     StopTheWorldGuard stop_the_world;
     std::unique_lock<std::mutex> lock(*s_mutex);

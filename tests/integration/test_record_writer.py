@@ -156,6 +156,7 @@ def test_write_basic_records(tmp_path):
         ("command_line", "memray test harness"),
         ("python_allocator", allocator),
         ("trace_python_allocators", "true"),
+        ("track_object_lifetimes", "false"),
     ]
 
     expected_parse_output = """
@@ -246,6 +247,7 @@ def test_write_aggregated_records(tmp_path):
         ("command_line", "memray test harness"),
         ("python_allocator", allocator),
         ("trace_python_allocators", "false"),
+        ("track_object_lifetimes", "false"),
     ]
 
     records = sort_runs_of_same_record_type(records)
@@ -299,3 +301,97 @@ def test_decoding_line_numbers(tmp_path):
             ("bar", "bar b.py", 16),
             ("foo", "foo a.py", 5),
         ]
+
+
+def test_write_object_tracking_records(tmp_path):
+    """Test writing object tracking records to a file."""
+    # GIVEN
+    output_file = tmp_path / "test_object_tracking.memray"
+
+    # WHEN
+    writer = RecordWriterTestHarness(
+        str(output_file),
+        native_traces=True,
+        trace_python_allocators=False,
+        track_object_lifetimes=True,
+        file_format=FileFormat.ALL_ALLOCATIONS,
+        main_tid=1,
+    )
+
+    # Write object tracking records
+    assert writer.write_object_record(1, 0x12345678, True, 0)  # Object created
+    assert writer.write_object_record(
+        1, 0x87654321, True, 1
+    )  # Object created with native frame
+    assert writer.write_object_record(1, 0x12345678, False, 0)  # Object destroyed
+    assert writer.write_object_record(
+        1, 0x87654321, False, 1
+    )  # Object destroyed with native frame
+
+    assert writer.write_trailer()
+
+    # THEN
+    header_fields, records = parse_capture_file(output_file)
+
+    # Check that track_object_lifetimes is in the header
+    header_dict = dict(header_fields)
+    assert header_dict.get("track_object_lifetimes") == "true"
+
+    expected_parse_output = """
+    CONTEXT_SWITCH tid=1
+    OBJECT_RECORD address=0x12345678 native_frame_id=0
+    OBJECT_RECORD address=0x87654320 native_frame_id=1
+    OBJECT_RECORD address=0x12345678 native_frame_id=0
+    OBJECT_RECORD address=0x87654320 native_frame_id=0
+    TRAILER
+    """
+
+    expected_records = textwrap.dedent(expected_parse_output).strip().splitlines()
+    assert records == expected_records
+
+
+def test_write_object_tracking_records_aggregated(tmp_path):
+    # GIVEN
+    output_file = tmp_path / "test_object_tracking_aggregated.memray"
+
+    # WHEN
+    writer = RecordWriterTestHarness(
+        str(output_file),
+        native_traces=True,
+        trace_python_allocators=False,
+        track_object_lifetimes=True,
+        file_format=FileFormat.AGGREGATED_ALLOCATIONS,
+        main_tid=1,
+    )
+
+    # Write object tracking records - create and destroy some objects
+    assert writer.write_object_record(1, 0x12345678, True, 0)  # Object created
+    assert writer.write_object_record(
+        1, 0x87654321, True, 1
+    )  # Object created with native frame
+    assert writer.write_object_record(1, 0xAABBCCDD, True, 2)  # Another object created
+    assert writer.write_object_record(1, 0x12345678, False, 0)  # First object destroyed
+    # 0x87654321 and 0xAABBCCDD survive
+
+    assert writer.write_trailer()
+
+    # THEN
+    header_fields, records = parse_capture_file(output_file)
+
+    # Check that track_object_lifetimes is in the header
+    header_dict = dict(header_fields)
+    assert header_dict.get("track_object_lifetimes") == "true"
+    assert header_dict.get("file_format") == "AGGREGATED_ALLOCATIONS"
+
+    expected_parse_output = """
+    SURVIVING_OBJECT address=0x0xaabbccd8 native_frame_id=2
+    SURVIVING_OBJECT address=0x0x87654320 native_frame_id=1
+    AGGREGATED_TRAILER
+    """
+
+    records = sort_runs_of_same_record_type(records)
+    expected_records = sort_runs_of_same_record_type(
+        textwrap.dedent(expected_parse_output).strip().splitlines()
+    )
+
+    assert records == expected_records
