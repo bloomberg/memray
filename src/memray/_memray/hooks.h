@@ -21,6 +21,7 @@
 #include <dlfcn.h>
 
 #include "alloc.h"
+#include "compat.h"
 #include "logging.h"
 
 #if defined(__APPLE__)
@@ -218,5 +219,8 @@ void*
 pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept;
 void
 pymalloc_free(void* ctx, void* ptr) noexcept;
+
+int
+pyreftracer(PyObject*, compat::RefTracerEvent event, void* data) noexcept;
 
 }  // namespace memray::intercept

@@ -34,10 +34,14 @@ class RecordReader
         AGGREGATED_ALLOCATION_RECORD,
         MEMORY_RECORD,
         MEMORY_SNAPSHOT,
+        OBJECT_RECORD,
         ERROR,
         END_OF_FILE,
     };
-    explicit RecordReader(std::unique_ptr<memray::io::Source> source, bool track_stacks = true);
+    explicit RecordReader(
+            std::unique_ptr<memray::io::Source> source,
+            bool track_stacks = true,
+            bool track_object_lifetimes = false);
     void close() noexcept;
     bool isOpen() const noexcept;
     PyObject*
@@ -63,6 +67,7 @@ class RecordReader
     MemoryRecord getLatestMemoryRecord() const noexcept;
     AggregatedAllocation getLatestAggregatedAllocation() const noexcept;
     MemorySnapshot getLatestMemorySnapshot() const noexcept;
+    TrackedObject getLatestObject() const noexcept;
 
   private:
     // Aliases
@@ -93,6 +98,7 @@ class RecordReader
     mutable std::mutex d_mutex;
     std::unique_ptr<memray::io::Source> d_input;
     const bool d_track_stacks;
+    const bool d_track_object_lifetimes;
     HeaderRecord d_header;
     std::unordered_map<code_object_id_t, CodeObjectInfo> d_code_object_map{};
     stack_traces_t d_stack_traces{};
@@ -119,6 +125,7 @@ class RecordReader
     AggregatedAllocation d_latest_aggregated_allocation;
     MemoryRecord d_latest_memory_record{};
     MemorySnapshot d_latest_memory_snapshot{};
+    TrackedObject d_latest_object;
 
     // Methods
     [[nodiscard]] bool parseFramePush(FramePush* record, unsigned int flags);
@@ -165,6 +172,12 @@ class RecordReader
 
     [[nodiscard]] bool parseCodeObjectRecord(tracking_api::pycode_map_val_t* pycode_val);
     [[nodiscard]] bool processCodeObjectRecord(const tracking_api::pycode_map_val_t& record);
+
+    [[nodiscard]] bool parseObjectRecord(ObjectRecord* record, unsigned int flags);
+    [[nodiscard]] bool processObjectRecord(const ObjectRecord& record);
+
+    [[nodiscard]] bool parseSurvivingObjectRecord(ObjectRecord* record);
+    [[nodiscard]] bool processSurvivingObjectRecord(const ObjectRecord& record);
 };
 
 template<typename T>

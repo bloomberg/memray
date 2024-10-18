@@ -50,6 +50,7 @@ enum class RecordType : unsigned char {
     CODE_OBJECT = 14,
 
     FRAME_POP = 16,  // 16 through 31
+    OBJECT_RECORD = 32,  // 32 through 63
     FRAME_PUSH = 64,  // 64 through 127
     ALLOCATION = 128,  // 128 through 255
 };
@@ -69,6 +70,7 @@ enum class AggregatedRecordType : unsigned char {
     SEGMENT = 8,
     THREAD_RECORD = 10,
     CONTEXT_SWITCH = 12,
+    SURVIVING_OBJECT = 13,
     CODE_OBJECT = 14,
 
     AGGREGATED_TRAILER = 15,
@@ -110,6 +112,7 @@ struct HeaderRecord
     size_t skipped_frames_on_main_tid{};
     PythonAllocatorType python_allocator{};
     bool trace_python_allocators{};
+    bool track_object_lifetimes{false};
 };
 
 struct MemoryRecord
@@ -143,6 +146,18 @@ struct Allocation
     size_t frame_index{0};
     size_t native_segment_generation{0};
     size_t n_allocations{1};
+
+    PyObject* toPythonObject() const;
+};
+
+struct TrackedObject
+{
+    thread_id_t tid;
+    uintptr_t address;
+    bool is_created;
+    frame_id_t native_frame_id{0};
+    size_t frame_index{0};
+    size_t native_segment_generation{0};
 
     PyObject* toPythonObject() const;
 };
@@ -333,6 +348,13 @@ class Registry
 struct ThreadRecord
 {
     const char* name;
+};
+
+struct ObjectRecord
+{
+    uintptr_t address;  // Address of the PyObject*
+    bool is_created;  // true for creation, false for destruction
+    frame_id_t native_frame_id{0};  // Optional native frame id for backtraces
 };
 
 }  // namespace memray::tracking_api

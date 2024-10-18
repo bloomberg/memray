@@ -88,6 +88,7 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        size_t skipped_frames_on_main_tid
        int python_allocator
        bool trace_python_allocators
+       bool track_object_lifetimes
 
    cdef cppclass Allocation:
        thread_id_t tid
@@ -125,6 +126,20 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        size_t rss
        size_t heap
 
+   cdef cppclass TrackedObject:
+       thread_id_t tid
+       uintptr_t address
+       bool is_created
+       frame_id_t native_frame_id
+       size_t frame_index
+       size_t native_segment_generation
+
+       object toPythonObject()
+
+   cdef cppclass ObjectRecord:
+       uintptr_t address
+       bool is_created
+       frame_id_t native_frame_id
 
 cdef extern from "<optional>":
    # Cython doesn't have libcpp.optional yet, so just declare this opaquely.

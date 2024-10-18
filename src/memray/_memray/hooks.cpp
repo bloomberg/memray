@@ -486,4 +486,11 @@ PyGILState_Ensure() noexcept
     return ret;
 }
 
+int
+pyreftracer(PyObject* obj, compat::RefTracerEvent event, void* data) noexcept
+{
+    tracking_api::Tracker::trackObject(obj, event);
+    return 0;
+}
+
 }  // namespace memray::intercept

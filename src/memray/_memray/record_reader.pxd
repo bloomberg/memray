@@ -3,6 +3,7 @@ from _memray.records cimport Allocation
 from _memray.records cimport HeaderRecord
 from _memray.records cimport MemoryRecord
 from _memray.records cimport MemorySnapshot
+from _memray.records cimport TrackedObject
 from _memray.records cimport optional_location_id_t
 from _memray.source cimport Source
 from libcpp cimport bool
@@ -19,10 +20,12 @@ cdef extern from "record_reader.h" namespace "memray::api":
         RecordResultMemorySnapshot 'memray::api::RecordReader::RecordResult::MEMORY_SNAPSHOT'
         RecordResultError 'memray::api::RecordReader::RecordResult::ERROR'
         RecordResultEndOfFile 'memray::api::RecordReader::RecordResult::END_OF_FILE'
+        RecordResultObjectRecord 'memray::api::RecordReader::RecordResult::OBJECT_RECORD'
 
     cdef cppclass RecordReader:
         RecordReader(unique_ptr[Source]) except+
         RecordReader(unique_ptr[Source], bool track_stacks) except+
+        RecordReader(unique_ptr[Source], bool track_stacks, bool track_object_lifetimes) except+
         void close()
         bool isOpen() const
         RecordResult nextRecord() except+
@@ -47,3 +50,4 @@ cdef extern from "record_reader.h" namespace "memray::api":
         MemoryRecord getLatestMemoryRecord()
         AggregatedAllocation getLatestAggregatedAllocation()
         MemorySnapshot getLatestMemorySnapshot()
+        TrackedObject getLatestObject()

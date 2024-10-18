@@ -6,6 +6,7 @@ from _memray.records cimport FramePush
 from _memray.records cimport HeaderRecord
 from _memray.records cimport ImageSegments
 from _memray.records cimport MemoryRecord
+from _memray.records cimport ObjectRecord
 from _memray.records cimport ThreadRecord
 from _memray.records cimport UnresolvedNativeFrame
 from _memray.records cimport code_object_id_t
@@ -41,6 +42,7 @@ cdef extern from "record_writer.h" namespace "memray::tracking_api":
         bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) except+
         bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) except+
         bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) except+
+        bool writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record) except+
         bool writeHeader(bool seek_to_start) except+
         bool writeTrailer() except+
         void setMainTidAndSkippedFrames(thread_id_t main_tid, size_t skipped_frames_on_main_tid) except+
@@ -52,4 +54,5 @@ cdef extern from "record_writer.h" namespace "memray::tracking_api":
         bool native_trace,
         FileFormat file_format,
         bool trace_python_allocators,
+        bool track_object_lifetimes,
     ) except+

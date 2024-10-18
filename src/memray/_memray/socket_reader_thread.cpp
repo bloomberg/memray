@@ -41,6 +41,11 @@ BackgroundSocketReader::backgroundThreadWorker()
                 abort();
             } break;
 
+            case RecordResult::OBJECT_RECORD: {
+                std::cerr << "BUG: OBJECT_RECORD from ALL_ALLOCATIONS input" << std::endl;
+                abort();
+            } break;
+
             case RecordResult::END_OF_FILE:
             case RecordResult::ERROR: {
                 d_stop_thread = true;
