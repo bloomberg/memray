@@ -38,6 +38,7 @@ enum class RecordType : unsigned char {
     THREAD_RECORD = 10,
     MEMORY_RECORD = 11,
     CONTEXT_SWITCH = 12,
+    OBJECT_RECORD = 13,
 };
 
 enum class OtherRecordType : unsigned char {
@@ -159,6 +160,18 @@ struct Allocation
     size_t frame_index{0};
     size_t native_segment_generation{0};
     size_t n_allocations{1};
+
+    PyObject* toPythonObject() const;
+};
+
+struct TrackedObject
+{
+    thread_id_t tid;
+    uintptr_t address;
+    bool is_created;
+    frame_id_t native_frame_id{0};
+    size_t frame_index{0};
+    size_t native_segment_generation{0};
 
     PyObject* toPythonObject() const;
 };
@@ -335,6 +348,19 @@ using pyframe_map_t = std::unordered_map<pyframe_map_val_t::first_type, pyframe_
 struct ThreadRecord
 {
     const char* name;
+};
+
+struct ObjectRecord
+{
+    uintptr_t address;  // Address of the PyObject*
+    bool is_created;  // true for creation, false for destruction
+};
+
+struct NativeObjectRecord
+{
+    uintptr_t address;  // Address of the PyObject*
+    frame_id_t native_frame_id{0};  // Optional native frame id for backtraces
+    bool is_created;  // true for creation, false for destruction
 };
 
 }  // namespace memray::tracking_api

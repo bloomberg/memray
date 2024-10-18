@@ -30,6 +30,8 @@ class RecordWriter
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) = 0;
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) = 0;
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) = 0;
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record) = 0;
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const NativeObjectRecord& record) = 0;
 
     virtual bool writeHeader(bool seek_to_start) = 0;
     virtual bool writeTrailer() = 0;
