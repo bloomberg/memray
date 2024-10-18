@@ -95,7 +95,10 @@ RecordReader::readHeader(HeaderRecord& header)
                 sizeof(header.python_allocator))
         || !d_input->read(
                 reinterpret_cast<char*>(&header.trace_python_allocators),
-                sizeof(header.trace_python_allocators)))
+                sizeof(header.trace_python_allocators))
+        || !d_input->read(
+                reinterpret_cast<char*>(&header.track_object_lifetimes),
+                sizeof(header.track_object_lifetimes)))
     {
         throw std::ios_base::failure("Failed to read input file header.");
     }
@@ -137,9 +140,13 @@ RecordReader::readSignedVarint(ssize_t* val)
     return true;
 }
 
-RecordReader::RecordReader(std::unique_ptr<Source> source, bool track_stacks)
+RecordReader::RecordReader(
+        std::unique_ptr<Source> source,
+        bool track_stacks,
+        bool track_object_lifetimes)
 : d_input(std::move(source))
 , d_track_stacks(track_stacks)
+, d_track_object_lifetimes(track_object_lifetimes)
 {
     readHeader(d_header);
 
@@ -520,6 +527,68 @@ RecordReader::processPythonFrameIndexRecord(const std::pair<frame_id_t, Frame>& 
     return true;
 }
 
+bool
+RecordReader::parseObjectRecord(ObjectRecord* record, unsigned int flags)
+{
+    if (!d_track_object_lifetimes) {
+        return true;
+    }
+    record->is_created = (flags & 0x01) > 0;
+
+    unsigned int pointer_cache_index = (flags >> 1) & 0x0f;
+    if (pointer_cache_index == 0x0f) {
+        // Cache miss, read the pointer, then update the cache
+        if (!readIntegralDelta(&d_last.data_pointer, &record->address)) {
+            return false;
+        }
+
+        record->address <<= 3;
+
+        std::move(
+                d_recent_addresses.begin(),
+                d_recent_addresses.end() - 1,
+                d_recent_addresses.begin() + 1);
+        d_recent_addresses[0] = record->address;
+    } else {
+        // Cache hit, reuse previous pointer
+        record->address = d_recent_addresses[pointer_cache_index];
+    }
+
+    if (d_header.native_traces && record->is_created) {
+        if (!readIntegralDelta(&d_last.native_frame_id, &record->native_frame_id)) {
+            return false;
+        }
+    } else {
+        record->native_frame_id = 0;
+    }
+    return true;
+}
+
+bool
+RecordReader::processObjectRecord(const ObjectRecord& record)
+{
+    if (!d_track_object_lifetimes) {
+        return true;
+    }
+    d_latest_object.tid = d_last.thread_id;
+    d_latest_object.address = record.address;
+    d_latest_object.native_frame_id = record.native_frame_id;
+
+    if (d_track_stacks && record.is_created) {
+        d_latest_object.native_frame_id = record.native_frame_id;
+        auto& stack = d_stack_traces[d_latest_object.tid];
+        d_latest_object.frame_index = stack.empty() ? 0 : stack.back();
+        d_latest_object.native_segment_generation = d_symbol_resolver.currentSegmentGeneration();
+    } else {
+        d_latest_object.native_frame_id = 0;
+        d_latest_object.frame_index = 0;
+        d_latest_object.native_segment_generation = 0;
+    }
+
+    d_latest_object.is_created = record.is_created;
+    return true;
+}
+
 RecordReader::RecordResult
 RecordReader::nextRecord()
 {
@@ -583,6 +652,9 @@ RecordReader::extractRecordTypeAndFlags(
     } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::FRAME_PUSH)) {
         *record_type = RecordType::FRAME_PUSH;
         flags_mask = static_cast<unsigned char>(RecordType::FRAME_PUSH) - 1;
+    } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::OBJECT_RECORD)) {
+        *record_type = RecordType::OBJECT_RECORD;
+        flags_mask = static_cast<unsigned char>(RecordType::OBJECT_RECORD) - 1;
     } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::FRAME_POP)) {
         *record_type = RecordType::FRAME_POP;
         flags_mask = static_cast<unsigned char>(RecordType::FRAME_POP) - 1;
@@ -687,6 +759,14 @@ RecordReader::nextRecordFromAllAllocationsFile()
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process thread record";
                     return RecordResult::ERROR;
                 }
+            } break;
+            case RecordType::OBJECT_RECORD: {
+                ObjectRecord record;
+                if (!parseObjectRecord(&record, flags) || !processObjectRecord(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process native object record";
+                    return RecordResult::ERROR;
+                }
+                return RecordResult::OBJECT_RECORD;
             } break;
             default:
                 if (d_input->is_open()) LOG(ERROR) << "Invalid record type";
@@ -991,6 +1071,12 @@ RecordReader::getLatestMemorySnapshot() const noexcept
     return d_latest_memory_snapshot;
 }
 
+TrackedObject
+RecordReader::getLatestObject() const noexcept
+{
+    return d_latest_object;
+}
+
 PyObject*
 RecordReader::dumpAllRecords()
 {
@@ -1211,6 +1297,18 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                 }
 
                 printf("tid=%lu\n", tid);
+            } break;
+            case RecordType::OBJECT_RECORD: {
+                printf("OBJECT_RECORD ");
+
+                ObjectRecord record;
+                if (!parseObjectRecord(&record, flags)) {
+                    Py_RETURN_NONE;
+                }
+
+                printf("address=%p native_frame_id=%zd\n",
+                       (void*)record.address,
+                       record.native_frame_id);
             } break;
             default: {
                 printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);
