@@ -36,6 +36,19 @@ patch_symbol(
     }
 }
 
+static inline const char*
+get_canonical_name(const char* name)
+{
+    // In macOS 15 (Sequoia)+, the symbols in the shared cache have a prefix
+    // "_malloc_type" that we need to remove to match the symbols that we
+    // are looking for.
+    const char* prefix = "_malloc_type";
+    if (strncmp(name, prefix, strlen(prefix)) != 0) {
+        return name;
+    }
+    return name + strlen(prefix);
+}
+
 static void
 patch_symbols_in_section(
         const section_t* section,
@@ -49,8 +62,9 @@ patch_symbols_in_section(
         if (!symbol_name || !(symbol_name[0] == '_' || symbol_name[0] == '.') || !symbol_name[1]) {
             continue;
         }
+        const char* canonical_name = get_canonical_name(symbol_name);
 #define FOR_EACH_HOOKED_FUNCTION(hookname)                                                              \
-    if (strcmp(MEMRAY_ORIG(hookname).d_symbol, symbol_name + 1) == 0) {                                 \
+    if (strcmp(MEMRAY_ORIG(hookname).d_symbol, canonical_name + 1) == 0) {                              \
         LOG(DEBUG) << "Patching " << symbol_name << " symbol pointer at " << std::hex << std::showbase  \
                    << *(symbol_addr_table + i) << " for relocation entry " << (symbol_addr_table + i);  \
         patch_symbol(                                                                                   \
@@ -225,9 +239,10 @@ patch_stubs(
         if (!symbol_name || !(symbol_name[0] == '_' || symbol_name[0] == '.') || !symbol_name[1]) {
             continue;
         }
+        const char* canonical_name = get_canonical_name(symbol_name);
         auto stub_addr = reinterpret_cast<uint64_t>(symbol_addr_table + i * element_size);
 #define FOR_EACH_HOOKED_FUNCTION(hookname)                                                              \
-    if (strcmp(MEMRAY_ORIG(hookname).d_symbol, symbol_name + 1) == 0) {                                 \
+    if (strcmp(MEMRAY_ORIG(hookname).d_symbol, canonical_name + 1) == 0) {                              \
         LOG(DEBUG) << "Extracting symbol address for " << symbol_name << " from stub function at "      \
                    << std::hex << std::showbase << stub_addr;                                           \
         void* symbol_addr = reinterpret_cast<void*>(lazy_pointer_from_stub(stub_addr));                 \
