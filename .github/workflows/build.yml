@@ -72,6 +72,9 @@ jobs:
     container:
       image: alpine
       options: --cap-add=SYS_PTRACE
+    env:
+      # Coverage is kind of broken in Alpine
+      SKIP_COVERAGE_HTML: 1
     steps:
       - uses: actions/checkout@v4
       - name: Set up dependencies
