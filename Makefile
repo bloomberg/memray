@@ -78,7 +78,9 @@ pycoverage:  ## Run the test suite, with Python code coverage
 		--cov-append $(PYTEST_ARGS) \
 		tests
 	$(PYTHON) -m coverage lcov -i -o pycoverage.lcov
-	genhtml *coverage.lcov  --branch-coverage --output-directory memray-coverage $(GENHTMLOPTS)
+	if [ -z "$$SKIP_COVERAGE_HTML" ]; then \
+		genhtml *coverage.lcov  --branch-coverage --output-directory memray-coverage $(GENHTMLOPTS); \
+	fi
 
 .PHONY: valgrind
 valgrind:  ## Run valgrind, with the correct configuration
