@@ -63,13 +63,13 @@ jobs:
         run: |
           make pycoverage
       - name: Upload C++ report to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: cppcoverage.lcov
           flags: cpp
       - name: Upload {P,C}ython report to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: pycoverage.lcov
