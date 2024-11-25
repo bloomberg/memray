@@ -5,7 +5,7 @@ import pytest
 from packaging import version
 
 SNAPSHOT_MINIMUM_VERSIONS = {
-    "textual": "0.81",
+    "textual": "0.88.0",
     "pytest-textual-snapshot": "1.0",
 }
 
