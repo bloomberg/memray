@@ -140,7 +140,7 @@ def compare(monkeypatch, tmp_path, snap_compare):
 
 def render_widget(widget: Widget) -> str:
     output = StringIO()
-    rprint(widget.render(), file=output)
+    rprint(widget.renderable, file=output)  # type: ignore
     return output.getvalue()
 
 
