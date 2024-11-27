@@ -10,7 +10,7 @@ from memray import FileReader
 from tests.utils import filter_relevant_allocations
 
 pytestmark = pytest.mark.skipif(
-    sys.version_info >= (3, 12), reason="Greenlet does not yet support Python 3.12"
+    sys.version_info >= (3, 14), reason="Greenlet does not yet support Python 3.14"
 )
 
 
@@ -194,3 +194,73 @@ def test_importing_greenlet_after_tracking_starts(tmpdir):
     assert vallocs[0].tid != vallocs[1].tid != vallocs[6].tid
     assert vallocs[0].tid == vallocs[2].tid
     assert vallocs[1].tid == vallocs[3].tid == vallocs[4].tid == vallocs[5].tid
+
+
+def test_uninstall_profile_in_greenlet(tmpdir):
+    """Verify that memray handles profile function changes in greenlets correctly."""
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    subprocess_code = textwrap.dedent(
+        f"""
+        import greenlet
+        import sys
+
+        from memray import Tracker
+        from memray._test import MemoryAllocator
+
+        def foo():
+            bar()
+            allocator.valloc(1024 * 10)
+
+        def bar():
+            baz()
+
+        def baz():
+            sys.setprofile(None)
+            other.switch()
+
+        def test():
+            allocator.valloc(1024 * 70)
+            main_greenlet.switch()
+
+
+        allocator = MemoryAllocator()
+        output = "{output}"
+
+        with Tracker(output):
+            main_greenlet = greenlet.getcurrent()
+            other = greenlet.greenlet(test)
+            foo()
+
+        """
+    )
+
+    # WHEN
+    subprocess.run([sys.executable, "-Xdev", "-c", subprocess_code], timeout=5)
+
+    # THEN
+    reader = FileReader(output)
+    records = list(reader.get_allocation_records())
+    vallocs = [
+        record
+        for record in filter_relevant_allocations(records)
+        if record.allocator == AllocatorType.VALLOC
+    ]
+
+    def stack(alloc):
+        return [frame[0] for frame in alloc.stack_trace()]
+
+    # Verify allocations and their stack traces (which should be empty
+    # because we remove the tracking function)
+    assert len(vallocs) == 2
+
+    assert stack(vallocs[0]) == []
+    assert vallocs[0].size == 70 * 1024
+
+    assert stack(vallocs[1]) == []
+    assert vallocs[1].size == 10 * 1024
+
+    # Verify thread IDs
+    main_tid = vallocs[0].tid  # inner greenlet
+    outer_tid = vallocs[1].tid  # outer greenlet
+    assert main_tid == outer_tid

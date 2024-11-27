@@ -1216,9 +1216,17 @@ Tracker::beginTrackingGreenlets()
 void
 Tracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 {
+    // We must stop tracking the stack once our trace function is uninstalled.
+    // Otherwise, we'd keep referencing frames after they're destroyed.
+    PyThreadState* ts = PyThreadState_Get();
+    if (ts->c_profilefunc != PyTraceFunction) {
+        return;
+    }
+
     // Grab the Tracker lock, as this may need to write pushes/pops.
     std::unique_lock<std::mutex> lock(*s_mutex);
     RecursionGuard guard;
+
     PythonStackTracker::get().handleGreenletSwitch(from, to);
 }
 

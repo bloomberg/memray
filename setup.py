@@ -113,7 +113,7 @@ lint_requires = [
 
 test_requires = [
     "Cython",
-    "greenlet; python_version < '3.13'",
+    "greenlet; python_version < '3.14'",
     "pytest",
     "pytest-cov",
     "ipython",
