@@ -1,1 +1,0 @@
-Fix a crash when a greenlet switch happens after Memray's profile function has been deactivated or replaced.

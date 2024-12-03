@@ -8,6 +8,17 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.15.0 (2024-12-03)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix some crashes caused by interposing symbols in memray itself (#685)
+- Fixed a bug that was causing tracking of runtime libraries that are part of the linker cache not work in macOS 15. (#693)
+- Fix a crash when a greenlet switch happens after Memray's profile function has been deactivated or replaced. (#700)
+
+
 memray 1.14.0 (2024-09-09)
 --------------------------
 

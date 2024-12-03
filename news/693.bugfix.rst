@@ -1,1 +1,0 @@
-Fixed a bug that was causing tracking of runtime libraries that are part of the linker cache not work in macOS 15.
