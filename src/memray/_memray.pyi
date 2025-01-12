@@ -107,25 +107,25 @@ class TemporalAllocationRecord:
     intervals: List[Interval]
 
 class AllocatorType(enum.IntEnum):
-    MALLOC: int
-    FREE: int
-    CALLOC: int
-    REALLOC: int
-    POSIX_MEMALIGN: int
-    ALIGNED_ALLOC: int
-    MEMALIGN: int
-    VALLOC: int
-    PVALLOC: int
-    MMAP: int
-    MUNMAP: int
-    PYMALLOC_MALLOC: int
-    PYMALLOC_CALLOC: int
-    PYMALLOC_REALLOC: int
-    PYMALLOC_FREE: int
+    MALLOC = 1
+    FREE = 2
+    CALLOC = 3
+    REALLOC = 4
+    POSIX_MEMALIGN = 5
+    ALIGNED_ALLOC = 6
+    MEMALIGN = 7
+    VALLOC = 8
+    PVALLOC = 9
+    MMAP = 10
+    MUNMAP = 11
+    PYMALLOC_MALLOC = 12
+    PYMALLOC_CALLOC = 13
+    PYMALLOC_REALLOC = 14
+    PYMALLOC_FREE = 15
 
 class FileFormat(enum.IntEnum):
-    ALL_ALLOCATIONS: int
-    AGGREGATED_ALLOCATIONS: int
+    ALL_ALLOCATIONS = 1
+    AGGREGATED_ALLOCATIONS = 2
 
 def start_thread_trace(frame: FrameType, event: str, arg: Any) -> None: ...
 
@@ -235,16 +235,16 @@ class Tracker:
 def greenlet_trace(event: str, args: Any) -> None: ...
 
 class PymallocDomain(enum.IntEnum):
-    PYMALLOC_RAW: int
-    PYMALLOC_MEM: int
-    PYMALLOC_OBJECT: int
+    PYMALLOC_RAW = 1
+    PYMALLOC_MEM = 2
+    PYMALLOC_OBJECT = 3
 
 def size_fmt(num: int, suffix: str = "B") -> str: ...
 
 class SymbolicSupport(enum.IntEnum):
-    NONE: int
-    FUNCTION_NAME_ONLY: int
-    TOTAL: int
+    NONE = 1
+    FUNCTION_NAME_ONLY = 2
+    TOTAL = 3
 
 def get_symbolic_support() -> SymbolicSupport: ...
 
