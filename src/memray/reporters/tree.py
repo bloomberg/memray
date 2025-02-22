@@ -114,8 +114,8 @@ class FrameDetailScreen(Widget):
 
     def _get_content_by_label_id(self) -> Dict[str, str]:
         common = {
-            "allocs": f":floppy_disk: Allocations: {self.frame.n_allocations}",
-            "size": f":package: Size: {size_fmt(self.frame.value)}",
+            "allocs": f"\N{floppy disk} Allocations: {self.frame.n_allocations}",
+            "size": f"\N{package} Size: {size_fmt(self.frame.value)}",
         }
 
         if self.frame.location is None:
@@ -143,16 +143,16 @@ class FrameDetailScreen(Widget):
             }
         return {
             **common,
-            "function": f":compass: Function: {function}",
+            "function": f"\N{compass} Function: {function}",
             "location": (
-                ":compass: Location: "
+                "\N{compass} Location: "
                 + (
                     f"{_filename_to_module_name(file)}:{lineno}"
                     if lineno != 0
                     else file
                 )
             ),
-            "thread": f":thread: Thread: {self.frame.thread_id}",
+            "thread": f"\N{spool of thread} Thread: {self.frame.thread_id}",
         }
 
     def watch_frame(self) -> None:
