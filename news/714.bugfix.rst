@@ -1,0 +1,1 @@
+Fix the tree reporter's rendering of emojis to work for Textual 2, which no longer supports directly assigning label text using emoji shortcodes.
