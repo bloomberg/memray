@@ -22,7 +22,7 @@ allocate_memory()
 {
     unsigned long* buffers[NUM_BUFFERS];
     for (int i=0; i < NUM_BUFFERS; ++i) {
-        int ret = posix_memalign((void**)buffers+i, sizeof(void*), sizeof(void*)*i);
+        int ret = posix_memalign((void**)buffers+i, sizeof(void*), sizeof(void*)*(i+1));
         if (ret) {
             buffers[i] = NULL;
             break;
