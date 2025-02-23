@@ -323,6 +323,19 @@
    ...
 }
 
+# Helgrind false positives
+
+# Helgrind warns if a condition variable is signalled while the lock is not
+# held, but pthreads explicitly allow this case. Memray is doing this when
+# stopping the background thread that collects RSS info, and CPython does this
+# for the GIL.
+{
+   <signalling_cond_var_with_mutex_unlocked>
+   Helgrind:Dubious
+   ...
+   obj:*
+}
+
 # libunwind
 
 # `validate_mem` checks whether a memory region is both mapped and readable. It
