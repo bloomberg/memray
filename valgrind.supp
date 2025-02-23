@@ -13,6 +13,23 @@
    ...
 }
 
+# Any problems in Py_Initialize are before the Memray module has even
+# been imported, and so aren't something we need to think about.
+{
+   <invalid_read_in_py_initialize>
+   Memcheck:Addr32
+   ...
+   fun:Py_Initialize*
+   ...
+}
+{
+   <jump_depending_on_uninitialized_memory_in_py_initialize>
+   Memcheck:Cond
+   ...
+   fun:Py_Initialize*
+   ...
+}
+
 # CPython does not deallocate multitude of immortal objects
 # and this confuses valgrind. For this, we want to suppress
 # all traces that are not 'definite lost' that originated from
