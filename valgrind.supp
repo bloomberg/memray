@@ -30,6 +30,17 @@
    ...
 }
 
+# Valgrind is now reporting leaks in the `readline` module, but
+# these are certainly not relevant to Memray.
+{
+   <ignore_leaks_in_readline_module>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:PyInit_readline
+   ...
+}
+
 # CPython does not deallocate multitude of immortal objects
 # and this confuses valgrind. For this, we want to suppress
 # all traces that are not 'definite lost' that originated from
