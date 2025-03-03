@@ -45,7 +45,6 @@ jobs:
       - id: manylinux_i686
         run: echo "wheel_types=manylinux_i686" >> $GITHUB_OUTPUT
       - id: manylinux_aarch64
-        if: github.event_name == 'release' && github.event.action == 'published'
         run: echo "wheel_types=manylinux_aarch64" >> $GITHUB_OUTPUT
     outputs:
       wheel_types: ${{ toJSON(steps.*.outputs.wheel_types) }}
@@ -53,14 +52,18 @@ jobs:
   build_linux_wheels:
     needs: [build_sdist, choose_linux_wheel_types]
     name: ${{ matrix.wheel_type }}${{ matrix.manylinux2010_hack }} wheels
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         wheel_type: ${{ fromJSON(needs.choose_linux_wheel_types.outputs.wheel_types) }}
         manylinux2010_hack: [""]
         include:
+          - os: ubuntu-latest
+          - wheel_type: manylinux_aarch64
+            os: ubuntu-24.04-arm
           - wheel_type: manylinux_x86_64
+            os: ubuntu-latest
             manylinux2010_hack: "_manylinux2010_hack"
     steps:
       - name: Build manylinux2010 image containing Python 3.11 and 3.12
@@ -95,9 +98,6 @@ jobs:
         with:
           name: tests
           path: tests
-      - uses: docker/setup-qemu-action@v3
-        if: runner.os == 'Linux'
-        name: Set up QEMU
       - name: Extract sdist
         run: |
           tar zxvf dist/*.tar.gz --strip-components=1
@@ -108,11 +108,10 @@ jobs:
         uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_BUILD: "cp3{7..13}-${{ matrix.wheel_type }}"
-          CIBW_ARCHS_LINUX: auto aarch64
+          CIBW_ARCHS_LINUX: auto
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -m pytest {package}/tests
-          CIBW_TEST_SKIP: "*aarch64*"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.wheel_type }}${{ matrix.manylinux2010_hack }}-wheels
