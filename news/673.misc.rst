@@ -1,0 +1,1 @@
+Memray is now built using ``scikit-build-core`` and CMake instead of ``setuptools``. This should have little to no impact on end users, but redistributors like distro package maintainers will need to ensure that these tools are available when building Memray.

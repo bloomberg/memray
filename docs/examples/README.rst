@@ -11,11 +11,11 @@ Make sure you install the required dependencies by running
 directory. The examples below use the project in the ``mandelbrot`` folder, but
 you can use the same instructions to launch the other examples as well.
 
-To track memory allocations, invoke ``memray3.9 run``:
+To track memory allocations, invoke ``memray run``:
 
 .. code:: shell
 
-   memray3.9 run mandelbrot/mandelbrot.py
+   memray run mandelbrot/mandelbrot.py
 
 Memray will print a message displaying the output file it creates.
 
@@ -28,7 +28,7 @@ graph, use the following command:
 
 .. code:: shell
 
-   memray3.9 flamegraph mandelbrot/memray-mandelbrot.py.187967.bin
+   memray flamegraph mandelbrot/memray-mandelbrot.py.187967.bin
 
 The HTML file for the flame graph will be generated under
 ``mandelbrot/memray-flamegraph-mandelbrot.py.187967.html``. The flame graph
