@@ -8,6 +8,15 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.16.0 (2025-03-06)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix the tree reporter's rendering of emojis to work for Textual 2, which no longer supports directly assigning label text using emoji shortcodes. (#714)
+
+
 memray 1.15.0 (2024-12-03)
 --------------------------
 
