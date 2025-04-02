@@ -45,16 +45,24 @@ namespace memray::tracking_api {
 
 struct RecursionGuard
 {
-#ifdef __linux__
     RecursionGuard()
-    : wasLocked(_isActive)
+    : wasLocked(isActive())
     {
-        _isActive = true;
+        setValue(true);
     }
 
     ~RecursionGuard()
     {
-        _isActive = wasLocked;
+        setValue(wasLocked);
+    }
+
+    const bool wasLocked;
+
+#ifdef __linux__
+    MEMRAY_FAST_TLS static thread_local bool _isActive;
+
+    static void initialize()
+    {
     }
 
     static __attribute__((always_inline)) inline bool isActive()
@@ -66,19 +74,14 @@ struct RecursionGuard
     {
         _isActive = value;
     }
-
-    const bool wasLocked;
-    MEMRAY_FAST_TLS static thread_local bool _isActive;
 #else
-    RecursionGuard()
-    : wasLocked(isActive())
-    {
-        setValue(true);
-    }
+    static pthread_key_t isActiveKey;
 
-    ~RecursionGuard()
+    static void initialize()
     {
-        setValue(wasLocked);
+        if (0 != pthread_key_create(&isActiveKey, NULL)) {
+            throw std::runtime_error{"Failed to create pthread key"};
+        }
     }
 
     static __attribute__((always_inline)) inline bool isActive()
@@ -93,9 +96,6 @@ struct RecursionGuard
         }
         return;
     }
-
-    const bool wasLocked;
-    static pthread_key_t isActiveKey;
 #endif
 };
 
