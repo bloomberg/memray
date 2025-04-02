@@ -30,7 +30,7 @@ def update_key_description(bindings: Bindings, key: str, description: str) -> No
 
 
 def redraw_footer(app: App[Any]) -> None:
-    footer = app.query_one(Footer)
+    footer = app.screen.query_one(Footer)
     if hasattr(footer, "recompose"):
         # Added in Textual v0.53
         footer.refresh(recompose=True)

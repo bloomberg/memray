@@ -810,7 +810,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                return app.query_one(Tree).root
+                return app.screen.query_one(Tree).root
 
         root = async_run(run_test())
 
@@ -846,7 +846,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                return app.query_one(Tree).root
+                return app.screen.query_one(Tree).root
 
         root = async_run(run_test())
 
@@ -933,7 +933,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                return app.query_one(Tree).root
+                return app.screen.query_one(Tree).root
 
         root = async_run(run_test())
 
@@ -1033,7 +1033,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                tree = app.query_one(Tree)
+                tree = app.screen.query_one(Tree)
                 first_tree = tree_to_dict(tree.root)
                 await pilot.press("u")
                 await pilot.pause()
@@ -1164,7 +1164,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                tree = app.query_one(Tree)
+                tree = app.screen.query_one(Tree)
                 first_tree = tree_to_dict(tree.root)
                 await pilot.press("i")
                 await pilot.pause()
@@ -1205,7 +1205,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                tree = app.query_one(Tree)
+                tree = app.screen.query_one(Tree)
                 return tree.root
 
         root = async_run(run_test())
@@ -1266,7 +1266,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                tree = app.query_one(Tree)
+                tree = app.screen.query_one(Tree)
                 first_tree = tree_to_dict(tree.root)
                 await pilot.press("i")
                 await pilot.pause()
@@ -1371,7 +1371,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                tree = app.query_one(Tree)
+                tree = app.screen.query_one(Tree)
                 first_tree = tree_to_dict(tree.root)
                 await pilot.press("i")
                 await pilot.pause()
@@ -1425,7 +1425,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                tree = app.query_one(Tree)
+                tree = app.screen.query_one(Tree)
                 child = tree.root.children[1]
                 # From Textual 0.73 on, Tree.select_node toggles the node's expanded
                 # state. The new Tree.move_cursor method selects without expanding.
@@ -1507,7 +1507,7 @@ class TestTreeTui:
         async def run_test():
             async with app.run_test() as pilot:
                 await pilot.pause()
-                return app.query_one(Tree).root
+                return app.screen.query_one(Tree).root
 
         root = async_run(run_test())
 

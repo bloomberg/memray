@@ -210,11 +210,11 @@ class FrameDetailScreen(Widget):
 class FrameTree(Tree[Frame]):
     def on_tree_node_selected(self, node: Tree.NodeSelected[Frame]) -> None:
         if node.node.data is not None:
-            self.app.query_one(FrameDetailScreen).frame = node.node.data
+            self.app.screen.query_one(FrameDetailScreen).frame = node.node.data
 
     def on_tree_node_highlighted(self, node: Tree.NodeHighlighted[Frame]) -> None:
         if node.node.data is not None:
-            self.app.query_one(FrameDetailScreen).frame = node.node.data
+            self.app.screen.query_one(FrameDetailScreen).frame = node.node.data
 
 
 def node_is_interesting(node: Frame) -> bool:
