@@ -116,7 +116,7 @@ def compare(monkeypatch, tmp_path, snap_compare):
                     await result
 
             await pilot.pause()
-            header = pilot.app.query_one("Header")
+            header = pilot.app.screen.query_one("Header")
             header.last_update = header.start + datetime.timedelta(seconds=42)
 
         app = MockApp(
@@ -147,7 +147,7 @@ def render_widget(widget: Widget) -> str:
 def extract_label_text(app: App) -> Dict[str, str]:
     return {
         label.id: render_widget(label)
-        for label in app.query(Label)
+        for label in app.screen.query(Label)
         if label.id is not None
     }
 
@@ -614,7 +614,7 @@ def test_sorting():
             app.add_mock_snapshot(snapshot)
             await pilot.pause()
 
-            datatable = pilot.app.query_one(DataTable)
+            datatable = pilot.app.screen.query_one(DataTable)
             function_col_key = datatable.ordered_columns[0].key
 
             for key in ("", "o", "a", "t"):
@@ -672,7 +672,7 @@ def test_switching_threads():
             app.add_mock_snapshot(snapshot)
             await pilot.pause()
 
-            datatable = pilot.app.query_one(DataTable)
+            datatable = pilot.app.screen.query_one(DataTable)
 
             for key in ("m", ">", ">", ">", "<", "<", "<"):
                 await pilot.press(key)
@@ -764,7 +764,7 @@ def test_merging_allocations_from_all_threads():
             app.add_mock_snapshot(snapshot)
             await pilot.pause()
 
-            datatable = pilot.app.query_one(DataTable)
+            datatable = pilot.app.screen.query_one(DataTable)
 
             for key in ("m", ">", "m", "<", "m", "<"):
                 await pilot.press(key)

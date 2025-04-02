@@ -586,7 +586,7 @@ class TUI(Screen[None]):
         """An action to toggle showing allocations from all threads together."""
         self._merge_threads = not self._merge_threads
         redraw_footer(self.app)
-        self.app.query_one(AllocationTable).merge_threads = self._merge_threads
+        self.app.screen.query_one(AllocationTable).merge_threads = self._merge_threads
         self._populate_header_thread_labels(self.thread_idx)
 
     def action_toggle_pause(self) -> None:
