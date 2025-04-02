@@ -55,6 +55,7 @@ from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport install_trace_function
+from _memray.tracking_api cimport set_up_pthread_fork_handlers
 from cpython cimport PyErr_CheckSignals
 from libc.math cimport ceil
 from libc.stdint cimport uint64_t
@@ -76,16 +77,12 @@ from ._metadata import Metadata
 from ._stats import Stats
 from ._thread_name_interceptor import ThreadNameInterceptor
 
-
-cdef extern from "pthread.h" nogil:
-    int pthread_atfork(void (*prepare)(), void (*parent)(), void (*child)())
-
 # NOTE: We can't reinitialize tracking in a child process until the interpreter
 #       has reinitialized its locks, so we do it in a Python fork handler.
 #       But, Python fork handlers aren't guaranteed to run for every fork, and
 #       the child process must never inherit an active tracker, so we must use
 #       a pthread fork handler to disable tracking before forking.
-pthread_atfork(&NativeTracker.prepareFork, &NativeTracker.parentFork, NULL)
+set_up_pthread_fork_handlers()
 os.register_at_fork(after_in_child=NativeTracker.childFork)
 
 

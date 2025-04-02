@@ -559,7 +559,6 @@ Tracker::Tracker(
 {
     static std::once_flag once;
     call_once(once, [] {
-        RecursionGuard::initialize();
         // We use the pthread TLS API for this vector because we must be able
         // to re-create it while TLS destructors are running (a destructor can
         // call malloc, hitting our malloc hook). POSIX guarantees multiple
@@ -1233,6 +1232,18 @@ Tracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     RecursionGuard guard;
 
     PythonStackTracker::get().handleGreenletSwitch(from, to);
+}
+
+void
+set_up_pthread_fork_handlers()
+{
+    static std::once_flag once;
+    call_once(once, [] {
+        // On macOS the recursion guard uses pthread TLS keys, so we
+        // need to create those keys before we install our handlers.
+        RecursionGuard::initialize();
+        pthread_atfork(&Tracker::prepareFork, &Tracker::parentFork, NULL);
+    });
 }
 
 void
