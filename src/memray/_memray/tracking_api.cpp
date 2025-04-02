@@ -559,11 +559,7 @@ Tracker::Tracker(
 {
     static std::once_flag once;
     call_once(once, [] {
-#ifndef __linux__
-        if (0 != pthread_key_create(&RecursionGuard::isActiveKey, NULL)) {
-            throw std::runtime_error{"Failed to create pthread key"};
-        }
-#endif
+        RecursionGuard::initialize();
         // We use the pthread TLS API for this vector because we must be able
         // to re-create it while TLS destructors are running (a destructor can
         // call malloc, hitting our malloc hook). POSIX guarantees multiple
