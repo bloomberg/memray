@@ -134,6 +134,12 @@ PyTraceTrampoline(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 void
 install_trace_function();
 
+/**
+ * Install our pthread fork handlers.
+ */
+void
+set_up_pthread_fork_handlers();
+
 class NativeTrace
 {
   public:
