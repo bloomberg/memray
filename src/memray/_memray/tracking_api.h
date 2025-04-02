@@ -45,19 +45,58 @@ namespace memray::tracking_api {
 
 struct RecursionGuard
 {
+#ifdef __linux__
     RecursionGuard()
-    : wasLocked(isActive)
+    : wasLocked(_isActive)
     {
-        isActive = true;
+        _isActive = true;
     }
 
     ~RecursionGuard()
     {
-        isActive = wasLocked;
+        _isActive = wasLocked;
+    }
+
+    static __attribute__((always_inline)) inline bool isActive()
+    {
+        return _isActive;
+    }
+
+    static __attribute__((always_inline)) inline void setValue(bool value)
+    {
+        _isActive = value;
     }
 
     const bool wasLocked;
-    MEMRAY_FAST_TLS static thread_local bool isActive;
+    MEMRAY_FAST_TLS static thread_local bool _isActive;
+#else
+    RecursionGuard()
+    : wasLocked(isActive())
+    {
+        setValue(true);
+    }
+
+    ~RecursionGuard()
+    {
+        setValue(wasLocked);
+    }
+
+    static __attribute__((always_inline)) inline bool isActive()
+    {
+        return pthread_getspecific(isActiveKey) != 0;
+    }
+
+    static __attribute__((always_inline)) inline void setValue(bool value)
+    {
+        if (pthread_setspecific(isActiveKey, value ? (void*)1 : (void*)0) != 0) {
+            abort();
+        }
+        return;
+    }
+
+    const bool wasLocked;
+    static pthread_key_t isActiveKey;
+#endif
 };
 
 // Trace function interface
@@ -208,7 +247,7 @@ class Tracker
     __attribute__((always_inline)) inline static void
     trackAllocation(void* ptr, size_t size, hooks::Allocator func)
     {
-        if (RecursionGuard::isActive || !Tracker::isActive()) {
+        if (RecursionGuard::isActive() || !Tracker::isActive()) {
             return;
         }
         RecursionGuard guard;
@@ -250,7 +289,7 @@ class Tracker
     __attribute__((always_inline)) inline static void
     trackDeallocation(void* ptr, size_t size, hooks::Allocator func)
     {
-        if (RecursionGuard::isActive || !Tracker::isActive()) {
+        if (RecursionGuard::isActive() || !Tracker::isActive()) {
             return;
         }
         RecursionGuard guard;
@@ -264,7 +303,7 @@ class Tracker
 
     __attribute__((always_inline)) inline static void invalidate_module_cache()
     {
-        if (RecursionGuard::isActive || !Tracker::isActive()) {
+        if (RecursionGuard::isActive() || !Tracker::isActive()) {
             return;
         }
         RecursionGuard guard;
@@ -278,7 +317,7 @@ class Tracker
 
     __attribute__((always_inline)) inline static void registerThreadName(const char* name)
     {
-        if (RecursionGuard::isActive || !Tracker::isActive()) {
+        if (RecursionGuard::isActive() || !Tracker::isActive()) {
             return;
         }
         RecursionGuard guard;
@@ -292,7 +331,7 @@ class Tracker
 
     inline static void registerThreadNameById(uint64_t thread, const char* name)
     {
-        if (RecursionGuard::isActive || !Tracker::isActive()) {
+        if (RecursionGuard::isActive() || !Tracker::isActive()) {
             return;
         }
         RecursionGuard guard;
