@@ -91,7 +91,8 @@ struct RecursionGuard
 
     static __attribute__((always_inline)) inline void setValue(bool value)
     {
-        if (pthread_setspecific(isActiveKey, value ? (void*)1 : (void*)0) != 0) {
+        static bool true_constant = true;
+        if (pthread_setspecific(isActiveKey, value ? &true_constant : (void*)0) != 0) {
             abort();
         }
         return;
