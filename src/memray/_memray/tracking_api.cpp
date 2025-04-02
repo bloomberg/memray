@@ -53,7 +53,11 @@ starts_with(const std::string& haystack, const std::string_view& needle)
 
 namespace memray::tracking_api {
 
-MEMRAY_FAST_TLS thread_local bool RecursionGuard::isActive = false;
+#ifdef __linux__
+MEMRAY_FAST_TLS thread_local bool RecursionGuard::_isActive = false;
+#else
+pthread_key_t RecursionGuard::isActiveKey;
+#endif
 
 static inline thread_id_t
 generate_next_tid()
@@ -555,6 +559,11 @@ Tracker::Tracker(
 {
     static std::once_flag once;
     call_once(once, [] {
+#ifndef __linux__
+        if (0 != pthread_key_create(&RecursionGuard::isActiveKey, NULL)) {
+            throw std::runtime_error{"Failed to create pthread key"};
+        }
+#endif
         // We use the pthread TLS API for this vector because we must be able
         // to re-create it while TLS destructors are running (a destructor can
         // call malloc, hitting our malloc hook). POSIX guarantees multiple
@@ -709,7 +718,7 @@ Tracker::BackgroundThread::start()
     }
 
     d_thread = std::thread([&]() {
-        RecursionGuard::isActive = true;
+        RecursionGuard::setValue(true);
         while (true) {
             {
                 std::unique_lock<std::mutex> lock(d_mutex);
@@ -746,14 +755,14 @@ void
 Tracker::prepareFork()
 {
     // Don't do any custom track_allocation handling while inside fork
-    RecursionGuard::isActive = true;
+    RecursionGuard::setValue(true);
 }
 
 void
 Tracker::parentFork()
 {
     // We can continue tracking
-    RecursionGuard::isActive = false;
+    RecursionGuard::setValue(false);
 }
 
 void
@@ -789,7 +798,7 @@ Tracker::childFork()
         // s_mutex when the process's globals are destroyed! To handle this,
         // the hooks must check the (static) isActive() flag before acquiring
         // s_mutex or calling any methods on the now null tracker singleton.
-        RecursionGuard::isActive = false;
+        RecursionGuard::setValue(false);
         return;
     }
 
@@ -802,7 +811,7 @@ Tracker::childFork()
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators));
     Tracker::activate();
-    RecursionGuard::isActive = false;
+    RecursionGuard::setValue(false);
 }
 
 size_t
