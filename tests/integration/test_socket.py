@@ -410,12 +410,13 @@ class TestSocketReaderAccess:
         MAX_TRACES = 10
 
         # WHEN
-        with subprocess.Popen(code) as proc, SocketReader(port=free_port) as reader:
-            while len(traces) < MAX_TRACES:
-                for allocation in reader.get_current_snapshot(merge_threads=False):
-                    traces.update(allocation.stack_trace())
+        with subprocess.Popen(code) as proc:
+            with SocketReader(port=free_port) as reader:
+                while len(traces) < MAX_TRACES:
+                    for allocation in reader.get_current_snapshot(merge_threads=False):
+                        traces.update(allocation.stack_trace())
 
-            proc.terminate()
+                proc.terminate()
 
         # THEN
         assert len(traces) >= MAX_TRACES
