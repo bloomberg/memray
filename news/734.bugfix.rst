@@ -1,1 +1,0 @@
-A backwards incompatible change in Textual prevented the ``memray tree`` and ``memray attach`` commands from working properly. Work around this to support the latest Textual versions.

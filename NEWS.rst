@@ -8,6 +8,16 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.17.0 (2025-04-03)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a bug with macOS version 15.4 that was causing memray to crash when the internal TLS variables were being created or destroyed. (#732)
+- A backwards incompatible change in Textual prevented the ``memray tree`` and ``memray attach`` commands from working properly. Work around this to support the latest Textual versions. (#734)
+
+
 memray 1.16.0 (2025-03-06)
 --------------------------
 
