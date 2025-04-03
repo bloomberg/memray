@@ -111,7 +111,7 @@ jobs:
           CIBW_ARCHS_LINUX: auto
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
-          CIBW_TEST_COMMAND: python -um pytest -vvv {package}/tests
+          CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.wheel_type }}${{ matrix.manylinux2010_hack }}-wheels
@@ -158,7 +158,7 @@ jobs:
           CIBW_BUILD: "cp3{8..13}-*"
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
-          CIBW_TEST_COMMAND: python -um pytest -vvv {package}/tests
+          CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
           CIBW_BUILD_VERBOSITY: 1
           CFLAGS: "${{env.CFLAGS}} -I${{env.LZ4_INSTALL_DIR}}/include"
           LDFLAGS: "-L${{env.LZ4_INSTALL_DIR}}/lib -Wl,-rpath,${{env.LZ4_INSTALL_DIR}}/lib"
