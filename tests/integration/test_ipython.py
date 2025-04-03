@@ -3,13 +3,19 @@ import os
 import pytest
 from IPython.core.displaypub import CapturingDisplayPublisher
 from IPython.core.interactiveshell import InteractiveShell
+from traitlets.config import Config
 
 
 def run_in_ipython_shell(tmpdir, cells):
     """Run the given cells in an IPython shell and return the HTML output."""
     InteractiveShell.clear_instance()
 
-    shell = InteractiveShell.instance(display_pub_class=CapturingDisplayPublisher)
+    config = Config()
+    config.HistoryAccessor.enabled = False  # Disable sqlite history
+    shell = InteractiveShell.instance(
+        display_pub_class=CapturingDisplayPublisher,
+        config=config,
+    )
     prev_running_dir = os.getcwd()
     try:
         os.chdir(tmpdir)
