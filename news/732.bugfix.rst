@@ -1,1 +1,0 @@
-Fix a bug with macOS version 15.4 that was causing memray to crash when the internal TLS variables were being created or destroyed.
