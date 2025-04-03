@@ -419,4 +419,3 @@ class TestSocketReaderAccess:
 
         # THEN
         assert len(traces) >= MAX_TRACES
-        proc.returncode == 0
