@@ -1,0 +1,588 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Example Applications for Memray" href="examples/README.html" /><link rel="prev" title="Attaching to a running process" href="attach.html" />
+
+    <link rel="shortcut icon" href="_static/favicon.ico"/><!-- Generated with Sphinx 8.1.3 and Furo 2024.08.06 -->
+        <title>Symbolic information in native mode - memray</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=302659d7" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">memray</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="_static/logo.png" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Hands-on Tutorial</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">About This Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/1.html">Exercise 1 - Fibonacci Sequence</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/2.html">Exercise 2 - Clinging Onto Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/3.html">Exercise 3 - LRU Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/additional_features.html">What to learn about next</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="run.html">The <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python_allocators.html">Python allocators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memory.html">Memory overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="temporary_allocations.html">Temporary allocations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="attach.html">Attaching to a running process</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Symbolic information in native mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/README.html">Example Applications for Memray</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Memray API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jupyter_magic.html">Jupyter Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reporters</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="live.html">Live Reporting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="summary.html">Summary Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flamegraph.html">Flame Graph Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="table.html">Table Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tree.html">Tree Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stats.html">Stats Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="transform.html">Transform Reporter</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Information</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="supported_environments.html">Supported environments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="licenses.html">Licenses</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/native_mode.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="symbolic-information-in-native-mode">
+<h1>Symbolic information in native mode<a class="headerlink" href="#symbolic-information-in-native-mode" title="Link to this heading">¶</a></h1>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>For the best native mode experience, we recommend running your program on
+Linux using an interpreter and libraries built with as much debugging
+information as possible.</p>
+</div>
+<p>When passing the <code class="docutils literal notranslate"><span class="pre">--native</span></code> flag to the <a class="reference internal" href="run.html"><span class="doc">the run subcommand</span></a>,
+Memray will collect information about the native call stack leading to each
+allocation, and it will dump it to the result file. This information is in
+a raw form where every call is identified by a number called the “instruction
+pointer” or “program counter”. The instruction pointer is a number that helps
+running programs identify what CPU instruction needs to be executed next. After
+fetching each instruction the instruction pointer is incremented, and holds the
+memory address of (“points to”) the next instruction to be executed. Processors
+usually fetch instructions sequentially from memory, but control transfer
+instructions change the sequence by placing a new value in the instruction
+pointer. These include branches (sometimes called jumps), subroutine calls, and
+returns. A transfer that is performed only if some condition is true allows the
+computer to follow a different sequence under different conditions.</p>
+<p>When creating reports, Memray needs to convert these instruction pointers into
+human readable information, like the function name, the file name where that
+function is defined, and the line number within that file corresponding to the
+instruction. This process is known as <strong>symbolification</strong>.</p>
+<section id="how-memray-resolves-symbols">
+<h2>How Memray resolves symbols<a class="headerlink" href="#how-memray-resolves-symbols" title="Link to this heading">¶</a></h2>
+<p>There are two different approaches Memray uses to symbolify an instruction
+pointer:</p>
+<ul class="simple">
+<li><p>Use the <a class="reference external" href="https://dwarfstd.org/">DWARF</a> debugging information embedded in
+the executable or shared library containing the instruction. This process
+will provide function names, file names, and line numbers, and will also be
+able to resolve inlined functions. This method is used whenever debugging
+information is available.</p></li>
+<li><p>Use the symbol table information embedded in the executable or shared library
+containing the instruction. This is a suboptimal method that will <strong>only</strong>
+provide function names, not file names or line numbers. It can also be
+unreliable as the symbol table may not contain entries for every function.</p></li>
+</ul>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>To reduce tracking overhead, Memray delays symbolification <strong>until reports
+are being generated</strong>. This means that when a report is being generated,
+Memray needs to read information from the interpreter executable that was
+used to run the tracked application, and from the shared libraries that were
+loaded into it. Reports must be generated <strong>on the same machine that the
+application ran on</strong>, because the same versions of the interpreter and
+shared libraries need to be available for inspection. Failing to do this
+will result in symbolification errors or incorrect reports.</p>
+</div>
+<p>If Memray is able to resolve file names, line numbers, and inline functions,
+it can hide some of the Python interpreter’s internal functions which don’t add
+much information to the report. If there is no debug information available then
+the produced flame graphs will look more noisy and be harder to read, because
+we won’t be able to reliably detect these uninteresting functions. In these
+images you can compare two flame-graphs, one with debug information and one
+without debug information, produced from the same capture file:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><figure class="align-default" id="id1">
+<img alt="_images/native_mode_no_debug.png" src="_images/native_mode_no_debug.png" />
+<figcaption>
+<p><span class="caption-text">Flamegraph in native mode produced without debug information.</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+</td>
+<td><figure class="align-default" id="id2">
+<img alt="_images/native_mode_debug.png" src="_images/native_mode_debug.png" />
+<figcaption>
+<p><span class="caption-text">Flamegraph in native mode produced with debug information.</span><a class="headerlink" href="#id2" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>You can see that file names are reported as <code class="docutils literal notranslate"><span class="pre">&lt;unknown&gt;</span></code> and line numbers as
+<code class="docutils literal notranslate"><span class="pre">0</span></code> when debugging information is not available.</p>
+<p>On Linux, you can check whether your binaries have DWARF debug information
+available by running:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>readelf<span class="w"> </span>-S<span class="w"> </span>./a.out<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>debug
+</pre></div>
+</div>
+<p>For example, for checking if the Python interpreter has DWARF debug information
+available:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>readelf<span class="w"> </span>-S<span class="w"> </span><span class="k">$(</span>which<span class="w"> </span>python<span class="k">)</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>debug
+
+<span class="go">[26] .debug_aranges    PROGBITS         0000000000000000  00001057</span>
+<span class="go">[27] .debug_info       PROGBITS         0000000000000000  00001087</span>
+<span class="go">[28] .debug_abbrev     PROGBITS         0000000000000000  000010de</span>
+<span class="go">[29] .debug_line       PROGBITS         0000000000000000  0000111a</span>
+<span class="go">[30] .debug_str        PROGBITS         0000000000000000  00001177</span>
+<span class="go">[31] .debug_macro      PROGBITS         0000000000000000  00003eb1</span>
+</pre></div>
+</div>
+</section>
+<section id="symbolification-in-macos">
+<span id="mac-symbolification"></span><h2>Symbolification in macOS<a class="headerlink" href="#symbolification-in-macos" title="Link to this heading">¶</a></h2>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Because most macOS binaries for Python don’t include debug
+information, <strong>reports produced in macOS can be much less accurate</strong>.</p>
+</div>
+<p>On Mac OS X there was a decision to not have the linker include all of the
+debug information into the executables and libraries it builds. Instead, the
+compiler generates the DWARF debug information in the <code class="docutils literal notranslate"><span class="pre">.s</span></code> files, the
+assembler outputs it in the <code class="docutils literal notranslate"><span class="pre">.o</span></code> files, and the linker includes a “debug map”
+in the executable or shared library which tells debug info users where all of
+the symbols were relocated during the link. There is a tool called <code class="docutils literal notranslate"><span class="pre">dsymutil</span></code>
+that can read the debug map, load the DWARF information from the <code class="docutils literal notranslate"><span class="pre">.o</span></code> files,
+relocate all the addresses and then output a single binary with all the DWARF
+information at their final, linked addresses. This final binary is called
+a <code class="docutils literal notranslate"><span class="pre">dSYM</span></code> bundle and is normally placed alongside every executable.</p>
+<p>This process has some advantages, but unfortunately in the Python world neither
+redistributors of Python interpreters nor library maintainers generally package
+debugging information with the binaries. This means that <strong>most macOS binaries
+don’t have debug information inside</strong>, so in general <strong>native mode
+symbolification will not work well</strong> in macOS.</p>
+<p>Memray will fall back to symbol table analysis if it can’t find any debug
+information in the binary, but when producing reports we won’t be able to
+identify where the different symbols came from, making flame graphs very
+verbose and hard to read.</p>
+<section id="adding-debugging-information-to-your-native-extension">
+<h3>Adding debugging information to your native extension<a class="headerlink" href="#adding-debugging-information-to-your-native-extension" title="Link to this heading">¶</a></h3>
+<p>If you are debugging your own native extension, you can generate debug
+information that Memray can use by executing <code class="docutils literal notranslate"><span class="pre">dsymutil</span></code> on your shared object
+<strong>while the object files used to generate the shared object still exist</strong>. For
+instance, for the Memray extension itself (the paths will be different for your
+own extension):</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="c1"># Sanity check: ensure that the object files are still around</span>
+<span class="gp">$ </span>dsymutil<span class="w"> </span>-s<span class="w">  </span>src/memray/_memray.cpython-310-darwin.so<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>OSO<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span>
+<span class="go">[  9431] 000d39a1 66 (N_OSO        ) 00     0001   0000000062fb8052 &#39;memray/build/temp.macosx-12.5-arm64-cpython-310/src/memray/_memray.o&#39;</span>
+
+<span class="gp">$ </span>ls<span class="w"> </span>memray/build/temp.macosx-12.5-arm64-cpython-310/src/memray/_memray.o
+<span class="go">.rw-r--r-- 3.5M pgalindo3 16 Aug 12:32 memray/build/temp.macosx-12.5-arm64-cpython-310/src/memray/_memray.o</span>
+
+<span class="gp">$ </span><span class="c1"># Then generate a dSYM bundle with the debug information:</span>
+<span class="gp">$ </span>dsymutil<span class="w"> </span>src/memray/_memray.cpython-310-darwin.so
+</pre></div>
+</div>
+<p>This will place a new file called <code class="docutils literal notranslate"><span class="pre">_memray.cpython-310-darwin.dSYM</span></code> in the
+same directory as the original shared object. Once this file is in place,
+memray will be able to leverage the debug information it contains.</p>
+</section>
+</section>
+<section id="debuginfod-integration">
+<h2>Debuginfod integration<a class="headerlink" href="#debuginfod-integration" title="Link to this heading">¶</a></h2>
+<p>Memray can use <a class="reference external" href="https://sourceware.org/elfutils/Debuginfod.html">debuginfod</a>
+to fetch debug information from remote servers on demand. This is useful
+because many Linux distributions don’t ship debug information with their
+binaries, so you can use debuginfod to download the debug information from
+a server that does have it. Many modern Linux distributions have debuginfod
+integration so you can take advantage of this with little to no effort.</p>
+<p>To take advantage of debuginfod, you need two things:</p>
+<ol class="arabic">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">debuginfod</span></code> client library must be installed. This library allows you
+to query debuginfod servers. It is available in most Linux distributions
+(including Debian, Ubuntu, Fedora, Arch Linux, etc.) and can be installed
+with your package manager. For example, in Debian/Ubuntu:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>debuginfod
+</pre></div>
+</div>
+<p>In Arch Linux:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>sudo<span class="w"> </span>pacman<span class="w"> </span>-S<span class="w"> </span>debuginfod
+</pre></div>
+</div>
+<p>In Fedora:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>sudo<span class="w"> </span>dnf<span class="w"> </span>install<span class="w"> </span>elfutils-debuginfod
+</pre></div>
+</div>
+</li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">DEBUGINFOD_URLS</span></code> environment variable must point to the debuginfod
+server you want to use. This is a space separated list of URLs.
+For example:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">DEBUGINFOD_URLS</span><span class="o">=</span><span class="s2">&quot;https://debuginfod.archlinux.org/&quot;</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can also use <a class="reference external" href="https://debuginfod.elfutils.org/">https://debuginfod.elfutils.org/</a> which works as a
+federated server and queries all available debuginfod servers.</p>
+</div>
+<p>Some modern Linux distributions set this variable by default when the
+<code class="docutils literal notranslate"><span class="pre">debuginfod</span></code> client is installed, so you may not need to set this up.</p>
+</li>
+</ol>
+<p>Once the client is installed and the environment variable is set, Memray will
+automatically use debuginfod to download debug information for the binaries it
+encounters when generating native mode reports. The first time that Memray uses
+debuginfod to fetch debug information it will take a bit longer to generate the
+report, but subsequent runs will be much faster because the debug information
+gets cached locally.</p>
+<p>If you’d like to see progress diagnostics during downloads, set:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">DEBUGINFOD_PROGRESS</span><span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+<p>If you want to see exactly which network requests are being made and which
+cached files are used you can set <code class="docutils literal notranslate"><span class="pre">$DEBUGINFOD_VERBOSE</span></code> (warning: it is
+<em>very</em> verbose):</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">DEBUGINFOD_VERBOSE</span><span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+<p>If you want to limit download times and/or sizes you can set these variables:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">DEBUGINFOD_TIMEOUT</span><span class="o">=</span><span class="m">10</span><span class="w">       </span><span class="c1"># seconds</span>
+<span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">DEBUGINFOD_MAXSIZE</span><span class="o">=</span><span class="m">1000000</span><span class="w">  </span><span class="c1"># bytes</span>
+</pre></div>
+</div>
+<p>If you never want to query a debuginfod server, clear the <code class="docutils literal notranslate"><span class="pre">$DEBUGINFOD_URLS</span></code>
+environment variable:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">unset</span><span class="w"> </span>DEBUGINFOD_URLS
+</pre></div>
+</div>
+<p>If you have a local debuginfod cache that you’d like to use, but don’t want to
+attempt any upstream debuginfod queries, set <code class="docutils literal notranslate"><span class="pre">$DEBUGINFOD_URLS</span></code> to something
+non-empty but ineffective, such as <code class="docutils literal notranslate"><span class="pre">/dev/null</span></code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Clients automatically clean the cache of files not accessed in a while. You
+may also remove the debuginfod cache directory
+<code class="docutils literal notranslate"><span class="pre">$HOME/.cache/debuginfod_client</span></code> at any time to clear space.</p>
+</div>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="examples/README.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Example Applications for Memray</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="attach.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Attaching to a running process</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Symbolic information in native mode</a><ul>
+<li><a class="reference internal" href="#how-memray-resolves-symbols">How Memray resolves symbols</a></li>
+<li><a class="reference internal" href="#symbolification-in-macos">Symbolification in macOS</a><ul>
+<li><a class="reference internal" href="#adding-debugging-information-to-your-native-extension">Adding debugging information to your native extension</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#debuginfod-integration">Debuginfod integration</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>
