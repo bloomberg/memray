@@ -193,6 +193,7 @@ SocketSource::SocketSource(int port)
     while (curr_address == nullptr) {
         Py_BEGIN_ALLOW_THREADS;
         if ((rv = ::getaddrinfo(nullptr, port_str.c_str(), &hints, &all_addresses)) != 0) {
+            Py_UNBLOCK_THREADS;
             LOG(ERROR) << "Encountered error in 'getaddrinfo' call: " << ::gai_strerror(rv);
             throw IoError{"Failed to resolve host IP and port"};
         }
