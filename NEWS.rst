@@ -8,6 +8,15 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.17.1 (2025-04-04)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a bug that could result in an infinite loop on ARM Linux systems when a process that Memray is attached to abruptly dies. (#737)
+
+
 memray 1.17.0 (2025-04-03)
 --------------------------
 
