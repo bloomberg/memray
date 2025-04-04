@@ -1,0 +1,1 @@
+Fix a bug that could result in an infinite loop on ARM Linux systems when a process that Memray is attached to abruptly dies.

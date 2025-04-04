@@ -273,16 +273,16 @@ SocketSource::is_open()
 bool
 SocketSource::getline(std::string& result, char delimiter)
 {
-    char buf;
+    int buf;
     while (true) {
-        buf = static_cast<char>(d_socket_buf->sbumpc());
-        if (buf == delimiter || buf == SocketBuf::traits_type::eof()) {
+        buf = d_socket_buf->sbumpc();
+        if (buf == static_cast<int>(delimiter) || buf == SocketBuf::traits_type::eof()) {
             if (!d_is_open) {
                 return false;
             }
             break;
         }
-        result.push_back(buf);
+        result.push_back(static_cast<char>(buf));
     }
     return true;
 }
