@@ -1,0 +1,1 @@
+We no longer provide manylinux2010 wheels. Previously they were provided for Python 3.7 through 3.12, now we provide manylinux2014 wheels for those Python versions instead. The manylinux project dropped support for manylinux2010 on August 1st, 2022.
