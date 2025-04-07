@@ -48,9 +48,8 @@ We require a C++17 runtime. As noted above, macOS 11 or higher is required for
 a C++17 runtime on Mac.
 
 On Linux we support glibc and musl libc. Other libc's have not been tested, and
-issues are likely. For Python 3.10 and earlier we support platforms compatible
-with the ``manylinux2010`` specification, and for Python 3.11 onward we require
-``manylinux2014`` compatibility.
+issues are likely. We support platforms compatible with the ``manylinux2014``
+specification.
 
 Known issues and limitations
 ----------------------------

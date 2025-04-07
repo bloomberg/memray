@@ -67,11 +67,6 @@ manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
 musllinux-x86_64-image = "musllinux_1_1"
 
-[[tool.cibuildwheel.overrides]]
-select = "cp3{7,8,9,10}-*"
-manylinux-x86_64-image = "manylinux2010"
-manylinux-i686-image = "manylinux2010"
-
 [tool.cibuildwheel.linux]
 before-all = [
   # Build the latest curl from source.
