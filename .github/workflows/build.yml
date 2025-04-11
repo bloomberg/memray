@@ -86,7 +86,7 @@ jobs:
           cd /
           apk add --update argp-standalone bison bsd-compat-headers bzip2-dev curl curl-dev flex-dev libtool linux-headers musl-fts-dev musl-libintl musl-obstack-dev xz-dev zlib-dev zstd-dev
           VERS=0.191
-          curl https://sourceware.org/elfutils/ftp/$VERS/elfutils-$VERS.tar.bz2 > ./elfutils.tar.bz2
+          curl -L https://mirrors.kernel.org/sourceware/elfutils/$VERS/elfutils-$VERS.tar.bz2 >./elfutils.tar.bz2
           tar -xf elfutils.tar.bz2
           cd elfutils-$VERS
           CFLAGS='-Wno-error -DFNM_EXTMATCH=0 -g -O3' CXXFLAGS='-Wno-error -DFNM_EXTMATCH=0 -g -O3' ./configure --enable-libdebuginfod --disable-debuginfod --disable-nls --with-zstd
