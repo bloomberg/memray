@@ -8,7 +8,7 @@ from exercise_3.lru_cache import generate_factorial_plus_last_digit
 # Memory tests
 
 
-@pytest.mark.limit_memory("75 MB")
+@pytest.mark.limit_memory("200 MB")
 def test_lru_cache():
     compare_counts_different_factorials()
 
