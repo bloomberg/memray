@@ -352,7 +352,14 @@ class _DebuggerCommand:
             if errmsg:
                 raise MemrayCommandError(errmsg, exit_code=1)
 
-            return server.accept()[0]
+            server.settimeout(10)
+            try:
+                return server.accept()[0]
+            except TimeoutError:
+                raise MemrayCommandError(
+                    f"Timed out waiting for connection from pid {pid}",
+                    exit_code=1,
+                )
 
 
 class AttachCommand(_DebuggerCommand):
