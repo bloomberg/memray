@@ -61,7 +61,6 @@ jobs:
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
       - name: Run coverage
         env:
-          CYTHON_TEST_MACROS: 1
           PYTHON: ./venv/bin/python
         run: |
           make dev-install pycoverage
@@ -107,7 +106,6 @@ jobs:
           /venv/bin/python -m pip install --upgrade pip
       - name: Run coverage
         env:
-          CYTHON_TEST_MACROS: 1
           PYTHON: /venv/bin/python
           GENHTMLOPTS: "--ignore-errors inconsistent"
         run: |
@@ -164,8 +162,6 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install -r requirements-test.txt
           python3 -m pip install -e .
-        env:
-          MEMRAY_MINIMIZE_INLINING: 1
       - name: Run Valgrind
         run: make valgrind
       - name: Run Helgrind

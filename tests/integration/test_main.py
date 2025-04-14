@@ -1442,7 +1442,11 @@ class TestLiveRemoteSubcommand:
         assert client.returncode == 0
 
     def test_live_tracking_waits_for_client(self, simple_test_file):
-        # GIVEN/WHEN
+        # GIVEN
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+
+        # WHEN
         server = subprocess.Popen(
             [
                 sys.executable,
@@ -1452,7 +1456,7 @@ class TestLiveRemoteSubcommand:
                 "--live-remote",
                 str(simple_test_file),
             ],
-            env={"PYTHONUNBUFFERED": "1"},
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -1464,7 +1468,11 @@ class TestLiveRemoteSubcommand:
 
     @pytest.mark.parametrize("port", [0, 2**16, 1000000])
     def test_run_live_tracking_invalid_port(self, simple_test_file, port):
-        # GIVEN/WHEN
+        # GIVEN
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+
+        # WHEN
         server = subprocess.Popen(
             [
                 sys.executable,
@@ -1476,7 +1484,7 @@ class TestLiveRemoteSubcommand:
                 str(port),
                 str(simple_test_file),
             ],
-            env={"PYTHONUNBUFFERED": "1"},
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -1489,7 +1497,11 @@ class TestLiveRemoteSubcommand:
 
     @pytest.mark.parametrize("port", [0, 2**16, 1000000])
     def test_live_tracking_invalid_port(self, port):
-        # GIVEN/WHEN
+        # GIVEN
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+
+        # WHEN
         server = subprocess.Popen(
             [
                 sys.executable,
@@ -1498,7 +1510,7 @@ class TestLiveRemoteSubcommand:
                 "live",
                 str(port),
             ],
-            env={"PYTHONUNBUFFERED": "1"},
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -1511,6 +1523,9 @@ class TestLiveRemoteSubcommand:
 
     def test_live_tracking_server_when_client_disconnects(self, free_port, tmp_path):
         # GIVEN
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+
         test_file = tmp_path / "test.py"
         test_file.write_text("import time; time.sleep(3)")
 
@@ -1525,7 +1540,7 @@ class TestLiveRemoteSubcommand:
                 "--live-remote",
                 str(test_file),
             ],
-            env={"PYTHONUNBUFFERED": "1"},
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -1566,6 +1581,9 @@ class TestLiveRemoteSubcommand:
 
     def test_live_tracking_server_exits_properly_on_sigint(self, simple_test_file):
         # GIVEN
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+
         server = subprocess.Popen(
             [
                 sys.executable,
@@ -1575,7 +1593,7 @@ class TestLiveRemoteSubcommand:
                 "--live-remote",
                 str(simple_test_file),
             ],
-            env={"PYTHONUNBUFFERED": "1"},
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             # Explicitly reset the signal handler for SIGINT to work around any signal
