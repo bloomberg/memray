@@ -123,6 +123,12 @@ def compare(monkeypatch, tmp_path, snap_compare):
             MockReader([], has_native_traces=native),
             cmdline_override=cmdline_override,
         )
+
+        try:
+            asyncio.get_event_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
         return snap_compare(
             app,
             press=press,
