@@ -1135,7 +1135,7 @@ cdef class FileReader:
 
         cdef AllocationLifetimeAggregator aggregator
         cdef _Allocation allocation
-        cdef int memory_records_seen = 0
+        cdef size_t memory_records_seen = 0
 
         with progress_indicator:
             while records_to_process > 0:
@@ -1150,7 +1150,7 @@ cdef class FileReader:
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
                     memory_records_seen += 1
-                    if self._memory_snapshot_stride and memory_records_seen % self._memory_snapshot_stride != 0:
+                    if self._memory_snapshot_stride and (memory_records_seen - 1) % self._memory_snapshot_stride != 0:
                         continue
                     aggregator.captureSnapshot()
                 else:
@@ -1183,6 +1183,7 @@ cdef class FileReader:
 
         cdef HighWaterMarkAggregator aggregator
         cdef _Allocation allocation
+        cdef size_t memory_records_seen = 0
 
         with progress_indicator:
             while records_to_process > 0:
@@ -1196,6 +1197,9 @@ cdef class FileReader:
                     records_to_process -= 1
                     progress_indicator.update(1)
                 elif ret == RecordResult.RecordResultMemoryRecord:
+                    memory_records_seen += 1
+                    if self._memory_snapshot_stride and (memory_records_seen - 1) % self._memory_snapshot_stride != 0:
+                        continue
                     aggregator.captureSnapshot()
                 else:
                     assert ret != RecordResult.RecordResultMemorySnapshot
