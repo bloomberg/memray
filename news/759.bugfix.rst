@@ -1,0 +1,2 @@
+Fix a bug causing ``memray flamegraph --temporal`` to fail to detect the
+correct high water mark for the selected time span.
