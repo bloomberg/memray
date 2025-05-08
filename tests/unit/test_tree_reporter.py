@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from textwrap import dedent
 from typing import Any
@@ -1546,6 +1547,12 @@ def compare(monkeypatch, tmp_path, snap_compare):
             from_snapshot_kwargs["biggest_allocs"] = biggest_allocs
         reporter = TreeReporter.from_snapshot(allocations, **from_snapshot_kwargs)
         app = reporter.get_app()
+
+        try:
+            asyncio.get_event_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
         return snap_compare(
             app,
             press=press,
