@@ -8,6 +8,16 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.17.2 (2025-05-08)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a bug causing ``memray flamegraph --temporal`` to fail to detect the
+  correct high water mark for the selected time span. (#759)
+
+
 memray 1.17.1 (2025-04-04)
 --------------------------
 
