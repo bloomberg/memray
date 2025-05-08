@@ -1546,17 +1546,12 @@ def compare(monkeypatch, tmp_path, snap_compare):
             from_snapshot_kwargs["biggest_allocs"] = biggest_allocs
         reporter = TreeReporter.from_snapshot(allocations, **from_snapshot_kwargs)
         app = reporter.get_app()
-        tmp_main = tmp_path / "main.py"
-        app_global = "_CURRENT_APP_"
-        with monkeypatch.context() as app_patch:
-            app_patch.setitem(globals(), app_global, app)
-            tmp_main.write_text(f"from {__name__} import {app_global} as app")
-            return snap_compare(
-                str(tmp_main),
-                press=press,
-                terminal_size=terminal_size,
-                run_before=run_before,
-            )
+        return snap_compare(
+            app,
+            press=press,
+            terminal_size=terminal_size,
+            run_before=run_before,
+        )
 
     yield compare_impl
 
