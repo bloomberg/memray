@@ -42,9 +42,37 @@ from cpython.pylifecycle cimport Py_FinalizeEx
 from libc.errno cimport errno
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport exit as _exit
+from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
 from ._destination import Destination
+
+from _memray.record_writer cimport RecordWriter
+from _memray.record_writer cimport createRecordWriter
+from _memray.records cimport AllocationRecord
+from _memray.records cimport Allocator
+from _memray.records cimport FileFormat
+from _memray.records cimport FramePop
+from _memray.records cimport FramePush
+from _memray.records cimport HeaderRecord
+from _memray.records cimport ImageSegments
+from _memray.records cimport MemoryRecord
+from _memray.records cimport NativeAllocationRecord
+from _memray.records cimport Segment
+from _memray.records cimport ThreadRecord
+from _memray.records cimport UnresolvedNativeFrame
+from _memray.records cimport thread_id_t
+from _memray.sink cimport FileSink
+from _memray.sink cimport Sink
+from cpython.ref cimport PyObject
+from libcpp cimport bool
+from libcpp.memory cimport unique_ptr
+from libcpp.string cimport string
+
+import os
+from typing import List
+from typing import Optional
+from typing import Union
 
 
 cdef extern from *:
@@ -285,3 +313,123 @@ cdef class PrimeCaches:
         return self
     def __exit__(self, *args):
         sys.setprofile(self.old_profile)
+
+
+cdef class TestRecordWriter:
+    """A Python wrapper around the C++ RecordWriter class for testing purposes."""
+
+    cdef unique_ptr[RecordWriter] _writer
+    cdef unique_ptr[Sink] _sink
+    cdef bool _native_traces
+    cdef bool _trace_python_allocators
+    cdef FileFormat _file_format
+
+    def __cinit__(self, str file_path, bool native_traces=False,
+                  bool trace_python_allocators=False,
+                  FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
+        """Initialize a new TestRecordWriter.
+
+        Args:
+            file_path: Path to the output file
+            native_traces: Whether to include native traces
+            trace_python_allocators: Whether to trace Python allocators
+            file_format: The format of the output file
+        """
+        self._native_traces = native_traces
+        self._trace_python_allocators = trace_python_allocators
+        self._file_format = file_format
+
+        # Create the sink
+        cdef string cpp_path = file_path.encode('utf-8')
+        try:
+            self._sink = unique_ptr[Sink](new FileSink(cpp_path, True, False))
+        except:
+            raise IOError("Failed to create file sink")
+
+        # Create the writer
+        cdef string command_line = b" ".join(arg.encode('utf-8') for arg in sys.argv)
+        try:
+            self._writer = createRecordWriter(
+                move(self._sink),
+                command_line,
+                native_traces,
+                file_format,
+                trace_python_allocators
+            )
+        except:
+            raise IOError("Failed to create record writer")
+
+        # Write the header
+        if not self._writer.get().writeHeader(True):
+            raise RuntimeError("Failed to write header")
+
+    def write_memory_record(self, unsigned long ms_since_epoch, size_t rss) -> bool:
+        """Write a memory record to the file."""
+        cdef MemoryRecord record
+        record.ms_since_epoch = ms_since_epoch
+        record.rss = rss
+        return self._writer.get().writeRecord(record)
+
+    def write_allocation_record(self, thread_id_t tid, uintptr_t address,
+                              size_t size, unsigned char allocator) -> bool:
+        """Write an allocation record to the file."""
+        cdef AllocationRecord record
+        record.address = address
+        record.size = size
+        record.allocator = <Allocator>allocator
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_native_allocation_record(self, thread_id_t tid, uintptr_t address,
+                                     size_t size, unsigned char allocator,
+                                     size_t native_frame_id) -> bool:
+        """Write a native allocation record to the file."""
+        cdef NativeAllocationRecord record
+        record.address = address
+        record.size = size
+        record.allocator = <Allocator>allocator
+        record.native_frame_id = native_frame_id
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_frame_push(self, thread_id_t tid, size_t frame_id) -> bool:
+        """Write a frame push record to the file."""
+        cdef FramePush record
+        record.frame_id = frame_id
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_frame_pop(self, thread_id_t tid, size_t count) -> bool:
+        """Write a frame pop record to the file."""
+        cdef FramePop record
+        record.count = count
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_thread_record(self, thread_id_t tid, str name) -> bool:
+        """Write a thread record to the file."""
+        cdef ThreadRecord record
+        cdef bytes name_bytes = name.encode('utf-8')
+        record.name = name_bytes
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_mappings(self, list mappings) -> bool:
+        """Write memory mappings to the file."""
+        cdef vector[ImageSegments] cpp_mappings
+        cdef ImageSegments segments
+        cdef Segment segment
+        for mapping in mappings:
+            segments = ImageSegments()
+            segments.filename = mapping['filename'].encode('utf-8')
+            segments.addr = mapping['addr']
+            for seg in mapping['segments']:
+                segment.vaddr = seg['vaddr']
+                segment.memsz = seg['memsz']
+                segments.segments.push_back(segment)
+            cpp_mappings.push_back(segments)
+        return self._writer.get().writeMappings(cpp_mappings)
+
+    def write_trailer(self) -> bool:
+        """Write the trailer to the file."""
+        return self._writer.get().writeTrailer()
+
+    def set_main_tid_and_skipped_frames(self, thread_id_t main_tid,
+                                      size_t skipped_frames) -> None:
+        """Set the main thread ID and number of skipped frames."""
+        self._writer.get().setMainTidAndSkippedFrames(main_tid, skipped_frames)
