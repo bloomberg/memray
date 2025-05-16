@@ -214,4 +214,24 @@ pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept;
 void
 pymalloc_free(void* ctx, void* ptr) noexcept;
 
+int
+pyreftracer(PyObject*, int event, void* data) noexcept;
+
 }  // namespace memray::intercept
+
+enum class RecordType : unsigned char {
+    OTHER = 0,
+    ALLOCATION = 1,
+    ALLOCATION_WITH_NATIVE = 2,
+    FRAME_INDEX = 3,
+    FRAME_PUSH = 4,
+    NATIVE_TRACE_INDEX = 5,
+    MEMORY_MAP_START = 6,
+    SEGMENT_HEADER = 7,
+    SEGMENT = 8,
+    FRAME_POP = 9,
+    THREAD_RECORD = 10,
+    MEMORY_RECORD = 11,
+    CONTEXT_SWITCH = 12,
+    OBJECT_RECORD = 13,
+};

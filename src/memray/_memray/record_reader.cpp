@@ -490,6 +490,62 @@ RecordReader::processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_
     return true;
 }
 
+bool
+RecordReader::parseObjectRecord(ObjectRecord* record, unsigned int flags)
+{
+    record->is_created = (flags & 0x01) > 0;
+    return readIntegralDelta(&d_last.data_pointer, &record->address);
+}
+
+bool
+RecordReader::parseNativeObjectRecord(NativeObjectRecord* record, unsigned int flags)
+{
+    record->is_created = (flags & 0x01) > 0;
+    return readIntegralDelta(&d_last.data_pointer, &record->address)
+           && readIntegralDelta(&d_last.native_frame_id, &record->native_frame_id);
+}
+
+bool
+RecordReader::processObjectRecord(const ObjectRecord& record)
+{
+    d_latest_object.tid = d_last.thread_id;
+    d_latest_object.address = record.address;
+    d_latest_object.native_frame_id = 0;
+
+    if (d_track_stacks && record.is_created) {
+        auto& stack = d_stack_traces[d_latest_object.tid];
+        d_latest_object.frame_index = stack.empty() ? 0 : stack.back();
+    } else {
+        d_latest_object.frame_index = 0;
+    }
+    d_latest_object.native_segment_generation = 0;
+    d_latest_object.is_created = record.is_created;
+
+    return true;
+}
+
+bool
+RecordReader::processNativeObjectRecord(const NativeObjectRecord& record)
+{
+    d_latest_object.tid = d_last.thread_id;
+    d_latest_object.address = record.address;
+    d_latest_object.native_frame_id = record.native_frame_id;
+
+    if (d_track_stacks) {
+        d_latest_object.native_frame_id = record.native_frame_id;
+        auto& stack = d_stack_traces[d_latest_object.tid];
+        d_latest_object.frame_index = stack.empty() ? 0 : stack.back();
+        d_latest_object.native_segment_generation = d_symbol_resolver.currentSegmentGeneration();
+    } else {
+        d_latest_object.native_frame_id = 0;
+        d_latest_object.frame_index = 0;
+        d_latest_object.native_segment_generation = 0;
+    }
+
+    d_latest_object.is_created = record.is_created;
+    return true;
+}
+
 RecordReader::RecordResult
 RecordReader::nextRecord()
 {
@@ -623,6 +679,26 @@ RecordReader::nextRecordFromAllAllocationsFile()
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process thread record";
                     return RecordResult::ERROR;
                 }
+            } break;
+            case RecordType::OBJECT_RECORD: {
+                if (record_type_and_flags.flags & 0x02) {  // Has native frame
+                    NativeObjectRecord record;
+                    if (!parseNativeObjectRecord(&record, record_type_and_flags.flags)
+                        || !processNativeObjectRecord(record))
+                    {
+                        if (d_input->is_open()) LOG(ERROR) << "Failed to process native object record";
+                        return RecordResult::ERROR;
+                    }
+                } else {
+                    ObjectRecord record;
+                    if (!parseObjectRecord(&record, record_type_and_flags.flags)
+                        || !processObjectRecord(record))
+                    {
+                        if (d_input->is_open()) LOG(ERROR) << "Failed to process object record";
+                        return RecordResult::ERROR;
+                    }
+                }
+                return RecordResult::OBJECT_RECORD;
             } break;
             default:
                 if (d_input->is_open()) LOG(ERROR) << "Invalid record type";
@@ -906,6 +982,12 @@ RecordReader::getLatestMemorySnapshot() const noexcept
     return d_latest_memory_snapshot;
 }
 
+TrackedObject
+RecordReader::getLatestObject() const noexcept
+{
+    return d_latest_object;
+}
+
 PyObject*
 RecordReader::dumpAllRecords()
 {
@@ -1145,6 +1227,33 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                 }
 
                 printf("tid=%lu\n", tid);
+            } break;
+            case RecordType::OBJECT_RECORD: {
+                if (record_type_and_flags.flags & 0x02) {  // Has native frame
+                    printf("OBJECT_RECORD (native frame) ");
+
+                    NativeObjectRecord record;
+                    if (!parseNativeObjectRecord(&record, record_type_and_flags.flags)
+                        || !processNativeObjectRecord(record))
+                    {
+                        Py_RETURN_NONE;
+                    }
+
+                    printf("address=%p native_frame_id=%zd\n",
+                           (void*)record.address,
+                           record.native_frame_id);
+                } else {
+                    printf("OBJECT_RECORD (object) ");
+
+                    ObjectRecord record;
+                    if (!parseObjectRecord(&record, record_type_and_flags.flags)
+                        || !processObjectRecord(record))
+                    {
+                        Py_RETURN_NONE;
+                    }
+
+                    printf("address=%p\n", (void*)record.address);
+                }
             } break;
             default: {
                 printf("UNKNOWN RECORD TYPE %d\n", (int)record_type_and_flags.record_type);

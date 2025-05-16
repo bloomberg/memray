@@ -35,6 +35,7 @@ class RecordReader
         AGGREGATED_ALLOCATION_RECORD,
         MEMORY_RECORD,
         MEMORY_SNAPSHOT,
+        OBJECT_RECORD,
         ERROR,
         END_OF_FILE,
     };
@@ -64,6 +65,7 @@ class RecordReader
     MemoryRecord getLatestMemoryRecord() const noexcept;
     AggregatedAllocation getLatestAggregatedAllocation() const noexcept;
     MemorySnapshot getLatestMemorySnapshot() const noexcept;
+    TrackedObject getLatestObject() const noexcept;
 
   private:
     // Aliases
@@ -102,6 +104,7 @@ class RecordReader
     AggregatedAllocation d_latest_aggregated_allocation;
     MemoryRecord d_latest_memory_record{};
     MemorySnapshot d_latest_memory_snapshot{};
+    TrackedObject d_latest_object;
 
     // Methods
     [[nodiscard]] bool parseFramePush(FramePush* record);
@@ -151,6 +154,12 @@ class RecordReader
 
     [[nodiscard]] bool parsePythonFrameIndexRecord(tracking_api::pyframe_map_val_t* pyframe_val);
     [[nodiscard]] bool processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_t& record);
+
+    [[nodiscard]] bool parseObjectRecord(ObjectRecord* record, unsigned int flags);
+    [[nodiscard]] bool parseNativeObjectRecord(NativeObjectRecord* record, unsigned int flags);
+
+    [[nodiscard]] bool processObjectRecord(const ObjectRecord& record);
+    [[nodiscard]] bool processNativeObjectRecord(const NativeObjectRecord& record);
 
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
