@@ -1,5 +1,9 @@
 {% extends "classic_base.html" %}
 
+{% block topbar_buttons %}
+{{ super() }}
+{% endblock %}
+
 {% block content %}
 <div class="chart-container">
   <table class="table table-striped" id="the_table">

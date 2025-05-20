@@ -57,6 +57,40 @@ export function initMemoryGraph(memory_records) {
   };
   var config = {
     responsive: true,
+    displayModeBar: true,
+    modeBarButtonsToAdd: [
+      {
+        name: "downloadDataAsCsv",
+        title: "Download data as CSV",
+        icon: Plotly.Icons.disk,
+        click: function(gd) {
+          var rows = [];
+          rows.push("trace,timestamp,memory_size_bytes");
+
+          gd.data.forEach((trace, index) => {
+            const x = trace.x || [];
+            const y = trace.y || [];
+            for (var i = 0; i < Math.min(x.length, y.length); i++) {
+              const traceId = trace.name || 'trace' + index;
+              const timestamp = x[i].getTime();
+              rows.push(`${traceId},${timestamp},${y[i]}`);
+            }
+          });
+
+          const csvContent = rows.join("\r\n");
+          const blob = new Blob([csvContent], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "usage_over_time.csv";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
+    ]
   };
   var config_small = {
     responsive: true,
