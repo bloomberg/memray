@@ -48,7 +48,7 @@ jobs:
             python3.10-dbg
       - name: Install Python dependencies
         run: |
-          python3 -m pip install --upgrade pip cython pkgconfig
+          python3 -m pip install --upgrade pip scikit-build-core cython pkgconfig
           make test-install
       - name: Disable ptrace security restrictions
         run: |

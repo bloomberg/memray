@@ -36,8 +36,7 @@ ENV VIRTUAL_ENV=/venv \
 RUN python3 -m venv "$VIRTUAL_ENV"
 
 ENV PATH="${VIRTUAL_ENV}/bin:/usr/lib/ccache:${PATH}" \
-    PYTHON="${VIRTUAL_ENV}/bin/python" \
-    MEMRAY_MINIMIZE_INLINING="1"
+    PYTHON="${VIRTUAL_ENV}/bin/python"
 
 COPY requirements-test.txt requirements-extra.txt requirements-docs.txt /tmp/
 
