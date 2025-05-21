@@ -1,0 +1,979 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Licenses" href="licenses.html" /><link rel="prev" title="Supported environments" href="supported_environments.html" />
+
+    <link rel="shortcut icon" href="_static/favicon.ico"/><!-- Generated with Sphinx 8.1.3 and Furo 2024.08.06 -->
+        <title>Changelog - memray</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=302659d7" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">memray</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="_static/logo.png" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Hands-on Tutorial</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">About This Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/1.html">Exercise 1 - Fibonacci Sequence</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/2.html">Exercise 2 - Clinging Onto Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/3.html">Exercise 3 - LRU Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/additional_features.html">What to learn about next</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="run.html">The <code class="docutils literal notranslate"><span class="pre">run</span></code> subcommand</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python_allocators.html">Python allocators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memory.html">Memory overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="temporary_allocations.html">Temporary allocations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="attach.html">Attaching to a running process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native_mode.html">Symbolic information in native mode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/README.html">Example Applications for Memray</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Memray API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jupyter_magic.html">Jupyter Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reporters</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="live.html">Live Reporting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="summary.html">Summary Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flamegraph.html">Flame Graph Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="table.html">Table Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tree.html">Tree Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stats.html">Stats Reporter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="transform.html">Transform Reporter</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Information</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="supported_environments.html">Supported environments</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="licenses.html">Licenses</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/changelog.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="changelog">
+<h1>Changelog<a class="headerlink" href="#changelog" title="Link to this heading">¶</a></h1>
+<section id="memray-1-17-2-2025-05-08">
+<h2>memray 1.17.2 (2025-05-08)<a class="headerlink" href="#memray-1-17-2-2025-05-08" title="Link to this heading">¶</a></h2>
+<section id="bug-fixes">
+<h3>Bug Fixes<a class="headerlink" href="#bug-fixes" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a bug causing <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">flamegraph</span> <span class="pre">--temporal</span></code> to fail to detect the
+correct high water mark for the selected time span. (#759)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-17-1-2025-04-04">
+<h2>memray 1.17.1 (2025-04-04)<a class="headerlink" href="#memray-1-17-1-2025-04-04" title="Link to this heading">¶</a></h2>
+<section id="id1">
+<h3>Bug Fixes<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a bug that could result in an infinite loop on ARM Linux systems when a process that Memray is attached to abruptly dies. (#737)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-17-0-2025-04-03">
+<h2>memray 1.17.0 (2025-04-03)<a class="headerlink" href="#memray-1-17-0-2025-04-03" title="Link to this heading">¶</a></h2>
+<section id="id2">
+<h3>Bug Fixes<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a bug with macOS version 15.4 that was causing memray to crash when the internal TLS variables were being created or destroyed. (#732)</p></li>
+<li><p>A backwards incompatible change in Textual prevented the <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">tree</span></code> and <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code> commands from working properly. Work around this to support the latest Textual versions. (#734)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-16-0-2025-03-06">
+<h2>memray 1.16.0 (2025-03-06)<a class="headerlink" href="#memray-1-16-0-2025-03-06" title="Link to this heading">¶</a></h2>
+<section id="id3">
+<h3>Bug Fixes<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix the tree reporter’s rendering of emojis to work for Textual 2, which no longer supports directly assigning label text using emoji shortcodes. (#714)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-15-0-2024-12-03">
+<h2>memray 1.15.0 (2024-12-03)<a class="headerlink" href="#memray-1-15-0-2024-12-03" title="Link to this heading">¶</a></h2>
+<section id="id4">
+<h3>Bug Fixes<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix some crashes caused by interposing symbols in memray itself (#685)</p></li>
+<li><p>Fixed a bug that was causing tracking of runtime libraries that are part of the linker cache not work in macOS 15. (#693)</p></li>
+<li><p>Fix a crash when a greenlet switch happens after Memray’s profile function has been deactivated or replaced. (#700)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-14-0-2024-09-09">
+<h2>memray 1.14.0 (2024-09-09)<a class="headerlink" href="#memray-1-14-0-2024-09-09" title="Link to this heading">¶</a></h2>
+<section id="features">
+<h3>Features<a class="headerlink" href="#features" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Wheels are now published for Python 3.13, though we don’t yet support free-threaded (no GIL) builds. (#658)</p></li>
+</ul>
+</section>
+<section id="id5">
+<h3>Bug Fixes<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a lock ordering deadlock in libc between a Memray lock and a lock internal to dlopen. (#549)</p></li>
+<li><p>Ensure flame graphs stay in flame mode when the user has selected it.
+Previously clicking the “Hide Irrelevant Frames” or “Hide Import System Frames”
+checkboxes would switch the flame graph back to icicle mode. (#656)</p></li>
+<li><p>Fix a race condition that was able to cause strange exception messages if two different threads tried to initialize Memray tracking at once. (#667)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-13-4-2024-07-18">
+<h2>memray 1.13.4 (2024-07-18)<a class="headerlink" href="#memray-1-13-4-2024-07-18" title="Link to this heading">¶</a></h2>
+<section id="id6">
+<h3>Bug Fixes<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>A backwards-incompatible change released in Textual 0.73 caused the <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">tree</span></code> reporter to start with no nodes expanded. This release adds a workaround to restore the old behavior of expanding the first child of each node. (#648)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-13-3-2024-07-02">
+<h2>memray 1.13.3 (2024-07-02)<a class="headerlink" href="#memray-1-13-3-2024-07-02" title="Link to this heading">¶</a></h2>
+<section id="id7">
+<h3>Bug Fixes<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a bug that could result in truncated reports for applications that fork without calling <a class="reference external" href="https://docs.python.org/3/c-api/sys.html#c.PyOS_BeforeFork" title="(in Python v3.13)"><code class="xref c c-func docutils literal notranslate"><span class="pre">PyOS_BeforeFork()</span></code></a>, including by using <a class="reference external" href="https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">multiprocessing</span></code></a> with the “spawn” start method (the default on macOS). (#644)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-13-2-2024-06-27">
+<h2>memray 1.13.2 (2024-06-27)<a class="headerlink" href="#memray-1-13-2-2024-06-27" title="Link to this heading">¶</a></h2>
+<section id="id8">
+<h3>Bug Fixes<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a bug that could in rare circumstances result in a stack overflow while processing native mode stacks. (#639)</p></li>
+</ul>
+</section>
+<section id="miscellaneous">
+<h3>Miscellaneous<a class="headerlink" href="#miscellaneous" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Upgrade our vendored copy of <code class="docutils literal notranslate"><span class="pre">libbacktrace</span></code>, used for reporting native stacks, to the latest version. (#639)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-13-1-2024-06-23">
+<h2>memray 1.13.1 (2024-06-23)<a class="headerlink" href="#memray-1-13-1-2024-06-23" title="Link to this heading">¶</a></h2>
+<section id="id9">
+<h3>Bug Fixes<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a deadlock that could occur on some Linux systems when resolving debug information using debuginfod. (#634)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-13-0-2024-06-18">
+<h2>memray 1.13.0 (2024-06-18)<a class="headerlink" href="#memray-1-13-0-2024-06-18" title="Link to this heading">¶</a></h2>
+<section id="id10">
+<h3>Features<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Add <a class="reference internal" href="tutorials/index.html"><span class="doc">a tutorial</span></a> to the Memray documentation. (#590)</p></li>
+<li><p>Include the thread name in the live TUI. (#562)</p></li>
+<li><p>Capture the name attribute of Python <a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Thread" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">threading.Thread</span></code></a> objects. (#562)</p></li>
+<li><p>Allow using Ctrl+Z to suspend <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">tree</span></code> and the live mode TUI. (#581)</p></li>
+<li><p>Add a button in the live-mode TUI to show allocations from all threads at once. (#589)</p></li>
+<li><p>Vendor <code class="docutils literal notranslate"><span class="pre">libdebuginfod</span></code> into our Linux wheels, so that debuginfod integration can be used without any dependency on system-installed libraries. (#592)</p></li>
+</ul>
+</section>
+<section id="id11">
+<h3>Bug Fixes<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix dynamic toggling between descriptions like “Pause” vs “Unpause” or “Show” vs “Hide” in the footer of the live-mode TUI and tree reporter. This was broken by changes introduced in Textual 0.61 (and again by Textual 0.63). (#597)</p></li>
+<li><p>Correctly localize the start and end time in the “Stats” modal when an HTML report was generated on a different machine than the one it is being displayed on. (#611)</p></li>
+<li><p>Fix a crash in old macOS versions (&lt;11.0) due to the inavailability of some linker cache APIs. (#615)</p></li>
+<li><p>Fix reporting of “Own Memory” in the <code class="docutils literal notranslate"><span class="pre">live</span></code> and <code class="docutils literal notranslate"><span class="pre">summary</span></code> reporters. A bug in our summation caused us to undercount functions’ direct allocations. (#617)</p></li>
+</ul>
+</section>
+<section id="id12">
+<h3>Miscellaneous<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Builds from source now work for Python 3.13. Wheels are not yet published for 3.13 because it is not yet ABI stable. (#622)</p></li>
+<li><p>Link our Linux wheels against the latest version of <code class="docutils literal notranslate"><span class="pre">elfutils</span></code>. (#592)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-12-0-2024-03-07">
+<h2>memray 1.12.0 (2024-03-07)<a class="headerlink" href="#memray-1-12-0-2024-03-07" title="Link to this heading">¶</a></h2>
+<section id="id13">
+<h3>Features<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Allow <code class="docutils literal notranslate"><span class="pre">--temporal</span></code> and <code class="docutils literal notranslate"><span class="pre">--max-memory-records</span></code> to be used with our <a class="reference internal" href="jupyter_magic.html#jupyter-integration"><span class="std std-ref">Jupyter magic</span></a>. (#538)</p></li>
+<li><p>Automatically use aggregated capture files for the <a class="reference internal" href="jupyter_magic.html#jupyter-integration"><span class="std std-ref">Jupyter magic</span></a> whenever possible, reducing the amount of disk space needed for temporary files. (#538)</p></li>
+<li><p>Expose the main thread id in the FileReader’s metadata attribute. (#560)</p></li>
+</ul>
+</section>
+<section id="id14">
+<h3>Bug Fixes<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a bug that was causing <code class="docutils literal notranslate"><span class="pre">dlopen</span></code> to not load shared libraries that have an RPATH/RUNPATH set. (#525)</p></li>
+<li><p>Fix a bug where the tree reporter would fail to populate the code pane with relevant lines if the line where the allocation occurred was too near the start of the file. (#544)</p></li>
+<li><p>Fix a bug causing the first entry of <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> to be erroneously overwritten by <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span></code> when the Python interpreter was launched with the <code class="docutils literal notranslate"><span class="pre">-I</span></code> or <code class="docutils literal notranslate"><span class="pre">-P</span></code> flag, or when the <code class="docutils literal notranslate"><span class="pre">PYTHONSAFEPATH</span></code> environment variable was set. (#552)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-11-0-2023-12-04">
+<h2>memray 1.11.0 (2023-12-04)<a class="headerlink" href="#memray-1-11-0-2023-12-04" title="Link to this heading">¶</a></h2>
+<section id="id15">
+<h3>Features<a class="headerlink" href="#id15" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Migrate the  <a class="reference internal" href="live.html"><span class="doc">live TUI</span></a> to Textual. This provides a greatly improved user experience, including the ability to scroll to view rows that don’t fit on the screen. (#274)</p></li>
+<li><p>Add a new documentation page to serve as <a class="reference internal" href="memory.html#memory-overview"><span class="std std-ref">an overview of memory concepts</span></a>, to help users better interpret the memory profiles provided by Memray. (#496)</p></li>
+<li><p>Where possible, leverage <code class="docutils literal notranslate"><span class="pre">pkg-config</span></code> when building the extension from source, picking up appropriate compiler and linker flags automatically. (#498)</p></li>
+<li><p>Port the tree reporter to be an interactive Textual App. (#499)</p></li>
+</ul>
+</section>
+<section id="id16">
+<h3>Bug Fixes<a class="headerlink" href="#id16" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fixed a bug that caused <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code> to fail with newer LLDB versions, including on macOS Sonoma. (#490)</p></li>
+<li><p>Limit the number of memory records displayed in reporters by default. This will help displaying flamegraphs for long capture sessions. (#491)</p></li>
+<li><p>When generating a <code class="docutils literal notranslate"><span class="pre">--leaks</span></code> flamegraph, don’t show a warning that the <code class="docutils literal notranslate"><span class="pre">pymalloc</span></code> allocator is in use if <code class="docutils literal notranslate"><span class="pre">--trace-python-allocators</span></code> was used when generating the capture file. (#492)</p></li>
+<li><p>Ensure that we update our terminal progress bars to 100% when processing finishes. (#494)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-10-0-2023-10-05">
+<h2>memray 1.10.0 (2023-10-05)<a class="headerlink" href="#memray-1-10-0-2023-10-05" title="Link to this heading">¶</a></h2>
+<section id="id17">
+<h3>Features<a class="headerlink" href="#id17" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Add support for <a class="reference internal" href="flamegraph.html#inverted-flame-graphs"><span class="std std-ref">Inverted flame graphs</span></a>. In an inverted flame graph, the
+roots are the functions that allocated memory, and the children of any given
+node represent the percentage of that node’s allocations that can be attributed
+to a particular caller. The inverted flame graph is very helpful in analyzing
+where memory is being spent in aggregate. You can generate one by passing the
+<code class="docutils literal notranslate"><span class="pre">--inverted</span></code> flag to <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">flamegraph</span></code>. (#439)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code> now supports <code class="docutils literal notranslate"><span class="pre">--aggregate</span></code> to produce <a class="reference internal" href="run.html#aggregated-capture-files"><span class="std std-ref">aggregated capture files</span></a>. (#455)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code> has been enhanced to allow tracking for only a set period of
+time. (#458)</p></li>
+<li><p>A new <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">detach</span></code> command allows you to manually deactivate tracking that
+was started by a previous call to <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code>. (#458)</p></li>
+<li><p>Python 3.12 is now supported. (#474)</p></li>
+</ul>
+</section>
+<section id="id18">
+<h3>Bug Fixes<a class="headerlink" href="#id18" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Update <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code> on Linux to prefer GDB over LLDB for injecting itself into the process being attached to. We’ve had several reports of problems with the Linux LLDB, and hope this change will help give Linux users a better experience by default. You can still explicitly use LLDB on Linux even when GDB is detected by running <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span> <span class="pre">--method=lldb</span></code>. (#449)</p></li>
+<li><p>Fix a memory leak in Memray itself when many different capture files are opened by a single Memray process and native stacks are being reported. This issue primarily affected <code class="docutils literal notranslate"><span class="pre">pytest-memray</span></code>. (#473)</p></li>
+<li><p>Fix a crash in MacOS Sonoma when using system Framework libraries, like when using the <code class="docutils literal notranslate"><span class="pre">pyobjc</span></code> library. (#477)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-9-1-2023-08-01">
+<h2>memray 1.9.1 (2023-08-01)<a class="headerlink" href="#memray-1-9-1-2023-08-01" title="Link to this heading">¶</a></h2>
+<section id="id19">
+<h3>Bug Fixes<a class="headerlink" href="#id19" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix an issue that stopped Memray’s experimental support for <code class="docutils literal notranslate"><span class="pre">greenlet</span></code> from working with versions of the <code class="docutils literal notranslate"><span class="pre">greenlet</span></code> module older than 1.0. (#432)</p></li>
+<li><p>Fix a bug leading to a deadlock when Memray is used to profile an application that uses the jemalloc implementation of <code class="docutils literal notranslate"><span class="pre">malloc</span></code>. (#433)</p></li>
+<li><p>Fix a bug causing the <code class="docutils literal notranslate"><span class="pre">summary</span></code> reporter to generate empty reports. (#435)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-9-0-2023-07-28">
+<h2>memray 1.9.0 (2023-07-28)<a class="headerlink" href="#memray-1-9-0-2023-07-28" title="Link to this heading">¶</a></h2>
+<section id="id20">
+<h3>Features<a class="headerlink" href="#id20" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Allow to report the current version of Memray via a <code class="docutils literal notranslate"><span class="pre">--version/-V</span></code> command line parameter (#420)</p></li>
+<li><p>Add pause/unpause keybindings to the live reporter that allows the user to pause the live reporter to analyse the current results without pausing the running program (#418)</p></li>
+</ul>
+</section>
+<section id="id21">
+<h3>Bug Fixes<a class="headerlink" href="#id21" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Support building with Cython 3 (#425)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-8-1-2023-06-20">
+<h2>memray 1.8.1 (2023-06-20)<a class="headerlink" href="#memray-1-8-1-2023-06-20" title="Link to this heading">¶</a></h2>
+<section id="id22">
+<h3>Features<a class="headerlink" href="#id22" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>When the high water mark being shown by a temporal flame graph is before the first memory snapshot or after the last one, tell the user so by highlighting a region beyond the end of the memory usage plot. (#399)</p></li>
+</ul>
+</section>
+<section id="id23">
+<h3>Bug Fixes<a class="headerlink" href="#id23" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Prevent a totally empty memory plot from being shown on flame graphs when the tracked process completes before any periodic memory snapshots are captured. (#399)</p></li>
+<li><p>Fix a bug that prevented the temporal high water mark flame graph from showing the flame graph of a high water mark that occurred after the final periodic memory snapshot was captured. (#399)</p></li>
+<li><p>Fix a bug that prevented Memray from intercepting functions in shared objects that are part of the dyld shared cache in macOS Ventura. (#401)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-8-0-2023-06-09">
+<h2>memray 1.8.0 (2023-06-09)<a class="headerlink" href="#memray-1-8-0-2023-06-09" title="Link to this heading">¶</a></h2>
+<section id="id24">
+<h3>Features<a class="headerlink" href="#id24" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Allow <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span></code> to output a JSON report via <code class="docutils literal notranslate"><span class="pre">--json</span></code> flag. (#377)</p></li>
+<li><p>We now publish x86-64 musllinux_1_1 wheels, compatible with Alpine Linux. (#379)</p></li>
+<li><p>We now support <a class="reference internal" href="flamegraph.html#temporal-flame-graphs"><span class="std std-ref">Temporal Flame Graphs</span></a>, which provide an exciting new way of analyzing your process’s memory usage over time. (#391)</p></li>
+</ul>
+</section>
+<section id="id25">
+<h3>Bug Fixes<a class="headerlink" href="#id25" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a bug where a non-import call on the same line as an <code class="docutils literal notranslate"><span class="pre">import</span></code> statement would be hidden by the “Hide Import System Frames” checkbox of a flame graph. (#329)</p></li>
+<li><p>Fixed a bug that was hitting an assert when constructing hybrid stack frames in Python 3.11 when no eval symbols are available. (#334)</p></li>
+<li><p>Change the font color used by the <code class="docutils literal notranslate"><span class="pre">%%memray_flamegraph</span></code> Jupyter magic’s progress updates for better contrast on the JupyterLab dark theme. (#344)</p></li>
+<li><p>Fix a bug that could result in a deadlock when tracking a process linked against an old version of musl libc. (#379)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-7-0-2023-02-21">
+<h2>memray 1.7.0 (2023-02-21)<a class="headerlink" href="#memray-1-7-0-2023-02-21" title="Link to this heading">¶</a></h2>
+<section id="id26">
+<h3>Features<a class="headerlink" href="#id26" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span></code> now supports <code class="docutils literal notranslate"><span class="pre">--aggregate</span></code> to produce <a class="reference internal" href="run.html#aggregated-capture-files"><span class="std std-ref">aggregated capture files</span></a>, which can be much smaller but aren’t able to be used for generating every type of report. (#277)</p></li>
+<li><p>Add integration with debuginfod to automatically download debug information for binaries if it is available. (#308)</p></li>
+<li><p>Flame graphs produced by <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">flamegraph</span></code> are now around 85% smaller. (#314)</p></li>
+</ul>
+</section>
+<section id="id27">
+<h3>Bug Fixes<a class="headerlink" href="#id27" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span> <span class="pre">--live</span></code> and <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span> <span class="pre">--live-remote</span></code> silently dropped the <code class="docutils literal notranslate"><span class="pre">--trace-python-allocators</span></code> flag. This has been fixed, and the flag is now properly propagated from the CLI to the tracker. (#283)</p></li>
+<li><p>Fix a bug that was causing Memray to crash when the Tracker is being destroyed and some other thread is still registering allocations or deallocations (#289)</p></li>
+<li><p>Work around <a class="reference external" href="https://sourceware.org/git/?p=binutils-gdb.git;a=commit;h=da1df1db9ae43050c8de62e4842428ddda7eb509">a bug in GDB versions before 10.1</a> that could cause <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code> to fail. (#310)</p></li>
+<li><p>Work around <a class="reference external" href="https://github.com/llvm/llvm-project/issues/60408">a bug in LLDB on Linux</a> that could cause <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code> to hang. (#311)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-6-0-2023-01-17">
+<h2>memray 1.6.0 (2023-01-17)<a class="headerlink" href="#memray-1-6-0-2023-01-17" title="Link to this heading">¶</a></h2>
+<section id="id28">
+<h3>Features<a class="headerlink" href="#id28" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Speed up native allocation tracking by up to 45% (#294)</p></li>
+</ul>
+</section>
+<section id="id29">
+<h3>Bug Fixes<a class="headerlink" href="#id29" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span> <span class="pre">--live</span></code> and <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span> <span class="pre">--live-remote</span></code> silently dropped the <code class="docutils literal notranslate"><span class="pre">--trace-python-allocators</span></code> flag. This has been fixed, and the flag is now properly propagated from the CLI to the tracker. (#283)</p></li>
+<li><p>Fix a bug that was causing Memray to crash when the Tracker is being destroyed and some other thread is still registering allocations or deallocations (#289)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-5-0-2022-12-09">
+<h2>Memray 1.5.0 (2022-12-09)<a class="headerlink" href="#memray-1-5-0-2022-12-09" title="Link to this heading">¶</a></h2>
+<section id="id30">
+<h3>Features<a class="headerlink" href="#id30" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Memray is now fully supported on macOS, and the warnings that macOS support is experimental have been dropped. (#194)</p></li>
+<li><p>Add a checkbox to flamegraphs that allows hiding frames from the import system (#261)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">attach</span></code> can be used to <a class="reference internal" href="attach.html"><span class="doc">attach to a running process</span></a> (#266)</p></li>
+<li><p>Consider frames from the import system as “irrelevant” in the generated flamegraphs. (#268)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-4-1-2022-11-11">
+<h2>memray 1.4.1 (2022-11-11)<a class="headerlink" href="#memray-1-4-1-2022-11-11" title="Link to this heading">¶</a></h2>
+<section id="id31">
+<h3>Bug Fixes<a class="headerlink" href="#id31" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a crash that can happen when two different threads try to register frames at the same time without the GIL held. (#251)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-4-0-2022-10-31">
+<h2>memray 1.4.0 (2022-10-31)<a class="headerlink" href="#memray-1-4-0-2022-10-31" title="Link to this heading">¶</a></h2>
+<section id="id32">
+<h3>Features<a class="headerlink" href="#id32" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Add a new <code class="docutils literal notranslate"><span class="pre">transform</span></code> subcomand that allows transforming Memray capture files into output files compatible with other tools. We’re starting by supporting conversions to the <em>gprof2dot</em> format, which allows producing graph-like reports when combined with <em>graphviz</em>. (#200)</p></li>
+<li><p>Added a new <code class="docutils literal notranslate"><span class="pre">--temporary-allocations</span></code> option to the <code class="docutils literal notranslate"><span class="pre">flamegraph</span></code>, <code class="docutils literal notranslate"><span class="pre">table</span></code>, <code class="docutils literal notranslate"><span class="pre">tree</span></code>, and <code class="docutils literal notranslate"><span class="pre">summary</span></code> reporters for showing the <a class="reference internal" href="temporary_allocations.html"><span class="doc">temporary allocations</span></a> instead of the high water mark ones. (#201)</p></li>
+<li><p>When the <code class="docutils literal notranslate"><span class="pre">greenlet</span></code> module is in use, also assign a distinct thread ID to each greenlet. Greenlets aren’t threads, but they are distinct threads of execution within a single process, with distinct stacks, so assigning different thread IDs to each makes it easier to interpret reports where <code class="docutils literal notranslate"><span class="pre">greenlet</span></code> was used. (#209)</p></li>
+<li><p>Use a monotonic counter to generate thread IDs, rather than using the pthread ID. Those pthread IDs can be reused, making it difficult to tell what thread performed an allocation. (#209)</p></li>
+<li><p>Print a warning when we detect that the Python interpreter was built without debug information or without symbols, letting the user know in advance that these conditions may result in incorrect stack traces or missing filenames and line numbers. (#211)</p></li>
+<li><p>A new <code class="docutils literal notranslate"><span class="pre">%%memray_flamegraph</span></code> Jupyter cell magic is provided by <code class="docutils literal notranslate"><span class="pre">%load_ext</span> <span class="pre">memray</span></code>, and can be used to memory profile code directly in a Jupyter notebook. (#237)</p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">csv</span></code> as a possible target format for <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">transform</span></code>, producing a report of all of the allocations that made up the process’s high water mark of allocated memory. This CSV file can then be loaded and analyzed using libraries like <code class="docutils literal notranslate"><span class="pre">pandas</span></code>. (#241)</p></li>
+</ul>
+</section>
+<section id="deprecations-and-removals">
+<h3>Deprecations and Removals<a class="headerlink" href="#deprecations-and-removals" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Up until now, if the program being profiled included a Cython module built with profiling support enabled, those Cython functions would show up in our Python call stacks. This was rarely useful in practice, as most Cython libraries aren’t distributed with profiling support enabled, and supporting this had a surprisingly high maintenance cost. We’ve removed this integration, so you’ll need to use <code class="docutils literal notranslate"><span class="pre">--native</span></code> mode to see inside of Cython modules. We are not considering this a backwards-incompatible change, since it does not affect any of our public interfaces (though it could affect the contents of reports generated by Memray). (#206)</p></li>
+</ul>
+</section>
+<section id="id33">
+<h3>Bug Fixes<a class="headerlink" href="#id33" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a bug that caused incorrect <code class="docutils literal notranslate"><span class="pre">--native</span></code> mode stacks on Python 3.11 for allocations performed directly by the interpreter’s eval loop. (#209)</p></li>
+<li><p>Fix a crash when an extension module terminates the program using non-Python APIs under tracking. (#228)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-3-1-2022-08-30">
+<h2>memray 1.3.1 (2022-08-30)<a class="headerlink" href="#memray-1-3-1-2022-08-30" title="Link to this heading">¶</a></h2>
+<section id="id34">
+<h3>Bug Fixes<a class="headerlink" href="#id34" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Prevent a crash that could occur when forked processes that have been under tracking without <code class="docutils literal notranslate"><span class="pre">follow_fork=True</span></code> remove the profiling function with pending frames needed to be flushed to the results file. (#196)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-3-0-2022-08-18">
+<h2>memray 1.3.0 (2022-08-18)<a class="headerlink" href="#memray-1-3-0-2022-08-18" title="Link to this heading">¶</a></h2>
+<section id="id35">
+<h3>Features<a class="headerlink" href="#id35" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>We now capture Python stacks for allocations made by threads that existed before the Memray tracker was started. (#130)</p></li>
+<li><p>Add support for Python 3.11 (#138)</p></li>
+<li><p>Add support for MacOS. (#174)</p></li>
+<li><p>Add experimental support for Greenlet. (#185)</p></li>
+</ul>
+</section>
+<section id="id36">
+<h3>Bug Fixes<a class="headerlink" href="#id36" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Prevent a crash that could occur if the Memray API was used to stop and later restart tracking while another thread was running Python code. (#152)</p></li>
+<li><p>Prevent a use-after-free bug that could result in a crash if <code class="docutils literal notranslate"><span class="pre">sys.setprofile()</span></code> was called while Memray was tracking. Now if <code class="docutils literal notranslate"><span class="pre">sys.setprofile()</span></code> is called, all future allocations on that thread will report unknown Python stacks, instead of potentially incorrect stacks. (#176)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-2-0-2022-07-11">
+<h2>Memray 1.2.0 (2022-07-11)<a class="headerlink" href="#memray-1-2-0-2022-07-11" title="Link to this heading">¶</a></h2>
+<section id="id37">
+<h3>Features<a class="headerlink" href="#id37" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Add a progress bar indicator to the record processing phases in the different reporters so users can have an approximate idea of how much time processing the result files will take. (#111)</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span></code> reporter is now up to 50% faster, and its output is easier to interpret because it now processes all allocations by default. (#136)</p></li>
+<li><p>Add a line showing the heap size over time to the memory plot in the html-based reporters (which already showed the resident size over time). (#142)</p></li>
+</ul>
+</section>
+<section id="id38">
+<h3>Deprecations and Removals<a class="headerlink" href="#id38" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Remove the <code class="docutils literal notranslate"><span class="pre">--include-all-allocations</span></code> / <code class="docutils literal notranslate"><span class="pre">-a</span></code> argument to the <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span></code> reporter. Previously this was too slow to be used by default, but now that it has been sped up, it doesn’t make sense to use anything else. The old default behavior of only processing allocations that made up the high water mark of the application’s memory usage was confusing and misleading. (#136)</p></li>
+</ul>
+</section>
+<section id="id39">
+<h3>Bug Fixes<a class="headerlink" href="#id39" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix a crash with SIGBUS when the file system fills up while <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span></code> is writing a capture file. (#117)</p></li>
+<li><p>Recognize when a capture file has been truncated (most likely because the tracked process was killed unexpectedly) and ignore any incomplete record at the end of the file. (#129)</p></li>
+<li><p>Fix the histogram used by the <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span></code> reporter to choose sane bin sizes when all captured allocations are the same size. (#133)</p></li>
+<li><p>Fix the aggregation by location at the bottom of the <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span></code> report when the <code class="docutils literal notranslate"><span class="pre">--include-all-allocations</span></code> option is used. (#134)</p></li>
+<li><p>Fix a bug causing deallocations with <code class="docutils literal notranslate"><span class="pre">free</span></code> and <code class="docutils literal notranslate"><span class="pre">munmap</span></code> to be included in the reported “Total allocations” count of <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span> <span class="pre">--include-all-allocations</span></code>. (#136)</p></li>
+<li><p>Fix the two “largest allocating locations” sections in the <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span></code> report to actually aggregate by location. Previously they were aggregating by distinct stacks, so if two different paths hit the same line of code, it would be counted separately instead of together. (#136)</p></li>
+<li><p>Fix a bug causing memory freed by <code class="docutils literal notranslate"><span class="pre">munmap</span></code> to be incorrectly added into the reported “Total memory allocated” of <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span> <span class="pre">--include-all-allocations</span></code>. (#136)</p></li>
+<li><p>Exclude <code class="docutils literal notranslate"><span class="pre">PYMALLOC_FREE</span></code> from the allocator type distribution (other deallocators were already being ignored, but this recently added one was missed). (#136)</p></li>
+<li><p>Fix the <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">stats</span></code> histogram to be based on the actual sizes of all allocations. Previously it only saw the sizes after a rollup by stack had already been performed, so it was binning allocation sizes that had already been summed. (#136)</p></li>
+<li><p>Fixed a bug where aggregating native call stacks could give misleading results on aarch64 under some circumstances. (#141)</p></li>
+<li><p>Fix a bug that made <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span> <span class="pre">--live</span> <span class="pre">-c</span></code> fail if the command to run contained double quotes. (#147)</p></li>
+<li><p>Ensure our TUI isn’t displaying stale data by periodically flushing the latest available data from the tracker (rather than only flushing when a buffer fills up). (#147)</p></li>
+<li><p>Fix the handling of the thread switch commands in the live mode TUI before the first allocation has been seen. (#147)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-1-0-2022-05-16">
+<h2>memray 1.1.0 (2022-05-16)<a class="headerlink" href="#memray-1-1-0-2022-05-16" title="Link to this heading">¶</a></h2>
+<section id="id40">
+<h3>Features<a class="headerlink" href="#id40" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Finalize and document the Memray <a class="reference internal" href="api.html"><span class="doc">tracking API</span></a>. (#42)</p></li>
+<li><p>Ensure that wheels built by <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dist</span></code> are reproducible (so that running the build twice produces identical artifacts). (#47)</p></li>
+<li><p>Reduce the size of the <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span></code> capture file by around 20% by using a more efficient encoding for which allocator was used to perform a given allocation and whether we <a class="reference internal" href="run.html#native-tracking"><span class="std std-ref">captured a native stack</span></a> for that allocation. (#52)</p></li>
+<li><p>Support <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span> <span class="pre">-c</span> <span class="pre">&quot;...&quot;</span></code> to profile an in-line script provided on the command line. (#61)</p></li>
+<li><p>The capture files produced by <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span></code> are now around 90% smaller thanks to a more efficient encoding scheme for the binary files. (#67)</p></li>
+<li><p>Add support for Alpine Linux and musl libc. (#75)</p></li>
+<li><p>Capture allocations made through the C99 <code class="docutils literal notranslate"><span class="pre">aligned_alloc</span></code> function. (#79)</p></li>
+<li><p>By default the capture file will now be compressed using LZ4 after tracking completes. This temporarily requires extra disk space while the compression runs, but results in roughly 75% less disk space required in the end. Compression can be disabled with <code class="docutils literal notranslate"><span class="pre">--no-compress</span></code>. (#82)</p></li>
+<li><p>Speed up tracking by around 5% by building with link-time optimization (LTO). (#91)</p></li>
+<li><p>Add a new <code class="docutils literal notranslate"><span class="pre">--trace-python-allocators</span></code> option to <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span></code> that allows tracking all allocations made using the Python allocators. This will result in bigger output files and slower profiling but it allows getting insights about all of the interpreter’s memory allocations. (#92)</p></li>
+</ul>
+</section>
+<section id="id41">
+<h3>Bug Fixes<a class="headerlink" href="#id41" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Previously we attempted to read all allocation records into memory when processing a capture file in our reporters. This could fail on large files, so now we process the file in a streaming fashion instead. (#62)</p></li>
+<li><p>Make <code class="docutils literal notranslate"><span class="pre">memray</span> <span class="pre">run</span></code> perform the same modifications to <a class="reference external" href="https://docs.python.org/3/library/sys.html#sys.path" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sys.path</span></code></a> as the interpreter itself would when running a script. (#86)</p></li>
+<li><p>Fixed a bug in the <a class="reference internal" href="stats.html"><span class="doc">stats reporter</span></a> that could result in the largest allocations being omitted from the histogram. (#95)</p></li>
+<li><p>Fixed a bug that caused Memray reporters to display incorrect stacks when <a class="reference internal" href="run.html#native-tracking"><span class="std std-ref">Native tracking</span></a> was enabled and native allocations from different locations occurred underneath the same Python stack. (#96)</p></li>
+</ul>
+</section>
+<section id="id42">
+<h3>Miscellaneous<a class="headerlink" href="#id42" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Support the latest versions of Rich (previously we pinned to an old version due to some formatting changes in more recent versions). (#98)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-0-3-2022-04-21">
+<h2>memray 1.0.3 (2022-04-21)<a class="headerlink" href="#memray-1-0-3-2022-04-21" title="Link to this heading">¶</a></h2>
+<section id="id43">
+<h3>Features<a class="headerlink" href="#id43" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">memray</span></code> as a command line entry point. (#20)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-0-2-2022-04-12">
+<h2>memray 1.0.2 (2022-04-12)<a class="headerlink" href="#memray-1-0-2-2022-04-12" title="Link to this heading">¶</a></h2>
+<section id="id44">
+<h3>Features<a class="headerlink" href="#id44" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Add publishing of ManyLinux2010 wheels for 64 and 32 bit systems. (#2)</p></li>
+</ul>
+</section>
+<section id="id45">
+<h3>Bug Fixes<a class="headerlink" href="#id45" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix 32 bit builds. (#2)</p></li>
+</ul>
+</section>
+</section>
+<section id="memray-1-0-0-2022-04-09">
+<h2>memray 1.0.0 (2022-04-09)<a class="headerlink" href="#memray-1-0-0-2022-04-09" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Initial release.</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="licenses.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Licenses</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="supported_environments.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Supported environments</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Changelog</a><ul>
+<li><a class="reference internal" href="#memray-1-17-2-2025-05-08">memray 1.17.2 (2025-05-08)</a><ul>
+<li><a class="reference internal" href="#bug-fixes">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-17-1-2025-04-04">memray 1.17.1 (2025-04-04)</a><ul>
+<li><a class="reference internal" href="#id1">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-17-0-2025-04-03">memray 1.17.0 (2025-04-03)</a><ul>
+<li><a class="reference internal" href="#id2">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-16-0-2025-03-06">memray 1.16.0 (2025-03-06)</a><ul>
+<li><a class="reference internal" href="#id3">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-15-0-2024-12-03">memray 1.15.0 (2024-12-03)</a><ul>
+<li><a class="reference internal" href="#id4">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-14-0-2024-09-09">memray 1.14.0 (2024-09-09)</a><ul>
+<li><a class="reference internal" href="#features">Features</a></li>
+<li><a class="reference internal" href="#id5">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-13-4-2024-07-18">memray 1.13.4 (2024-07-18)</a><ul>
+<li><a class="reference internal" href="#id6">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-13-3-2024-07-02">memray 1.13.3 (2024-07-02)</a><ul>
+<li><a class="reference internal" href="#id7">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-13-2-2024-06-27">memray 1.13.2 (2024-06-27)</a><ul>
+<li><a class="reference internal" href="#id8">Bug Fixes</a></li>
+<li><a class="reference internal" href="#miscellaneous">Miscellaneous</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-13-1-2024-06-23">memray 1.13.1 (2024-06-23)</a><ul>
+<li><a class="reference internal" href="#id9">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-13-0-2024-06-18">memray 1.13.0 (2024-06-18)</a><ul>
+<li><a class="reference internal" href="#id10">Features</a></li>
+<li><a class="reference internal" href="#id11">Bug Fixes</a></li>
+<li><a class="reference internal" href="#id12">Miscellaneous</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-12-0-2024-03-07">memray 1.12.0 (2024-03-07)</a><ul>
+<li><a class="reference internal" href="#id13">Features</a></li>
+<li><a class="reference internal" href="#id14">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-11-0-2023-12-04">memray 1.11.0 (2023-12-04)</a><ul>
+<li><a class="reference internal" href="#id15">Features</a></li>
+<li><a class="reference internal" href="#id16">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-10-0-2023-10-05">memray 1.10.0 (2023-10-05)</a><ul>
+<li><a class="reference internal" href="#id17">Features</a></li>
+<li><a class="reference internal" href="#id18">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-9-1-2023-08-01">memray 1.9.1 (2023-08-01)</a><ul>
+<li><a class="reference internal" href="#id19">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-9-0-2023-07-28">memray 1.9.0 (2023-07-28)</a><ul>
+<li><a class="reference internal" href="#id20">Features</a></li>
+<li><a class="reference internal" href="#id21">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-8-1-2023-06-20">memray 1.8.1 (2023-06-20)</a><ul>
+<li><a class="reference internal" href="#id22">Features</a></li>
+<li><a class="reference internal" href="#id23">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-8-0-2023-06-09">memray 1.8.0 (2023-06-09)</a><ul>
+<li><a class="reference internal" href="#id24">Features</a></li>
+<li><a class="reference internal" href="#id25">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-7-0-2023-02-21">memray 1.7.0 (2023-02-21)</a><ul>
+<li><a class="reference internal" href="#id26">Features</a></li>
+<li><a class="reference internal" href="#id27">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-6-0-2023-01-17">memray 1.6.0 (2023-01-17)</a><ul>
+<li><a class="reference internal" href="#id28">Features</a></li>
+<li><a class="reference internal" href="#id29">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-5-0-2022-12-09">Memray 1.5.0 (2022-12-09)</a><ul>
+<li><a class="reference internal" href="#id30">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-4-1-2022-11-11">memray 1.4.1 (2022-11-11)</a><ul>
+<li><a class="reference internal" href="#id31">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-4-0-2022-10-31">memray 1.4.0 (2022-10-31)</a><ul>
+<li><a class="reference internal" href="#id32">Features</a></li>
+<li><a class="reference internal" href="#deprecations-and-removals">Deprecations and Removals</a></li>
+<li><a class="reference internal" href="#id33">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-3-1-2022-08-30">memray 1.3.1 (2022-08-30)</a><ul>
+<li><a class="reference internal" href="#id34">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-3-0-2022-08-18">memray 1.3.0 (2022-08-18)</a><ul>
+<li><a class="reference internal" href="#id35">Features</a></li>
+<li><a class="reference internal" href="#id36">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-2-0-2022-07-11">Memray 1.2.0 (2022-07-11)</a><ul>
+<li><a class="reference internal" href="#id37">Features</a></li>
+<li><a class="reference internal" href="#id38">Deprecations and Removals</a></li>
+<li><a class="reference internal" href="#id39">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-1-0-2022-05-16">memray 1.1.0 (2022-05-16)</a><ul>
+<li><a class="reference internal" href="#id40">Features</a></li>
+<li><a class="reference internal" href="#id41">Bug Fixes</a></li>
+<li><a class="reference internal" href="#id42">Miscellaneous</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-0-3-2022-04-21">memray 1.0.3 (2022-04-21)</a><ul>
+<li><a class="reference internal" href="#id43">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-0-2-2022-04-12">memray 1.0.2 (2022-04-12)</a><ul>
+<li><a class="reference internal" href="#id44">Features</a></li>
+<li><a class="reference internal" href="#id45">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#memray-1-0-0-2022-04-09">memray 1.0.0 (2022-04-09)</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>
