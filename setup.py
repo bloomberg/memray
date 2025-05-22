@@ -332,7 +332,24 @@ setup(
         include_path=["src/memray"],
         compiler_directives=COMPILER_DIRECTIVES,
     ),
-    include_package_data=True,
+    include_package_data=False,
+    package_data={
+        "": [
+            "*.py",
+            "*.pyi",
+            "*.cpp",
+            "*.js",
+            "*.css",
+            "*.html",
+            "*.gdb",
+            "*.lldb",
+            "*.typed"
+        ],
+        "memray.reporters.templates": [
+            "assets/*.css",
+            "assets/*.js",
+        ]
+    },
     install_requires=install_requires,
     extras_require={
         "test": test_requires,
