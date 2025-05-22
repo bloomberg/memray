@@ -333,6 +333,7 @@ setup(
         compiler_directives=COMPILER_DIRECTIVES,
     ),
     include_package_data=True,
+    exclude_package_data={"memray": ["_memray/*"]},
     install_requires=install_requires,
     extras_require={
         "test": test_requires,
