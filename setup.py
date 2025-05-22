@@ -332,7 +332,36 @@ setup(
         include_path=["src/memray"],
         compiler_directives=COMPILER_DIRECTIVES,
     ),
-    include_package_data=True,
+    include_package_data=False,
+    #Wildcards are necessary to capture some extensions (*.html, *.gdb, *.lldb)
+    package_data={
+        "memray": [
+            "*.py",
+            "*.pyi",
+            "*.typed",
+            "*.cpp",
+        ],
+        "_ipython": [
+            "*.py"
+        ],
+        "memray.commands": [
+            "*", 
+        ],
+        "memray.reporters": [
+            "*.py",
+            "*.css",
+            "*.js",
+        ],
+        "memray.reporters.templates": [
+            "assets/*.css",
+            "assets/*.js",
+            "*", 
+        ],
+        "memray.reporters.assets": [
+            "*.css",
+            "*.js",
+        ]
+    },
     install_requires=install_requires,
     extras_require={
         "test": test_requires,
