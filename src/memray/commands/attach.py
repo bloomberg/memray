@@ -343,16 +343,23 @@ class _DebuggerCommand:
         self, method: str, pid: int, *, verbose: bool = False
     ) -> socket.socket:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        with contextlib.closing(server):
-            server.bind(("localhost", 0))
-            server.listen(1)
-            sidechannel_port = server.getsockname()[1]
+        server.settimeout(10)
+        try:
+            with contextlib.closing(server):
+                server.bind(("localhost", 0))
+                server.listen(1)
+                sidechannel_port = server.getsockname()[1]
 
-            errmsg = inject(method, pid, sidechannel_port, verbose=verbose)
-            if errmsg:
-                raise MemrayCommandError(errmsg, exit_code=1)
+                errmsg = inject(method, pid, sidechannel_port, verbose=verbose)
+                if errmsg:
+                    raise MemrayCommandError(errmsg, exit_code=1)
 
-            return server.accept()[0]
+                return server.accept()[0]
+        except TimeoutError:
+            raise MemrayCommandError(
+                "Connection timed out, attached process likely crashed.",
+                exit_code=1,
+            )
 
 
 class AttachCommand(_DebuggerCommand):
