@@ -101,7 +101,7 @@
           Duration: {{ metadata.end_time - metadata.start_time }}<br>
           Total number of allocations: {{ metadata.total_allocations }}<br>
           Total number of frames seen: {{ metadata.total_frames }}<br>
-          Peak memory usage: {{ metadata.peak_memory | filesizeformat(true) }}<br>
+          Peak memory usage: {{ metadata.peak_memory | filesizeformat }}<br>
           Python allocator: {{ metadata.python_allocator }}<br>
         </div>
         <div class="modal-footer">
