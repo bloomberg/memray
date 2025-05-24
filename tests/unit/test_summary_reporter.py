@@ -36,12 +36,12 @@ def test_with_multiple_allocations():
         "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
         "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-        "│ function4 at /src/lel_4.py          │ 1.999… │ 40.0… │ 1.00… │ 20.0… │     9 │",
-        "│ function3 at /src/lel_3.py          │ 1.997… │ 40.0… │ 1023… │ 20.0… │     7 │",
-        "│ function2 at /src/lel_2.py          │ 1.995… │ 39.9… │ 1022… │ 20.0… │     5 │",
-        "│ function1 at /src/lel_1.py          │ 1.993… │ 39.9… │ 1021… │ 19.9… │     3 │",
-        "│ function5 at /src/lel_5.py          │ 1.000… │ 20.0… │ 0.00… │ 0.00% │     5 │",
-        "│ function0 at /src/lel_0.py          │ 1020.… │ 19.9… │ 1020… │ 19.9… │     1 │",
+        "│ function4 at /src/lel_4.py          │ 2.047… │ 40.0… │ 1.02… │ 20.0… │     9 │",
+        "│ function3 at /src/lel_3.py          │ 2.045… │ 40.0… │ 1.02… │ 20.0… │     7 │",
+        "│ function2 at /src/lel_2.py          │ 2.043… │ 39.9… │ 1.02… │ 20.0… │     5 │",
+        "│ function1 at /src/lel_1.py          │ 2.041… │ 39.9… │ 1.02… │ 19.9… │     3 │",
+        "│ function5 at /src/lel_5.py          │ 1.024… │ 20.0… │ 0.00… │ 0.00% │     5 │",
+        "│ function0 at /src/lel_0.py          │ 1.020… │ 19.9… │ 1.02… │ 19.9… │     1 │",
         "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
     ]
     actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -81,9 +81,9 @@ def test_with_multiple_allocations_and_native_traces():
         "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
         "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-        "│ me at fun.py                        │ 4.990… │ 100.… │ 4.99… │ 100.… │    15 │",
-        "│ parent at fun.pyx                   │ 4.990… │ 100.… │ 0.00… │ 0.00% │    15 │",
-        "│ grandparent at fun.c                │ 4.990… │ 100.… │ 0.00… │ 0.00% │    15 │",
+        "│ me at fun.py                        │ 5.110… │ 100.… │ 5.11… │ 100.… │    15 │",
+        "│ parent at fun.pyx                   │ 5.110… │ 100.… │ 0.00… │ 0.00% │    15 │",
+        "│ grandparent at fun.c                │ 5.110… │ 100.… │ 0.00… │ 0.00% │    15 │",
         "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
     ]
     actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -121,12 +121,12 @@ def test_sort_column():
         "┃                                     ┃  Total ┃ Memo… ┃  <Own ┃ Memo… ┃ Allo… ┃",
         "┃ Location                            ┃ Memory ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-        "│ function4 at /src/lel_4.py          │ 1.999… │ 40.0… │ 1.00… │ 20.0… │     9 │",
-        "│ function3 at /src/lel_3.py          │ 1.997… │ 40.0… │ 1023… │ 20.0… │     7 │",
-        "│ function2 at /src/lel_2.py          │ 1.995… │ 39.9… │ 1022… │ 20.0… │     5 │",
-        "│ function1 at /src/lel_1.py          │ 1.993… │ 39.9… │ 1021… │ 19.9… │     3 │",
-        "│ function0 at /src/lel_0.py          │ 1020.… │ 19.9… │ 1020… │ 19.9… │     1 │",
-        "│ function5 at /src/lel_5.py          │ 1.000… │ 20.0… │ 0.00… │ 0.00% │     5 │",
+        "│ function4 at /src/lel_4.py          │ 2.047… │ 40.0… │ 1.02… │ 20.0… │     9 │",
+        "│ function3 at /src/lel_3.py          │ 2.045… │ 40.0… │ 1.02… │ 20.0… │     7 │",
+        "│ function2 at /src/lel_2.py          │ 2.043… │ 39.9… │ 1.02… │ 20.0… │     5 │",
+        "│ function1 at /src/lel_1.py          │ 2.041… │ 39.9… │ 1.02… │ 19.9… │     3 │",
+        "│ function0 at /src/lel_0.py          │ 1.020… │ 19.9… │ 1.02… │ 19.9… │     1 │",
+        "│ function5 at /src/lel_5.py          │ 1.024… │ 20.0… │ 0.00… │ 0.00% │     5 │",
         "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
     ]
     actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -164,9 +164,9 @@ def test_max_rows():
         "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
         "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-        "│ function4 at /src/lel_4.py          │ 1.999… │ 40.0… │ 1.00… │ 20.0… │     9 │",
-        "│ function3 at /src/lel_3.py          │ 1.997… │ 40.0… │ 1023… │ 20.0… │     7 │",
-        "│ function2 at /src/lel_2.py          │ 1.995… │ 39.9… │ 1022… │ 20.0… │     5 │",
+        "│ function4 at /src/lel_4.py          │ 2.047… │ 40.0… │ 1.02… │ 20.0… │     9 │",
+        "│ function3 at /src/lel_3.py          │ 2.045… │ 40.0… │ 1.02… │ 20.0… │     7 │",
+        "│ function2 at /src/lel_2.py          │ 2.043… │ 39.9… │ 1.02… │ 20.0… │     5 │",
         "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
     ]
     actual = [line.rstrip() for line in output.getvalue().splitlines()]
@@ -204,9 +204,9 @@ def test_non_sequence_iterable():
         "┃                                     ┃ <Total ┃ Memo… ┃   Own ┃ Memo… ┃ Allo… ┃",
         "┃ Location                            ┃ Memor… ┃     % ┃ Memo… ┃     % ┃ Count ┃",
         "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━┩",
-        "│ function4 at /src/lel_4.py          │ 1.999… │ 40.0… │ 1.00… │ 20.0… │     9 │",
-        "│ function3 at /src/lel_3.py          │ 1.997… │ 40.0… │ 1023… │ 20.0… │     7 │",
-        "│ function2 at /src/lel_2.py          │ 1.995… │ 39.9… │ 1022… │ 20.0… │     5 │",
+        "│ function4 at /src/lel_4.py          │ 2.047… │ 40.0… │ 1.02… │ 20.0… │     9 │",
+        "│ function3 at /src/lel_3.py          │ 2.045… │ 40.0… │ 1.02… │ 20.0… │     7 │",
+        "│ function2 at /src/lel_2.py          │ 2.043… │ 39.9… │ 1.02… │ 20.0… │     5 │",
         "└─────────────────────────────────────┴────────┴───────┴───────┴───────┴───────┘",
     ]
     actual = [line.rstrip() for line in output.getvalue().splitlines()]

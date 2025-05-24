@@ -11,7 +11,7 @@ import {
 test("handlesSmallValues", () => {
   expect(humanFileSize(0)).toBe("0 B");
   expect(humanFileSize(128)).toBe("128 B");
-  expect(humanFileSize(1023)).toBe("1023 B");
+  expect(humanFileSize(999)).toBe("999 B");
 });
 
 describe("Flame graph tooltip generation", () => {
@@ -21,8 +21,8 @@ describe("Flame graph tooltip generation", () => {
       n_allocations: 3,
       thread_id: "merged thread",
     };
-    expect(makeTooltipString(data, "1KiB", true)).toBe(
-      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations",
+    expect(makeTooltipString(data, "1kB", true)).toBe(
+      "File foo.py, line 10 in foo<br>1kB total<br>3 allocations",
     );
   });
 
@@ -32,8 +32,8 @@ describe("Flame graph tooltip generation", () => {
       n_allocations: 3,
       thread_id: "0x1",
     };
-    expect(makeTooltipString(data, "1KiB", false)).toBe(
-      "File foo.py, line 10 in foo<br>1KiB total<br>3 allocations<br>Thread ID: 0x1",
+    expect(makeTooltipString(data, "1kB", false)).toBe(
+      "File foo.py, line 10 in foo<br>1kB total<br>3 allocations<br>Thread ID: 0x1",
     );
   });
   test("Generate label with single allocation", () => {
@@ -42,8 +42,8 @@ describe("Flame graph tooltip generation", () => {
       n_allocations: 1,
       thread_id: "0x1",
     };
-    expect(makeTooltipString(data, "1KiB", false)).toBe(
-      "File foo.py, line 10 in foo<br>1KiB total<br>1 allocation<br>Thread ID: 0x1",
+    expect(makeTooltipString(data, "1kB", false)).toBe(
+      "File foo.py, line 10 in foo<br>1kB total<br>1 allocation<br>Thread ID: 0x1",
     );
   });
 });

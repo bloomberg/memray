@@ -853,16 +853,16 @@ class TestTreeTui:
 
         # THEN
         assert tree_to_dict(root) == TreeElement(
-            label="📂 1.000KB (100.00 %) <ROOT>",
+            label="📂 1.024kB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
-                    label="📂 1.000KB (100.00 %) grandparent  fun.py:4",
+                    label="📂 1.024kB (100.00 %) grandparent  fun.py:4",
                     children=[
                         TreeElement(
-                            label="📂 1.000KB (100.00 %) parent  fun.py:8",
+                            label="📂 1.024kB (100.00 %) parent  fun.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 1.000KB (100.00 %) me  fun.py:12",
+                                    label="📄 1.024kB (100.00 %) me  fun.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=True,
@@ -940,19 +940,19 @@ class TestTreeTui:
 
         # THEN
         assert tree_to_dict(root) == TreeElement(
-            label="📂 10.000KB (100.00 %) <ROOT>",
+            label="📂 10.240kB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
-                    label="📂 6.000KB (60.00 %) grandparent2  fun2.py:4",
+                    label="📂 6.144kB (60.00 %) grandparent2  fun2.py:4",
                     children=[
                         TreeElement(
-                            label="📂 6.000KB (60.00 %) parent2  fun2.py:8",
+                            label="📂 6.144kB (60.00 %) parent2  fun2.py:8",
                             children=[
                                 TreeElement(
-                                    label="📂 6.000KB (60.00 %) me2  fun2.py:12",
+                                    label="📂 6.144kB (60.00 %) me2  fun2.py:12",
                                     children=[
                                         TreeElement(
-                                            label="📄 3.000KB (30.00 %) child2  fun2.py:22",
+                                            label="📄 3.072kB (30.00 %) child2  fun2.py:22",
                                             children=[],
                                             allow_expand=False,
                                             is_expanded=True,
@@ -970,13 +970,13 @@ class TestTreeTui:
                     is_expanded=True,
                 ),
                 TreeElement(
-                    label="📂 4.000KB (40.00 %) grandparent  fun.py:4",
+                    label="📂 4.096kB (40.00 %) grandparent  fun.py:4",
                     children=[
                         TreeElement(
-                            label="📂 4.000KB (40.00 %) parent  fun.py:8",
+                            label="📂 4.096kB (40.00 %) parent  fun.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 4.000KB (40.00 %) me  fun.py:12",
+                                    label="📄 4.096kB (40.00 %) me  fun.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=False,
@@ -1045,16 +1045,16 @@ class TestTreeTui:
 
         # THEN
         assert first_tree == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>",
+            label="📂 11.264kB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
-                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    label="📂 10.240kB (90.91 %) grandparent2  fun2.py:4",
                     children=[
                         TreeElement(
-                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            label="📂 10.240kB (90.91 %) parent2  fun2.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    label="📄 10.240kB (90.91 %) me2  fun2.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=True,
@@ -1068,7 +1068,7 @@ class TestTreeTui:
                     is_expanded=True,
                 ),
                 TreeElement(
-                    label="📄 1.000KB (9.09 %) me  foo.py:12",
+                    label="📄 1.024kB (9.09 %) me  foo.py:12",
                     children=[],
                     allow_expand=False,
                     is_expanded=False,
@@ -1078,16 +1078,16 @@ class TestTreeTui:
             is_expanded=True,
         )
         assert second_tree == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>",
+            label="📂 11.264kB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
-                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    label="📂 10.240kB (90.91 %) grandparent2  fun2.py:4",
                     children=[
                         TreeElement(
-                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            label="📂 10.240kB (90.91 %) parent2  fun2.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    label="📄 10.240kB (90.91 %) me2  fun2.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=True,
@@ -1101,13 +1101,13 @@ class TestTreeTui:
                     is_expanded=True,
                 ),
                 TreeElement(
-                    label="📂 1.000KB (9.09 %) grandparent  runpy.py:4",
+                    label="📂 1.024kB (9.09 %) grandparent  runpy.py:4",
                     children=[
                         TreeElement(
-                            label="📂 1.000KB (9.09 %) parent  runpy.py:8",
+                            label="📂 1.024kB (9.09 %) parent  runpy.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 1.000KB (9.09 %) me  foo.py:12",
+                                    label="📄 1.024kB (9.09 %) me  foo.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=False,
@@ -1214,10 +1214,10 @@ class TestTreeTui:
         # THEN
 
         assert tree_to_dict(root) == TreeElement(
-            label="📂 1.000KB (100.00 %) <ROOT>",
+            label="📂 1.024kB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
-                    label="📄 1.000KB (100.00 %) me  foo.py:12",
+                    label="📄 1.024kB (100.00 %) me  foo.py:12",
                     children=[],
                     allow_expand=False,
                     is_expanded=True,
@@ -1278,16 +1278,16 @@ class TestTreeTui:
 
         # THEN
         assert first_tree == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>",
+            label="📂 11.264kB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
-                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    label="📂 10.240kB (90.91 %) grandparent2  fun2.py:4",
                     children=[
                         TreeElement(
-                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            label="📂 10.240kB (90.91 %) parent2  fun2.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    label="📄 10.240kB (90.91 %) me2  fun2.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=True,
@@ -1305,16 +1305,16 @@ class TestTreeTui:
             is_expanded=True,
         )
         assert second_tree == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>",
+            label="📂 11.264kB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
-                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    label="📂 10.240kB (90.91 %) grandparent2  fun2.py:4",
                     children=[
                         TreeElement(
-                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            label="📂 10.240kB (90.91 %) parent2  fun2.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    label="📄 10.240kB (90.91 %) me2  fun2.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=True,
@@ -1439,16 +1439,16 @@ class TestTreeTui:
 
         # THEN
         assert tree_to_dict(root) == TreeElement(
-            label="📂 11.000KB (100.00 %) <ROOT>",
+            label="📂 11.264kB (100.00 %) <ROOT>",
             children=[
                 TreeElement(
-                    label="📂 10.000KB (90.91 %) grandparent2  fun2.py:4",
+                    label="📂 10.240kB (90.91 %) grandparent2  fun2.py:4",
                     children=[
                         TreeElement(
-                            label="📂 10.000KB (90.91 %) parent2  fun2.py:8",
+                            label="📂 10.240kB (90.91 %) parent2  fun2.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 10.000KB (90.91 %) me2  fun2.py:12",
+                                    label="📄 10.240kB (90.91 %) me2  fun2.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=True,
@@ -1462,13 +1462,13 @@ class TestTreeTui:
                     is_expanded=True,
                 ),
                 TreeElement(
-                    label="📂 1.000KB (9.09 %) grandparent  fun.py:4",
+                    label="📂 1.024kB (9.09 %) grandparent  fun.py:4",
                     children=[
                         TreeElement(
-                            label="📂 1.000KB (9.09 %) parent  fun.py:8",
+                            label="📂 1.024kB (9.09 %) parent  fun.py:8",
                             children=[
                                 TreeElement(
-                                    label="📄 1.000KB (9.09 %) me  fun.py:12",
+                                    label="📄 1.024kB (9.09 %) me  fun.py:12",
                                     children=[],
                                     allow_expand=False,
                                     is_expanded=True,
@@ -1512,7 +1512,7 @@ class TestTreeTui:
 
         root = async_run(run_test())
 
-        assert str(root.label) == "📂 1.000KB (100.00 %) <ROOT>"
+        assert str(root.label) == "📂 1.024kB (100.00 %) <ROOT>"
         assert len(root.children) == 1
         current_node = root.children[0]
         for i in range(1, MAX_STACKS + 2):
