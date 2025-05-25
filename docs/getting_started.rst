@@ -26,19 +26,13 @@ You can invoke Memray the following way:
 
   python3.9 -m memray
 
-Or alternatively through the version-qualified ``memrayX.Y`` script:
-
-.. code:: shell
-
-  memray3.9
-
-You can also invoke Memray without version-qualifying it:
+Or alternatively through the ``memray`` script:
 
 .. code:: shell
 
   memray
 
-The downside to the unqualified ``memray`` script is that it's not immediately
+The downside to using the ``memray`` script is that it's not immediately
 clear what Python interpreter will be used to execute Memray. If you're using
 a virtual environment that's not a problem because you know exactly what interpreter is
 in use, but otherwise you need to be careful to ensure that ``memray`` is
@@ -56,7 +50,7 @@ To run memray on the ``example.py`` script, use :doc:`the run subcommand <run>`.
 
 .. code:: shell
 
-  memray3.9 run example.py
+  memray run example.py
 
 This will execute the script and track its memory allocations, displaying the name of the file where results are being recorded with a message like:
 
@@ -72,7 +66,7 @@ the results file:
 
 .. code:: shell
 
-  memray3.9 flamegraph memray-example.py.4131.bin
+  memray flamegraph memray-example.py.4131.bin
 
 This will generate the ``memray-flamegraph-example.py.4131.html`` file in the current directory. See the :doc:`flamegraph`
 documentation which explains how to interpret flame graphs.
