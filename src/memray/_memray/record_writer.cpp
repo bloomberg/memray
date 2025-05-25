@@ -74,6 +74,8 @@ class StreamingRecordWriter : public RecordWriter
     bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const NativeObjectRecord& record) override;
 
     bool writeHeader(bool seek_to_start) override;
     bool writeTrailer() override;
@@ -116,6 +118,8 @@ class AggregatingRecordWriter : public RecordWriter
     bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record) override;
+    bool writeThreadSpecificRecord(thread_id_t tid, const NativeObjectRecord& record) override;
 
     bool writeHeader(bool seek_to_start) override;
     bool writeTrailer() override;
@@ -347,6 +351,36 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ThreadRe
 
     RecordTypeAndFlags token{RecordType::THREAD_RECORD, 0};
     return writeSimpleType(token) && writeString(record.name);
+}
+
+bool
+StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record)
+{
+    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
+        return false;
+    }
+
+    // Use the flag bit to indicate if it's creation (1) or destruction (0)
+    RecordTypeAndFlags token{
+            RecordType::OBJECT_RECORD,
+            record.is_created ? (unsigned char)1 : (unsigned char)0};
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address);
+}
+
+bool
+StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const NativeObjectRecord& record)
+{
+    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
+        return false;
+    }
+
+    // Use the flag bit to indicate if it's creation (1) or destruction (0)
+    RecordTypeAndFlags token{
+            RecordType::OBJECT_RECORD,
+            static_cast<unsigned char>(
+                    (record.is_created ? 1 : 0) | 0x02)};  // Set bit 1 to indicate native frame
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
+           && writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id);
 }
 
 bool
@@ -641,6 +675,18 @@ bool
 AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record)
 {
     d_thread_name_by_tid[tid] = record.name;
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record)
+{
+    return true;
+}
+
+bool
+AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const NativeObjectRecord& record)
+{
     return true;
 }
 
