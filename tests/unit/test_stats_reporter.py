@@ -272,15 +272,15 @@ def test_draw_histogram():
             1500000,
         ]
     )
-    expected_output = """min: 2.441KB
+    expected_output = """min: 2.500kB
 \t----------------------------------------
-\t< 8.775KB  : 1 ▇▇▇▇▇
-\t< 31.542KB : 3 ▇▇▇▇▇▇▇▇▇▇▇▇▇
-\t< 113.378KB: 2 ▇▇▇▇▇▇▇▇▇
-\t< 407.531KB: 6 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
-\t<=1.431MB  : 2 ▇▇▇▇▇▇▇▇▇
+\t< 8.986kB  : 1 ▇▇▇▇▇
+\t< 32.299kB : 3 ▇▇▇▇▇▇▇▇▇▇▇▇▇
+\t< 116.099kB: 2 ▇▇▇▇▇▇▇▇▇
+\t< 417.312kB: 6 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
+\t<=1.500MB  : 2 ▇▇▇▇▇▇▇▇▇
 \t----------------------------------------
-\tmax: 1.431MB"""
+\tmax: 1.500MB"""
 
     # WHEN
     actual_output = draw_histogram(input_data, bins=5)
@@ -310,15 +310,15 @@ def test_draw_histogram_smaller_scale_factor():
         ]
     )
 
-    expected_output = """min: 2.441KB
+    expected_output = """min: 2.500kB
 \t--------------------
-\t< 8.775KB  : 1 ▇
-\t< 31.542KB : 3 ▇▇▇
-\t< 113.378KB: 2 ▇▇
-\t< 407.531KB: 6 ▇▇▇▇▇
-\t<=1.431MB  : 2 ▇▇
+\t< 8.986kB  : 1 ▇
+\t< 32.299kB : 3 ▇▇▇
+\t< 116.099kB: 2 ▇▇
+\t< 417.312kB: 6 ▇▇▇▇▇
+\t<=1.500MB  : 2 ▇▇
 \t--------------------
-\tmax: 1.431MB"""
+\tmax: 1.500MB"""
 
     # WHEN
     actual_output = draw_histogram(
@@ -354,23 +354,23 @@ def test_stats_output(fake_stats):
         "\t20\n"
         "\n"
         "📦 [bold]Total memory allocated:[/]\n"
-        "\t3.187MB\n"
+        "\t3.341MB\n"
         "\n"
         "📊 [bold]Histogram of allocation size:[/]\n"
-        "\tmin: 2.441KB\n"
+        "\tmin: 2.500kB\n"
         "\t----------------------------------------\n"
-        "\t< 4.628KB  : 1 ▇▇▇▇▇\n"
-        "\t< 8.775KB  : 0 \n"
-        "\t< 16.637KB : 3 ▇▇▇▇▇▇▇▇▇▇▇▇▇\n"
-        "\t< 31.542KB : 0 \n"
-        "\t< 59.802KB : 1 ▇▇▇▇▇\n"
-        "\t< 113.378KB: 1 ▇▇▇▇▇\n"
-        "\t< 214.954KB: 6 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\n"
-        "\t< 407.531KB: 0 \n"
-        "\t< 772.638KB: 0 \n"
-        "\t<=1.431MB  : 2 ▇▇▇▇▇▇▇▇▇\n"
+        "\t< 4.739kB  : 1 ▇▇▇▇▇\n"
+        "\t< 8.986kB  : 0 \n"
+        "\t< 17.036kB : 3 ▇▇▇▇▇▇▇▇▇▇▇▇▇\n"
+        "\t< 32.299kB : 0 \n"
+        "\t< 61.237kB : 1 ▇▇▇▇▇\n"
+        "\t< 116.099kB: 1 ▇▇▇▇▇\n"
+        "\t< 220.113kB: 6 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\n"
+        "\t< 417.312kB: 0 \n"
+        "\t< 791.181kB: 0 \n"
+        "\t<=1.500MB  : 2 ▇▇▇▇▇▇▇▇▇\n"
         "\t----------------------------------------\n"
-        "\tmax: 1.431MB\n"
+        "\tmax: 1.500MB\n"
         "\n"
         "📂 [bold]Allocator type distribution:[/]\n"
         "\t MALLOC: 1013\n"
@@ -379,8 +379,8 @@ def test_stats_output(fake_stats):
         "\t MMAP: 4\n"
         "\n"
         "🥇 [bold]Top 5 largest allocating locations (by size):[/]\n"
-        "\t- fake_func:fake.py:5 -> 5.000MB\n"
-        "\t- fake_func2:fake.py:10 -> 3.000KB\n"
+        "\t- fake_func:fake.py:5 -> 5.243MB\n"
+        "\t- fake_func2:fake.py:10 -> 3.072kB\n"
         "\t- __main__:fake.py:15 -> 4.000B\n"
         "\n"
         "🥇 [bold]Top 5 largest allocating locations (by number of allocations):[/]\n"
