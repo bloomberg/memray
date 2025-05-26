@@ -128,7 +128,7 @@ cpdef enum FileFormat:
 
 
 def size_fmt(num, suffix='B'):
-    for unit in ['','K','M','G','T','P','E','Z']:
+    for unit in ['','k','M','G','T','P','E','Z']:
         if abs(num) < 1000.0:
             return f"{num:5.3f}{unit}{suffix}"
         num /= 1000.0

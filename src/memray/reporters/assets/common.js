@@ -83,7 +83,7 @@ export function humanFileSize(bytes, dp = 1) {
     return bytes + " B";
   }
 
-  const units = ["KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  const units = ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   let u = -1;
   const r = 10 ** dp;
 
