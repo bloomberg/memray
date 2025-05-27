@@ -51,45 +51,17 @@ jobs:
 
   build_linux_wheels:
     needs: [build_sdist, choose_linux_wheel_types]
-    name: ${{ matrix.wheel_type }}${{ matrix.manylinux2010_hack }} wheels
+    name: ${{ matrix.wheel_type }} wheels
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         wheel_type: ${{ fromJSON(needs.choose_linux_wheel_types.outputs.wheel_types) }}
-        manylinux2010_hack: [""]
         include:
           - os: ubuntu-latest
           - wheel_type: manylinux_aarch64
             os: ubuntu-24.04-arm
-          - wheel_type: manylinux_x86_64
-            os: ubuntu-latest
-            manylinux2010_hack: "_manylinux2010_hack"
     steps:
-      - name: Build manylinux2010 image containing Python 3.11 and 3.12
-        if: matrix.manylinux2010_hack
-        run: |
-          echo "CIBW_SKIP=*cp3{7,8,9,10,13}*" >> $GITHUB_ENV
-          echo "CIBW_MANYLINUX_X86_64_IMAGE=manylinux2010-with-modern-cpython" >> $GITHUB_ENV
-          docker build -t manylinux2010-with-modern-cpython - <<'EOF'
-          # syntax=docker/dockerfile:1
-          FROM quay.io/pypa/manylinux2010_x86_64:latest
-          RUN curl https://pyenv.run | bash && \
-           export PYENV_ROOT="$HOME/.pyenv" && \
-           export PATH="$PYENV_ROOT/bin:$PATH" && \
-           eval "$(pyenv init -)" && \
-           yum install -y make patch zlib-devel bzip2 bzip2-devel readline-devel sqlite sqlite-devel openssl-devel tk-devel libffi-devel xz-devel perl-IPC-Cmd && \
-           curl -L https://www.openssl.org/source/openssl-3.0.12.tar.gz >openssl-3.0.12.tar.gz && \
-           tar xzf openssl-3.0.12.tar.gz && \
-           (cd openssl-3.0.12 && ./config no-shared --prefix=/usr/local/ssl --openssldir=/usr/local/ssl --libdir=lib && make && make install_sw) && \
-           rm -rf openssl-3.0.12.tar.gz && \
-           rm -rf openssl-3.0.12 && \
-           PYTHON_CONFIGURE_OPTS=--with-openssl=/usr/local/ssl pyenv install 3.11 && \
-           ln -s /root/.pyenv/versions/3.11* /opt/python/cp311-cp311 && \
-           PYTHON_CONFIGURE_OPTS=--with-openssl=/usr/local/ssl pyenv install 3.12 && \
-           ln -s /root/.pyenv/versions/3.12* /opt/python/cp312-cp312 && \
-           true
-          EOF
       - uses: actions/download-artifact@v4
         with:
           name: sdist
@@ -114,7 +86,7 @@ jobs:
           CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.wheel_type }}${{ matrix.manylinux2010_hack }}-wheels
+          name: ${{ matrix.wheel_type }}-wheels
           path: ./wheelhouse/*.whl
 
   build_macosx_wheels:
