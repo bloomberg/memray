@@ -768,8 +768,6 @@ class TUIApp(App[None]):
         super().__init__()
 
     def on_mount(self) -> None:
-        self._update_thread.start()
-
         self.set_interval(self._poll_interval, self._update_thread.schedule_update)
         cmd_line = (
             self._cmdline_override
@@ -789,6 +787,7 @@ class TUIApp(App[None]):
             native=self._reader.has_native_traces,
         )
         self.push_screen(self.tui)
+        self._update_thread.start()
 
     def on_unmount(self) -> None:
         self._update_thread.cancel()
