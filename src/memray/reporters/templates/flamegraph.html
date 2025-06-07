@@ -44,7 +44,9 @@
   </label>
 </div>
 <button id="resetZoomButton" class="btn btn-outline-light mr-3">Reset Zoom</button>
+{% if kind == "flamegraph" %}
 {{ super() }}
+{% endif %}
 {% endblock %}
 
 {% block content %}
