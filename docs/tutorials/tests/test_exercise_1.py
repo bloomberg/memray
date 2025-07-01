@@ -1,5 +1,6 @@
 import pytest
-from exercise_1.fibonacci import generate_fibonacci_hash
+
+from ..exercise_1.fibonacci import generate_fibonacci_hash
 
 # Memory tests
 
