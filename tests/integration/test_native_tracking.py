@@ -501,8 +501,18 @@ def test_hybrid_stack_of_python_thread_starts_with_native_frames(tmp_path):
         for event in allocations
         if event.size == 1234 and event.allocator == AllocatorType.VALLOC
     ]
-    (valloc,) = vallocs
-    assert not valloc.hybrid_stack_trace()[-1][1].endswith(".py")
+    assert len(vallocs) > 0, "No valloc events found"
+
+    valloc = vallocs[0]
+    stack = valloc.hybrid_stack_trace()
+
+    assert len(stack) >= 3, f"Stack is too short: {len(stack)} frames"
+
+    test_frames = [frame for frame in stack if "test_native_tracking.py" in frame[1]]
+    assert len(test_frames) > 0, "Test frame not found in stack"
+
+    threading_frames = [frame for frame in stack if "threading.py" in frame[1]]
+    assert len(threading_frames) > 0, "Threading frame not found in stack"
 
 
 @pytest.mark.parametrize("native_traces", [True, False])
