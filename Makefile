@@ -15,13 +15,27 @@ generated_js_files := \
     $(reporters_path)/templates/assets/flamegraph.js \
     $(reporters_path)/templates/assets/temporal_flamegraph.js \
     $(reporters_path)/templates/assets/table.js
+vendor_assets_dir := $(reporters_path)/templates/assets/vendor
+vendor_assets := \
+    $(vendor_assets_dir)/bootstrap.min.css \
+    $(vendor_assets_dir)/jquery.min.js \
+    $(vendor_assets_dir)/popper.min.js \
+    $(vendor_assets_dir)/bootstrap.min.js \
+    $(vendor_assets_dir)/lodash.min.js \
+    $(vendor_assets_dir)/plotly.min.js \
+    $(vendor_assets_dir)/d3.v4.min.js \
+    $(vendor_assets_dir)/d3-scale-chromatic.v1.min.js \
+    $(vendor_assets_dir)/d3-tip.min.js \
+    $(vendor_assets_dir)/d3-flamegraph.min.js \
+    $(vendor_assets_dir)/jquery.dataTables.min.js \
+    $(vendor_assets_dir)/dataTables.bootstrap4.min.js
 cpp_files := $(shell find src/memray/_memray -name \*.cpp -o -name \*.h)
 
 # Use this to inject arbitrary commands before the make targets (e.g. docker)
 ENV :=
 
 .PHONY: build
-build: build-js build-ext  ## (default) Build package extensions and assets in-place
+build: build-js build-vendor build-ext  ## (default) Build package extensions, JS assets, and vendor assets in-place
 
 .PHONY: build-ext
 build-ext:  ## Build package extensions in-place
@@ -34,6 +48,14 @@ $(reporters_path)/templates/assets/%.js: $(reporters_path)/assets/%.js
 
 .PHONY: build-js
 build-js: $(generated_js_files)  ## Build package assets in-place
+
+$(vendor_assets): package.json webpack.config.js
+	$(NPM) install
+	$(NPM) run-script build
+	touch $(vendor_assets)
+
+.PHONY: build-vendor
+build-vendor: $(vendor_assets)  ## Build vendor assets for --no-web support
 
 .PHONY: dist
 dist:  ## Generate Python distribution files
@@ -157,6 +179,7 @@ clean:  ## Clean any built/generated artifacts
 	rm -f src/memray/_memray.cpp
 	rm -rf memray-coverage
 	rm -rf node_modules
+	rm -rf $(vendor_assets_dir)
 	rm -f cppcoverage.lcov
 
 .PHONY: bump_version
