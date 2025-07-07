@@ -65,6 +65,7 @@ class TableReporter:
         show_memory_leaks: bool,
         merge_threads: bool,
         inverted: bool,
+        no_web: bool = False,
     ) -> None:
         if not merge_threads:
             raise NotImplementedError("TableReporter only supports merged threads.")
@@ -80,5 +81,6 @@ class TableReporter:
             show_memory_leaks=show_memory_leaks,
             merge_threads=merge_threads,
             inverted=inverted,
+            no_web=no_web,
         )
         print(html_code, file=outfile)

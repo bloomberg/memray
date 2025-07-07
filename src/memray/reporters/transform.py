@@ -80,6 +80,7 @@ class TransformReporter:
         show_memory_leaks: bool,
         merge_threads: bool,
         inverted: bool,
+        no_web: bool = False,
     ) -> None:
         if not merge_threads:
             raise NotImplementedError("TransformReporter only supports merged threads.")
