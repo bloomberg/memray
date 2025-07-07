@@ -147,6 +147,7 @@ class HighWatermarkCommand:
         inverted: Optional[bool] = None,
         temporal: bool = False,
         max_memory_records: Optional[int] = None,
+        no_web: bool = False,
     ) -> None:
         try:
             kwargs = {}
@@ -219,6 +220,7 @@ class HighWatermarkCommand:
                 show_memory_leaks=show_memory_leaks,
                 merge_threads=merge_threads,
                 inverted=inverted,
+                no_web=no_web,
             )
 
     def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
@@ -300,6 +302,9 @@ class HighWatermarkCommand:
 
         if hasattr(args, "max_memory_records"):
             kwargs["max_memory_records"] = args.max_memory_records
+
+        if hasattr(args, "no_web"):
+            kwargs["no_web"] = args.no_web
 
         self.write_report(
             result_path,

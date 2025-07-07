@@ -36,3 +36,10 @@ class FlamegraphCommand(HighWatermarkCommand):
             type=int,
             default=None,
         )
+
+        parser.add_argument(
+            "--no-web",
+            help="Use local assets instead of fetching from CDN",
+            action="store_true",
+            default=False,
+        )

@@ -42,8 +42,13 @@
 
 {% block scripts %}
 {{ super() }}
+{% if no_web %}
+<script type="text/javascript">{{ include_file("assets/vendor/jquery.dataTables.min.js") }}</script>
+<script type="text/javascript">{{ include_file("assets/vendor/dataTables.bootstrap4.min.js") }}</script>
+{% else %}
 <script src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.23/js/dataTables.bootstrap4.min.js"></script>
+{% endif %}
 <script type="text/javascript">
   {{ include_file("assets/table.js") }}
 </script>

@@ -391,6 +391,7 @@ class FlameGraphReporter:
         show_memory_leaks: bool,
         merge_threads: bool,
         inverted: bool,
+        no_web: bool = False,
     ) -> None:
         kind = "temporal_flamegraph" if "intervals" in self.data else "flamegraph"
         html_code = render_report(
@@ -401,5 +402,6 @@ class FlameGraphReporter:
             show_memory_leaks=show_memory_leaks,
             merge_threads=merge_threads,
             inverted=inverted,
+            no_web=no_web,
         )
         print(html_code, file=outfile)
