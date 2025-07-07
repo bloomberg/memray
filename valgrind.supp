@@ -103,6 +103,18 @@
    ...
 }
 
+{
+   <cached_code_key>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:_PyCode_ConstantKey
+   ...
+   fun:_PyAST_Compile
+   ...
+}
+
+
 # Cython cache
 
 {
