@@ -12,6 +12,8 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/memray)](https://pypistats.org/packages/memray)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/memray.svg)](https://anaconda.org/conda-forge/memray)
 [![Tests](https://github.com/bloomberg/memray/actions/workflows/build.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build.yml)
+[![Wheels](https://github.com/bloomberg/memray/actions/workflows/build_wheels.yml/badge.svg?branch=main)](https://github.com/bloomberg/memray/actions/workflows/build_wheels.yml)
+[![Coverage](https://github.com/bloomberg/memray/actions/workflows/coverage.yml/badge.svg?branch=main)](https://github.com/bloomberg/memray/actions/workflows/coverage.yml)
 [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 <p align="center"><img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/output.png" alt="Memray output"></p>
