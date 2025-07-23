@@ -17,5 +17,6 @@ class BaseReporter(Protocol):
         show_memory_leaks: bool,
         merge_threads: bool,
         inverted: bool,
+        no_web: bool = False,
     ) -> None:
         ...
