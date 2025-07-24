@@ -246,7 +246,8 @@ class Tracker
             bool native_traces,
             unsigned int memory_interval,
             bool follow_fork,
-            bool trace_python_allocators);
+            bool trace_python_allocators,
+            bool reference_tracking);
     static PyObject* destroyTracker();
     static Tracker* getTracker();
 
@@ -272,6 +273,30 @@ class Tracker
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->trackAllocationImpl(ptr, size, func, trace);
+        }
+    }
+
+    // Object tracking interface
+    __attribute__((always_inline)) inline static void trackObject(PyObject* obj, int event)
+    {
+        if (RecursionGuard::isActive() || !Tracker::isActive()) {
+            return;
+        }
+        RecursionGuard guard;
+
+        std::optional<NativeTrace> trace{std::nullopt};
+        if (Tracker::areNativeTracesEnabled()) {
+            if (!prepareNativeTrace(trace)) {
+                return;
+            }
+            // Skip the internal frames so we don't need to filter them later.
+            trace.value().fill(1);
+        }
+
+        std::unique_lock<std::mutex> lock(*s_mutex);
+        Tracker* tracker = getTracker();
+        if (tracker) {
+            tracker->trackObjectImpl(obj, event, trace);
         }
     }
 
@@ -387,6 +412,7 @@ class Tracker
     static void prepareFork();
     static void parentFork();
     static void childFork();
+    std::unordered_set<PyObject*> getSurvivingObjects();
 
   private:
     class BackgroundThread
@@ -428,9 +454,12 @@ class Tracker
     const unsigned int d_memory_interval;
     const bool d_follow_fork;
     const bool d_trace_python_allocators;
+    const bool d_reference_tracking;
     linker::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
     std::unordered_map<uint64_t, std::string> d_cached_thread_names;
+    std::unordered_set<PyObject*> d_tracked_objects;
+    std::unordered_map<uintptr_t, size_t> d_tracked_ptrs;
 
     // Methods
     static size_t computeMainTidSkip();
@@ -442,6 +471,7 @@ class Tracker
             hooks::Allocator func,
             const std::optional<NativeTrace>& trace);
     void trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func);
+    void trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTrace>& trace);
     void invalidate_module_cache_impl();
     void updateModuleCacheImpl();
     void registerThreadNameImpl(const char* name);
@@ -449,13 +479,16 @@ class Tracker
     void dropCachedThreadName();
     void registerPymallocHooks() const noexcept;
     void unregisterPymallocHooks() const noexcept;
+    void registerReferenceTrackingHooks() const noexcept;
+    void unregisterReferenceTrackingHooks() const noexcept;
 
     explicit Tracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
             unsigned int memory_interval,
             bool follow_fork,
-            bool trace_python_allocators);
+            bool trace_python_allocators,
+            bool reference_tracking);
 
     static bool areNativeTracesEnabled();
 };

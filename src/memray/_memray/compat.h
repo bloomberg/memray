@@ -90,4 +90,16 @@ threadStateGetInterpreter(PyThreadState* tstate)
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg);
 
+typedef int (*refTracer)(PyObject*, int event, void* data);
+
+inline int
+refTracerSetTracer(refTracer tracer, void* data)
+{
+#if PY_VERSION_HEX >= 0x030D0000
+    return PyRefTracer_SetTracer(reinterpret_cast<PyRefTracer>(tracer), data);
+#else
+    return 0;
+#endif
+}
+
 }  // namespace memray::compat
