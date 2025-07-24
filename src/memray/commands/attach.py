@@ -130,7 +130,7 @@ elif {mode!r} == "FOR_DURATION":
 
 def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
     """Executes a file in a running Python process."""
-    injecter = pathlib.Path(memray.__file__).parent / "_inject.abi3.so"
+    injecter = pathlib.Path(memray._memray.__file__).parent / "_inject.abi3.so"
     assert injecter.exists()
 
     gdb_cmd = [
