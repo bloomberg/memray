@@ -129,6 +129,10 @@ class StatsReporter:
         print(f"\t{size_fmt(self._stats.total_memory_allocated)}")
 
         print()
+        rich.print("📈 [bold]Peak memory usage:[/]")
+        print(f"\t{size_fmt(self._stats.metadata.peak_memory)}")
+
+        print()
 
         rich.print("📊 [bold]Histogram of allocation size:[/]")
         histogram = draw_histogram(

@@ -215,6 +215,7 @@ Allocations results for tests/test_package.py::some_test_that_allocates
 
 	 📦 Total memory allocated: 24.4MiB
 	 📏 Total allocations: 33929
+	 📈 Peak memory usage: 10.431MB
 	 📊 Histogram of allocation sizes: |▂   █    |
 	 🥇 Biggest allocating functions:
 		- parse:/opt/bb/lib/python3.8/ast.py:47 -> 3.0MiB
