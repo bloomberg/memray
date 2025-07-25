@@ -3,7 +3,7 @@
 
 {% block topbar_buttons %}
 {{ super() }}
-<button id="usageOverTimeButton" class="btn btn-outline-light mr-3" data-toggle="modal" data-target="#memoryModal" onclick="javascript:resizeMemoryGraph();">Usage Over Time</button>
+<button id="memoryGraphButton" class="btn btn-outline-light mr-3" data-toggle="modal" data-target="#memoryModal" onclick="javascript:resizeMemoryGraph();">Memory Graph</button>
 {% endblock %}
 
 {% block extra_nav %}
