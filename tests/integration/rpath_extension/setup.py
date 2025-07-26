@@ -1,7 +1,6 @@
 import subprocess
-
-from setuptools import Extension
-from setuptools import setup
+from distutils.core import Extension
+from distutils.core import setup
 
 # Compile the shared library before building the extension
 subprocess.run(
