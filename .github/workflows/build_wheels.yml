@@ -61,6 +61,9 @@ jobs:
           - os: ubuntu-latest
           - wheel_type: manylinux_aarch64
             os: ubuntu-24.04-arm
+          - wheel_type: manylinux_i686
+            os: ubuntu-latest
+            cibw_archs_linux: auto32
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -80,7 +83,7 @@ jobs:
         uses: pypa/cibuildwheel@v3.1.1
         env:
           CIBW_BUILD: "cp3{7..13}-${{ matrix.wheel_type }}"
-          CIBW_ARCHS_LINUX: auto
+          CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux || 'auto' }}
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
