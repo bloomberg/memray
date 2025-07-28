@@ -4,7 +4,7 @@ greenlet; python_version < '3.14'
 pytest
 pytest-cov
 ipython
-setuptools; python_version >= '3.12'
+setuptools
 pkgconfig
 pytest-textual-snapshot
 textual >= 0.43, != 0.65.2, != 0.66

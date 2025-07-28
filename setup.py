@@ -117,7 +117,7 @@ test_requires = [
     "pytest",
     "pytest-cov",
     "ipython",
-    "setuptools; python_version >= '3.12'",
+    "setuptools",
     "pytest-textual-snapshot",
     "textual >= 0.43, != 0.65.2, != 0.66",
     "packaging",
