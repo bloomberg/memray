@@ -51,6 +51,7 @@ markers = [
     "valgrind",
 ]
 xfail_strict = true
+testpaths = ["tests"]
 
 [tool.check-manifest]
 ignore = [
