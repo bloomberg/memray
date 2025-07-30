@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include "compat.h"
 #include "hooks.h"
 #include "logging.h"
 #include "record_reader.h"
@@ -76,7 +77,8 @@ RecordReader::readHeader(HeaderRecord& header)
                 "The provided input file is incompatible with this version of memray.");
     }
     header.command_line.reserve(4096);
-    if (!d_input->read(reinterpret_cast<char*>(&header.native_traces), sizeof(header.native_traces))
+    if (!d_input->read(reinterpret_cast<char*>(&header.python_version), sizeof(header.python_version))
+        || !d_input->read(reinterpret_cast<char*>(&header.native_traces), sizeof(header.native_traces))
         || !d_input->read(reinterpret_cast<char*>(&header.file_format), sizeof(header.file_format))
         || !d_input->read(reinterpret_cast<char*>(&header.stats), sizeof(header.stats))
         || !d_input->getline(header.command_line, '\0')
@@ -216,10 +218,49 @@ bool
 RecordReader::parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val, unsigned int flags)
 {
     pyframe_val->second.is_entry_frame = !(flags & 1);
-    return readIntegralDelta(&d_last.python_frame_id, &pyframe_val->first)
-           && d_input->getline(pyframe_val->second.function_name, '\0')
-           && d_input->getline(pyframe_val->second.filename, '\0')
-           && readIntegralDelta(&d_last.python_line_number, &pyframe_val->second.lineno);
+    code_object_id_t code_id = 0;
+
+    if (!readIntegralDelta(&d_last.python_frame_id, &pyframe_val->first) || !readVarint(&code_id)
+        || !readIntegralDelta(&d_last.python_line_number, &pyframe_val->second.instruction_offset))
+    {
+        return false;
+    }
+
+    // Look up the code object info
+    auto it = d_code_object_map.find(code_id);
+    if (it != d_code_object_map.end()) {
+        const auto& code_info = it->second;
+        pyframe_val->second.function_name = code_info.function_name;
+        pyframe_val->second.filename = code_info.filename;
+        pyframe_val->second.linetable = code_info.linetable;
+        pyframe_val->second.firstlineno = code_info.firstlineno;
+        pyframe_val->second.code_object_id = code_id;
+    }
+
+    return true;
+}
+
+bool
+RecordReader::parseCodeObjectRecord(tracking_api::pycode_map_val_t* pycode_val)
+{
+    size_t linetable_size = 0;
+    if (!readVarint(&pycode_val->first) || !d_input->getline(pycode_val->second.function_name, '\0')
+        || !d_input->getline(pycode_val->second.filename, '\0')
+        || !readIntegralDelta(&d_last.code_firstlineno, &pycode_val->second.firstlineno)
+        || !readVarint(&linetable_size))
+    {
+        return false;
+    }
+
+    pycode_val->second.linetable.resize(linetable_size);
+    return d_input->read(const_cast<char*>(pycode_val->second.linetable.data()), linetable_size);
+}
+
+bool
+RecordReader::processCodeObjectRecord(const tracking_api::pycode_map_val_t& pycode_val)
+{
+    d_code_object_map[pycode_val.first] = pycode_val.second;
+    return true;
 }
 
 bool
@@ -228,6 +269,23 @@ RecordReader::processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_v
     if (!d_track_stacks) {
         return true;
     }
+
+    // Decode instruction offset to line number if we have a linetable
+    auto& frame = const_cast<tracking_api::Frame&>(pyframe_val.second);
+    if (!frame.linetable.empty() && frame.instruction_offset >= 0) {
+        compat::LocationInfo info;
+        // instruction_offset contains the instruction offset divided by 2
+        if (compat::parseLinetable(
+                    d_header.python_version,
+                    frame.linetable,
+                    frame.instruction_offset,
+                    frame.firstlineno,
+                    &info))
+        {
+            frame.lineno = info.lineno;
+        }
+    }
+
     std::lock_guard<std::mutex> lock(d_mutex);
     auto iterator = d_frame_map.insert(pyframe_val);
     if (!iterator.second) {
@@ -471,17 +529,50 @@ bool
 RecordReader::parsePythonFrameIndexRecord(tracking_api::pyframe_map_val_t* pyframe_val)
 {
     auto& [frame_id, frame] = *pyframe_val;
-    return d_input->read(reinterpret_cast<char*>(&frame_id), sizeof(frame_id))
-           && d_input->getline(frame.function_name, '\0') && d_input->getline(frame.filename, '\0')
-           && d_input->read(reinterpret_cast<char*>(&frame.lineno), sizeof(frame.lineno))
-           && d_input->read(
-                   reinterpret_cast<char*>(&frame.is_entry_frame),
-                   sizeof(frame.is_entry_frame));
+    code_object_id_t code_id = 0;
+
+    if (!d_input->read(reinterpret_cast<char*>(&frame_id), sizeof(frame_id)) || !readVarint(&code_id)
+        || !d_input->read(
+                reinterpret_cast<char*>(&frame.instruction_offset),
+                sizeof(frame.instruction_offset))
+        || !d_input->read(reinterpret_cast<char*>(&frame.is_entry_frame), sizeof(frame.is_entry_frame)))
+    {
+        return false;
+    }
+
+    // Look up the code object info
+    auto it = d_code_object_map.find(code_id);
+    if (it != d_code_object_map.end()) {
+        const auto& code_info = it->second;
+        frame.function_name = code_info.function_name;
+        frame.filename = code_info.filename;
+        frame.linetable = code_info.linetable;
+        frame.firstlineno = code_info.firstlineno;
+        frame.code_object_id = code_id;
+    }
+
+    return true;
 }
 
 bool
 RecordReader::processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_t& pyframe_val)
 {
+    // Decode instruction offset to line number if we have a linetable
+    auto& frame = const_cast<tracking_api::Frame&>(pyframe_val.second);
+    if (!frame.linetable.empty() && frame.instruction_offset >= 0) {
+        compat::LocationInfo info;
+        // instruction_offset contains the instruction offset divided by 2
+        if (compat::parseLinetable(
+                    d_header.python_version,
+                    frame.linetable,
+                    frame.instruction_offset,
+                    frame.firstlineno,
+                    &info))
+        {
+            frame.lineno = info.lineno;
+        }
+    }
+
     std::lock_guard<std::mutex> lock(d_mutex);
     auto iterator = d_frame_map.insert(pyframe_val);
     if (!iterator.second) {
@@ -590,6 +681,13 @@ RecordReader::nextRecordFromAllAllocationsFile()
                 if (!parseFrameIndex(&record, record_type_and_flags.flags) || !processFrameIndex(record))
                 {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process frame index";
+                    return RecordResult::ERROR;
+                }
+            } break;
+            case RecordType::CODE_OBJECT: {
+                tracking_api::pycode_map_val_t record;
+                if (!parseCodeObjectRecord(&record) || !processCodeObjectRecord(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process code object";
                     return RecordResult::ERROR;
                 }
             } break;
@@ -724,6 +822,14 @@ RecordReader::nextRecordFromAggregatedAllocationsFile()
                 thread_id_t tid;
                 if (!parseContextSwitch(&tid) || !processContextSwitch(tid)) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process context switch record";
+                    return RecordResult::ERROR;
+                }
+            } break;
+
+            case AggregatedRecordType::CODE_OBJECT: {
+                tracking_api::pycode_map_val_t record;
+                if (!parseCodeObjectRecord(&record) || !processCodeObjectRecord(record)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process code object";
                     return RecordResult::ERROR;
                 }
             } break;
@@ -942,13 +1048,14 @@ RecordReader::dumpAllRecords()
             file_format = "<unknown enum value " + std::to_string((int)d_header.file_format) + ">";
         } break;
     }
-    printf("HEADER magic=%.*s version=%d native_traces=%s file_format=%s"
+    printf("HEADER magic=%.*s version=%d python_version=%08x native_traces=%s file_format=%s"
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
            " pid=%d main_tid=%lu skipped_frames_on_main_tid=%zd"
            " command_line=%s python_allocator=%s trace_python_allocators=%s\n",
            (int)sizeof(d_header.magic),
            d_header.magic,
            d_header.version,
+           d_header.python_version,
            d_header.native_traces ? "true" : "false",
            file_format.c_str(),
            d_header.stats.n_allocations,
@@ -1074,12 +1181,24 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                     Py_RETURN_NONE;
                 }
 
-                printf("frame_id=%zd function_name=%s filename=%s lineno=%d is_entry_frame=%d\n",
+                printf("frame_id=%zd code_object_id=%zd lineno=%d is_entry_frame=%d\n",
+                       record.first,
+                       record.second.code_object_id,
+                       record.second.lineno,
+                       record.second.is_entry_frame);
+            } break;
+            case RecordType::CODE_OBJECT: {
+                printf("CODE_OBJECT ");
+                tracking_api::pycode_map_val_t record;
+                if (!parseCodeObjectRecord(&record) || !processCodeObjectRecord(record)) {
+                    Py_RETURN_NONE;
+                }
+                printf("code_id=%zd function_name=%s filename=%s firstlineno=%d linetable_size=%zd\n",
                        record.first,
                        record.second.function_name.c_str(),
                        record.second.filename.c_str(),
-                       record.second.lineno,
-                       record.second.is_entry_frame);
+                       record.second.firstlineno,
+                       record.second.linetable.size());
             } break;
             case RecordType::NATIVE_TRACE_INDEX: {
                 printf("NATIVE_FRAME_ID ");
@@ -1235,10 +1354,9 @@ RecordReader::dumpAllRecordsFromAggregatedAllocationsFile()
                     Py_RETURN_NONE;
                 }
 
-                printf("frame_id=%zd function_name=%s filename=%s lineno=%d is_entry_frame=%d\n",
+                printf("frame_id=%zd code_object_id=%zd lineno=%d is_entry_frame=%d\n",
                        record.first,
-                       record.second.function_name.c_str(),
-                       record.second.filename.c_str(),
+                       record.second.code_object_id,
                        record.second.lineno,
                        record.second.is_entry_frame);
             } break;
@@ -1308,6 +1426,20 @@ RecordReader::dumpAllRecordsFromAggregatedAllocationsFile()
                 }
 
                 printf("tid=%lu\n", tid);
+            } break;
+
+            case AggregatedRecordType::CODE_OBJECT: {
+                printf("CODE_OBJECT ");
+                tracking_api::pycode_map_val_t record;
+                if (!parseCodeObjectRecord(&record) || !processCodeObjectRecord(record)) {
+                    Py_RETURN_NONE;
+                }
+                printf("code_id=%zd function_name=%s filename=%s firstlineno=%d linetable_size=%zd\n",
+                       record.first,
+                       record.second.function_name.c_str(),
+                       record.second.filename.c_str(),
+                       record.second.firstlineno,
+                       record.second.linetable.size());
             } break;
 
             case AggregatedRecordType::AGGREGATED_TRAILER: {
