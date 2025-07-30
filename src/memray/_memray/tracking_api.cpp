@@ -26,6 +26,13 @@
 using namespace memray::exception;
 using namespace std::chrono_literals;
 
+extern "C" Py_ssize_t
+_PyEval_RequestCodeExtraIndex(freefunc free);
+extern "C" int
+_PyCode_GetExtra(PyObject* code, Py_ssize_t index, void** extra);
+extern "C" int
+_PyCode_SetExtra(PyObject* code, Py_ssize_t index, void* extra);
+
 namespace {
 
 #ifdef __linux__
@@ -70,6 +77,10 @@ class StopTheWorldGuard
 
     PyInterpreterState* d_interp;
 };
+
+#if PY_VERSION_HEX < 0x030C0000
+Py_ssize_t s_extra_index = -1;
+#endif
 
 }  // namespace
 
@@ -169,6 +180,8 @@ class PythonStackTracker
     static std::vector<LazilyEmittedFrame> pythonFrameToStack(PyFrameObject* current_frame);
     void reloadStackIfTrackerChanged();
 
+    static LazilyEmittedFrame createLazilyEmittedFrame(PyFrameObject* frame);
+
     void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
 
     static std::mutex s_mutex;
@@ -224,7 +237,11 @@ PythonStackTracker::emitPendingPushesAndPops()
         }
     }
 
-    // At any time, the stack contains (in this order):
+#ifdef Py_GIL_DISABLED
+    PyGILState_STATE gstate = PyGILState_Ensure();
+#endif
+
+    // At any time, the stack contains (pushed in this order):
     // Any number of EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED frames
     // 0 or 1 EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED frame
     // Any number of NOT_EMITTED frames
@@ -232,15 +249,17 @@ PythonStackTracker::emitPendingPushesAndPops()
     auto it = d_stack->rbegin();
     for (; it != d_stack->rend(); ++it) {
         if (it->state == FrameState::NOT_EMITTED) {
-            it->raw_frame_record.lineno = PyFrame_GetLineNumber(it->frame);
+            int lasti = compat::frameGetLasti(it->frame);
+            it->raw_frame_record.instruction_offset = lasti;
         } else if (it->state == FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED) {
-            int lineno = PyFrame_GetLineNumber(it->frame);
-            if (lineno != it->raw_frame_record.lineno) {
-                // Line number was wrong; emit an artificial pop so we can push
-                // back in with the right line number.
+            int lasti = compat::frameGetLasti(it->frame);
+            int offset = lasti;
+            if (offset != it->raw_frame_record.instruction_offset) {
+                // Instruction offset was wrong; emit an artificial pop so we can push
+                // back in with the right offset.
                 d_num_pending_pops++;
                 it->state = FrameState::NOT_EMITTED;
-                it->raw_frame_record.lineno = lineno;
+                it->raw_frame_record.instruction_offset = offset;
             } else {
                 it->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
                 break;
@@ -270,6 +289,10 @@ PythonStackTracker::emitPendingPushesAndPops()
     }
 
     invalidateMostRecentFrameLineNumber();
+
+#ifdef Py_GIL_DISABLED
+    PyGILState_Release(gstate);
+#endif
 }
 
 void
@@ -327,22 +350,12 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
     installGreenletTraceFunctionIfNeeded();
 
-    PyCodeObject* code = compat::frameGetCode(frame);
-    const char* function = PyUnicode_AsUTF8(code->co_name);
-    if (function == nullptr) {
+    try {
+        pushLazilyEmittedFrame(createLazilyEmittedFrame(frame));
+        return 0;
+    } catch (const std::runtime_error&) {
         return -1;
     }
-
-    const char* filename = PyUnicode_AsUTF8(code->co_filename);
-    if (filename == nullptr) {
-        return -1;
-    }
-
-    // If native tracking is not enabled, treat every frame as an entry frame.
-    // It doesn't matter to the reader, and is more efficient.
-    bool is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
-    pushLazilyEmittedFrame({frame, {function, filename, 0, is_entry_frame}, FrameState::NOT_EMITTED});
-    return 0;
 }
 
 void
@@ -513,28 +526,57 @@ pthread_key_t Tracker::s_native_unwind_vector_key;
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
 
+PythonStackTracker::LazilyEmittedFrame
+PythonStackTracker::createLazilyEmittedFrame(PyFrameObject* frame)
+{
+    PyCodeObject* code = compat::frameGetCode(frame);
+#if PY_VERSION_HEX < 0x030C0000
+    if (s_extra_index != -1) {
+        void* extra;
+        if (-1 == _PyCode_GetExtra((PyObject*)code, s_extra_index, &extra)) {
+            throw std::runtime_error("Failed to get extra data from code object");
+        }
+        if (!extra && -1 == _PyCode_SetExtra((PyObject*)code, s_extra_index, code)) {
+            throw std::runtime_error("Failed to set extra data on code object");
+        }
+    }
+#endif
+
+    const char* function = PyUnicode_AsUTF8(code->co_name);
+    if (function == nullptr) {
+        throw std::runtime_error("Failed to get function name from frame");
+    }
+
+    const char* filename = PyUnicode_AsUTF8(code->co_filename);
+    if (filename == nullptr) {
+        throw std::runtime_error("Failed to get filename from frame");
+    }
+
+    // Get linetable information
+    size_t linetable_size;
+    const char* linetable = compat::codeGetLinetable(code, &linetable_size);
+    int firstlineno = code->co_firstlineno;
+
+    // If native tracking is not enabled, treat every frame as an entry frame.
+    // It doesn't matter to the reader, and is more efficient.
+    bool is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
+
+    return {frame,
+            {function, filename, 0, is_entry_frame, linetable, linetable_size, firstlineno, code},
+            FrameState::NOT_EMITTED};
+}
+
 std::vector<PythonStackTracker::LazilyEmittedFrame>
 PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
 {
     std::vector<LazilyEmittedFrame> stack;
 
     while (current_frame) {
-        PyCodeObject* code = compat::frameGetCode(current_frame);
-
-        const char* function = PyUnicode_AsUTF8(code->co_name);
-        if (function == nullptr) {
+        try {
+            stack.push_back(createLazilyEmittedFrame(current_frame));
+        } catch (const std::runtime_error&) {
             return {};
         }
-
-        const char* filename = PyUnicode_AsUTF8(code->co_filename);
-        if (filename == nullptr) {
-            return {};
-        }
-
-        // If native tracking is not enabled, treat every frame as an entry frame.
-        // It doesn't matter to the reader, and is more efficient.
-        bool entry = !s_native_tracking_enabled || compat::isEntryFrame(current_frame);
-        stack.push_back({current_frame, {function, filename, 0, entry}, FrameState::NOT_EMITTED});
         current_frame = compat::frameGetBack(current_frame);
     }
 
@@ -640,6 +682,37 @@ Tracker::Tracker(
 
         hooks::ensureAllHooksAreValid();
         NativeTrace::setup();
+
+#if PY_VERSION_HEX >= 0x030C0000
+        PyCode_AddWatcher([](PyCodeEvent event, PyCodeObject* code) {
+            if (event == PY_CODE_EVENT_DESTROY) {
+                if (RecursionGuard::isActive() || !Tracker::isActive()) {
+                    return 0;
+                }
+                RecursionGuard guard;
+
+                std::unique_lock<std::mutex> lock(*s_mutex);
+                Tracker* tracker = Tracker::getTracker();
+                if (tracker) {
+                    tracker->forgetCodeObject(code);
+                }
+            }
+            return 0;
+        });
+#else
+        s_extra_index = _PyEval_RequestCodeExtraIndex([](void* code) {
+            if (RecursionGuard::isActive() || !Tracker::isActive()) {
+                return;
+            }
+            RecursionGuard guard;
+
+            std::unique_lock<std::mutex> lock(*s_mutex);
+            Tracker* tracker = Tracker::getTracker();
+            if (tracker) {
+                tracker->forgetCodeObject((PyCodeObject*)code);
+            }
+        });
+#endif
     });
 
     d_writer->setMainTidAndSkippedFrames(thread_id(), computeMainTidSkip());
@@ -1067,12 +1140,60 @@ Tracker::dropCachedThreadName()
     d_cached_thread_names.erase((uint64_t)(pthread_self()));
 }
 
+code_object_id_t
+Tracker::registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj)
+{
+    auto it = d_code_object_cache.find(code_ptr);
+    if (it != d_code_object_cache.end()) {
+        return it->second;
+    }
+
+    // New code object - register it
+    code_object_id_t code_id = d_next_code_object_id++;
+    d_code_object_cache[code_ptr] = code_id;
+
+    // Write the code object record
+    pycode_map_val_t code_record{
+            code_id,
+            CodeObjectInfo{
+                    code_obj.function_name,
+                    code_obj.filename,
+                    std::string(code_obj.linetable, code_obj.linetable_size),
+                    code_obj.firstlineno}};
+
+    if (!d_writer->writeRecord(code_record)) {
+        std::cerr << "memray: Failed to write code object record, deactivating tracking" << std::endl;
+        deactivate();
+    }
+
+    return code_id;
+}
+
+void
+Tracker::forgetCodeObject(PyCodeObject* code)
+{
+    d_code_object_cache.erase(code);
+}
+
 frame_id_t
 Tracker::registerFrame(const RawFrame& frame)
 {
+    // Register the code object if needed
+    code_object_id_t code_id = 0;
+    if (frame.code_object_ptr) {
+        CodeObject code_obj{
+                frame.function_name,
+                frame.filename,
+                frame.linetable,
+                frame.linetable_size,
+                frame.firstlineno};
+        code_id = registerCodeObject(frame.code_object_ptr, code_obj);
+    }
+
     const auto [frame_id, is_new_frame] = d_frames.getIndex(frame);
     if (is_new_frame) {
-        pyrawframe_map_val_t frame_index{frame_id, frame};
+        // Write a frame record with the code_id passed separately
+        pyrawframe_map_val_t frame_index{frame_id, frame, code_id};
         if (!d_writer->writeRecord(frame_index)) {
             std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
             deactivate();

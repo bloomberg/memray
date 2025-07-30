@@ -4,6 +4,8 @@
 #include <Python.h>
 
 #include "frameobject.h"
+#include <cassert>
+#include <string>
 
 namespace memray::compat {
 
@@ -77,6 +79,18 @@ frameGetBack(PyFrameObject* frame)
 #endif
 }
 
+inline int
+frameGetLasti(PyFrameObject* frame)
+{
+#if PY_VERSION_HEX < 0x030B0000
+    // Prior to Python 3.11 this was exposed.
+    return frame->f_lasti;
+#else
+    // Use PyFrame_GetLasti for Python 3.11+
+    return PyFrame_GetLasti(frame);
+#endif
+}
+
 inline PyInterpreterState*
 threadStateGetInterpreter(PyThreadState* tstate)
 {
@@ -122,5 +136,41 @@ startTheWorld(PyInterpreterState*)
 
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg);
+
+inline const char*
+codeGetLinetable(PyCodeObject* code, size_t* size)
+{
+#if PY_VERSION_HEX >= 0x030A0000
+    // Python 3.10+ uses co_linetable
+    PyObject* linetable = code->co_linetable;
+#else
+    // Python 3.9 and earlier use co_lnotab
+    PyObject* linetable = code->co_lnotab;
+#endif
+
+    if (linetable && PyBytes_Check(linetable)) {
+        *size = PyBytes_GET_SIZE(linetable);
+        return PyBytes_AS_STRING(linetable);
+    }
+    *size = 0;
+    return nullptr;
+}
+
+// Location information structure for line table parsing
+struct LocationInfo
+{
+    int lineno;
+    int end_lineno;
+    int column;
+    int end_column;
+};
+
+bool
+parseLinetable(
+        int python_version,
+        const std::string& linetable,
+        uintptr_t addrq,
+        int firstlineno,
+        LocationInfo* info);
 
 }  // namespace memray::compat
