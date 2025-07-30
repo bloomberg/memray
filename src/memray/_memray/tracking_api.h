@@ -118,14 +118,6 @@ int
 PyTraceFunction(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 
 /**
- * Trampoline that serves as the initial profiling function for each thread.
- *
- * This performs some one-time setup, then installs PyTraceFunction.
- */
-int
-PyTraceTrampoline(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
-
-/**
  * Installs the trace function in the current thread.
  *
  * This function installs the trace function in the current thread using the C-API.
@@ -365,14 +357,6 @@ class Tracker
     static bool isActive();
     static void activate();
     static void deactivate();
-
-    /**
-     * Drop any references to frames on this thread's stack.
-     *
-     * This should be called when either the thread is dying or our profile
-     * function is being uninstalled from it.
-     */
-    static void forgetPythonStack();
 
     /**
      * Sets a flag to enable integration with the `greenlet` module.

@@ -566,18 +566,6 @@ cdef class TemporalAllocationGenerator:
 
 MemorySnapshot = collections.namedtuple("MemorySnapshot", "time rss heap")
 
-cdef class ProfileFunctionGuard:
-    def __dealloc__(self):
-        """When our profile function gets deregistered, drop our cached stack.
-
-        This drops our references to frames that may now be destroyed without
-        us finding out. Note that the profile function is automatically
-        deregistered when the PyThreadState is destroyed, so we can also use
-        this to perform some cleanup when a thread dies.
-        """
-        NativeTracker.forgetPythonStack()
-
-
 tracker_creation_lock = threading.Lock()
 
 
