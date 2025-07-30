@@ -26,9 +26,6 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
         Tracker* getTracker()
 
         @staticmethod
-        void forgetPythonStack() except+
-
-        @staticmethod
         void beginTrackingGreenlets() except+
 
         @staticmethod

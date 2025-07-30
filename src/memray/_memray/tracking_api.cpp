@@ -173,6 +173,17 @@ PythonStackTracker::emitPendingPushesAndPops()
         return;
     }
 
+    if (!d_stack->empty()) {
+        PyThreadState* ts = PyGILState_GetThisThreadState();
+        if (!ts || ts->c_profilefunc != PyTraceFunction) {
+            // Note: clear() will call back into emitPendingPushesAndPops() to
+            //       emit the pops, but we won't call back into clear() because
+            //       the stack has already been emptied.
+            clear();
+            return;
+        }
+    }
+
     // At any time, the stack contains (in this order):
     // Any number of EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED frames
     // 0 or 1 EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED frame
@@ -516,8 +527,8 @@ PythonStackTracker::installProfileHooks()
     // Find and record the Python stack for all existing threads.
     recordAllStacks();
 
-    // Install our profile trampoline in all existing threads.
-    compat::setprofileAllThreads(PyTraceTrampoline, nullptr);
+    // Install our profile function in all existing threads.
+    compat::setprofileAllThreads(PyTraceFunction, nullptr);
 }
 
 void
@@ -1136,35 +1147,6 @@ Tracker::unregisterPymallocHooks() const noexcept
 
 // Trace Function interface
 
-PyObject*
-create_profile_arg()
-{
-    // Borrowed reference
-    PyObject* memray_ext = PyDict_GetItemString(PyImport_GetModuleDict(), "memray._memray");
-    if (!memray_ext) {
-        return nullptr;
-    }
-
-    return PyObject_CallMethod(memray_ext, "ProfileFunctionGuard", nullptr);
-}
-
-// Called when profiling is initially enabled in each thread.
-int
-PyTraceTrampoline(PyObject* obj, PyFrameObject* frame, int what, [[maybe_unused]] PyObject* arg)
-{
-    assert(PyGILState_Check());
-    RecursionGuard guard;
-
-    PyObject* profileobj = create_profile_arg();
-    if (!profileobj) {
-        return -1;
-    }
-    PyEval_SetProfile(PyTraceFunction, profileobj);
-    Py_DECREF(profileobj);
-
-    return PyTraceFunction(obj, frame, what, profileobj);
-}
-
 int
 PyTraceFunction(
         [[maybe_unused]] PyObject* obj,
@@ -1195,19 +1177,6 @@ PyTraceFunction(
             break;
     }
     return 0;
-}
-
-void
-Tracker::forgetPythonStack()
-{
-    if (!Tracker::isActive()) {
-        return;
-    }
-
-    // Grab the Tracker lock, as this may need to write pushes/pops.
-    std::unique_lock<std::mutex> lock(*s_mutex);
-    RecursionGuard guard;
-    PythonStackTracker::get().clear();
 }
 
 void
@@ -1259,13 +1228,7 @@ install_trace_function()
         return;
     }
 
-    PyObject* profileobj = create_profile_arg();
-    if (!profileobj) {
-        return;
-    }
-    PyEval_SetProfile(PyTraceFunction, profileobj);
-    Py_DECREF(profileobj);
-
+    PyEval_SetProfile(PyTraceFunction, nullptr);
     PyFrameObject* frame = PyEval_GetFrame();
 
     // Push all of our Python frames, most recent last.  If we reached here
