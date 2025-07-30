@@ -214,7 +214,10 @@ StreamingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
     RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.second.is_entry_frame};
     return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.first)
            && writeString(item.second.function_name) && writeString(item.second.filename)
-           && writeIntegralDelta(&d_last.python_line_number, item.second.lineno);
+           && writeIntegralDelta(&d_last.python_line_number, item.second.lineno)
+           && writeIntegralDelta(&d_last.python_line_number, item.second.firstlineno)
+           && writeVarint(item.second.linetable_size)
+           && d_sink->writeAll(item.second.linetable, item.second.linetable_size);
 }
 
 bool
@@ -484,7 +487,9 @@ AggregatingRecordWriter::writeTrailer()
     for (const auto& [frame_id, frame] : d_frames_by_id) {
         if (!writeSimpleType(AggregatedRecordType::PYTHON_FRAME_INDEX) || !writeSimpleType(frame_id)
             || !writeString(frame.function_name.c_str()) || !writeString(frame.filename.c_str())
-            || !writeSimpleType(frame.lineno) || !writeSimpleType(frame.is_entry_frame))
+            || !writeSimpleType(frame.lineno) || !writeSimpleType(frame.is_entry_frame)
+            || !writeSimpleType(frame.firstlineno) || !writeVarint(frame.linetable.size())
+            || !d_sink->writeAll(frame.linetable.data(), frame.linetable.size()))
         {
             return false;
         }
@@ -553,7 +558,8 @@ AggregatingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
     const auto& [frame_id, raw] = item;
     d_frames_by_id.emplace(
             frame_id,
-            Frame{raw.function_name, raw.filename, raw.lineno, raw.is_entry_frame});
+            Frame{raw.function_name, raw.filename, raw.lineno, raw.is_entry_frame, 
+                  std::string(raw.linetable, raw.linetable_size), raw.firstlineno});
     return true;
 }
 

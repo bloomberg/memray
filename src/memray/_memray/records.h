@@ -210,6 +210,9 @@ struct RawFrame
     const char* filename;
     int lineno;
     bool is_entry_frame;
+    const char* linetable;
+    size_t linetable_size;
+    int firstlineno;
 
     auto operator==(const RawFrame& other) const -> bool
     {
@@ -244,6 +247,8 @@ struct Frame
     std::string filename;
     int lineno{0};
     bool is_entry_frame{true};
+    std::string linetable;
+    int firstlineno{0};
 
     PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;
 

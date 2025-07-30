@@ -181,15 +181,18 @@ PythonStackTracker::emitPendingPushesAndPops()
     auto it = d_stack->rbegin();
     for (; it != d_stack->rend(); ++it) {
         if (it->state == FrameState::NOT_EMITTED) {
-            it->raw_frame_record.lineno = PyFrame_GetLineNumber(it->frame);
+            // Get instruction offset and divide by 2 as per user's requirement
+            int lasti = compat::frameGetLasti(it->frame);
+            it->raw_frame_record.lineno = lasti;
         } else if (it->state == FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED) {
-            int lineno = PyFrame_GetLineNumber(it->frame);
-            if (lineno != it->raw_frame_record.lineno) {
-                // Line number was wrong; emit an artificial pop so we can push
-                // back in with the right line number.
+            int lasti = compat::frameGetLasti(it->frame);
+            int offset = lasti;
+            if (offset != it->raw_frame_record.lineno) {
+                // Instruction offset was wrong; emit an artificial pop so we can push
+                // back in with the right offset.
                 d_num_pending_pops++;
                 it->state = FrameState::NOT_EMITTED;
-                it->raw_frame_record.lineno = lineno;
+                it->raw_frame_record.lineno = offset;
             } else {
                 it->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
                 break;
@@ -287,10 +290,20 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
         return -1;
     }
 
+    // Get linetable information
+    const char* linetable = nullptr;
+    size_t linetable_size = 0;
+    int firstlineno = code->co_firstlineno;
+    
+    if (code->co_linetable && PyBytes_Check(code->co_linetable)) {
+        linetable = PyBytes_AsString(code->co_linetable);
+        linetable_size = PyBytes_Size(code->co_linetable);
+    }
+
     // If native tracking is not enabled, treat every frame as an entry frame.
     // It doesn't matter to the reader, and is more efficient.
     bool is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
-    pushLazilyEmittedFrame({frame, {function, filename, 0, is_entry_frame}, FrameState::NOT_EMITTED});
+    pushLazilyEmittedFrame({frame, {function, filename, 0, is_entry_frame, linetable, linetable_size, firstlineno}, FrameState::NOT_EMITTED});
     return 0;
 }
 
@@ -456,10 +469,20 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
             return {};
         }
 
+        // Get linetable information
+        const char* linetable = nullptr;
+        size_t linetable_size = 0;
+        int firstlineno = code->co_firstlineno;
+        
+        if (code->co_linetable && PyBytes_Check(code->co_linetable)) {
+            linetable = PyBytes_AsString(code->co_linetable);
+            linetable_size = PyBytes_Size(code->co_linetable);
+        }
+
         // If native tracking is not enabled, treat every frame as an entry frame.
         // It doesn't matter to the reader, and is more efficient.
         bool entry = !s_native_tracking_enabled || compat::isEntryFrame(current_frame);
-        stack.push_back({current_frame, {function, filename, 0, entry}, FrameState::NOT_EMITTED});
+        stack.push_back({current_frame, {function, filename, 0, entry, linetable, linetable_size, firstlineno}, FrameState::NOT_EMITTED});
         current_frame = compat::frameGetBack(current_frame);
     }
 

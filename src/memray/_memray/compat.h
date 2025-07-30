@@ -77,6 +77,18 @@ frameGetBack(PyFrameObject* frame)
 #endif
 }
 
+inline int
+frameGetLasti(PyFrameObject* frame)
+{
+#if PY_VERSION_HEX < 0x030B0000
+    // Prior to Python 3.11 this was exposed.
+    return frame->f_lasti;
+#else
+    // Use PyFrame_GetLasti for Python 3.11+
+    return PyFrame_GetLasti(frame);
+#endif
+}
+
 inline PyInterpreterState*
 threadStateGetInterpreter(PyThreadState* tstate)
 {
