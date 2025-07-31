@@ -215,13 +215,13 @@ bool
 StreamingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
 {
     d_stats.n_frames += 1;
-    RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.second.is_entry_frame};
+    RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.frame.is_entry_frame};
     
     // Write frame with code object ID reference
     return writeSimpleType(token) 
-           && writeIntegralDelta(&d_last.python_frame_id, item.first)
-           && writeVarint(item.second.code_object_id)
-           && writeIntegralDelta(&d_last.python_line_number, item.second.lineno);
+           && writeIntegralDelta(&d_last.python_frame_id, item.frame_id)
+           && writeVarint(item.code_id)
+           && writeIntegralDelta(&d_last.python_line_number, item.frame.lineno);
 }
 
 bool
@@ -582,11 +582,10 @@ bool
 AggregatingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
 {
     d_stats.n_frames += 1;
-    const auto& [frame_id, raw] = item;
     d_frames_by_id.emplace(
-            frame_id,
-            Frame{raw.function_name, raw.filename, raw.lineno, raw.is_entry_frame, 
-                  std::string(raw.linetable, raw.linetable_size), raw.firstlineno, raw.code_object_id});
+            item.frame_id,
+            Frame{item.frame.function_name, item.frame.filename, item.frame.lineno, item.frame.is_entry_frame, 
+                  std::string(item.frame.linetable, item.frame.linetable_size), item.frame.firstlineno, item.code_id});
     return true;
 }
 
