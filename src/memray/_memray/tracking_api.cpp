@@ -303,7 +303,7 @@ PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
     // If native tracking is not enabled, treat every frame as an entry frame.
     // It doesn't matter to the reader, and is more efficient.
     bool is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
-    pushLazilyEmittedFrame({frame, {function, filename, 0, is_entry_frame, linetable, linetable_size, firstlineno}, FrameState::NOT_EMITTED});
+    pushLazilyEmittedFrame({frame, {function, filename, 0, is_entry_frame, linetable, linetable_size, firstlineno, code}, FrameState::NOT_EMITTED});
     return 0;
 }
 
@@ -482,7 +482,7 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
         // If native tracking is not enabled, treat every frame as an entry frame.
         // It doesn't matter to the reader, and is more efficient.
         bool entry = !s_native_tracking_enabled || compat::isEntryFrame(current_frame);
-        stack.push_back({current_frame, {function, filename, 0, entry, linetable, linetable_size, firstlineno}, FrameState::NOT_EMITTED});
+        stack.push_back({current_frame, {function, filename, 0, entry, linetable, linetable_size, firstlineno, code}, FrameState::NOT_EMITTED});
         current_frame = compat::frameGetBack(current_frame);
     }
 
@@ -1019,12 +1019,57 @@ Tracker::dropCachedThreadName()
     d_cached_thread_names.erase((uint64_t)(pthread_self()));
 }
 
+code_object_id_t
+Tracker::registerCodeObject(const void* code_ptr, const CodeObject& code_obj)
+{
+    auto it = d_code_object_cache.find(code_ptr);
+    if (it != d_code_object_cache.end()) {
+        return it->second;
+    }
+    
+    // New code object - register it
+    code_object_id_t code_id = d_next_code_object_id++;
+    d_code_object_cache[code_ptr] = code_id;
+    
+    // Write the code object record
+    pycode_map_val_t code_record{code_id, CodeObjectInfo{
+        code_obj.function_name,
+        code_obj.filename,
+        std::string(code_obj.linetable, code_obj.linetable_size),
+        code_obj.firstlineno
+    }};
+    
+    if (!d_writer->writeRecord(code_record)) {
+        std::cerr << "memray: Failed to write code object record, deactivating tracking" << std::endl;
+        deactivate();
+    }
+    
+    return code_id;
+}
+
 frame_id_t
 Tracker::registerFrame(const RawFrame& frame)
 {
-    const auto [frame_id, is_new_frame] = d_frames.getIndex(frame);
+    // Make a mutable copy to set the code_object_id
+    RawFrame mutable_frame = frame;
+    
+    // First register the code object if needed
+    if (frame.code_object_ptr) {
+        CodeObject code_obj{
+            frame.function_name,
+            frame.filename,
+            frame.linetable,
+            frame.linetable_size,
+            frame.firstlineno
+        };
+        code_object_id_t code_id = registerCodeObject(frame.code_object_ptr, code_obj);
+        mutable_frame.code_object_id = code_id;
+    }
+    
+    const auto [frame_id, is_new_frame] = d_frames.getIndex(mutable_frame);
     if (is_new_frame) {
-        pyrawframe_map_val_t frame_index{frame_id, frame};
+        // Now we write a frame record with the code_id reference
+        pyrawframe_map_val_t frame_index{frame_id, mutable_frame};
         if (!d_writer->writeRecord(frame_index)) {
             std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
             deactivate();

@@ -23,6 +23,7 @@ const int CURRENT_HEADER_VERSION = 11;
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
 using millis_t = long long;
+using code_object_id_t = size_t;
 
 enum class RecordType : unsigned char {
     OTHER = 0,
@@ -38,6 +39,7 @@ enum class RecordType : unsigned char {
     THREAD_RECORD = 10,
     MEMORY_RECORD = 11,
     CONTEXT_SWITCH = 12,
+    CODE_OBJECT = 14,
 };
 
 enum class OtherRecordType : unsigned char {
@@ -59,6 +61,7 @@ enum class AggregatedRecordType : unsigned char {
     SEGMENT = 8,
     THREAD_RECORD = 10,
     CONTEXT_SWITCH = 12,
+    CODE_OBJECT = 14,
 
     AGGREGATED_TRAILER = 15,
 };
@@ -213,10 +216,13 @@ struct RawFrame
     const char* linetable;
     size_t linetable_size;
     int firstlineno;
+    const void* code_object_ptr;  // Pointer to PyCodeObject for caching
+    code_object_id_t code_object_id{0};  // ID assigned by tracker
 
     auto operator==(const RawFrame& other) const -> bool
     {
-        return (function_name == other.function_name && filename == other.filename
+        // Now we consider frames equal if they have same code object and lineno
+        return (code_object_ptr == other.code_object_ptr 
                 && lineno == other.lineno && is_entry_frame == other.is_entry_frame);
     }
 
@@ -225,18 +231,12 @@ struct RawFrame
         auto operator()(memray::tracking_api::RawFrame const& frame) const noexcept -> std::size_t
         {
             // Keep this hashing fast and simple as this has a non trivial
-            // performance impact on the tracing functionality. We don't hash
-            // the contents of the strings because the interpreter will give us
-            // the same char* for the same code object. Of course, we can have
-            // some scenarios where two functions with the same function name have
-            // two different char* but in that case we will end registering the
-            // name twice, which is a good compromise given the speed that we
-            // gain keeping this simple.
+            // performance impact on the tracing functionality. We now hash
+            // based on code object pointer for deduplication.
 
-            auto the_func = std::hash<const char*>{}(frame.function_name);
-            auto the_filename = std::hash<const char*>{}(frame.filename);
+            auto code_ptr = std::hash<const void*>{}(frame.code_object_ptr);
             auto lineno = std::hash<int>{}(frame.lineno);
-            return the_func ^ the_filename ^ lineno ^ frame.is_entry_frame;
+            return code_ptr ^ lineno ^ frame.is_entry_frame;
         }
     };
 };
@@ -249,6 +249,7 @@ struct Frame
     bool is_entry_frame{true};
     std::string linetable;
     int firstlineno{0};
+    code_object_id_t code_object_id{0};  // Reference to code object
 
     PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;
 
@@ -277,6 +278,27 @@ struct Frame
             return the_func ^ the_filename ^ lineno ^ frame.is_entry_frame;
         }
     };
+};
+
+// For storing code object info with strings (used in reader)
+struct CodeObjectInfo
+{
+    std::string function_name;
+    std::string filename;
+    std::string linetable;
+    int firstlineno;
+};
+
+using pycode_map_val_t = std::pair<code_object_id_t, CodeObjectInfo>;
+
+// Structure to represent code object information
+struct CodeObject
+{
+    const char* function_name;
+    const char* filename;
+    const char* linetable;
+    size_t linetable_size;
+    int firstlineno;
 };
 
 struct FramePush

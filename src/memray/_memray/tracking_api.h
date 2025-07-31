@@ -430,11 +430,16 @@ class Tracker
     const bool d_trace_python_allocators;
     linker::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
+    
+    // Code object cache: maps PyCodeObject* to code_object_id
+    std::unordered_map<const void*, code_object_id_t> d_code_object_cache;
+    code_object_id_t d_next_code_object_id{1};
     std::unordered_map<uint64_t, std::string> d_cached_thread_names;
 
     // Methods
     static size_t computeMainTidSkip();
     frame_id_t registerFrame(const RawFrame& frame);
+    code_object_id_t registerCodeObject(const void* code_ptr, const CodeObject& code_obj);
 
     void trackAllocationImpl(
             void* ptr,

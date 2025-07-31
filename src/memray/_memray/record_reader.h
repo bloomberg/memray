@@ -91,6 +91,7 @@ class RecordReader
     const bool d_track_stacks;
     HeaderRecord d_header;
     pyframe_map_t d_frame_map{};
+    std::unordered_map<code_object_id_t, CodeObjectInfo> d_code_object_map{};
     stack_traces_t d_stack_traces{};
     FrameTree d_tree{};
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
@@ -151,6 +152,9 @@ class RecordReader
 
     [[nodiscard]] bool parsePythonFrameIndexRecord(tracking_api::pyframe_map_val_t* pyframe_val);
     [[nodiscard]] bool processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_t& record);
+
+    [[nodiscard]] bool parseCodeObjectRecord(tracking_api::pycode_map_val_t* pycode_val);
+    [[nodiscard]] bool processCodeObjectRecord(const tracking_api::pycode_map_val_t& record);
 
     size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
