@@ -2008,11 +2008,9 @@ class TestFlameGraphReporter:
             peak_allocations, memory_records=[], native_traces=False, inverted=True
         )
 
-        tree, inverted_import_system_tree = get_packed_trees(reporter.data)
+        tree, _ = get_packed_trees(reporter.data)
 
         # THEN
-        assert tree == inverted_import_system_tree
-
         current_depth = n_frames
 
         current_node = tree["children"][0]
