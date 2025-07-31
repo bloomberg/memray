@@ -185,16 +185,16 @@ PythonStackTracker::emitPendingPushesAndPops()
         if (it->state == FrameState::NOT_EMITTED) {
             // Get instruction offset and divide by 2 as per user's requirement
             int lasti = compat::frameGetLasti(it->frame);
-            it->raw_frame_record.lineno = lasti;
+            it->raw_frame_record.instruction_offset = lasti;
         } else if (it->state == FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED) {
             int lasti = compat::frameGetLasti(it->frame);
             int offset = lasti;
-            if (offset != it->raw_frame_record.lineno) {
+            if (offset != it->raw_frame_record.instruction_offset) {
                 // Instruction offset was wrong; emit an artificial pop so we can push
                 // back in with the right offset.
                 d_num_pending_pops++;
                 it->state = FrameState::NOT_EMITTED;
-                it->raw_frame_record.lineno = offset;
+                it->raw_frame_record.instruction_offset = offset;
             } else {
                 it->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
                 break;
@@ -452,7 +452,7 @@ PythonStackTracker::createLazilyEmittedFrame(PyFrameObject* frame)
     const char* linetable = nullptr;
     size_t linetable_size = 0;
     int firstlineno = code->co_firstlineno;
-    
+
     if (code->co_linetable && PyBytes_Check(code->co_linetable)) {
         linetable = PyBytes_AsString(code->co_linetable);
         linetable_size = PyBytes_Size(code->co_linetable);
@@ -461,8 +461,10 @@ PythonStackTracker::createLazilyEmittedFrame(PyFrameObject* frame)
     // If native tracking is not enabled, treat every frame as an entry frame.
     // It doesn't matter to the reader, and is more efficient.
     bool is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
-    
-    return {frame, {function, filename, 0, is_entry_frame, linetable, linetable_size, firstlineno, code}, FrameState::NOT_EMITTED};
+
+    return {frame,
+            {function, filename, 0, is_entry_frame, linetable, linetable_size, firstlineno, code},
+            FrameState::NOT_EMITTED};
 }
 
 std::vector<PythonStackTracker::LazilyEmittedFrame>
@@ -1019,24 +1021,25 @@ Tracker::registerCodeObject(const void* code_ptr, const CodeObject& code_obj)
     if (it != d_code_object_cache.end()) {
         return it->second;
     }
-    
+
     // New code object - register it
     code_object_id_t code_id = d_next_code_object_id++;
     d_code_object_cache[code_ptr] = code_id;
-    
+
     // Write the code object record
-    pycode_map_val_t code_record{code_id, CodeObjectInfo{
-        code_obj.function_name,
-        code_obj.filename,
-        std::string(code_obj.linetable, code_obj.linetable_size),
-        code_obj.firstlineno
-    }};
-    
+    pycode_map_val_t code_record{
+            code_id,
+            CodeObjectInfo{
+                    code_obj.function_name,
+                    code_obj.filename,
+                    std::string(code_obj.linetable, code_obj.linetable_size),
+                    code_obj.firstlineno}};
+
     if (!d_writer->writeRecord(code_record)) {
         std::cerr << "memray: Failed to write code object record, deactivating tracking" << std::endl;
         deactivate();
     }
-    
+
     return code_id;
 }
 
@@ -1047,15 +1050,14 @@ Tracker::registerFrame(const RawFrame& frame)
     code_object_id_t code_id = 0;
     if (frame.code_object_ptr) {
         CodeObject code_obj{
-            frame.function_name,
-            frame.filename,
-            frame.linetable,
-            frame.linetable_size,
-            frame.firstlineno
-        };
+                frame.function_name,
+                frame.filename,
+                frame.linetable,
+                frame.linetable_size,
+                frame.firstlineno};
         code_id = registerCodeObject(frame.code_object_ptr, code_obj);
     }
-    
+
     const auto [frame_id, is_new_frame] = d_frames.getIndex(frame);
     if (is_new_frame) {
         // Write a frame record with the code_id passed separately

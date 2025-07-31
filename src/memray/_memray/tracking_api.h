@@ -430,7 +430,7 @@ class Tracker
     const bool d_trace_python_allocators;
     linker::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
-    
+
     // Code object cache: maps PyCodeObject* to code_object_id
     std::unordered_map<const void*, code_object_id_t> d_code_object_cache;
     code_object_id_t d_next_code_object_id{1};

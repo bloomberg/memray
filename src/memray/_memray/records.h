@@ -211,7 +211,7 @@ struct RawFrame
 {
     const char* function_name;
     const char* filename;
-    int lineno;
+    int instruction_offset;
     bool is_entry_frame;
     const char* linetable;
     size_t linetable_size;
@@ -221,9 +221,10 @@ struct RawFrame
 
     auto operator==(const RawFrame& other) const -> bool
     {
-        // Now we consider frames equal if they have same code object and lineno
-        return (code_object_ptr == other.code_object_ptr 
-                && lineno == other.lineno && is_entry_frame == other.is_entry_frame);
+        // Now we consider frames equal if they have same code object and instruction offset
+        return (code_object_ptr == other.code_object_ptr
+                && instruction_offset == other.instruction_offset
+                && is_entry_frame == other.is_entry_frame);
     }
 
     struct Hash
@@ -235,8 +236,8 @@ struct RawFrame
             // based on code object pointer for deduplication.
 
             auto code_ptr = std::hash<const void*>{}(frame.code_object_ptr);
-            auto lineno = std::hash<int>{}(frame.lineno);
-            return code_ptr ^ lineno ^ frame.is_entry_frame;
+            auto offset = std::hash<int>{}(frame.instruction_offset);
+            return code_ptr ^ offset ^ frame.is_entry_frame;
         }
     };
 };
@@ -246,6 +247,7 @@ struct Frame
     std::string function_name;
     std::string filename;
     int lineno{0};
+    int instruction_offset{-1};  // Used temporarily during record reading
     bool is_entry_frame{true};
     std::string linetable;
     int firstlineno{0};
@@ -355,14 +357,18 @@ class FrameCollection
     std::unordered_map<FrameType, frame_id_t, typename FrameType::Hash> d_frame_map{};
 };
 
-struct pyrawframe_map_val_t 
+struct pyrawframe_map_val_t
 {
     frame_id_t frame_id;
     RawFrame frame;
     code_object_id_t code_id;
-    
+
     pyrawframe_map_val_t(frame_id_t fid, const RawFrame& f, code_object_id_t cid)
-        : frame_id(fid), frame(f), code_id(cid) {}
+    : frame_id(fid)
+    , frame(f)
+    , code_id(cid)
+    {
+    }
 };
 using pyframe_map_val_t = std::pair<frame_id_t, Frame>;
 using pyframe_map_t = std::unordered_map<pyframe_map_val_t::first_type, pyframe_map_val_t::second_type>;

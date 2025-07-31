@@ -216,12 +216,11 @@ StreamingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
 {
     d_stats.n_frames += 1;
     RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.frame.is_entry_frame};
-    
+
     // Write frame with code object ID reference
-    return writeSimpleType(token) 
-           && writeIntegralDelta(&d_last.python_frame_id, item.frame_id)
+    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.frame_id)
            && writeVarint(item.code_id)
-           && writeIntegralDelta(&d_last.python_line_number, item.frame.lineno);
+           && writeIntegralDelta(&d_last.python_line_number, item.frame.instruction_offset);
 }
 
 bool
@@ -229,8 +228,7 @@ StreamingRecordWriter::writeRecord(const pycode_map_val_t& item)
 {
     RecordTypeAndFlags token{RecordType::CODE_OBJECT, 0};
     return writeSimpleType(token) && writeVarint(item.first)
-           && writeString(item.second.function_name.c_str())
-           && writeString(item.second.filename.c_str())
+           && writeString(item.second.function_name.c_str()) && writeString(item.second.filename.c_str())
            && writeIntegralDelta(&d_last.python_line_number, item.second.firstlineno)
            && writeVarint(item.second.linetable.size())
            && d_sink->writeAll(item.second.linetable.data(), item.second.linetable.size());
@@ -493,8 +491,7 @@ AggregatingRecordWriter::writeTrailer()
     // Write code objects first
     for (const auto& [code_id, code_info] : d_code_objects_by_id) {
         if (!writeSimpleType(AggregatedRecordType::CODE_OBJECT) || !writeVarint(code_id)
-            || !writeString(code_info.function_name.c_str())
-            || !writeString(code_info.filename.c_str())
+            || !writeString(code_info.function_name.c_str()) || !writeString(code_info.filename.c_str())
             || !writeIntegralDelta(&d_last.python_line_number, code_info.firstlineno)
             || !writeVarint(code_info.linetable.size())
             || !d_sink->writeAll(code_info.linetable.data(), code_info.linetable.size()))
@@ -515,8 +512,8 @@ AggregatingRecordWriter::writeTrailer()
 
     for (const auto& [frame_id, frame] : d_frames_by_id) {
         if (!writeSimpleType(AggregatedRecordType::PYTHON_FRAME_INDEX) || !writeSimpleType(frame_id)
-            || !writeVarint(frame.code_object_id)
-            || !writeSimpleType(frame.lineno) || !writeSimpleType(frame.is_entry_frame))
+            || !writeVarint(frame.code_object_id) || !writeSimpleType(frame.instruction_offset)
+            || !writeSimpleType(frame.is_entry_frame))
         {
             return false;
         }
@@ -584,8 +581,14 @@ AggregatingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
     d_stats.n_frames += 1;
     d_frames_by_id.emplace(
             item.frame_id,
-            Frame{item.frame.function_name, item.frame.filename, item.frame.lineno, item.frame.is_entry_frame, 
-                  std::string(item.frame.linetable, item.frame.linetable_size), item.frame.firstlineno, item.code_id});
+            Frame{item.frame.function_name,
+                  item.frame.filename,
+                  0,
+                  item.frame.instruction_offset,
+                  item.frame.is_entry_frame,
+                  std::string(item.frame.linetable, item.frame.linetable_size),
+                  item.frame.firstlineno,
+                  item.code_id});
     return true;
 }
 
