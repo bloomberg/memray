@@ -53,6 +53,7 @@ from _memray.snapshot cimport TemporaryAllocationsAggregator
 from _memray.socket_reader_thread cimport BackgroundSocketReader
 from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
+from _memray.tracking_api cimport RecursionGuard
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport install_trace_function
 from _memray.tracking_api cimport set_up_pthread_fork_handlers
@@ -706,6 +707,14 @@ cdef class Tracker:
                     attr,
                     ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
                 )
+
+            orig_set_os_name = getattr(threading.Thread, "_set_os_name", None)
+            if orig_set_os_name is not None:
+                def set_os_name_wrapper(self):
+                    cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
+                    orig_set_os_name(self)
+
+                setattr(threading.Thread, "_set_os_name", set_os_name_wrapper)
 
             self._previous_profile_func = sys.getprofile()
             self._previous_thread_profile_func = threading._profile_hook
