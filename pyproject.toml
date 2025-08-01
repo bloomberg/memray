@@ -1,13 +1,120 @@
-[build-system]
+[project]
+name = "memray"
+description = "A memory profiler for Python applications"
+readme = "README.md"
+requires-python = ">=3.7.0"
+license = { text = "Apache 2.0" }
+authors = [{ name = "Pablo Galindo Salgado" }, { name = "Matt Wozniski" }]
+classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Debuggers",
+]
+dependencies = [
+  "jinja2 >= 2.9",
+  "typing_extensions; python_version < '3.8.0'",
+  "rich >= 11.2.0",
+  "textual >= 0.41.0",
+]
+dynamic = ["version"]
 
-requires = [
-     "setuptools",
-     "wheel",
-     "pkgconfig",
-     "Cython>=0.29.31"
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "src/memray/_version.py"
+
+[project.optional-dependencies]
+test = [
+  "Cython",
+  "greenlet; python_version < '3.12'",
+  "pytest",
+  "pytest-cov",
+  "ipython",
+  "setuptools; python_version >= '3.12'",
+  "pytest-textual-snapshot",
+]
+docs = [
+  "IPython",
+  "bump2version",
+  "sphinx",
+  "furo",
+  "sphinx-argparse",
+  "towncrier",
+]
+lint = ["black", "flake8", "isort", "mypy", "check-manifest"]
+benchmark = ["asv"]
+dev = [
+  "Cython",
+  "greenlet; python_version < '3.12'",
+  "pytest",
+  "pytest-cov",
+  "ipython",
+  "setuptools; python_version >= '3.12'",
+  "pytest-textual-snapshot",
+  "black",
+  "flake8",
+  "isort",
+  "mypy",
+  "check-manifest",
+  "IPython",
+  "bump2version",
+  "sphinx",
+  "furo",
+  "sphinx-argparse",
+  "towncrier",
+  "asv",
 ]
 
-build-backend = 'setuptools.build_meta'
+[project.urls]
+Homepage = "https://github.com/bloomberg/memray"
+
+[project.scripts]
+memray = "memray.__main__:main"
+
+[build-system]
+requires = ["scikit-build-core", "cython"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+minimum-version = "0.9"
+cmake.verbose = true
+cmake.version = ">=3.26.1"
+cmake.build-type = "RelWithDebInfo"
+logging.level = "INFO"
+install.strip = false
+sdist.exclude = [
+    "/*/",
+    "!/src/",
+    ".*",
+    "/src/vendor/libbacktrace/install/**",
+    "/src/memray/*.cpp",
+    "/src/memray/*.h",
+    "/src/memray/**/*.md",
+    "/.clang-format",
+    "/asv.conf.json",
+    "/CONTRIBUTING.md",
+    "/Dockerfile",
+    "/Jenkinsfile",
+    "/requirements-*.txt",
+    "/.medusarc",
+    "/valgrind.supp",
+]
+wheel.packages = ["src/memray"]
+
+[[tool.scikit-build.overrides]]
+if.state = "editable"
+build-dir = "build"
+editable.verbose = false
+cmake.build-type = "Debug"
 
 [tool.ruff]
 line-length = 95
@@ -17,7 +124,7 @@ fix = true
 [tool.ruff.isort]
 force-single-line = true
 known-first-party = ["memray"]
-known-third-party=["rich", "elftools", "pytest"]
+known-third-party = ["rich", "elftools", "pytest"]
 
 [tool.ruff.per-file-ignores]
 "benchmarks/*" = ["C4", "PERF"]
@@ -29,8 +136,8 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 line_length = 88
-known_first_party=["memray"]
-known_third_party=["rich", "elftools", "pytest"]
+known_first_party = ["memray"]
+known_third_party = ["rich", "elftools", "pytest"]
 
 [tool.towncrier]
 package = "memray"
@@ -38,28 +145,24 @@ package_dir = "src"
 filename = "NEWS.rst"
 directory = "news"
 type = [
-  { name = "Features",                  directory = "feature", showcontent = true },
+  { name = "Features", directory = "feature", showcontent = true },
   { name = "Deprecations and Removals", directory = "removal", showcontent = true },
-  { name = "Bug Fixes",                 directory = "bugfix",  showcontent = true },
-  { name = "Improved Documentation",    directory = "doc",     showcontent = true },
-  { name = "Miscellaneous",             directory = "misc",    showcontent = true },
+  { name = "Bug Fixes", directory = "bugfix", showcontent = true },
+  { name = "Improved Documentation", directory = "doc", showcontent = true },
+  { name = "Miscellaneous", directory = "misc", showcontent = true },
 ]
 underlines = "-~"
 
 [tool.pytest.ini_options]
-markers = [
-    "valgrind",
-]
+markers = ["valgrind"]
 xfail_strict = true
 testpaths = ["tests"]
 
 [tool.check-manifest]
-ignore = [
-  "src/memray/reporters/templates/assets/*.js",
-]
+ignore = ["src/memray/reporters/templates/assets/*.js"]
 
 [tool.mypy]
-exclude="tests/integration/(native_extension|multithreaded_extension)/"
+exclude = "tests/integration/(native_extension|multithreaded_extension)/"
 
 [tool.cibuildwheel]
 build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
@@ -117,18 +220,11 @@ before-test = [
 ]
 
 [tool.coverage.run]
-plugins = [
-  "Cython.Coverage",
-]
-source = [
-  "src/memray",
-  "tests/",
-]
+plugins = ["Cython.Coverage"]
+source = ["src/memray", "tests/"]
 branch = true
 parallel = true
-omit = [
-  "*__init__.py",
-]
+omit = ["*__init__.py"]
 
 [tool.coverage.report]
 skip_covered = true

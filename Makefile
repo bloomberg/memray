@@ -25,7 +25,7 @@ build: build-js build-ext  ## (default) Build package extensions and assets in-p
 
 .PHONY: build-ext
 build-ext:  ## Build package extensions in-place
-	$(PYTHON) setup.py build_ext --inplace
+	$(PYTHON) -m pip install --no-build-isolation --config-settings=editable.rebuild=true -ve .
 
 $(reporters_path)/templates/assets/%.js: $(reporters_path)/assets/%.js
 	$(NPM) install
@@ -41,15 +41,15 @@ dist:  ## Generate Python distribution files
 
 .PHONY: install-sdist
 install-sdist: dist  ## Install from source distribution
-	$(ENV) $(PIP_INSTALL) $(wildcard dist/*.tar.gz)
+	$(PIP_INSTALL) $(wildcard dist/*.tar.gz)
 
 .PHONY: test-install
 test-install: build-js ## Install with test dependencies
-	$(ENV) CYTHON_TEST_MACROS=1 $(PIP_INSTALL) -e .[test]
+	$(PIP_INSTALL) -e .[test]
 
 .PHONY: dev-install
 dev-install: build-js ## Install with dev dependencies
-	$(ENV) CYTHON_TEST_MACROS=1 $(PIP_INSTALL) -e .[dev]
+	$(PIP_INSTALL) -e .[dev]
 
 .PHONY: check
 check: check-python check-js  ## Run all the tests
@@ -104,7 +104,7 @@ helgrind:  ## Run helgrind, with the correct configuration
 .PHONY: ccoverage
 ccoverage:  ## Run the test suite, with C++ code coverage
 	$(MAKE) clean
-	CFLAGS="$(CFLAGS) -O0 -pg --coverage" $(MAKE) build
+	CFLAGS="$(CFLAGS) -O0 -pg --coverage" CXXFLAGS="$(CXXFLAGS) -O0 -pg --coverage" $(MAKE) build
 	$(MAKE) check
 	gcov -i build/*/src/memray/_memray -i -d
 	lcov --capture --directory .  --output-file cppcoverage.lcov
