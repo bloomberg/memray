@@ -1,3 +1,4 @@
+import functools
 import subprocess
 import sys
 
@@ -11,17 +12,24 @@ from tests.utils import filter_relevant_allocations
 PROGRAM = """
 import sys
 import threading
+import time
 
 from memray._test import MemoryAllocator
 
-stop_bg_thread = threading.Event()
+stop_looping = threading.Event()
 
 
-def bg_thread_body():
-    bg_allocator = MemoryAllocator()
-    while not stop_bg_thread.is_set():
-        bg_allocator.malloc(1024)
-        bg_allocator.free()
+def io_thread_body():
+    print("ready")
+    for line in sys.stdin:
+        stop_looping.set()
+
+
+def alloc_thread_body():
+    while not stop_looping.is_set():
+        allocator = MemoryAllocator()
+        allocator.malloc(1024)
+        allocator.free()
 
 
 def foo():
@@ -38,17 +46,24 @@ def baz():
     allocator.free()
 
 
-# attach waits for a call to an allocator or deallocator, so we can't just
+# Debugger attaches wait for allocator or deallocator calls, so we can't just
 # block waiting for a signal. Allocate and free in a loop in the background.
-bg_thread = threading.Thread(target=bg_thread_body)
-bg_thread.start()
+# Additionally, there must be a Python loop in the main thread, because that's
+# the thread `sys.remote_exec` attaches to and it needs the eval breaker. Spawn
+# another background thread to let us know when to stop looping.
+io_thread = threading.Thread(target=io_thread_body)
+io_thread.start()
 
-print("ready")
-for line in sys.stdin:
-    if not stop_bg_thread.is_set():
-        stop_bg_thread.set()
-        bg_thread.join()
-    foo()
+alloc_thread = threading.Thread(target=alloc_thread_body)
+alloc_thread.start()
+
+while not stop_looping.is_set():
+    time.sleep(0.1)
+
+alloc_thread.join()
+io_thread.join()
+
+foo()
 """
 
 
@@ -147,10 +162,50 @@ def get_relevant_vallocs(records):
     ]
 
 
-@pytest.mark.parametrize("method", ["lldb", "gdb"])
-def test_basic_attach(tmp_path, method):
+@functools.lru_cache(maxsize=None)
+def debugging_method_works(method):
+    proc = subprocess.Popen(
+        [sys.executable, "-uc", r'input("ready\n")'],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert proc.stdout.readline() == "ready\n"
+    try:
+        if method == "sys.remote_exec":
+            cmd = [
+                sys.executable,
+                "-uc",
+                f"import sys; sys.remote_exec({proc.pid}, '/dev/null')",
+            ]
+        elif method == "gdb":
+            cmd = ["gdb", "-batch", "-p", str(proc.pid)]
+        elif method == "lldb":
+            cmd = ["lldb", "--batch", "-p", str(proc.pid)]
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
+        try:
+            subprocess.check_call(cmd)
+            return True
+        except Exception:
+            return False
+    finally:
+        proc.terminate()
+        proc.wait()
+
+
+def skip_if_not_supported(method):
     if not debugger_available(method):
-        pytest.skip(f"a supported {method} debugger isn't installed")
+        pytest.skip(f"{method} isn't available")
+
+    if not debugging_method_works(method):
+        pytest.skip(f"{method} cannot attach to remote processes on this system")
+
+
+@pytest.mark.parametrize("method", ["sys.remote_exec", "lldb", "gdb"])
+def test_basic_attach(tmp_path, method):
+    skip_if_not_supported(method)
 
     # GIVEN
     output = tmp_path / "test.bin"
@@ -165,10 +220,9 @@ def test_basic_attach(tmp_path, method):
     assert get_call_stack(valloc) == ["valloc", "baz", "bar", "foo", "<module>"]
 
 
-@pytest.mark.parametrize("method", ["lldb", "gdb"])
+@pytest.mark.parametrize("method", ["sys.remote_exec", "lldb", "gdb"])
 def test_aggregated_attach(tmp_path, method):
-    if not debugger_available(method):
-        pytest.skip(f"a supported {method} debugger isn't installed")
+    skip_if_not_supported(method)
 
     # GIVEN
     output = tmp_path / "test.bin"
@@ -189,10 +243,9 @@ def test_aggregated_attach(tmp_path, method):
     assert get_call_stack(valloc) == ["valloc", "baz", "bar", "foo", "<module>"]
 
 
-@pytest.mark.parametrize("method", ["lldb", "gdb"])
+@pytest.mark.parametrize("method", ["sys.remote_exec", "lldb", "gdb"])
 def test_attach_time(tmp_path, method):
-    if not debugger_available(method):
-        pytest.skip(f"a supported {method} debugger isn't installed")
+    skip_if_not_supported(method)
 
     # GIVEN
     output = tmp_path / "test.bin"
@@ -205,10 +258,9 @@ def test_attach_time(tmp_path, method):
     assert "memray: Deactivating tracking: 1 seconds have elapsed" in process_stderr
 
 
-@pytest.mark.parametrize("method", ["lldb", "gdb"])
+@pytest.mark.parametrize("method", ["sys.remote_exec", "lldb", "gdb"])
 def test_detach_without_attach(method):
-    if not debugger_available(method):
-        pytest.skip(f"a supported {method} debugger isn't installed")
+    skip_if_not_supported(method)
 
     # GIVEN
     detach_cmd = generate_detach_command(method)

@@ -11,6 +11,8 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
+import textwrap
 import threading
 
 import memray
@@ -128,8 +130,8 @@ elif {mode!r} == "FOR_DURATION":
 """
 
 
-def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
-    """Executes a file in a running Python process."""
+def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
+    """Execute a file in a running Python process using a debugger."""
     injecter = pathlib.Path(memray.__file__).parent / "_inject.abi3.so"
     assert injecter.exists()
 
@@ -231,6 +233,55 @@ def inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
     return "An unexpected error occurred. Run with --verbose to debug the failure."
 
 
+def remote_exec_inject(pid: int, port: int, verbose: bool, tmpdir: str) -> str | None:
+    """Execute a file in a running Python process using sys.remote_exec."""
+    script = textwrap.dedent(
+        f"""
+        from contextlib import closing
+        from queue import Queue
+        from socket import create_connection
+        from threading import Thread
+
+        exc = None
+
+        def thread_body():
+            try:
+                exec(sockfile.read(), globals())
+            except Exception as exc:
+                globals()["exc"] = exc
+
+        with closing(create_connection((None, {port})).makefile("rw")) as sockfile:
+            thread = Thread(target=thread_body)
+            thread.start()
+            thread.join()
+            if exc is not None:
+                sockfile.write(repr(exc))
+        """
+    )
+    script_path = pathlib.Path(tmpdir) / "attach.py"
+    script_path.write_text(script, encoding="utf-8")
+    try:
+        getattr(sys, "remote_exec")(pid, script_path)
+    except Exception as exc:
+        return f"Failed to execute script in remote process: {exc!r}"
+    return None
+
+
+def inject(method: str, pid: int, port: int, verbose: bool, tmpdir: str) -> str | None:
+    """Execute a file in a running Python process."""
+    if method == "sys.remote_exec":
+        return remote_exec_inject(pid, port, verbose=verbose, tmpdir=tmpdir)
+    return debugger_inject(method, pid, port, verbose=verbose)
+
+
+def _sys_remote_exec_available(verbose: bool) -> bool:
+    if not hasattr(sys, "remote_exec"):
+        if verbose:
+            print("sys.remote_exec is not available in this Python version")
+        return False
+    return True
+
+
 def _gdb_available(verbose: bool) -> bool:
     if not shutil.which("gdb"):
         if verbose:
@@ -268,7 +319,11 @@ def _lldb_available(verbose: int) -> bool:
 
 
 def debugger_available(debugger: str, verbose: bool = False) -> bool:
-    return {"gdb": _gdb_available, "lldb": _lldb_available}[debugger](verbose=verbose)
+    return {
+        "sys.remote_exec": _sys_remote_exec_available,
+        "gdb": _gdb_available,
+        "lldb": _lldb_available,
+    }[debugger](verbose=verbose)
 
 
 def recvall(sock: socket.socket) -> str:
@@ -301,7 +356,7 @@ class _DebuggerCommand:
             help="Method to use for injecting commands into the remote process",
             type=str,
             default="auto",
-            choices=["auto", "gdb", "lldb"],
+            choices=["auto", "sys.remote_exec", "gdb", "lldb"],
         )
 
         parser.add_argument(
@@ -321,20 +376,23 @@ class _DebuggerCommand:
         if method == "auto":
             # Prefer gdb on Linux but lldb on macOS
             if platform.system() == "Linux":
-                debuggers = ("gdb", "lldb")
+                debuggers = ("sys.remote_exec", "gdb", "lldb")
             else:
-                debuggers = ("lldb", "gdb")
+                debuggers = ("sys.remote_exec", "lldb", "gdb")
 
             for debugger in debuggers:
                 if debugger_available(debugger, verbose=verbose):
                     return debugger
             raise MemrayCommandError(
-                "Cannot find a supported lldb or gdb executable.",
+                "Cannot find a supported lldb or gdb executable"
+                " and sys.remote_exec is not available.",
                 exit_code=1,
             )
         elif not debugger_available(method, verbose=verbose):
             raise MemrayCommandError(
-                f"Cannot find a supported {method} executable.",
+                "sys.remote_exec requires Python 3.14 or newer."
+                if method == "sys.remote_exec"
+                else f"Cannot find a supported {method} executable.",
                 exit_code=1,
             )
         return method
@@ -343,12 +401,14 @@ class _DebuggerCommand:
         self, method: str, pid: int, *, verbose: bool = False
     ) -> socket.socket:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        with contextlib.closing(server):
+        with contextlib.closing(server), tempfile.TemporaryDirectory() as tmpdir:
             server.bind(("localhost", 0))
             server.listen(1)
             sidechannel_port = server.getsockname()[1]
 
-            errmsg = inject(method, pid, sidechannel_port, verbose=verbose)
+            errmsg = inject(
+                method, pid, sidechannel_port, verbose=verbose, tmpdir=tmpdir
+            )
             if errmsg:
                 raise MemrayCommandError(errmsg, exit_code=1)
 
