@@ -122,7 +122,7 @@ def generate_sample_results(
 ):
     results_file = tmp_path / "result.bin"
     env = os.environ.copy()
-    env["PYTHONMALLOC"] = "malloc" if disable_pymalloc else "pymalloc"
+    env["PYTHONMALLOC"] = "malloc" if disable_pymalloc else "default"
     subprocess.run(
         [
             sys.executable,
@@ -906,7 +906,7 @@ class TestFlamegraphSubCommand:
         output_file = tmp_path / "memray-flamegraph-result.html"
         assert output_file.exists()
         assert warning_expected == (
-            'Report generated using "--leaks" using pymalloc allocator'
+            "Report generated using <code>--leaks</code> with an arena allocator"
             in output_file.read_text()
         )
 

@@ -38,6 +38,12 @@ getPythonAllocator()
     if (allocator_name == "pymalloc_debug") {
         return PythonAllocatorType::PYTHONALLOCATOR_PYMALLOC_DEBUG;
     }
+    if (allocator_name == "mimalloc") {
+        return PythonAllocatorType::PYTHONALLOCATOR_MIMALLOC;
+    }
+    if (allocator_name == "mimalloc_debug") {
+        return PythonAllocatorType::PYTHONALLOCATOR_MIMALLOC_DEBUG;
+    }
     if (allocator_name == "malloc") {
         return PythonAllocatorType::PYTHONALLOCATOR_MALLOC;
     }

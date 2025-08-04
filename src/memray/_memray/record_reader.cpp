@@ -917,6 +917,12 @@ RecordReader::dumpAllRecords()
         case PythonAllocatorType::PYTHONALLOCATOR_PYMALLOC_DEBUG:
             python_allocator = "pymalloc debug";
             break;
+        case PythonAllocatorType::PYTHONALLOCATOR_MIMALLOC:
+            python_allocator = "mimalloc";
+            break;
+        case PythonAllocatorType::PYTHONALLOCATOR_MIMALLOC_DEBUG:
+            python_allocator = "mimalloc debug";
+            break;
         case PythonAllocatorType::PYTHONALLOCATOR_MALLOC:
             python_allocator = "pymalloc";
             break;
