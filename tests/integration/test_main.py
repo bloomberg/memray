@@ -7,6 +7,7 @@ import re
 import signal
 import subprocess
 import sys
+import sysconfig
 import textwrap
 import time
 from pathlib import Path
@@ -32,7 +33,6 @@ def simple_test_file(tmp_path):
         print("Allocating some memory!")
         allocator = MemoryAllocator()
         allocator.valloc(1024)
-        allocator.free()
         """
     )
     code_file.write_text(program)
@@ -873,6 +873,10 @@ class TestFlamegraphSubCommand:
         trace_python_allocators,
         disable_pymalloc,
     ):
+        if disable_pymalloc and sysconfig.get_config_var("Py_GIL_DISABLED"):
+            pytest.skip("PYTHONMALLOC=malloc is not supported in free-threading builds")
+
+        # GIVEN
         results_file, _ = generate_sample_results(
             tmp_path,
             simple_test_file,

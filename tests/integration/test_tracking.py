@@ -1,6 +1,7 @@
 import collections
 import datetime
 import mmap
+import os
 import signal
 import subprocess
 import sys
@@ -1599,26 +1600,26 @@ class TestHeader:
     def test_header_allocator(self, allocator, allocator_name, tmpdir):
         # GIVEN
         output = Path(tmpdir) / "test.bin"
+        env = os.environ.copy()
+        env["PYTHONMALLOC"] = allocator
+        if subprocess.run([sys.executable, "-cpass"], env=env).returncode != 0:
+            pytest.skip(f"This interpreter doesn't support PYTHONMALLOC={allocator}")
 
         # WHEN
 
         subprocess_code = textwrap.dedent(
             f"""
-        from memray import Tracker
-        from memray._test import MemoryAllocator
-        allocator = MemoryAllocator()
+            from memray import Tracker
+            from memray._test import MemoryAllocator
+            allocator = MemoryAllocator()
 
-        with Tracker('{output}'):
-            allocator.valloc(1024)
-            allocator.free()
-        """
+            with Tracker('{output}'):
+                allocator.valloc(1024)
+                allocator.free()
+            """
         )
 
-        subprocess.run(
-            [sys.executable, "-c", subprocess_code],
-            timeout=5,
-            env={"PYTHONMALLOC": allocator},
-        )
+        subprocess.run([sys.executable, "-c", subprocess_code], timeout=5, env=env)
 
         reader = FileReader(output)
         metadata = reader.metadata
