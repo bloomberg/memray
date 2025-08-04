@@ -125,7 +125,11 @@ def test_allocations_with_multiprocessing_following_fork(tmpdir):
 
     num_expected = 5000 + 4000 + 3000 + 2000 + 1000 + 100 + 10 + 1
     assert len(child_vallocs) == num_expected
-    assert len(child_frees) == num_expected
+
+    # We may be missing up to 1 free per process in the pool due to our
+    # heuristic for recovering from truncated files (see the comment
+    # where d_readable_size is set in source.cpp)
+    assert 0 <= len(child_vallocs) - len(child_frees) <= 3
     for valloc in child_vallocs:
         assert valloc.size == 1234
 
