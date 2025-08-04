@@ -334,7 +334,7 @@ def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
         import functools
         import sys
 
-        import memray
+        import memray._test
         import native_ext
 
 
@@ -343,6 +343,12 @@ def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
 
 
         def bar(_):
+            allocator = memray._test.MemoryAllocator()
+            allocator.valloc(1234)
+            baz()
+
+
+        def baz():
             pass
 
 
@@ -351,7 +357,6 @@ def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
         """
     )
     env = os.environ.copy()
-    env["PYTHONMALLOC"] = "malloc"
     env["PYTHONPATH"] = str(extension_path)
 
     # WHEN
@@ -373,7 +378,7 @@ def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
         print(stack)
 
         # This function never allocates anything, so we should never see it.
-        assert "bar" not in stack
+        assert "baz" not in stack
 
         if "run_recursive" in stack:
             found_an_interesting_stack = True
