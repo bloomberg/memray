@@ -149,6 +149,7 @@ COMPILER_DIRECTIVES = {
     "linetrace": False,
     "c_string_type": "unicode",
     "c_string_encoding": "utf8",
+    "freethreading_compatible": True,
 }
 EXTRA_COMPILE_ARGS = []
 EXTRA_LINK_ARGS = []
@@ -180,6 +181,7 @@ if TEST_BUILD:
         "infer_types": True,
         "c_string_type": "unicode",
         "c_string_encoding": "utf8",
+        "freethreading_compatible": True,
     }
     EXTRA_COMPILE_ARGS = []
     UNDEF_MACROS = ["NDEBUG"]
