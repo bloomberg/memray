@@ -1595,6 +1595,8 @@ class TestHeader:
             ("malloc", "malloc"),
             ("pymalloc", "pymalloc"),
             ("pymalloc_debug", "pymalloc debug"),
+            ("mimalloc", "mimalloc"),
+            ("mimalloc_debug", "mimalloc debug"),
         ],
     )
     def test_header_allocator(self, allocator, allocator_name, tmpdir):

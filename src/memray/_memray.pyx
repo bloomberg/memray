@@ -122,6 +122,8 @@ cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC_DEBUG = 2
     PYTHON_ALLOCATOR_MALLOC = 3
     PYTHON_ALLOCATOR_OTHER = 4
+    PYTHON_ALLOCATOR_MIMALLOC = 5
+    PYTHON_ALLOCATOR_MIMALLOC_DEBUG = 6
 
 cpdef enum FileFormat:
     ALL_ALLOCATIONS = _FileFormat.ALL_ALLOCATIONS
@@ -761,6 +763,8 @@ cdef _create_metadata(header, peak_memory):
     allocator_id_to_name = {
         PythonAllocatorType.PYTHON_ALLOCATOR_PYMALLOC: "pymalloc",
         PythonAllocatorType.PYTHON_ALLOCATOR_PYMALLOC_DEBUG: "pymalloc debug",
+        PythonAllocatorType.PYTHON_ALLOCATOR_MIMALLOC: "mimalloc",
+        PythonAllocatorType.PYTHON_ALLOCATOR_MIMALLOC_DEBUG: "mimalloc debug",
         PythonAllocatorType.PYTHON_ALLOCATOR_MALLOC: "malloc",
         PythonAllocatorType.PYTHON_ALLOCATOR_OTHER: "unknown",
     }

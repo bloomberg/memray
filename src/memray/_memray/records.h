@@ -99,6 +99,8 @@ enum PythonAllocatorType : unsigned char {
     PYTHONALLOCATOR_PYMALLOC_DEBUG = 2,
     PYTHONALLOCATOR_MALLOC = 3,
     PYTHONALLOCATOR_OTHER = 4,
+    PYTHONALLOCATOR_MIMALLOC = 5,
+    PYTHONALLOCATOR_MIMALLOC_DEBUG = 6,
 };
 
 enum FileFormat : unsigned char {
