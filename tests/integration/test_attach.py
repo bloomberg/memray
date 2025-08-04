@@ -107,7 +107,7 @@ def generate_detach_command(method, *args):
 def run_process(cmd, wait_for_stderr=False):
     process_stderr = ""
     tracked_process = subprocess.Popen(
-        [sys.executable, "-uc", PROGRAM],
+        [sys.executable, "-Wignore", "-uc", PROGRAM],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -139,7 +139,8 @@ def run_process(cmd, wait_for_stderr=False):
         print("1", file=tracked_process.stdin, flush=True)
         if wait_for_stderr:
             process_stderr = tracked_process.stderr.readline()
-            while "WARNING" in process_stderr:
+            # Skip any lines like 'WARNING: Correcting symbol for malloc'
+            while "warning" in process_stderr.lower():
                 process_stderr = tracked_process.stderr.readline()
         tracked_process.stdin.close()
         tracked_process.wait()
@@ -165,7 +166,7 @@ def get_relevant_vallocs(records):
 @functools.lru_cache(maxsize=None)
 def debugging_method_works(method):
     proc = subprocess.Popen(
-        [sys.executable, "-uc", r'input("ready\n")'],
+        [sys.executable, "-Wignore", "-uc", r'input("ready\n")'],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         text=True,
