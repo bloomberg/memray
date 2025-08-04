@@ -1,11 +1,40 @@
-#define Py_LIMITED_API 0x03070000
-#include "Python.h"
-
 #include <netdb.h>
+#include <stdint.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include <iostream>
+
+/* We depend on the Python 3.7 stable ABI, but we can't simply do the obvious
+     #define Py_LIMITED_API 0x03070000
+     #include "Python.h"
+   because we need to support building something that uses the stable ABI from
+   a free-threading interpreter, and Python.h doesn't support that.
+   So, we declare the ABI for the functions we need ourselves. */
+
+struct PyObject;
+typedef enum { PyGILState_LOCKED, PyGILState_UNLOCKED } PyGILState_STATE;
+#define Py_file_input 257
+
+#define PyAPI_FUNC(ret_type) extern "C" ret_type
+
+PyAPI_FUNC(char*) PyBytes_AsString(PyObject*);
+PyAPI_FUNC(PyObject*) PyDict_New(void);
+PyAPI_FUNC(int) PyDict_SetItemString(PyObject* dp, const char* key, PyObject* item);
+PyAPI_FUNC(void) PyErr_Clear(void);
+PyAPI_FUNC(void) PyErr_Fetch(PyObject**, PyObject**, PyObject**);
+PyAPI_FUNC(void) PyErr_NormalizeException(PyObject**, PyObject**, PyObject**);
+PyAPI_FUNC(PyObject*) PyErr_Occurred(void);
+PyAPI_FUNC(PyObject*) PyEval_EvalCode(PyObject*, PyObject*, PyObject*);
+PyAPI_FUNC(PyGILState_STATE) PyGILState_Ensure(void);
+PyAPI_FUNC(void) PyGILState_Release(PyGILState_STATE);
+PyAPI_FUNC(PyObject*) PyImport_ImportModule(const char* name);
+PyAPI_FUNC(PyObject*) PyObject_Repr(PyObject*);
+PyAPI_FUNC(PyObject*) PyUnicode_AsUTF8String(PyObject* unicode);
+PyAPI_FUNC(PyObject*) Py_CompileString(const char*, const char*, int);
+PyAPI_FUNC(void) Py_DecRef(PyObject*);
+PyAPI_FUNC(int) Py_IsInitialized(void);
 
 namespace memray {
 namespace {  // unnamed
@@ -108,13 +137,13 @@ Memray_PyErr_ToString()
         } else {
             ret = PyBytes_AsString(utf8);
         }
-        Py_XDECREF(utf8);
+        Py_DecRef(utf8);
     }
-    Py_XDECREF(exc_repr);
+    Py_DecRef(exc_repr);
 
-    Py_XDECREF(type);
-    Py_XDECREF(val);
-    Py_XDECREF(tb);
+    Py_DecRef(type);
+    Py_DecRef(val);
+    Py_DecRef(tb);
 
     return ret;
 }
@@ -159,10 +188,10 @@ run_script_impl(const std::string& script, std::string* errmsg)
     success = true;
 
 done:
-    Py_XDECREF(mod);
-    Py_XDECREF(code);
-    Py_XDECREF(globals);
-    Py_XDECREF(builtins);
+    Py_DecRef(mod);
+    Py_DecRef(code);
+    Py_DecRef(globals);
+    Py_DecRef(builtins);
 
     *errmsg = Memray_PyErr_ToString();
     return success;
