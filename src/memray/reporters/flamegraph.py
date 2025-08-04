@@ -340,9 +340,8 @@ class FlameGraphReporter:
             "strings": all_strings.strings,
         }
 
-        if interval_list:
+        if temporal:
             data["intervals"] = interval_list
-        if no_imports_interval_list:
             data["no_imports_interval_list"] = no_imports_interval_list
 
         return cls(data, memory_records=memory_records)
