@@ -49,6 +49,28 @@ starts_with(const std::string& haystack, const std::string_view& needle)
 }
 #endif
 
+class StopTheWorldGuard
+{
+  public:
+    StopTheWorldGuard()
+    : d_interp(PyGILState_GetThisThreadState()->interp)
+    {
+        memray::compat::stopTheWorld(d_interp);
+    }
+
+    ~StopTheWorldGuard()
+    {
+        memray::compat::startTheWorld(d_interp);
+    }
+
+  private:
+    StopTheWorldGuard(const StopTheWorldGuard&) = delete;
+    StopTheWorldGuard& operator=(const StopTheWorldGuard&) = delete;
+    StopTheWorldGuard(StopTheWorldGuard&&) = delete;
+
+    PyInterpreterState* d_interp;
+};
+
 }  // namespace
 
 namespace memray::tracking_api {
@@ -126,6 +148,7 @@ class PythonStackTracker
     static bool s_native_tracking_enabled;
 
     static void installProfileHooks();
+    static void recordAllStacks();
     static void removeProfileHooks();
 
     void clear();
@@ -144,7 +167,6 @@ class PythonStackTracker
     static PythonStackTracker& getUnsafe();
 
     static std::vector<LazilyEmittedFrame> pythonFrameToStack(PyFrameObject* current_frame);
-    static void recordAllStacks();
     void reloadStackIfTrackerChanged();
 
     void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
@@ -328,7 +350,12 @@ PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
 {
     // Note: this function does not require the GIL.
     if (d_stack) {
-        d_stack->push_back(frame);
+        // This frame may already be on the stack if another thread installed
+        // a Tracker and captured our stack while this frame was being pushed.
+        // Avoid duplicating it.
+        if (d_stack->empty() || d_stack->back().frame != frame.frame) {
+            d_stack->push_back(frame);
+        }
         return;
     }
 
@@ -517,6 +544,13 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
 void
 PythonStackTracker::recordAllStacks()
 {
+    // We need to ensure that stacks are captured atomically with respect to
+    // incrementing s_tracker_generation and to setting Tracker::isActive().
+    // The caller must use the GIL for this in with-GIL builds, and call
+    // _PyEval_StopTheWorld in free-threaded builds. Otherwise, the shadow
+    // stack may become inconsistent with the true stack for a thread, which
+    // leads to frames being used after they've been freed.
+
     assert(PyGILState_Check());
 
     // Record the current Python stack of every thread
@@ -550,21 +584,8 @@ PythonStackTracker::recordAllStacks()
 void
 PythonStackTracker::installProfileHooks()
 {
-    assert(PyGILState_Check());
-
-    // Uninstall any existing profile function in all threads. Do this before
-    // installing ours, since we could lose the GIL if the existing profile arg
-    // has a __del__ that gets called. We must hold the GIL for the entire time
-    // we capture threads' stacks and install our trace function into them, so
-    // their stacks can't change after we've captured them and before we've
-    // installed our profile function that utilizes the captured stacks, and so
-    // they can't start profiling before we capture their stack and miss it.
-    compat::setprofileAllThreads(nullptr, nullptr);
-
-    // Find and record the Python stack for all existing threads.
-    recordAllStacks();
-
-    // Install our profile function in all existing threads.
+    // Install our profile function in all existing threads. Note that the
+    // profile function may begin executing before recordAllStacks is called.
     compat::setprofileAllThreads(PyTraceFunction, nullptr);
 }
 
@@ -851,7 +872,11 @@ Tracker::childFork()
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators));
-    Tracker::activate();
+
+    StopTheWorldGuard stop_the_world;
+    PythonStackTracker::recordAllStacks();
+    std::unique_lock<std::mutex> lock(*s_mutex);
+    tracking_api::Tracker::activate();
     RecursionGuard::setValue(false);
 }
 
@@ -1110,7 +1135,6 @@ Tracker::createTracker(
         bool follow_fork,
         bool trace_python_allocators)
 {
-    // Note: the GIL is used for synchronization of the singleton
     s_instance_owner.reset(new Tracker(
             std::move(record_writer),
             native_traces,
@@ -1118,6 +1142,8 @@ Tracker::createTracker(
             follow_fork,
             trace_python_allocators));
 
+    StopTheWorldGuard stop_the_world;
+    PythonStackTracker::recordAllStacks();
     std::unique_lock<std::mutex> lock(*s_mutex);
     tracking_api::Tracker::activate();
     Py_RETURN_NONE;

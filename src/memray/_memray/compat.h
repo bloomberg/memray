@@ -87,6 +87,39 @@ threadStateGetInterpreter(PyThreadState* tstate)
 #endif
 }
 
+#if PY_VERSION_HEX >= 0x030E0000
+
+extern "C" void
+_PyEval_StopTheWorld(PyInterpreterState*);
+extern "C" void
+_PyEval_StartTheWorld(PyInterpreterState*);
+
+inline void
+stopTheWorld(PyInterpreterState* interp)
+{
+    _PyEval_StopTheWorld(interp);
+}
+
+inline void
+startTheWorld(PyInterpreterState* interp)
+{
+    _PyEval_StartTheWorld(interp);
+}
+
+#else
+
+inline void
+stopTheWorld(PyInterpreterState*)
+{
+}
+
+inline void
+startTheWorld(PyInterpreterState*)
+{
+}
+
+#endif
+
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg);
 
