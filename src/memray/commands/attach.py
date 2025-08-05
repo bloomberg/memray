@@ -111,6 +111,7 @@ def track_for_duration(duration=5):
         deactivate_last_tracker()
 
     thread = threading.Timer(duration, deactivate_because_timer_elapsed)
+    thread.daemon = False
     thread.start()
     memray._attach_event_threads.append(thread)
 
