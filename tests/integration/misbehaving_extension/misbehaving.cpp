@@ -91,18 +91,14 @@ static PyMethodDef methods[] = {
         {NULL, NULL, 0, NULL},
 };
 
-#if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef moduledef = {PyModuleDef_HEAD_INIT, "misbehaving", "", -1, methods};
 
 PyMODINIT_FUNC
 PyInit_misbehaving(void)
 {
-    return PyModule_Create(&moduledef);
-}
-#else
-PyMODINIT_FUNC
-initmisbehaving(void)
-{
-    Py_InitModule("misbehaving", methods);
-}
+    PyObject *mod = PyModule_Create(&moduledef);
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(mod, Py_MOD_GIL_NOT_USED);
 #endif
+    return mod;
+}

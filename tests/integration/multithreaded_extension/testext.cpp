@@ -102,18 +102,14 @@ static PyMethodDef methods[] = {
         {NULL, NULL, 0, NULL},
 };
 
-#if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef moduledef = {PyModuleDef_HEAD_INIT, "testext", "", -1, methods};
 
 PyMODINIT_FUNC
 PyInit_testext(void)
 {
-    return PyModule_Create(&moduledef);
-}
-#else
-PyMODINIT_FUNC
-inittestext(void)
-{
-    Py_InitModule("testext", methods);
-}
+    PyObject *mod = PyModule_Create(&moduledef);
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(mod, Py_MOD_GIL_NOT_USED);
 #endif
+    return mod;
+}

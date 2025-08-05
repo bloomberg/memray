@@ -114,18 +114,14 @@ static PyMethodDef methods[] = {
         {NULL, NULL, 0, NULL},
 };
 
-#if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef moduledef = {PyModuleDef_HEAD_INIT, "native_ext", "", -1, methods};
 
 PyMODINIT_FUNC
 PyInit_native_ext(void)
 {
-    return PyModule_Create(&moduledef);
-}
-#else
-PyMODINIT_FUNC
-initnative_ext(void)
-{
-    Py_InitModule("native_ext", methods);
-}
+    PyObject *mod = PyModule_Create(&moduledef);
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(mod, Py_MOD_GIL_NOT_USED);
 #endif
+    return mod;
+}
