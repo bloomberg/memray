@@ -82,7 +82,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.1.1
         env:
-          CIBW_BUILD: "cp3{7..14}-${{ matrix.wheel_type }}"
+          CIBW_BUILD: "cp3{7..14}{t,}-${{ matrix.wheel_type }}"
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux || 'auto' }}
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
@@ -130,7 +130,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.1.1
         env:
-          CIBW_BUILD: "cp3{8..14}-*"
+          CIBW_BUILD: "cp3{8..14}{t,}-*"
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
