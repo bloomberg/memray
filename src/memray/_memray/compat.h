@@ -137,36 +137,23 @@ startTheWorld(PyInterpreterState*)
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg);
 
-inline PyObject*
-codeGetLinetable(PyCodeObject* code)
+inline const char*
+codeGetLinetable(PyCodeObject* code, size_t* size)
 {
 #if PY_VERSION_HEX >= 0x030A0000
     // Python 3.10+ uses co_linetable
-    return code->co_linetable;
+    PyObject* linetable = code->co_linetable;
 #else
     // Python 3.9 and earlier use co_lnotab
-    return code->co_lnotab;
+    PyObject* linetable = code->co_lnotab;
 #endif
-}
 
-inline const char*
-codeGetLinetableBytes(PyCodeObject* code)
-{
-    PyObject* linetable = codeGetLinetable(code);
     if (linetable && PyBytes_Check(linetable)) {
-        return PyBytes_AsString(linetable);
+        *size = PyBytes_GET_SIZE(linetable);
+        return PyBytes_AS_STRING(linetable);
     }
+    *size = 0;
     return nullptr;
-}
-
-inline Py_ssize_t
-codeGetLinetableSize(PyCodeObject* code)
-{
-    PyObject* linetable = codeGetLinetable(code);
-    if (linetable && PyBytes_Check(linetable)) {
-        return PyBytes_Size(linetable);
-    }
-    return 0;
 }
 
 // Location information structure for line table parsing

@@ -554,8 +554,8 @@ PythonStackTracker::createLazilyEmittedFrame(PyFrameObject* frame)
     }
 
     // Get linetable information
-    const char* linetable = compat::codeGetLinetableBytes(code);
-    size_t linetable_size = compat::codeGetLinetableSize(code);
+    size_t linetable_size;
+    const char* linetable = compat::codeGetLinetable(code, &linetable_size);
     int firstlineno = code->co_firstlineno;
 
     // If native tracking is not enabled, treat every frame as an entry frame.
