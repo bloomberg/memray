@@ -1,1 +1,0 @@
-Free-threaded builds of Python 3.14 are now supported.

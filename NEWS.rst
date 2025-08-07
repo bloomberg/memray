@@ -8,6 +8,34 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.18.0 (2025-08-07)
+--------------------------
+
+Features
+~~~~~~~~
+
+- Add a button to the flame graph and table reports for downloading a CSV of the source data of the graph showing RSS and heap memory usage over time. (#769)
+- Peak memory usage is now included in the stats reporter. (#771)
+- Python 3.14 is now supported. (#804)
+- ``memray attach`` now supports attaching to a process using the new built-in ``sys.remote_exec`` when running in Python 3.14, rather than needing to use a debugger to inject itself. Since this is faster and safer, it is the new default, but you can still use the old methods by passing ``--method=gdb`` or ``--method=lldb`` to ``memray attach``. (#805)
+- Free-threaded builds of Python 3.14 are now supported. (#808)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- We no longer provide musllinux_1_1 wheels. Previously they were provided for Python 3.7 through 3.13, now we provide musllinux_1_2 wheels for those Python versions instead. The manylinux project dropped support for musllinux_1_1 on November 1st, 2024. (#742)
+- We no longer provide manylinux2010 wheels. Previously they were provided for Python 3.7 through 3.12, now we provide manylinux2014 wheels for those Python versions instead. The manylinux project dropped support for manylinux2010 on August 1st, 2022. (#742)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Update all Memray reporters to consistently use kilobytes rather than kibibytes and ensure that the proper SI unit labels are used. (#774)
+- Fix a bug that could have resulted in a use-after-free in a program where Memray's profile hooks were uninstalled by a call to ``PyEval_SetProfileAllThreads``. (#803)
+- Fix a potential use-after-free bug in ``memray attach``. (#808)
+
+
 memray 1.17.2 (2025-05-08)
 --------------------------
 

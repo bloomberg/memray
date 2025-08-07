@@ -1,1 +1,0 @@
-``memray attach`` now supports attaching to a process using the new built-in ``sys.remote_exec`` when running in Python 3.14, rather than needing to use a debugger to inject itself. Since this is faster and safer, it is the new default, but you can still use the old methods by passing ``--method=gdb`` or ``--method=lldb`` to ``memray attach``.

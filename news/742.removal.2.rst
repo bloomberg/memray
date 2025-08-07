@@ -1,1 +1,0 @@
-We no longer provide musllinux_1_1 wheels. Previously they were provided for Python 3.7 through 3.13, now we provide musllinux_1_2 wheels for those Python versions instead. The manylinux project dropped support for musllinux_1_1 on November 1st, 2024.
