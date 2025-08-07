@@ -18,7 +18,7 @@
 namespace memray::tracking_api {
 
 extern const char MAGIC[7];  // Value assigned in records.cpp
-const int CURRENT_HEADER_VERSION = 11;
+const int CURRENT_HEADER_VERSION = 12;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
