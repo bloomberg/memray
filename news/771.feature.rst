@@ -1,1 +1,0 @@
-Peak memory usage is now included in the stats reporter.

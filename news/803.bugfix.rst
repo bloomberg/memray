@@ -1,1 +1,0 @@
-Fix a bug that could have resulted in a use-after-free in a program where Memray's profile hooks were uninstalled by a call to ``PyEval_SetProfileAllThreads``.
