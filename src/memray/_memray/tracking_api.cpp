@@ -241,7 +241,7 @@ PythonStackTracker::emitPendingPushesAndPops()
     PyGILState_STATE gstate = PyGILState_Ensure();
 #endif
 
-    // At any time, the stack contains (in this order):
+    // At any time, the stack contains (pushed in this order):
     // Any number of EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED frames
     // 0 or 1 EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED frame
     // Any number of NOT_EMITTED frames
@@ -249,7 +249,6 @@ PythonStackTracker::emitPendingPushesAndPops()
     auto it = d_stack->rbegin();
     for (; it != d_stack->rend(); ++it) {
         if (it->state == FrameState::NOT_EMITTED) {
-            // Get instruction offset and divide by 2 as per user's requirement
             int lasti = compat::frameGetLasti(it->frame);
             it->raw_frame_record.instruction_offset = lasti;
         } else if (it->state == FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED) {
