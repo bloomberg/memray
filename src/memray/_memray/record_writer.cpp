@@ -188,6 +188,7 @@ StreamingRecordWriter::StreamingRecordWriter(
     d_header = HeaderRecord{
             "",
             d_version,
+            PY_VERSION_HEX,
             native_traces,
             FileFormat::ALL_ALLOCATIONS,
             d_stats,
@@ -392,10 +393,10 @@ bool
 RecordWriter::writeHeaderCommon(const HeaderRecord& header)
 {
     if (!writeSimpleType(header.magic) or !writeSimpleType(header.version)
-        or !writeSimpleType(header.native_traces) or !writeSimpleType(header.file_format)
-        or !writeSimpleType(header.stats) or !writeString(header.command_line.c_str())
-        or !writeSimpleType(header.pid) or !writeSimpleType(header.main_tid)
-        or !writeSimpleType(header.skipped_frames_on_main_tid)
+        or !writeSimpleType(header.python_version) or !writeSimpleType(header.native_traces)
+        or !writeSimpleType(header.file_format) or !writeSimpleType(header.stats)
+        or !writeString(header.command_line.c_str()) or !writeSimpleType(header.pid)
+        or !writeSimpleType(header.main_tid) or !writeSimpleType(header.skipped_frames_on_main_tid)
         or !writeSimpleType(header.python_allocator) or !writeSimpleType(header.trace_python_allocators))
     {
         return false;
@@ -435,6 +436,7 @@ AggregatingRecordWriter::AggregatingRecordWriter(
 {
     memcpy(d_header.magic, MAGIC, sizeof(d_header.magic));
     d_header.version = CURRENT_HEADER_VERSION;
+    d_header.python_version = PY_VERSION_HEX;
     d_header.native_traces = native_traces;
     d_header.file_format = FileFormat::AGGREGATED_ALLOCATIONS;
     d_header.command_line = command_line;

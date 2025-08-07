@@ -115,6 +115,7 @@ struct HeaderRecord
 {
     char magic[sizeof(MAGIC)];
     int version{};
+    int python_version{PY_VERSION_HEX};
     bool native_traces{false};
     FileFormat file_format{FileFormat::ALL_ALLOCATIONS};
     TrackerStats stats{};

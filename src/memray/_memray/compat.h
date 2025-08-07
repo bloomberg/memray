@@ -166,6 +166,11 @@ struct LocationInfo
 };
 
 bool
-parseLinetable(const uintptr_t addrq, const std::string& linetable, int firstlineno, LocationInfo* info);
+parseLinetable(
+        int python_version,
+        const std::string& linetable,
+        uintptr_t addrq,
+        int firstlineno,
+        LocationInfo* info);
 
 }  // namespace memray::compat

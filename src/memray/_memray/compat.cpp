@@ -188,9 +188,13 @@ parseLinetable39(
     return true;
 }
 
-// Unified parse function that uses compile-time version detection
 bool
-parseLinetable(const uintptr_t addrq, const std::string& linetable, int firstlineno, LocationInfo* info)
+parseLinetable(
+        int python_version,
+        const std::string& linetable,
+        uintptr_t addrq,
+        int firstlineno,
+        LocationInfo* info)
 {
     if (linetable.empty()) {
         info->lineno = firstlineno;
@@ -200,16 +204,13 @@ parseLinetable(const uintptr_t addrq, const std::string& linetable, int firstlin
         return true;
     }
 
-#if PY_VERSION_HEX >= 0x030B0000
-    // Python 3.11+ uses the new linetable format
-    return parseLinetable311(addrq, linetable, firstlineno, info);
-#elif PY_VERSION_HEX >= 0x030A0000
-    // Python 3.10 uses a different format
-    return parseLinetable310(addrq, linetable, firstlineno, info);
-#else
-    // Python 3.9 and earlier use co_lnotab format
-    return parseLinetable39(addrq, linetable, firstlineno, info);
-#endif
+    if (python_version >= 0x030B0000) {
+        return parseLinetable311(addrq, linetable, firstlineno, info);
+    } else if (python_version >= 0x030A0000) {
+        return parseLinetable310(addrq, linetable, firstlineno, info);
+    } else {
+        return parseLinetable39(addrq, linetable, firstlineno, info);
+    }
 }
 
 }  // namespace memray::compat

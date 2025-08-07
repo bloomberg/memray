@@ -77,7 +77,8 @@ RecordReader::readHeader(HeaderRecord& header)
                 "The provided input file is incompatible with this version of memray.");
     }
     header.command_line.reserve(4096);
-    if (!d_input->read(reinterpret_cast<char*>(&header.native_traces), sizeof(header.native_traces))
+    if (!d_input->read(reinterpret_cast<char*>(&header.python_version), sizeof(header.python_version))
+        || !d_input->read(reinterpret_cast<char*>(&header.native_traces), sizeof(header.native_traces))
         || !d_input->read(reinterpret_cast<char*>(&header.file_format), sizeof(header.file_format))
         || !d_input->read(reinterpret_cast<char*>(&header.stats), sizeof(header.stats))
         || !d_input->getline(header.command_line, '\0')
@@ -274,7 +275,12 @@ RecordReader::processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_v
     if (!frame.linetable.empty() && frame.instruction_offset >= 0) {
         compat::LocationInfo info;
         // instruction_offset contains the instruction offset divided by 2
-        if (compat::parseLinetable(frame.instruction_offset, frame.linetable, frame.firstlineno, &info))
+        if (compat::parseLinetable(
+                    d_header.python_version,
+                    frame.linetable,
+                    frame.instruction_offset,
+                    frame.firstlineno,
+                    &info))
         {
             frame.lineno = info.lineno;
         }
@@ -556,7 +562,12 @@ RecordReader::processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_
     if (!frame.linetable.empty() && frame.instruction_offset >= 0) {
         compat::LocationInfo info;
         // instruction_offset contains the instruction offset divided by 2
-        if (compat::parseLinetable(frame.instruction_offset, frame.linetable, frame.firstlineno, &info))
+        if (compat::parseLinetable(
+                    d_header.python_version,
+                    frame.linetable,
+                    frame.instruction_offset,
+                    frame.firstlineno,
+                    &info))
         {
             frame.lineno = info.lineno;
         }
@@ -1037,13 +1048,14 @@ RecordReader::dumpAllRecords()
             file_format = "<unknown enum value " + std::to_string((int)d_header.file_format) + ">";
         } break;
     }
-    printf("HEADER magic=%.*s version=%d native_traces=%s file_format=%s"
+    printf("HEADER magic=%.*s version=%d python_version=%08x native_traces=%s file_format=%s"
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
            " pid=%d main_tid=%lu skipped_frames_on_main_tid=%zd"
            " command_line=%s python_allocator=%s trace_python_allocators=%s\n",
            (int)sizeof(d_header.magic),
            d_header.magic,
            d_header.version,
+           d_header.python_version,
            d_header.native_traces ? "true" : "false",
            file_format.c_str(),
            d_header.stats.n_allocations,
