@@ -585,6 +585,7 @@ class TestParseSubcommand:
             "FRAME_ID",
             "MEMORY_RECORD",
             "CONTEXT_SWITCH",
+            "CODE_OBJECT",
             "TRAILER",
         ]
 
@@ -642,6 +643,7 @@ class TestParseSubcommand:
             "SEGMENT_HEADER",
             "SEGMENT",
             "AGGREGATED_TRAILER",
+            "CODE_OBJECT",
         ]
 
         with Tracker(
