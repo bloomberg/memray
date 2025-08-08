@@ -269,12 +269,19 @@ MEMRAY_TEST_EXTENSION = Extension(
     name="memray._test_utils",
     sources=[
         "src/memray/_memray_test_utils.pyx",
+        "src/memray/_memray/sink.cpp",
+        "src/memray/_memray/records.cpp",
+        "src/memray/_memray/snapshot.cpp",
+        "src/memray/_memray/record_writer.cpp",
+        "src/memray/_memray/hooks.cpp",
+        "src/memray/_memray/logging.cpp",
     ],
     language="c++",
     extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
     extra_link_args=["-std=c++17", *EXTRA_LINK_ARGS],
     define_macros=DEFINE_MACROS,
     undef_macros=UNDEF_MACROS,
+    **library_flags,
 )
 
 MEMRAY_INJECT_EXTENSION = Extension(
