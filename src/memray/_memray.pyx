@@ -1281,7 +1281,7 @@ def compute_statistics(
             if ret == RecordResult.RecordResultAllocationRecord:
                 aggregator.addAllocation(
                     reader.getLatestAllocation(),
-                    reader.getLatestPythonFrameId(reader.getLatestAllocation()),
+                    reader.getLatestPythonLocationId(reader.getLatestAllocation()),
                 )
                 progress_indicator.update(1)
             elif ret == RecordResult.RecordResultMemoryRecord:
@@ -1305,12 +1305,12 @@ def compute_statistics(
     unknown = ("<unknown>", "<unknown>", 0)
 
     top_locations_by_size = [
-        ((reader.Py_GetFrame(size_and_loc.second) or unknown), size_and_loc.first)
+        ((reader.Py_GetLocation(size_and_loc.second) or unknown), size_and_loc.first)
         for size_and_loc in aggregator.topLocationsBySize(num_largest)
     ]
 
     top_locations_by_count = [
-        ((reader.Py_GetFrame(count_and_loc.second) or unknown), count_and_loc.first)
+        ((reader.Py_GetLocation(count_and_loc.second) or unknown), count_and_loc.first)
         for count_and_loc in aggregator.topLocationsByCount(num_largest)
     ]
 

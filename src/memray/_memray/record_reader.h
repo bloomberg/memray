@@ -4,8 +4,6 @@
 #include <Python.h>
 
 #include <assert.h>
-#include <fstream>
-#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -26,6 +24,7 @@ namespace memray::api {
 using namespace tracking_api;
 
 using allocations_t = std::vector<Allocation>;
+using location_id_t = size_t;
 
 class RecordReader
 {
@@ -51,8 +50,8 @@ class RecordReader
             FrameTree::index_t index,
             size_t generation,
             size_t max_stacks = std::numeric_limits<size_t>::max());
-    std::optional<frame_id_t> getLatestPythonFrameId(const Allocation& allocation) const;
-    PyObject* Py_GetFrame(std::optional<frame_id_t> frame);
+    std::optional<location_id_t> getLatestPythonLocationId(const Allocation& allocation);
+    PyObject* Py_GetLocation(std::optional<location_id_t> frame);
 
     RecordResult nextRecord();
     HeaderRecord getHeader() const noexcept;
@@ -97,6 +96,7 @@ class RecordReader
     Registry<Frame> d_python_frame_registry{};
     std::unordered_map<frame_id_t, Location> d_python_location_by_frame_id{};
     Registry<Location> d_location_registry{};
+
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};

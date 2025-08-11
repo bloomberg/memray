@@ -1,7 +1,7 @@
 from _memray.hooks cimport Allocator
 from _memray.records cimport AggregatedAllocation
 from _memray.records cimport Allocation
-from _memray.records cimport optional_frame_id_t
+from _memray.records cimport optional_location_id_t
 from libc.stdint cimport uint64_t
 from libcpp cimport bool
 from libcpp.functional cimport function
@@ -78,14 +78,14 @@ cdef extern from "snapshot.h" namespace "memray::api":
         vector[AllocationLifetime] generateIndex() except+
 
     cdef cppclass AllocationStatsAggregator:
-        void addAllocation(const Allocation&, optional_frame_id_t python_frame_id) except+
+        void addAllocation(const Allocation&, optional_location_id_t python_frame_id) except+
         uint64_t totalAllocations()
         uint64_t totalBytesAllocated()
         uint64_t peakBytesAllocated()
         const unordered_map[size_t, uint64_t]& allocationCountBySize()
         const unordered_map[int, uint64_t]& allocationCountByAllocator()
-        vector[pair[uint64_t, optional_frame_id_t]] topLocationsBySize(size_t num_largest) except+
-        vector[pair[uint64_t, optional_frame_id_t]] topLocationsByCount(size_t num_largest) except+
+        vector[pair[uint64_t, optional_location_id_t]] topLocationsBySize(size_t num_largest) except+
+        vector[pair[uint64_t, optional_location_id_t]] topLocationsByCount(size_t num_largest) except+
 
     object Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t&) except+
     object Py_GetSnapshotAllocationRecords(const vector[Allocation]& all_records, size_t record_index, bool merge_threads) except+
