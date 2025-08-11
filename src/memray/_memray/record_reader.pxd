@@ -3,7 +3,7 @@ from _memray.records cimport Allocation
 from _memray.records cimport HeaderRecord
 from _memray.records cimport MemoryRecord
 from _memray.records cimport MemorySnapshot
-from _memray.records cimport optional_frame_id_t
+from _memray.records cimport optional_location_id_t
 from _memray.source cimport Source
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
@@ -36,8 +36,8 @@ cdef extern from "record_reader.h" namespace "memray::api":
         ) except+
         object Py_GetNativeStackFrame(int frame_id, size_t generation) except+
         object Py_GetNativeStackFrame(int frame_id, size_t generation, size_t max_stacks) except+
-        optional_frame_id_t getLatestPythonFrameId(const Allocation&) except+
-        object Py_GetFrame(optional_frame_id_t frame) except+
+        optional_location_id_t getLatestPythonLocationId(const Allocation&) except+
+        object Py_GetLocation(optional_location_id_t frame) except+
         HeaderRecord getHeader()
         size_t getMainThreadTid()
         size_t getSkippedFramesOnMainThread()

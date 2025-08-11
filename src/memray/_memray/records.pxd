@@ -75,5 +75,5 @@ cdef extern from "records.h" namespace "memray::tracking_api":
 
 cdef extern from "<optional>":
    # Cython doesn't have libcpp.optional yet, so just declare this opaquely.
-   cdef cppclass optional_frame_id_t "std::optional<memray::tracking_api::frame_id_t>":
+   cdef cppclass optional_location_id_t "std::optional<memray::api::location_id_t>":
        pass

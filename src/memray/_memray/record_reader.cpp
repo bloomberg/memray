@@ -2,7 +2,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <algorithm>
 #include <cinttypes>
 #include <cstdio>
 #include <stdexcept>
@@ -886,23 +885,35 @@ error:
     return nullptr;
 }
 
-std::optional<frame_id_t>
-RecordReader::getLatestPythonFrameId(const Allocation& allocation) const
+std::optional<location_id_t>
+RecordReader::getLatestPythonLocationId(const Allocation& allocation)
 {
+    if (!d_track_stacks) {
+        throw std::runtime_error("Stack tracking is disabled");
+    }
+
     if (0 == allocation.frame_index) {
         return {};
     }
     std::unique_lock<std::mutex> lock(d_mutex);
-    return d_tree.nextNode(allocation.frame_index).first;
+    auto frame_id = d_tree.nextNode(allocation.frame_index).first;
+    Location location = frameToLocation(frame_id);
+    return d_location_registry.registerRecord(location).first;
 }
 
 PyObject*
-RecordReader::Py_GetFrame(std::optional<frame_id_t> frame)
+RecordReader::Py_GetLocation(std::optional<location_id_t> location_id)
 {
-    if (!frame) {
+    if (!d_track_stacks) {
+        PyErr_SetString(PyExc_RuntimeError, "Stack tracking is disabled");
+        return NULL;
+    }
+
+    if (!location_id) {
         Py_RETURN_NONE;
     }
-    return frameToLocation(frame.value()).toPythonObject(d_pystring_cache);
+    std::unique_lock<std::mutex> lock(d_mutex);
+    return d_location_registry.getRecord(location_id.value()).toPythonObject(d_pystring_cache);
 }
 
 HeaderRecord
