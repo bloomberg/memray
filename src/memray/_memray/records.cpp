@@ -86,7 +86,7 @@ AggregatedAllocation::contributionToLeaks() const
 }
 
 PyObject*
-Frame::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const
+Location::toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const
 {
     PyObject* pyfunction_name = pystring_cache.getUnicodeObject(function_name);
     if (pyfunction_name == nullptr) {

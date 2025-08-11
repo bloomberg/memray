@@ -582,7 +582,6 @@ class TestParseSubcommand:
             "NATIVE_FRAME_ID",
             "FRAME_PUSH",
             "FRAME_POP",
-            "FRAME_ID",
             "MEMORY_RECORD",
             "CONTEXT_SWITCH",
             "CODE_OBJECT",
