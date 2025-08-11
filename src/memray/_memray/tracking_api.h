@@ -405,7 +405,6 @@ class Tracker
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
 
-    Registry<RawFrame> d_frames;
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     const bool d_unwind_native_frames;
@@ -421,7 +420,6 @@ class Tracker
 
     // Methods
     static size_t computeMainTidSkip();
-    frame_id_t registerFrame(const RawFrame& frame);
     code_object_id_t registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj);
     void forgetCodeObject(PyCodeObject* code);
 

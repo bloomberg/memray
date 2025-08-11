@@ -80,6 +80,7 @@ class RecordReader
     bool readSignedVarint(ssize_t* val);
     template<typename T>
     bool readIntegralDelta(T* cache, T* new_val);
+    Location frameToLocation(frame_id_t frame);
     RecordResult nextRecordFromAllAllocationsFile();
     RecordResult nextRecordFromAggregatedAllocationsFile();
     PyObject* dumpAllRecordsFromAllAllocationsFile();
@@ -90,10 +91,12 @@ class RecordReader
     std::unique_ptr<memray::io::Source> d_input;
     const bool d_track_stacks;
     HeaderRecord d_header;
-    pyframe_map_t d_frame_map{};
     std::unordered_map<code_object_id_t, CodeObjectInfo> d_code_object_map{};
     stack_traces_t d_stack_traces{};
     FrameTree d_tree{};
+    Registry<Frame> d_python_frame_registry{};
+    std::unordered_map<frame_id_t, Location> d_python_location_by_frame_id{};
+    Registry<Location> d_location_registry{};
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
@@ -105,14 +108,11 @@ class RecordReader
     MemorySnapshot d_latest_memory_snapshot{};
 
     // Methods
-    [[nodiscard]] bool parseFramePush(FramePush* record);
+    [[nodiscard]] bool parseFramePush(FramePush* record, unsigned int flags);
     [[nodiscard]] bool processFramePush(const FramePush& record);
 
     [[nodiscard]] static bool parseFramePop(FramePop* record, unsigned int flags);
     [[nodiscard]] bool processFramePop(const FramePop& record);
-
-    [[nodiscard]] bool parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val, unsigned int flags);
-    [[nodiscard]] bool processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_val);
 
     [[nodiscard]] bool parseNativeFrameIndex(UnresolvedNativeFrame* frame);
     [[nodiscard]] bool processNativeFrameIndex(const UnresolvedNativeFrame& frame);
@@ -150,13 +150,11 @@ class RecordReader
     [[nodiscard]] bool parsePythonTraceIndexRecord(std::pair<frame_id_t, FrameTree::index_t>* record);
     [[nodiscard]] bool processPythonTraceIndexRecord(const std::pair<frame_id_t, FrameTree::index_t>&);
 
-    [[nodiscard]] bool parsePythonFrameIndexRecord(tracking_api::pyframe_map_val_t* pyframe_val);
-    [[nodiscard]] bool processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_t& record);
+    [[nodiscard]] bool parsePythonFrameIndexRecord(std::pair<frame_id_t, Frame>* pyframe_val);
+    [[nodiscard]] bool processPythonFrameIndexRecord(const std::pair<frame_id_t, Frame>& record);
 
     [[nodiscard]] bool parseCodeObjectRecord(tracking_api::pycode_map_val_t* pycode_val);
     [[nodiscard]] bool processCodeObjectRecord(const tracking_api::pycode_map_val_t& record);
-
-    size_t getAllocationFrameIndex(const AllocationRecord& record);
 };
 
 template<typename T>

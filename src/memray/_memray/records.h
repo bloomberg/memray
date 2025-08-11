@@ -29,7 +29,6 @@ enum class RecordType : unsigned char {
     OTHER = 0,
     ALLOCATION = 1,
     ALLOCATION_WITH_NATIVE = 2,
-    FRAME_INDEX = 3,
     FRAME_PUSH = 4,
     NATIVE_TRACE_INDEX = 5,
     MEMORY_MAP_START = 6,
@@ -210,77 +209,50 @@ struct ImageSegments
     std::vector<Segment> segments;
 };
 
-struct RawFrame
-{
-    const char* function_name;
-    const char* filename;
-    int instruction_offset;
-    bool is_entry_frame;
-    const char* linetable;
-    size_t linetable_size;
-    int firstlineno;
-    PyCodeObject* code_object_ptr;
-    code_object_id_t code_object_id{0};  // ID assigned by tracker
-
-    auto operator==(const RawFrame& other) const -> bool
-    {
-        // Now we consider frames equal if they have same code object and instruction offset
-        return (code_object_ptr == other.code_object_ptr
-                && instruction_offset == other.instruction_offset
-                && is_entry_frame == other.is_entry_frame);
-    }
-
-    struct Hash
-    {
-        auto operator()(memray::tracking_api::RawFrame const& frame) const noexcept -> std::size_t
-        {
-            // Keep this hashing fast and simple as this has a non trivial
-            // performance impact on the tracing functionality. We now hash
-            // based on code object pointer for deduplication.
-
-            auto code_ptr = std::hash<const void*>{}(frame.code_object_ptr);
-            auto offset = std::hash<int>{}(frame.instruction_offset);
-            return code_ptr ^ offset ^ frame.is_entry_frame;
-        }
-    };
-};
-
 struct Frame
 {
-    std::string function_name;
-    std::string filename;
-    int lineno{0};
-    int instruction_offset{-1};  // Used temporarily during record reading
-    bool is_entry_frame{true};
-    std::string linetable;
-    int firstlineno{0};
-    code_object_id_t code_object_id{0};  // Reference to code object
-
-    PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;
+    code_object_id_t code_object_id;
+    int instruction_offset;
+    bool is_entry_frame;
 
     auto operator==(const Frame& other) const -> bool
     {
-        return (function_name == other.function_name && filename == other.filename
-                && lineno == other.lineno && is_entry_frame == other.is_entry_frame);
+        return (code_object_id == other.code_object_id && instruction_offset == other.instruction_offset
+                && is_entry_frame == other.is_entry_frame);
     }
 
     struct Hash
     {
         auto operator()(memray::tracking_api::Frame const& frame) const noexcept -> std::size_t
         {
-            // Keep this hashing fast and simple as this has a non trivial
-            // performance impact on the tracing functionality. We don't hash
-            // the contents of the strings because the interpreter will give us
-            // the same char* for the same code object. Of course, we can have
-            // some scenarios where two functions with the same function name have
-            // two different char* but in that case we will end registering the
-            // name twice, which is a good compromise given the speed that we
-            // gain keeping this simple.
+            return std::hash<uint64_t>()(frame.code_object_id)
+                   ^ std::hash<int>()(frame.instruction_offset) ^ frame.is_entry_frame;
+        }
+    };
+};
 
-            auto the_func = std::hash<std::string>{}(frame.function_name);
-            auto the_filename = std::hash<std::string>{}(frame.filename);
-            auto lineno = std::hash<int>{}(frame.lineno);
-            return the_func ^ the_filename ^ lineno ^ frame.is_entry_frame;
+struct Location
+{
+    std::string function_name;
+    std::string filename;
+    int lineno{0};
+
+    PyObject* toPythonObject(python_helpers::PyUnicode_Cache& pystring_cache) const;
+
+    auto operator==(const Location& other) const -> bool
+    {
+        return (function_name == other.function_name && filename == other.filename
+                && lineno == other.lineno);
+    }
+
+    struct Hash
+    {
+        auto operator()(const Location& location) const noexcept -> std::size_t
+        {
+            auto the_func = std::hash<std::string>{}(location.function_name);
+            auto the_filename = std::hash<std::string>{}(location.filename);
+            auto lineno = std::hash<int>{}(location.lineno);
+            return the_func ^ the_filename ^ lineno;
         }
     };
 };
@@ -306,9 +278,17 @@ struct CodeObject
     int firstlineno;
 };
 
+struct RawFrame
+{
+    PyCodeObject* code;
+    CodeObject code_info;
+    bool is_entry_frame;
+    int instruction_offset;
+};
+
 struct FramePush
 {
-    frame_id_t frame_id;
+    Frame frame;
 };
 
 struct FramePop
@@ -370,22 +350,6 @@ class Registry
     std::unordered_map<RecordType, index_t, typename RecordType::Hash> d_id_by_record{};
     std::vector<RecordType> d_record_by_id{};
 };
-
-struct pyrawframe_map_val_t
-{
-    frame_id_t frame_id;
-    RawFrame frame;
-    code_object_id_t code_id;
-
-    pyrawframe_map_val_t(frame_id_t fid, const RawFrame& f, code_object_id_t cid)
-    : frame_id(fid)
-    , frame(f)
-    , code_id(cid)
-    {
-    }
-};
-using pyframe_map_val_t = std::pair<frame_id_t, Frame>;
-using pyframe_map_t = std::unordered_map<pyframe_map_val_t::first_type, pyframe_map_val_t::second_type>;
 
 struct ThreadRecord
 {

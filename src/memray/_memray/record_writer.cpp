@@ -70,7 +70,6 @@ class StreamingRecordWriter : public RecordWriter
     void operator=(StreamingRecordWriter&&) = delete;
 
     bool writeRecord(const MemoryRecord& record) override;
-    bool writeRecord(const pyrawframe_map_val_t& item) override;
     bool writeRecord(const pycode_map_val_t& item) override;
     bool writeRecord(const UnresolvedNativeFrame& record) override;
 
@@ -113,7 +112,6 @@ class AggregatingRecordWriter : public RecordWriter
     void operator=(AggregatingRecordWriter&&) = delete;
 
     bool writeRecord(const MemoryRecord& record) override;
-    bool writeRecord(const pyrawframe_map_val_t& item) override;
     bool writeRecord(const pycode_map_val_t& item) override;
     bool writeRecord(const UnresolvedNativeFrame& record) override;
 
@@ -139,7 +137,7 @@ class AggregatingRecordWriter : public RecordWriter
     // Data members
     HeaderRecord d_header;
     TrackerStats d_stats;
-    pyframe_map_t d_frames_by_id;
+    Registry<Frame> d_python_frame_registry;
     std::unordered_map<code_object_id_t, CodeObjectInfo> d_code_objects_by_id;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
     std::vector<std::vector<ImageSegments>> d_mappings_by_generation{};
@@ -216,18 +214,6 @@ StreamingRecordWriter::writeRecord(const MemoryRecord& record)
     RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
     return writeSimpleType(token) && writeVarint(record.rss)
            && writeVarint(record.ms_since_epoch - d_stats.start_time) && d_sink->flush();
-}
-
-bool
-StreamingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
-{
-    d_stats.n_frames += 1;
-    RecordTypeAndFlags token{RecordType::FRAME_INDEX, !item.frame.is_entry_frame};
-
-    // Write frame with code object ID reference
-    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, item.frame_id)
-           && writeVarint(item.code_id)
-           && writeIntegralDelta(&d_last.python_line_number, item.frame.instruction_offset);
 }
 
 bool
@@ -328,8 +314,9 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePus
         return false;
     }
 
-    RecordTypeAndFlags token{RecordType::FRAME_PUSH, 0};
-    return writeSimpleType(token) && writeIntegralDelta(&d_last.python_frame_id, record.frame_id);
+    RecordTypeAndFlags token{RecordType::FRAME_PUSH, record.frame.is_entry_frame};
+    return writeSimpleType(token) && writeVarint(record.frame.code_object_id)
+           && writeSignedVarint(record.frame.instruction_offset);
 }
 
 bool
@@ -518,9 +505,10 @@ AggregatingRecordWriter::writeTrailer()
         }
     }
 
-    for (const auto& [frame_id, frame] : d_frames_by_id) {
-        if (!writeSimpleType(AggregatedRecordType::PYTHON_FRAME_INDEX) || !writeSimpleType(frame_id)
-            || !writeVarint(frame.code_object_id) || !writeSimpleType(frame.instruction_offset)
+    for (size_t frame_id = 0; frame_id < d_python_frame_registry.size(); ++frame_id) {
+        const auto& frame = d_python_frame_registry.getRecord(frame_id);
+        if (!writeSimpleType(AggregatedRecordType::PYTHON_FRAME_INDEX) || !writeVarint(frame_id)
+            || !writeVarint(frame.code_object_id) || !writeSignedVarint(frame.instruction_offset)
             || !writeSimpleType(frame.is_entry_frame))
         {
             return false;
@@ -533,8 +521,8 @@ AggregatingRecordWriter::writeTrailer()
     {
         auto [frame_id, parent_index] = d_python_frame_tree.nextNode(index);
 
-        if (!writeSimpleType(AggregatedRecordType::PYTHON_TRACE_INDEX) || !writeSimpleType(frame_id)
-            || !writeSimpleType(parent_index))
+        if (!writeSimpleType(AggregatedRecordType::PYTHON_TRACE_INDEX) || !writeVarint(frame_id)
+            || !writeVarint(parent_index))
         {
             return false;
         }
@@ -584,23 +572,6 @@ AggregatingRecordWriter::writeRecord(const MemoryRecord& record)
 }
 
 bool
-AggregatingRecordWriter::writeRecord(const pyrawframe_map_val_t& item)
-{
-    d_stats.n_frames += 1;
-    d_frames_by_id.emplace(
-            item.frame_id,
-            Frame{item.frame.function_name,
-                  item.frame.filename,
-                  0,
-                  item.frame.instruction_offset,
-                  item.frame.is_entry_frame,
-                  std::string(item.frame.linetable, item.frame.linetable_size),
-                  item.frame.firstlineno,
-                  item.code_id});
-    return true;
-}
-
-bool
 AggregatingRecordWriter::writeRecord(const pycode_map_val_t& item)
 {
     // For aggregating writer, we'll store code objects in a map
@@ -644,9 +615,9 @@ AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FrameP
     if (inserted) {
         stack.reserve(1024);
     }
+    auto frame_index = d_python_frame_registry.registerRecord(record.frame).first;
     FrameTree::index_t current_stack_id = stack.empty() ? 0 : stack.back();
-    FrameTree::index_t new_stack_id =
-            d_python_frame_tree.getTraceIndex(current_stack_id, record.frame_id);
+    FrameTree::index_t new_stack_id = d_python_frame_tree.getTraceIndex(current_stack_id, frame_index);
     stack.push_back(new_stack_id);
     return true;
 }
