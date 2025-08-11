@@ -405,7 +405,7 @@ class Tracker
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
 
-    FrameCollection<RawFrame> d_frames;
+    Registry<RawFrame> d_frames;
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     const bool d_unwind_native_frames;

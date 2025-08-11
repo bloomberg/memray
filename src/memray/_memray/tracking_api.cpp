@@ -1190,7 +1190,7 @@ Tracker::registerFrame(const RawFrame& frame)
         code_id = registerCodeObject(frame.code_object_ptr, code_obj);
     }
 
-    const auto [frame_id, is_new_frame] = d_frames.getIndex(frame);
+    const auto [frame_id, is_new_frame] = d_frames.registerRecord(frame);
     if (is_new_frame) {
         // Write a frame record with the code_id passed separately
         pyrawframe_map_val_t frame_index{frame_id, frame, code_id};
