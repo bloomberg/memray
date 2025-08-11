@@ -336,27 +336,39 @@ struct DeltaEncodedFields
     int code_firstlineno{};
 };
 
-template<typename FrameType>
-class FrameCollection
+template<typename RecordType>
+class Registry
 {
   public:
-    template<typename T>
-    auto getIndex(T&& frame) -> std::pair<frame_id_t, bool>
+    using index_t = size_t;
+
+    size_t size() const
     {
-        bool inserted = false;
-        auto it = d_frame_map.find(frame);
-        if (it == d_frame_map.end()) {
-            std::tie(it, inserted) = d_frame_map.emplace(std::forward<T>(frame), d_current_frame_id);
-            if (inserted) {
-                d_current_frame_id++;
-            }
+        return d_record_by_id.size();
+    }
+
+    std::pair<index_t, bool> registerRecord(const RecordType& record)
+    {
+        auto [it, inserted] = d_id_by_record.emplace(record, d_record_by_id.size());
+        if (inserted) {
+            d_record_by_id.push_back(record);
         }
         return std::make_pair(it->second, inserted);
     }
 
+    RecordType& getRecord(index_t index)
+    {
+        return d_record_by_id[index];
+    }
+
+    const RecordType& getRecord(index_t index) const
+    {
+        return d_record_by_id[index];
+    }
+
   private:
-    frame_id_t d_current_frame_id{};
-    std::unordered_map<FrameType, frame_id_t, typename FrameType::Hash> d_frame_map{};
+    std::unordered_map<RecordType, index_t, typename RecordType::Hash> d_id_by_record{};
+    std::vector<RecordType> d_record_by_id{};
 };
 
 struct pyrawframe_map_val_t
