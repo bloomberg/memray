@@ -849,14 +849,14 @@ RecordReader::nextRecordFromAggregatedAllocationsFile()
 // Python public APIs
 
 PyObject*
-RecordReader::Py_GetStackFrame(unsigned int index, size_t max_stacks)
+RecordReader::Py_GetStackFrame(FrameTree::index_t index, size_t max_stacks)
 {
     return Py_GetStackFrameAndEntryInfo(index, nullptr, max_stacks);
 }
 
 PyObject*
 RecordReader::Py_GetStackFrameAndEntryInfo(
-        unsigned int index,
+        FrameTree::index_t index,
         std::vector<unsigned char>* is_entry_frame,
         size_t max_stacks)
 {
@@ -1343,7 +1343,7 @@ RecordReader::dumpAllRecordsFromAggregatedAllocationsFile()
                     Py_RETURN_NONE;
                 }
 
-                printf("frame_id=%zd parent_index=%u\n", record.first, record.second);
+                printf("frame_id=%zd parent_index=%zd\n", record.first, record.second);
             } break;
 
             case AggregatedRecordType::PYTHON_FRAME_INDEX: {
