@@ -26,13 +26,13 @@ cdef extern from "record_reader.h" namespace "memray::api":
         void close()
         bool isOpen() const
         RecordResult nextRecord() except+
-        object Py_GetStackFrame(unsigned int frame_id) except+
-        object Py_GetStackFrame(unsigned int frame_id, size_t max_stacks) except+
+        object Py_GetStackFrame(size_t frame_id) except+
+        object Py_GetStackFrame(size_t frame_id, size_t max_stacks) except+
         object Py_GetStackFrameAndEntryInfo(
-            unsigned int frame_id, vector[unsigned char]* is_entry_frame
+            size_t frame_id, vector[unsigned char]* is_entry_frame
         ) except+
         object Py_GetStackFrameAndEntryInfo(
-            unsigned int frame_id, vector[unsigned char]* is_entry_frame, size_t max_stacks
+            size_t frame_id, vector[unsigned char]* is_entry_frame, size_t max_stacks
         ) except+
         object Py_GetNativeStackFrame(int frame_id, size_t generation) except+
         object Py_GetNativeStackFrame(int frame_id, size_t generation, size_t max_stacks) except+

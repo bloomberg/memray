@@ -1,5 +1,4 @@
 #pragma once
-#include <iostream>
 #include <vector>
 
 #include "records.h"
@@ -8,7 +7,7 @@ namespace memray::tracking_api {
 class FrameTree
 {
   public:
-    using index_t = uint32_t;  // TODO: Shouldn't this be size_t?
+    using index_t = size_t;
 
     inline index_t minIndex() const
     {
