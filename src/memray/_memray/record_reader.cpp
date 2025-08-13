@@ -262,10 +262,15 @@ RecordReader::processNativeFrameIndex(const UnresolvedNativeFrame& frame)
 bool
 RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags)
 {
-    record->allocator = static_cast<hooks::Allocator>(flags);
-
     if (!readIntegralDelta(&d_last.data_pointer, &record->address)) {
         return false;
+    }
+
+    auto allocator_id = flags & 7;
+    if (allocator_id) {
+        record->allocator = static_cast<hooks::Allocator>(allocator_id);
+    } else {
+        d_input->read(reinterpret_cast<char*>(&record->allocator), sizeof(record->allocator));
     }
 
     if (d_header.native_traces) {
