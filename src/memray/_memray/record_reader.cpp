@@ -271,6 +271,8 @@ RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags
             return false;
         }
 
+        record->address <<= 3;
+
         std::move(
                 d_recent_addresses.begin(),
                 d_recent_addresses.end() - 1,
