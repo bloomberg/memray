@@ -532,11 +532,34 @@ RecordReader::frameToLocation(frame_id_t frame_id)
     return it->second;
 }
 
+void
+RecordReader::extractRecordTypeAndFlags(
+        unsigned char record_type_and_flags,
+        RecordType* record_type,
+        unsigned char* flags) const
+{
+    unsigned char flags_mask;
+    if (record_type_and_flags & static_cast<unsigned char>(RecordType::ALLOCATION)) {
+        *record_type = RecordType::ALLOCATION;
+        flags_mask = static_cast<unsigned char>(RecordType::ALLOCATION) - 1;
+    } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::FRAME_PUSH)) {
+        *record_type = RecordType::FRAME_PUSH;
+        flags_mask = static_cast<unsigned char>(RecordType::FRAME_PUSH) - 1;
+    } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::FRAME_POP)) {
+        *record_type = RecordType::FRAME_POP;
+        flags_mask = static_cast<unsigned char>(RecordType::FRAME_POP) - 1;
+    } else {
+        *record_type = static_cast<RecordType>(record_type_and_flags);
+        flags_mask = 0;
+    }
+    *flags = record_type_and_flags & flags_mask;
+}
+
 RecordReader::RecordResult
 RecordReader::nextRecordFromAllAllocationsFile()
 {
     while (true) {
-        RecordTypeAndFlags record_type_and_flags;
+        unsigned char record_type_and_flags;
         if (!d_input->read(
                     reinterpret_cast<char*>(&record_type_and_flags),
                     sizeof(record_type_and_flags)))
@@ -544,23 +567,17 @@ RecordReader::nextRecordFromAllAllocationsFile()
             return RecordResult::END_OF_FILE;
         }
 
-        switch (record_type_and_flags.record_type) {
-            case RecordType::OTHER: {
-                switch (static_cast<OtherRecordType>(record_type_and_flags.flags)) {
-                    case OtherRecordType::TRAILER: {
-                        return RecordResult::END_OF_FILE;
-                    } break;
-                    default: {
-                        if (d_input->is_open()) LOG(ERROR) << "Invalid record subtype";
-                        return RecordResult::ERROR;
-                    } break;
-                }
+        RecordType record_type;
+        unsigned char flags;
+        extractRecordTypeAndFlags(record_type_and_flags, &record_type, &flags);
+
+        switch (record_type) {
+            case RecordType::TRAILER: {
+                return RecordResult::END_OF_FILE;
             } break;
             case RecordType::ALLOCATION: {
                 AllocationRecord record;
-                if (!parseAllocationRecord(&record, record_type_and_flags.flags)
-                    || !processAllocationRecord(record))
-                {
+                if (!parseAllocationRecord(&record, flags) || !processAllocationRecord(record)) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process allocation record";
                     return RecordResult::ERROR;
                 }
@@ -583,14 +600,14 @@ RecordReader::nextRecordFromAllAllocationsFile()
             } break;
             case RecordType::FRAME_PUSH: {
                 FramePush record;
-                if (!parseFramePush(&record, record_type_and_flags.flags) || !processFramePush(record)) {
+                if (!parseFramePush(&record, flags) || !processFramePush(record)) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process frame push";
                     return RecordResult::ERROR;
                 }
             } break;
             case RecordType::FRAME_POP: {
                 FramePop record;
-                if (!parseFramePop(&record, record_type_and_flags.flags) || !processFramePop(record)) {
+                if (!parseFramePop(&record, flags) || !processFramePop(record)) {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process frame pop";
                     return RecordResult::ERROR;
                 }
@@ -1012,7 +1029,7 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
             return nullptr;
         }
 
-        RecordTypeAndFlags record_type_and_flags;
+        unsigned char record_type_and_flags;
         if (!d_input->read(
                     reinterpret_cast<char*>(&record_type_and_flags),
                     sizeof(record_type_and_flags)))
@@ -1020,24 +1037,20 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
             Py_RETURN_NONE;
         }
 
-        switch (record_type_and_flags.record_type) {
-            case RecordType::OTHER: {
-                switch (static_cast<OtherRecordType>(record_type_and_flags.flags)) {
-                    case OtherRecordType::TRAILER: {
-                        printf("TRAILER\n");
-                        Py_RETURN_NONE;  // Treat as EOF
-                    } break;
-                    default: {
-                        printf("UNKNOWN OTHER RECORD TYPE %d\n", (int)record_type_and_flags.flags);
-                        Py_RETURN_NONE;
-                    } break;
-                }
+        RecordType record_type;
+        unsigned char flags;
+        extractRecordTypeAndFlags(record_type_and_flags, &record_type, &flags);
+
+        switch (record_type) {
+            case RecordType::TRAILER: {
+                printf("TRAILER\n");
+                Py_RETURN_NONE;  // Treat as EOF
             } break;
             case RecordType::ALLOCATION: {
                 printf("ALLOCATION ");
 
                 AllocationRecord record;
-                if (!parseAllocationRecord(&record, record_type_and_flags.flags)) {
+                if (!parseAllocationRecord(&record, flags)) {
                     Py_RETURN_NONE;
                 }
 
@@ -1058,7 +1071,7 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                 printf("FRAME_PUSH ");
 
                 FramePush record;
-                if (!parseFramePush(&record, record_type_and_flags.flags)) {
+                if (!parseFramePush(&record, flags)) {
                     Py_RETURN_NONE;
                 }
 
@@ -1071,7 +1084,7 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                 printf("FRAME_POP ");
 
                 FramePop record;
-                if (!parseFramePop(&record, record_type_and_flags.flags)) {
+                if (!parseFramePop(&record, flags)) {
                     Py_RETURN_NONE;
                 }
 
@@ -1162,7 +1175,7 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                 printf("tid=%lu\n", tid);
             } break;
             default: {
-                printf("UNKNOWN RECORD TYPE %d\n", (int)record_type_and_flags.record_type);
+                printf("UNKNOWN RECORD TYPE %d\n", (int)record_type);
                 Py_RETURN_NONE;
             } break;
         }

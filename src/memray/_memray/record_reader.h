@@ -80,6 +80,10 @@ class RecordReader
     template<typename T>
     bool readIntegralDelta(T* cache, T* new_val);
     Location frameToLocation(frame_id_t frame);
+    void extractRecordTypeAndFlags(
+            unsigned char record_type_and_flags,
+            RecordType* record_type,
+            unsigned char* flags) const;
     RecordResult nextRecordFromAllAllocationsFile();
     RecordResult nextRecordFromAggregatedAllocationsFile();
     PyObject* dumpAllRecordsFromAllAllocationsFile();

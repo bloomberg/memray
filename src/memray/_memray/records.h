@@ -26,22 +26,20 @@ using millis_t = long long;
 using code_object_id_t = size_t;
 
 enum class RecordType : unsigned char {
-    OTHER = 0,
-    ALLOCATION = 1,
-    FRAME_PUSH = 4,
+    FILLER = 0,
+    TRAILER = 1,
+    MEMORY_RECORD = 2,
     NATIVE_TRACE_INDEX = 5,
     MEMORY_MAP_START = 6,
     SEGMENT_HEADER = 7,
     SEGMENT = 8,
-    FRAME_POP = 9,
     THREAD_RECORD = 10,
-    MEMORY_RECORD = 11,
     CONTEXT_SWITCH = 12,
     CODE_OBJECT = 14,
-};
 
-enum class OtherRecordType : unsigned char {
-    TRAILER = 1,
+    FRAME_POP = 16,  // 16 through 31
+    FRAME_PUSH = 64,  // 64 through 127
+    ALLOCATION = 128,  // 128 through 255
 };
 
 // Enumerators that have the same name as in RecordType are encoded the same
@@ -63,29 +61,6 @@ enum class AggregatedRecordType : unsigned char {
 
     AGGREGATED_TRAILER = 15,
 };
-
-struct RecordTypeAndFlags
-{
-    RecordTypeAndFlags()
-    : record_type(RecordType::OTHER)
-    , flags(0)
-    {
-    }
-
-    RecordTypeAndFlags(RecordType record_type_, unsigned char flags_)
-    : record_type(record_type_)
-    , flags(flags_)
-    {
-        // Ensure both values fit into 4 bits
-        assert(static_cast<int>(record_type_) == (static_cast<int>(record_type_) & 0x0f));
-        assert(static_cast<int>(flags_) == (static_cast<int>(flags_) & 0x0f));
-    }
-
-    RecordType record_type : 4;
-    unsigned char flags : 4;
-};
-
-static_assert(sizeof(RecordTypeAndFlags) == 1);
 
 struct TrackerStats
 {
