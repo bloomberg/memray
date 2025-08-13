@@ -355,7 +355,8 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
     token |= (pointer_cache_index & 0x0f) << 3;
 
     return writeSimpleType(token)
-           && (pointer_cache_index != -1 || writeIntegralDelta(&d_last.data_pointer, record.address))
+           && (pointer_cache_index != -1
+               || writeIntegralDelta(&d_last.data_pointer, record.address >> 3))
            && (allocator_id < 8 || writeSimpleType(record.allocator))
            && (!d_header.native_traces
                || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
