@@ -28,7 +28,6 @@ using code_object_id_t = size_t;
 enum class RecordType : unsigned char {
     OTHER = 0,
     ALLOCATION = 1,
-    ALLOCATION_WITH_NATIVE = 2,
     FRAME_PUSH = 4,
     NATIVE_TRACE_INDEX = 5,
     MEMORY_MAP_START = 6,
@@ -140,13 +139,6 @@ struct MemorySnapshot
 };
 
 struct AllocationRecord
-{
-    uintptr_t address;
-    size_t size;
-    hooks::Allocator allocator;
-};
-
-struct NativeAllocationRecord
 {
     uintptr_t address;
     size_t size;

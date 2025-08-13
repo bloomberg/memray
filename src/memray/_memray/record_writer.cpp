@@ -78,7 +78,6 @@ class StreamingRecordWriter : public RecordWriter
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
-    bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
 
     bool writeHeader(bool seek_to_start) override;
@@ -120,7 +119,6 @@ class AggregatingRecordWriter : public RecordWriter
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
-    bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
 
     bool writeHeader(bool seek_to_start) override;
@@ -329,24 +327,10 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
     d_stats.n_allocations += 1;
     RecordTypeAndFlags token{RecordType::ALLOCATION, static_cast<unsigned char>(record.allocator)};
     return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
+           && (!d_header.native_traces
+               || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
            && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
                || writeVarint(record.size));
-}
-
-bool
-StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record)
-{
-    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
-        return false;
-    }
-
-    d_stats.n_allocations += 1;
-    RecordTypeAndFlags token{
-            RecordType::ALLOCATION_WITH_NATIVE,
-            static_cast<unsigned char>(record.allocator)};
-    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
-           && writeVarint(record.size)
-           && writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id);
 }
 
 bool
@@ -630,30 +614,13 @@ AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Alloca
     allocation.address = record.address;
     allocation.size = record.size;
     allocation.allocator = record.allocator;
-    allocation.native_frame_id = 0;
+    allocation.native_frame_id = record.native_frame_id;
     if (!hooks::isDeallocator(record.allocator)) {
         auto& stack = d_python_stack_ids_by_thread[tid];
         allocation.frame_index = stack.empty() ? 0 : stack.back();
     } else {
         allocation.frame_index = 0;
     }
-    allocation.native_segment_generation = 0;
-    allocation.n_allocations = 1;
-    d_high_water_mark_aggregator.addAllocation(allocation);
-    return true;
-}
-
-bool
-AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record)
-{
-    Allocation allocation;
-    allocation.tid = tid;
-    allocation.address = record.address;
-    allocation.size = record.size;
-    allocation.allocator = record.allocator;
-    allocation.native_frame_id = record.native_frame_id;
-    auto& stack = d_python_stack_ids_by_thread[tid];
-    allocation.frame_index = stack.empty() ? 0 : stack.back();
     allocation.native_segment_generation = d_mappings_by_generation.size();
     allocation.n_allocations = 1;
     d_high_water_mark_aggregator.addAllocation(allocation);

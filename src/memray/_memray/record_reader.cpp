@@ -268,6 +268,14 @@ RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags
         return false;
     }
 
+    if (d_header.native_traces) {
+        if (!readIntegralDelta(&d_last.native_frame_id, &record->native_frame_id)) {
+            return false;
+        }
+    } else {
+        record->native_frame_id = 0;
+    }
+
     if (hooks::allocatorKind(record->allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR) {
         record->size = 0;
     } else if (!readVarint(&record->size)) {
@@ -284,35 +292,7 @@ RecordReader::processAllocationRecord(const AllocationRecord& record)
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
     d_latest_allocation.allocator = record.allocator;
-    d_latest_allocation.native_frame_id = 0;
     if (d_track_stacks && !hooks::isDeallocator(record.allocator)) {
-        auto& stack = d_stack_traces[d_latest_allocation.tid];
-        d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
-    } else {
-        d_latest_allocation.frame_index = 0;
-    }
-    d_latest_allocation.native_segment_generation = 0;
-    d_latest_allocation.n_allocations = 1;
-    return true;
-}
-
-bool
-RecordReader::parseNativeAllocationRecord(NativeAllocationRecord* record, unsigned int flags)
-{
-    record->allocator = static_cast<hooks::Allocator>(flags);
-
-    return readIntegralDelta(&d_last.data_pointer, &record->address) && readVarint(&record->size)
-           && readIntegralDelta(&d_last.native_frame_id, &record->native_frame_id);
-}
-
-bool
-RecordReader::processNativeAllocationRecord(const NativeAllocationRecord& record)
-{
-    d_latest_allocation.tid = d_last.thread_id;
-    d_latest_allocation.address = record.address;
-    d_latest_allocation.size = record.size;
-    d_latest_allocation.allocator = record.allocator;
-    if (d_track_stacks) {
         d_latest_allocation.native_frame_id = record.native_frame_id;
         auto& stack = d_stack_traces[d_latest_allocation.tid];
         d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
@@ -582,18 +562,6 @@ RecordReader::nextRecordFromAllAllocationsFile()
                     || !processAllocationRecord(record))
                 {
                     if (d_input->is_open()) LOG(ERROR) << "Failed to process allocation record";
-                    return RecordResult::ERROR;
-                }
-                return RecordResult::ALLOCATION_RECORD;
-            } break;
-            case RecordType::ALLOCATION_WITH_NATIVE: {
-                NativeAllocationRecord record;
-                if (!parseNativeAllocationRecord(&record, record_type_and_flags.flags)
-                    || !processNativeAllocationRecord(record))
-                {
-                    if (d_input->is_open()) {
-                        LOG(ERROR) << "Failed to process allocation record with native info";
-                    }
                     return RecordResult::ERROR;
                 }
                 return RecordResult::ALLOCATION_RECORD;
@@ -1064,29 +1032,6 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                         Py_RETURN_NONE;
                     } break;
                 }
-            } break;
-            case RecordType::ALLOCATION_WITH_NATIVE: {
-                printf("ALLOCATION_WITH_NATIVE ");
-
-                NativeAllocationRecord record;
-                if (!parseNativeAllocationRecord(&record, record_type_and_flags.flags)) {
-                    Py_RETURN_NONE;
-                }
-
-                const char* allocator = allocatorName(record.allocator);
-
-                std::string unknownAllocator;
-                if (!allocator) {
-                    unknownAllocator =
-                            "<unknown allocator " + std::to_string((int)record.allocator) + ">";
-                    allocator = unknownAllocator.c_str();
-                }
-
-                printf("address=%p size=%zd allocator=%s native_frame_id=%zd\n",
-                       (void*)record.address,
-                       record.size,
-                       allocator,
-                       record.native_frame_id);
             } break;
             case RecordType::ALLOCATION: {
                 printf("ALLOCATION ");
