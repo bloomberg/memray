@@ -327,8 +327,13 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
 
     d_stats.n_allocations += 1;
     auto token = static_cast<unsigned char>(RecordType::ALLOCATION);
-    token |= static_cast<unsigned char>(record.allocator);
+
+    auto allocator_id = static_cast<unsigned char>(record.allocator);
+    if (allocator_id < 8) {
+        token |= allocator_id;
+    }
     return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
+           && (allocator_id < 8 || writeSimpleType(record.allocator))
            && (!d_header.native_traces
                || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
            && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
