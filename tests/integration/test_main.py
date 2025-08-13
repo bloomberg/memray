@@ -575,7 +575,6 @@ class TestParseSubcommand:
         # GIVEN
         record_types = [
             "ALLOCATION",
-            "ALLOCATION_WITH_NATIVE",
             "MEMORY_MAP_START",
             "SEGMENT_HEADER",
             "SEGMENT",

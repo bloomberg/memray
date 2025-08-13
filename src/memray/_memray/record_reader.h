@@ -120,9 +120,6 @@ class RecordReader
     [[nodiscard]] bool parseAllocationRecord(AllocationRecord* record, unsigned int flags);
     [[nodiscard]] bool processAllocationRecord(const AllocationRecord& record);
 
-    [[nodiscard]] bool parseNativeAllocationRecord(NativeAllocationRecord* record, unsigned int flags);
-    [[nodiscard]] bool processNativeAllocationRecord(const NativeAllocationRecord& record);
-
     [[nodiscard]] static bool parseMemoryMapStart();
     [[nodiscard]] bool processMemoryMapStart();
 
