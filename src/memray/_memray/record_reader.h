@@ -104,6 +104,7 @@ class RecordReader
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
+    std::array<uintptr_t, 15> d_recent_addresses{};
     DeltaEncodedFields d_last;
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;

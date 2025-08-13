@@ -2,6 +2,8 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <algorithm>
+#include <array>
 #include <cinttypes>
 #include <cstdio>
 #include <stdexcept>
@@ -262,8 +264,21 @@ RecordReader::processNativeFrameIndex(const UnresolvedNativeFrame& frame)
 bool
 RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags)
 {
-    if (!readIntegralDelta(&d_last.data_pointer, &record->address)) {
-        return false;
+    unsigned int pointer_cache_index = (flags >> 3) & 0x0f;
+    if (pointer_cache_index == 0x0f) {
+        // Cache miss, read the pointer, then update the cache
+        if (!readIntegralDelta(&d_last.data_pointer, &record->address)) {
+            return false;
+        }
+
+        std::move(
+                d_recent_addresses.begin(),
+                d_recent_addresses.end() - 1,
+                d_recent_addresses.begin() + 1);
+        d_recent_addresses[0] = record->address;
+    } else {
+        // Cache hit, reuse previous pointer
+        record->address = d_recent_addresses[pointer_cache_index];
     }
 
     auto allocator_id = flags & 7;

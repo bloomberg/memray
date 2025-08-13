@@ -1,5 +1,7 @@
 #include "record_writer.h"
 
+#include <algorithm>
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
@@ -88,11 +90,13 @@ class StreamingRecordWriter : public RecordWriter
 
   private:
     bool maybeWriteContextSwitchRecordUnsafe(thread_id_t tid);
+    int pointerCacheIndex(uintptr_t ptr);
 
     // Data members
     int d_version{CURRENT_HEADER_VERSION};
     HeaderRecord d_header{};
     TrackerStats d_stats{};
+    std::array<uintptr_t, 15> d_recent_addresses{};
     DeltaEncodedFields d_last;
 };
 
@@ -282,6 +286,20 @@ StreamingRecordWriter::maybeWriteContextSwitchRecordUnsafe(thread_id_t tid)
     return writeSimpleType(token) && writeSimpleType(record);
 }
 
+int
+StreamingRecordWriter::pointerCacheIndex(uintptr_t ptr)
+{
+    auto it = std::find(d_recent_addresses.begin(), d_recent_addresses.end(), ptr);
+    if (it != d_recent_addresses.end()) {
+        return static_cast<int>(std::distance(d_recent_addresses.begin(), it));
+    }
+
+    std::move(d_recent_addresses.begin(), d_recent_addresses.end() - 1, d_recent_addresses.begin() + 1);
+    d_recent_addresses[0] = ptr;
+
+    return -1;
+}
+
 bool
 StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePop& record)
 {
@@ -332,7 +350,12 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
     if (allocator_id < 8) {
         token |= allocator_id;
     }
-    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
+
+    int pointer_cache_index = pointerCacheIndex(record.address);
+    token |= (pointer_cache_index & 0x0f) << 3;
+
+    return writeSimpleType(token)
+           && (pointer_cache_index != -1 || writeIntegralDelta(&d_last.data_pointer, record.address))
            && (allocator_id < 8 || writeSimpleType(record.allocator))
            && (!d_header.native_traces
                || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
