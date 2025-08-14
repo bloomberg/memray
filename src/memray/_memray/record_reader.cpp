@@ -290,7 +290,9 @@ RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags
         d_input->read(reinterpret_cast<char*>(&record->allocator), sizeof(record->allocator));
     }
 
-    if (d_header.native_traces) {
+    if (d_header.native_traces
+        && hooks::allocatorKind(record->allocator) != hooks::AllocatorKind::SIMPLE_DEALLOCATOR)
+    {
         if (!readIntegralDelta(&d_last.native_frame_id, &record->native_frame_id)) {
             return false;
         }

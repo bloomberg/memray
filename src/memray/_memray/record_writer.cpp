@@ -359,6 +359,7 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
                || writeIntegralDelta(&d_last.data_pointer, record.address >> 3))
            && (allocator_id < 8 || writeSimpleType(record.allocator))
            && (!d_header.native_traces
+               || hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
                || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
            && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
                || writeVarint(record.size));
