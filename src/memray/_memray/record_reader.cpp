@@ -175,12 +175,7 @@ RecordReader::processFramePush(const FramePush& record)
     if (!d_track_stacks) {
         return true;
     }
-    thread_id_t tid = d_last.thread_id;
-    auto [it, inserted] = d_stack_traces.emplace(tid, stack_t{});
-    auto& stack = it->second;
-    if (inserted) {
-        stack.reserve(1024);
-    }
+    auto& stack = *d_curr_thread_stack;
     FrameTree::index_t current_stack_id = stack.empty() ? 0 : stack.back();
     FrameTree::index_t new_stack_id;
     {
@@ -205,13 +200,13 @@ RecordReader::processFramePop(const FramePop& record)
     if (!d_track_stacks) {
         return true;
     }
-    thread_id_t tid = d_last.thread_id;
 
-    assert(!d_stack_traces[tid].empty());
+    auto& stack = *d_curr_thread_stack;
+    assert(!stack.empty());
     auto count = record.count;
     while (count) {
         --count;
-        d_stack_traces[tid].pop_back();
+        stack.pop_back();
     }
     return true;
 }
@@ -318,7 +313,7 @@ RecordReader::processAllocationRecord(const AllocationRecord& record)
     d_latest_allocation.allocator = record.allocator;
     if (d_track_stacks && !hooks::isDeallocator(record.allocator)) {
         d_latest_allocation.native_frame_id = record.native_frame_id;
-        auto& stack = d_stack_traces[d_latest_allocation.tid];
+        auto& stack = *d_curr_thread_stack;
         d_latest_allocation.frame_index = stack.empty() ? 0 : stack.back();
         d_latest_allocation.native_segment_generation = d_symbol_resolver.currentSegmentGeneration();
     } else {
@@ -432,6 +427,12 @@ bool
 RecordReader::processContextSwitch(thread_id_t tid)
 {
     d_last.thread_id = tid;
+    auto [it, inserted] = d_stack_traces.emplace(tid, stack_t{});
+    auto& stack = it->second;
+    d_curr_thread_stack = &stack;
+    if (inserted) {
+        stack.reserve(1024);
+    }
     return true;
 }
 

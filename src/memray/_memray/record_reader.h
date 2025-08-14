@@ -106,6 +106,8 @@ class RecordReader
     std::vector<UnresolvedNativeFrame> d_native_frames{};
     std::array<uintptr_t, 15> d_recent_addresses{};
     DeltaEncodedFields d_last;
+    stack_t* d_curr_thread_stack{};
+
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;
     AggregatedAllocation d_latest_aggregated_allocation;
