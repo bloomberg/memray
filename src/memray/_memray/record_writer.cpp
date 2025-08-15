@@ -307,6 +307,8 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePop
         return false;
     }
 
+    // FRAME_POP ENCODING: 0b0001nnnn, n+1 is number of frames to pop.
+    // If there are more than 16 frames to pop, we emit multiple FRAME_POP records.
     size_t count = record.count;
     while (count) {
         uint8_t to_pop = (count > 16 ? 16 : count);
@@ -330,6 +332,10 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePus
         return false;
     }
 
+    // FRAME_PUSH ENCODING: 0b01uuuuue, `u` are unused bits, `e` is is-entry-frame.
+    // In the future we can use `u` to pack more information into the token,
+    // like whether the code object id has been recently seen.
+    // This is followed by the varint encoded code object id and instruction offset.
     auto token = static_cast<unsigned char>(RecordType::FRAME_PUSH);
     token |= record.frame.is_entry_frame;
     return writeSimpleType(token) && writeVarint(record.frame.code_object_id)
@@ -343,6 +349,18 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
         return false;
     }
 
+    // ALLOCATION ENCODING: 0b1ppppaaa
+    // `p` is pointer cache index, with 0-14 indicating this is one of the 15
+    // most recently seen unique addresses, and 15 indicating a cache miss.
+    // `a` is allocator id (1-7) or 0 as a sentinel indicating that the
+    // allocator id is not 1-7 and so will be encoded separately.
+    // This first byte is followed by several optional fields:
+    // - The pointer (if there was a pointer cache miss)
+    // - The allocator id (if it was not 1-7)
+    // - The native frame id (if native traces are enabled and this isn't
+    //   a deallocation by a simple, non-ranged deallocator)
+    // - The allocation/deallocation size (if this isn't a deallocation with
+    //   a simple deallocator)
     d_stats.n_allocations += 1;
     auto token = static_cast<unsigned char>(RecordType::ALLOCATION);
 

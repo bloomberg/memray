@@ -25,6 +25,18 @@ using thread_id_t = unsigned long;
 using millis_t = long long;
 using code_object_id_t = size_t;
 
+// If the high (128) bit is set on a given record type discriminator,
+// it's an ALLOCATION record with 7 bits available for flags (see
+// "ALLOCATION ENCODING" in record_writer.cpp for details).
+//
+// Otherwise, if the 64 bit is set, it's a FRAME_PUSH record with 6 bits
+// available for flags (see "FRAME_PUSH ENCODING" in record_writer.cpp).
+//
+// Otherwise, if the 16 bit is set, it's a FRAME_POP record with 4 bits
+// available for flags (see "FRAME_POP ENCODING" in record_writer.cpp).
+//
+// Otherwise, it's a record type that has no flags, and all remaining
+// bits identify the record type
 enum class RecordType : unsigned char {
     FILLER = 0,
     TRAILER = 1,
