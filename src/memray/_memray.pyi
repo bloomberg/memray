@@ -107,21 +107,21 @@ class TemporalAllocationRecord:
     intervals: List[Interval]
 
 class AllocatorType(enum.IntEnum):
-    MALLOC = 1
-    FREE = 2
-    CALLOC = 3
-    REALLOC = 4
-    POSIX_MEMALIGN = 5
-    ALIGNED_ALLOC = 6
-    MEMALIGN = 7
-    VALLOC = 8
-    PVALLOC = 9
-    MMAP = 10
-    MUNMAP = 11
-    PYMALLOC_MALLOC = 12
-    PYMALLOC_CALLOC = 13
-    PYMALLOC_REALLOC = 14
-    PYMALLOC_FREE = 15
+    PYMALLOC_FREE = 1
+    PYMALLOC_MALLOC = 2
+    PYMALLOC_CALLOC = 3
+    PYMALLOC_REALLOC = 4
+    FREE = 5
+    MALLOC = 6
+    REALLOC = 7
+    CALLOC = 8
+    POSIX_MEMALIGN = 9
+    ALIGNED_ALLOC = 10
+    MEMALIGN = 11
+    VALLOC = 12
+    PVALLOC = 13
+    MMAP = 14
+    MUNMAP = 15
 
 class FileFormat(enum.IntEnum):
     ALL_ALLOCATIONS = 1

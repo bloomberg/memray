@@ -25,24 +25,33 @@ using thread_id_t = unsigned long;
 using millis_t = long long;
 using code_object_id_t = size_t;
 
+// If the high (128) bit is set on a given record type discriminator,
+// it's an ALLOCATION record with 7 bits available for flags (see
+// "ALLOCATION ENCODING" in record_writer.cpp for details).
+//
+// Otherwise, if the 64 bit is set, it's a FRAME_PUSH record with 6 bits
+// available for flags (see "FRAME_PUSH ENCODING" in record_writer.cpp).
+//
+// Otherwise, if the 16 bit is set, it's a FRAME_POP record with 4 bits
+// available for flags (see "FRAME_POP ENCODING" in record_writer.cpp).
+//
+// Otherwise, it's a record type that has no flags, and all remaining
+// bits identify the record type
 enum class RecordType : unsigned char {
-    OTHER = 0,
-    ALLOCATION = 1,
-    ALLOCATION_WITH_NATIVE = 2,
-    FRAME_PUSH = 4,
+    FILLER = 0,
+    TRAILER = 1,
+    MEMORY_RECORD = 2,
     NATIVE_TRACE_INDEX = 5,
     MEMORY_MAP_START = 6,
     SEGMENT_HEADER = 7,
     SEGMENT = 8,
-    FRAME_POP = 9,
     THREAD_RECORD = 10,
-    MEMORY_RECORD = 11,
     CONTEXT_SWITCH = 12,
     CODE_OBJECT = 14,
-};
 
-enum class OtherRecordType : unsigned char {
-    TRAILER = 1,
+    FRAME_POP = 16,  // 16 through 31
+    FRAME_PUSH = 64,  // 64 through 127
+    ALLOCATION = 128,  // 128 through 255
 };
 
 // Enumerators that have the same name as in RecordType are encoded the same
@@ -64,29 +73,6 @@ enum class AggregatedRecordType : unsigned char {
 
     AGGREGATED_TRAILER = 15,
 };
-
-struct RecordTypeAndFlags
-{
-    RecordTypeAndFlags()
-    : record_type(RecordType::OTHER)
-    , flags(0)
-    {
-    }
-
-    RecordTypeAndFlags(RecordType record_type_, unsigned char flags_)
-    : record_type(record_type_)
-    , flags(flags_)
-    {
-        // Ensure both values fit into 4 bits
-        assert(static_cast<int>(record_type_) == (static_cast<int>(record_type_) & 0x0f));
-        assert(static_cast<int>(flags_) == (static_cast<int>(flags_) & 0x0f));
-    }
-
-    RecordType record_type : 4;
-    unsigned char flags : 4;
-};
-
-static_assert(sizeof(RecordTypeAndFlags) == 1);
 
 struct TrackerStats
 {
@@ -140,13 +126,6 @@ struct MemorySnapshot
 };
 
 struct AllocationRecord
-{
-    uintptr_t address;
-    size_t size;
-    hooks::Allocator allocator;
-};
-
-struct NativeAllocationRecord
 {
     uintptr_t address;
     size_t size;

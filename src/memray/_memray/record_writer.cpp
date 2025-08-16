@@ -1,5 +1,7 @@
 #include "record_writer.h"
 
+#include <algorithm>
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
@@ -78,7 +80,6 @@ class StreamingRecordWriter : public RecordWriter
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
-    bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
 
     bool writeHeader(bool seek_to_start) override;
@@ -89,11 +90,13 @@ class StreamingRecordWriter : public RecordWriter
 
   private:
     bool maybeWriteContextSwitchRecordUnsafe(thread_id_t tid);
+    int pointerCacheIndex(uintptr_t ptr);
 
     // Data members
     int d_version{CURRENT_HEADER_VERSION};
     HeaderRecord d_header{};
     TrackerStats d_stats{};
+    std::array<uintptr_t, 15> d_recent_addresses{};
     DeltaEncodedFields d_last;
 };
 
@@ -120,7 +123,6 @@ class AggregatingRecordWriter : public RecordWriter
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePop& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) override;
-    bool writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record) override;
     bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) override;
 
     bool writeHeader(bool seek_to_start) override;
@@ -211,7 +213,7 @@ StreamingRecordWriter::setMainTidAndSkippedFrames(
 bool
 StreamingRecordWriter::writeRecord(const MemoryRecord& record)
 {
-    RecordTypeAndFlags token{RecordType::MEMORY_RECORD, 0};
+    auto token = static_cast<unsigned char>(RecordType::MEMORY_RECORD);
     return writeSimpleType(token) && writeVarint(record.rss)
            && writeVarint(record.ms_since_epoch - d_stats.start_time) && d_sink->flush();
 }
@@ -219,7 +221,7 @@ StreamingRecordWriter::writeRecord(const MemoryRecord& record)
 bool
 StreamingRecordWriter::writeRecord(const pycode_map_val_t& item)
 {
-    RecordTypeAndFlags token{RecordType::CODE_OBJECT, 0};
+    auto token = static_cast<unsigned char>(RecordType::CODE_OBJECT);
     return writeSimpleType(token) && writeVarint(item.first)
            && writeString(item.second.function_name.c_str()) && writeString(item.second.filename.c_str())
            && writeIntegralDelta(&d_last.code_firstlineno, item.second.firstlineno)
@@ -230,7 +232,7 @@ StreamingRecordWriter::writeRecord(const pycode_map_val_t& item)
 bool
 StreamingRecordWriter::writeRecord(const UnresolvedNativeFrame& record)
 {
-    return writeSimpleType(RecordTypeAndFlags{RecordType::NATIVE_TRACE_INDEX, 0})
+    return writeSimpleType(static_cast<unsigned char>(RecordType::NATIVE_TRACE_INDEX))
            && writeIntegralDelta(&d_last.instruction_pointer, record.ip)
            && writeIntegralDelta(&d_last.native_frame_id, record.index);
 }
@@ -244,20 +246,20 @@ StreamingRecordWriter::writeMappings(const std::vector<ImageSegments>& mappings)
 bool
 RecordWriter::writeMappingsCommon(const std::vector<ImageSegments>& mappings)
 {
-    RecordTypeAndFlags start_token{RecordType::MEMORY_MAP_START, 0};
+    auto start_token = static_cast<unsigned char>(RecordType::MEMORY_MAP_START);
     if (!writeSimpleType(start_token)) {
         return false;
     }
 
     for (const auto& image : mappings) {
-        RecordTypeAndFlags segment_header_token{RecordType::SEGMENT_HEADER, 0};
+        auto segment_header_token = static_cast<unsigned char>(RecordType::SEGMENT_HEADER);
         if (!writeSimpleType(segment_header_token) || !writeString(image.filename.c_str())
             || !writeVarint(image.segments.size()) || !writeSimpleType(image.addr))
         {
             return false;
         }
 
-        RecordTypeAndFlags segment_token{RecordType::SEGMENT, 0};
+        auto segment_token = static_cast<unsigned char>(RecordType::SEGMENT);
 
         for (const auto& segment : image.segments) {
             if (!writeSimpleType(segment_token) || !writeSimpleType(segment.vaddr)
@@ -279,9 +281,23 @@ StreamingRecordWriter::maybeWriteContextSwitchRecordUnsafe(thread_id_t tid)
     }
     d_last.thread_id = tid;
 
-    RecordTypeAndFlags token{RecordType::CONTEXT_SWITCH, 0};
+    auto token = static_cast<unsigned char>(RecordType::CONTEXT_SWITCH);
     ContextSwitch record{tid};
     return writeSimpleType(token) && writeSimpleType(record);
+}
+
+int
+StreamingRecordWriter::pointerCacheIndex(uintptr_t ptr)
+{
+    auto it = std::find(d_recent_addresses.begin(), d_recent_addresses.end(), ptr);
+    if (it != d_recent_addresses.end()) {
+        return static_cast<int>(std::distance(d_recent_addresses.begin(), it));
+    }
+
+    std::move(d_recent_addresses.begin(), d_recent_addresses.end() - 1, d_recent_addresses.begin() + 1);
+    d_recent_addresses[0] = ptr;
+
+    return -1;
 }
 
 bool
@@ -291,14 +307,16 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePop
         return false;
     }
 
+    // FRAME_POP ENCODING: 0b0001nnnn, n+1 is number of frames to pop.
+    // If there are more than 16 frames to pop, we emit multiple FRAME_POP records.
     size_t count = record.count;
     while (count) {
         uint8_t to_pop = (count > 16 ? 16 : count);
         count -= to_pop;
 
         to_pop -= 1;  // i.e. 0 means pop 1 frame, 15 means pop 16 frames
-        RecordTypeAndFlags token{RecordType::FRAME_POP, to_pop};
-        assert(token.flags == to_pop);
+        auto token = static_cast<unsigned char>(RecordType::FRAME_POP);
+        token |= to_pop;
         if (!writeSimpleType(token)) {
             return false;
         }
@@ -314,7 +332,12 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePus
         return false;
     }
 
-    RecordTypeAndFlags token{RecordType::FRAME_PUSH, record.frame.is_entry_frame};
+    // FRAME_PUSH ENCODING: 0b01uuuuue, `u` are unused bits, `e` is is-entry-frame.
+    // In the future we can use `u` to pack more information into the token,
+    // like whether the code object id has been recently seen.
+    // This is followed by the varint encoded code object id and instruction offset.
+    auto token = static_cast<unsigned char>(RecordType::FRAME_PUSH);
+    token |= record.frame.is_entry_frame;
     return writeSimpleType(token) && writeVarint(record.frame.code_object_id)
            && writeSignedVarint(record.frame.instruction_offset);
 }
@@ -326,27 +349,38 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
         return false;
     }
 
+    // ALLOCATION ENCODING: 0b1ppppaaa
+    // `p` is pointer cache index, with 0-14 indicating this is one of the 15
+    // most recently seen unique addresses, and 15 indicating a cache miss.
+    // `a` is allocator id (1-7) or 0 as a sentinel indicating that the
+    // allocator id is not 1-7 and so will be encoded separately.
+    // This first byte is followed by several optional fields:
+    // - The pointer (if there was a pointer cache miss)
+    // - The allocator id (if it was not 1-7)
+    // - The native frame id (if native traces are enabled and this isn't
+    //   a deallocation by a simple, non-ranged deallocator)
+    // - The allocation/deallocation size (if this isn't a deallocation with
+    //   a simple deallocator)
     d_stats.n_allocations += 1;
-    RecordTypeAndFlags token{RecordType::ALLOCATION, static_cast<unsigned char>(record.allocator)};
-    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
-           && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
-               || writeVarint(record.size));
-}
+    auto token = static_cast<unsigned char>(RecordType::ALLOCATION);
 
-bool
-StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record)
-{
-    if (!maybeWriteContextSwitchRecordUnsafe(tid)) {
-        return false;
+    auto allocator_id = static_cast<unsigned char>(record.allocator);
+    if (allocator_id < 8) {
+        token |= allocator_id;
     }
 
-    d_stats.n_allocations += 1;
-    RecordTypeAndFlags token{
-            RecordType::ALLOCATION_WITH_NATIVE,
-            static_cast<unsigned char>(record.allocator)};
-    return writeSimpleType(token) && writeIntegralDelta(&d_last.data_pointer, record.address)
-           && writeVarint(record.size)
-           && writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id);
+    int pointer_cache_index = pointerCacheIndex(record.address);
+    token |= (pointer_cache_index & 0x0f) << 3;
+
+    return writeSimpleType(token)
+           && (pointer_cache_index != -1
+               || writeIntegralDelta(&d_last.data_pointer, record.address >> 3))
+           && (allocator_id < 8 || writeSimpleType(record.allocator))
+           && (!d_header.native_traces
+               || hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
+               || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
+           && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
+               || writeVarint(record.size));
 }
 
 bool
@@ -356,7 +390,7 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const ThreadRe
         return false;
     }
 
-    RecordTypeAndFlags token{RecordType::THREAD_RECORD, 0};
+    auto token = static_cast<unsigned char>(RecordType::THREAD_RECORD);
     return writeSimpleType(token) && writeString(record.name);
 }
 
@@ -396,7 +430,7 @@ StreamingRecordWriter::writeTrailer()
 {
     // The FileSource will ignore trailing 0x00 bytes. This non-zero trailer
     // marks the boundary between bytes we wrote and padding bytes.
-    RecordTypeAndFlags token{RecordType::OTHER, int(OtherRecordType::TRAILER)};
+    auto token = static_cast<unsigned char>(RecordType::TRAILER);
     return writeSimpleType(token);
 }
 
@@ -630,30 +664,13 @@ AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Alloca
     allocation.address = record.address;
     allocation.size = record.size;
     allocation.allocator = record.allocator;
-    allocation.native_frame_id = 0;
+    allocation.native_frame_id = record.native_frame_id;
     if (!hooks::isDeallocator(record.allocator)) {
         auto& stack = d_python_stack_ids_by_thread[tid];
         allocation.frame_index = stack.empty() ? 0 : stack.back();
     } else {
         allocation.frame_index = 0;
     }
-    allocation.native_segment_generation = 0;
-    allocation.n_allocations = 1;
-    d_high_water_mark_aggregator.addAllocation(allocation);
-    return true;
-}
-
-bool
-AggregatingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const NativeAllocationRecord& record)
-{
-    Allocation allocation;
-    allocation.tid = tid;
-    allocation.address = record.address;
-    allocation.size = record.size;
-    allocation.allocator = record.allocator;
-    allocation.native_frame_id = record.native_frame_id;
-    auto& stack = d_python_stack_ids_by_thread[tid];
-    allocation.frame_index = stack.empty() ? 0 : stack.back();
     allocation.native_segment_generation = d_mappings_by_generation.size();
     allocation.n_allocations = 1;
     d_high_water_mark_aggregator.addAllocation(allocation);

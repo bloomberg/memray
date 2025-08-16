@@ -997,7 +997,7 @@ Tracker::trackAllocationImpl(
                         return d_writer->writeRecord(UnresolvedNativeFrame{ip, index});
                     });
         }
-        NativeAllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
+        AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();

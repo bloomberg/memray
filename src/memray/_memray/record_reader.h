@@ -80,6 +80,10 @@ class RecordReader
     template<typename T>
     bool readIntegralDelta(T* cache, T* new_val);
     Location frameToLocation(frame_id_t frame);
+    void extractRecordTypeAndFlags(
+            unsigned char record_type_and_flags,
+            RecordType* record_type,
+            unsigned char* flags) const;
     RecordResult nextRecordFromAllAllocationsFile();
     RecordResult nextRecordFromAggregatedAllocationsFile();
     PyObject* dumpAllRecordsFromAllAllocationsFile();
@@ -100,7 +104,10 @@ class RecordReader
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
+    std::array<uintptr_t, 15> d_recent_addresses{};
     DeltaEncodedFields d_last;
+    stack_t* d_curr_thread_stack{};
+
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;
     AggregatedAllocation d_latest_aggregated_allocation;
@@ -119,9 +126,6 @@ class RecordReader
 
     [[nodiscard]] bool parseAllocationRecord(AllocationRecord* record, unsigned int flags);
     [[nodiscard]] bool processAllocationRecord(const AllocationRecord& record);
-
-    [[nodiscard]] bool parseNativeAllocationRecord(NativeAllocationRecord* record, unsigned int flags);
-    [[nodiscard]] bool processNativeAllocationRecord(const NativeAllocationRecord& record);
 
     [[nodiscard]] static bool parseMemoryMapStart();
     [[nodiscard]] bool processMemoryMapStart();
