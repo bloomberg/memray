@@ -104,6 +104,12 @@ class RecordReader
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
+    // Pointer cache for recently seen addresses (LRU, indices 0-14)
+    // The cache must stay synchronized with the writer's cache.
+    // Index 0 = most recent, 14 = least recent
+    // Cache encoding in allocation records:
+    //   - 0x0 to 0xE (0-14): Cache hit at this index
+    //   - 0xF (15): Cache miss, full address follows
     std::array<uintptr_t, 15> d_recent_addresses{};
     DeltaEncodedFields d_last;
     stack_t* d_curr_thread_stack{};
