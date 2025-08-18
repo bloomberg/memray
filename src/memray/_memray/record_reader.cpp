@@ -177,6 +177,9 @@ RecordReader::processFramePush(const FramePush& record)
     if (!d_track_stacks) {
         return true;
     }
+    if (!d_curr_thread_stack) {
+        throw std::runtime_error("invalid capture file: FRAME_PUSH with no previous CONTEXT_SWITCH");
+    }
     auto& stack = *d_curr_thread_stack;
     FrameTree::index_t current_stack_id = stack.empty() ? 0 : stack.back();
     FrameTree::index_t new_stack_id;
@@ -201,6 +204,9 @@ RecordReader::processFramePop(const FramePop& record)
 {
     if (!d_track_stacks) {
         return true;
+    }
+    if (!d_curr_thread_stack) {
+        throw std::runtime_error("invalid capture file: FRAME_POP with no previous CONTEXT_SWITCH");
     }
 
     auto& stack = *d_curr_thread_stack;
@@ -311,6 +317,9 @@ RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags
 bool
 RecordReader::processAllocationRecord(const AllocationRecord& record)
 {
+    if (!d_curr_thread_stack) {
+        throw std::runtime_error("invalid capture file: ALLOCATION with no previous CONTEXT_SWITCH");
+    }
     d_latest_allocation.tid = d_last.thread_id;
     d_latest_allocation.address = record.address;
     d_latest_allocation.size = record.size;
