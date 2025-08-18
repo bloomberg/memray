@@ -96,6 +96,24 @@ class StreamingRecordWriter : public RecordWriter
     int d_version{CURRENT_HEADER_VERSION};
     HeaderRecord d_header{};
     TrackerStats d_stats{};
+    // LRU Pointer Cache System
+    // ========================
+    // Recent allocation addresses are cached to avoid repeating pointers.
+    // - Cache holds 15 most recent unique addresses (indices 0-14)
+    // - Index 0 = most recently added, 14 = least recently added
+    // - On miss: new address inserted at index 0, others shift right, index 14 drops
+    //
+    // Wire format uses 4 bits (pppp):
+    //   0x0-0xE (0-14): Cache hit - reuse address at this index
+    //   0xF (15):       Cache miss - read/write full address, update cache
+    //
+    // Compression example:
+    //   malloc() returns 0x7fff8000 five times, free() called five times
+    //   Traditional: 5 * 8 bytes (addresses) = 40 bytes
+    //   With cache:  8 bytes (first addr) + 5 * 0 bytes (cache hits) = 8 bytes
+    //
+    // CRITICAL: Reader and writer caches must stay synchronized by processing
+    //           records in identical order with identical LRU updates.
     std::array<uintptr_t, 15> d_recent_addresses{};
     DeltaEncodedFields d_last;
 };
@@ -350,17 +368,32 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
     }
 
     // ALLOCATION ENCODING: 0b1ppppaaa
-    // `p` is pointer cache index, with 0-14 indicating this is one of the 15
-    // most recently seen unique addresses, and 15 indicating a cache miss.
-    // `a` is allocator id (1-7) or 0 as a sentinel indicating that the
-    // allocator id is not 1-7 and so will be encoded separately.
-    // This first byte is followed by several optional fields:
-    // - The pointer (if there was a pointer cache miss)
-    // - The allocator id (if it was not 1-7)
-    // - The native frame id (if native traces are enabled and this isn't
-    //   a deallocation by a simple, non-ranged deallocator)
-    // - The allocation/deallocation size (if this isn't a deallocation with
-    //   a simple deallocator)
+    //
+    // Bit layout of the first byte:
+    // ┌─┬─────┬─────┐
+    // │1│pppp │ aaa │
+    // └─┴─────┴─────┘
+    //  ↑   ↑     ↑
+    //  │   │     └── Allocator ID (0-7):
+    //  │   │           1-7: Common allocators (PYMALLOC_FREE, MALLOC, etc.)
+    //  │   │             0: Uncommon allocator, full ID follows as separate byte
+    //  │   └──────── Pointer cache index (0-15):
+    //  │               0-14: Cache hit, reuse address at cache[index]
+    //  │                 15: Cache miss, delta-encoded pointer follows
+    //  └──────────── Record type marker (always 1 for ALLOCATION)
+    //
+    // Byte sequence after the type byte:
+    // [pointer]     - Delta-encoded pointer >> 3 (only if pppp=15)
+    // [allocator]   - Full allocator ID byte (only if aaa=0)
+    // [native_id]   - Delta-encoded native_frame_id (only if native traces enabled
+    //                 AND not a simple deallocator)
+    // [size]        - Varint-encoded size (only if not a simple deallocator)
+    //
+    // Example sequences:
+    // - Cached malloc(256):        [0b10011110] [size:256]
+    //     (cache_idx=1, allocator=6)
+    // - New pymalloc_free(ptr):    [0b11111001] [ptr_delta]
+    //     (cache_miss, allocator=1, no size for deallocator)
     d_stats.n_allocations += 1;
     auto token = static_cast<unsigned char>(RecordType::ALLOCATION);
 
