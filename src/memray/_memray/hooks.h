@@ -32,6 +32,8 @@
         FOR_EACH_HOOKED_FUNCTION(prctl)                                                                 \
         FOR_EACH_HOOKED_FUNCTION(pvalloc)                                                               \
         FOR_EACH_HOOKED_FUNCTION(mmap64)
+        FOR_EACH_HOOKED_FUNCTION(free_sized)                                                            \
+        FOR_EACH_HOOKED_FUNCTION(free_aligned_sized)
 #else
 #    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS                                                            \
         FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
@@ -200,6 +202,12 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 #if defined(__GLIBC__)
 void*
 mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept;
+
+void
+free_sized(void* ptr, size_t size) noexcept;
+
+void
+free_aligned_sized(void* ptr, size_t alignment, size_t size) noexcept;
 #endif
 
 int

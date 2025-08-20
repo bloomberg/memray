@@ -15,6 +15,7 @@ HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_MISBEHAVING_EXTENSION = HERE / "misbehaving_extension"
 TEST_RPATH_EXTENSION = HERE / "rpath_extension"
+TEST_FREE_SIZED_EXTENSION = HERE / "free_sized_extension"
 
 
 @pytest.mark.valgrind
@@ -386,3 +387,49 @@ def test_dlopen_with_rpath(tmpdir, monkeypatch):
         # THEN
         with Tracker(output):
             hello_world()
+
+@pytest.mark.skipif(
+    not hasattr(ctypes.CDLL(None), "free_sized"),
+    reason="free_sized not available on this system"
+)
+def test_free_sized_extension(tmpdir, monkeypatch):
+    """Test tracking allocations in a native extension which uses free_sized and free_aligned_sized."""
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "free_sized_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_FREE_SIZED_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from free_sized_test import run_both_tests  # type: ignore
+
+        with Tracker(output):
+            run_both_tests()
+
+    # THEN
+    records = list(FileReader(output).get_allocation_records())
+    assert records
+
+    # Check that at least 2 allocations from malloc and aligned_alloc
+    mallocs = [record for record in records if record.allocator == AllocatorType.MALLOC]
+    assert len(mallocs) >= 2
+
+    # Check that corresponding FREE records - this verifies hooks are working!
+    mallocs_addr = {record.address for record in mallocs}
+    frees = [
+        record
+        for record in records
+        if record.address in mallocs_addr and record.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) >= 2
+    
+    assert all(len(malloc.stack_trace()) == 0 for malloc in mallocs)
+    assert all(len(free.stack_trace()) == 0 for free in frees)
