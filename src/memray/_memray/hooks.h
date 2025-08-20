@@ -24,6 +24,18 @@
 #include "compat.h"
 #include "logging.h"
 
+#ifdef __APPLE__
+#    define MAYBE_MISSING __attribute__((weak_import))
+#else
+#    define MAYBE_MISSING __attribute__((weak))
+#endif
+
+extern void
+free_sized(void*, size_t) MAYBE_MISSING;
+
+extern void
+free_aligned_sized(void*, size_t, size_t) MAYBE_MISSING;
+
 #if defined(__APPLE__)
 #    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 #elif defined(__GLIBC__)
@@ -51,6 +63,8 @@
     FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
     FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)                                                         \
+    FOR_EACH_HOOKED_FUNCTION(free_sized)                                                                \
+    FOR_EACH_HOOKED_FUNCTION(free_aligned_sized)                                                        \
     MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 
 namespace memray::hooks {
@@ -201,6 +215,12 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 void*
 mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept;
 #endif
+
+void
+free_sized(void* ptr, size_t size) noexcept;
+
+void
+free_aligned_sized(void* ptr, size_t alignment, size_t size) noexcept;
 
 int
 munmap(void* addr, size_t length) noexcept;
