@@ -56,7 +56,7 @@ from _memray.sink cimport Sink
 from cpython.ref cimport PyObject
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
-from libcpp.string cimport string
+from libcpp.string cimport cppstring
 
 import os
 from typing import List
@@ -329,14 +329,14 @@ cdef class RecordWriterTestHarness:
         self._file_format = file_format
 
         # Create the sink
-        cdef string cpp_path = file_path.encode('utf-8')
+        cdef cppstring cpp_path = file_path.encode('utf-8')
         try:
             self._sink = unique_ptr[Sink](new FileSink(cpp_path, True, False))
         except:
             raise IOError("Failed to create file sink")
 
         # Create the writer
-        cdef string command_line = b" ".join(arg.encode('utf-8') for arg in sys.argv)
+        cdef cppstring command_line = b" ".join(arg.encode('utf-8') for arg in sys.argv)
         try:
             self._writer = createRecordWriter(
                 move(self._sink),
