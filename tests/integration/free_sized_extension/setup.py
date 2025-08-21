@@ -5,8 +5,9 @@ setup(
     ext_modules=[
         Extension(
             "free_sized_test",
-            sources=["free_sized_test.cpp"],
-            language="c++",
+            sources=["free_sized_test.c"],
+            language="c",
+            extra_compile_args=["-std=c23"]
         )
     ],
 )

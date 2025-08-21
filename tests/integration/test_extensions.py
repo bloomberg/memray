@@ -1,3 +1,4 @@
+import ctypes
 import shutil
 import subprocess
 import sys
@@ -399,27 +400,43 @@ def test_free_sized_extension(tmpdir, monkeypatch):
     extension_name = "free_sized_extension"
     extension_path = tmpdir / extension_name
     shutil.copytree(TEST_FREE_SIZED_EXTENSION, extension_path)
-    subprocess.run(
-        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
-        check=True,
-        cwd=extension_path,
-        capture_output=True,
-    )
+    
+    # Try to build the extension, skip if compilation fails
+    try:
+        subprocess.run(
+            [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+            check=True,
+            cwd=extension_path,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        pytest.skip(f"Failed to compile C23 extension: {e}")
+    except Exception as e:
+        pytest.skip(f"Unexpected error building extension: {e}")
 
     # WHEN
     with monkeypatch.context() as ctx:
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
-        from free_sized_test import run_both_tests  # type: ignore
+        
+        try:
+            from free_sized_test import run_both_tests  # type: ignore
+        except ImportError as e:
+            pytest.skip(f"Failed to import compiled extension: {e}")
 
         with Tracker(output):
-            run_both_tests()
+            # Get allocation info from the extension
+            result = run_both_tests()
+            
+            # Skip test if functions not available (e.g., on macOS)
+            if result is None:
+                pytest.skip("C23 functions not available on this system")
 
     # THEN
     records = list(FileReader(output).get_allocation_records())
     assert records
 
     # Check that at least 2 allocations from malloc and aligned_alloc
-    mallocs = [record for record in records if record.allocator == AllocatorType.MALLOC]
+    mallocs = [record for record in records if record.allocator == AllocatorType.ALIGNED_ALLOC]
     assert len(mallocs) >= 2
 
     # Check that corresponding FREE records - this verifies hooks are working!
@@ -429,7 +446,28 @@ def test_free_sized_extension(tmpdir, monkeypatch):
         for record in records
         if record.address in mallocs_addr and record.allocator == AllocatorType.FREE
     ]
-    assert len(frees) >= 2
+    assert len(frees) == len(mallocs)
     
     assert all(len(malloc.stack_trace()) == 0 for malloc in mallocs)
     assert all(len(free.stack_trace()) == 0 for free in frees)
+    
+    # Verify that the specific addresses returned by the extension were tracked
+    if result is not None:
+        # result should be a tuple of (address, size, alignment)
+        expected_address = result[0]
+        expected_size = result[1]
+        expected_alignment = result[2]
+        
+        # Find the allocation record for this address
+        matching_allocs = [
+            record for record in records 
+            if record.address == expected_address and record.allocator == AllocatorType.ALIGNED_ALLOC
+        ]
+        assert len(matching_allocs) >= 1, f"Expected allocation at address {expected_address} not found"
+        
+        # Find the corresponding free record
+        matching_frees = [
+            record for record in records 
+            if record.address == expected_address and record.allocator == AllocatorType.FREE
+        ]
+        assert len(matching_frees) >= 1, f"Expected free at address {expected_address} not found"

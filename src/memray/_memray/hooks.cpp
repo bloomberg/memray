@@ -196,7 +196,6 @@ free(void* ptr) noexcept
     }
 }
 
-#if defined(__GLIBC__)
 void
 free_sized(void* ptr, size_t size) noexcept
 {
@@ -208,7 +207,6 @@ free_aligned_sized(void* ptr, size_t alignment, size_t size) noexcept
 {
     memray::intercept::free(ptr);
 }
-#endif
 
 void*
 realloc(void* ptr, size_t size) noexcept
