@@ -48,22 +48,9 @@ from libcpp.vector cimport vector
 
 from ._destination import Destination
 
+from _memray cimport records
 from _memray.record_writer cimport RecordWriter
 from _memray.record_writer cimport createRecordWriter
-from _memray.records cimport AllocationRecord
-from _memray.records cimport Allocator
-from _memray.records cimport CodeObjectInfo
-from _memray.records cimport FileFormat
-from _memray.records cimport FramePop
-from _memray.records cimport FramePush
-from _memray.records cimport HeaderRecord
-from _memray.records cimport ImageSegments
-from _memray.records cimport MemoryRecord
-from _memray.records cimport Segment
-from _memray.records cimport ThreadRecord
-from _memray.records cimport UnresolvedNativeFrame
-from _memray.records cimport code_object_id_t
-from _memray.records cimport thread_id_t
 from _memray.sink cimport FileSink
 from _memray.sink cimport Sink
 from cpython.ref cimport PyObject
@@ -324,11 +311,11 @@ cdef class RecordWriterTestHarness:
     cdef unique_ptr[Sink] _sink
     cdef bool _native_traces
     cdef bool _trace_python_allocators
-    cdef FileFormat _file_format
+    cdef records.FileFormat _file_format
 
     def __cinit__(self, str file_path, bool native_traces=False,
                   bool trace_python_allocators=False,
-                  FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
+                  records.FileFormat file_format=records.FileFormat.ALL_ALLOCATIONS):
         """Initialize a new RecordWriterTestHarness.
 
         Args:
@@ -370,14 +357,14 @@ cdef class RecordWriterTestHarness:
 
     def write_memory_record(self, unsigned long ms_since_epoch, size_t rss) -> bool:
         """Write a memory record to the file."""
-        cdef MemoryRecord record
+        cdef records.MemoryRecord record
         record.ms_since_epoch = ms_since_epoch
         record.rss = rss
         return self._writer.get().writeRecord(record)
 
     def write_code_object(
         self,
-        code_object_id_t id,
+        records.code_object_id_t id,
         str function_name,
         str filename,
         str linetable,
@@ -385,9 +372,9 @@ cdef class RecordWriterTestHarness:
     ) -> bool:
         """Write a code object record to the file."""
         return self._writer.get().writeRecord(
-            pair[code_object_id_t, CodeObjectInfo](
+            pair[records.code_object_id_t, records.CodeObjectInfo](
                 id,
-                CodeObjectInfo(
+                records.CodeObjectInfo(
                     function_name.encode('utf-8'),
                     filename.encode('utf-8'),
                     linetable.encode('utf-8'),
@@ -398,45 +385,45 @@ cdef class RecordWriterTestHarness:
 
     def write_unresolved_native_frame(self, uintptr_t ip, size_t index) -> bool:
         """Write an unresolved native frame record to the file."""
-        cdef UnresolvedNativeFrame record
+        cdef records.UnresolvedNativeFrame record
         record.ip = ip
         record.index = index
         return self._writer.get().writeRecord(record)
 
-    def write_allocation_record(self, thread_id_t tid, uintptr_t address,
+    def write_allocation_record(self, records.thread_id_t tid, uintptr_t address,
                                      size_t size, unsigned char allocator,
                                      size_t native_frame_id=0) -> bool:
         """Write a native allocation record to the file."""
-        cdef AllocationRecord record
+        cdef records.AllocationRecord record
         record.address = address
         record.size = size
-        record.allocator = <Allocator>allocator
+        record.allocator = <records.Allocator>allocator
         record.native_frame_id = native_frame_id
         return self._writer.get().writeThreadSpecificRecord(tid, record)
 
     def write_frame_push(
         self,
-        thread_id_t tid,
-        code_object_id_t code_object_id,
+        records.thread_id_t tid,
+        records.code_object_id_t code_object_id,
         int instruction_offset,
         bool is_entry_frame,
     ) -> bool:
         """Write a frame push record to the file."""
-        cdef FramePush record
+        cdef records.FramePush record
         record.frame.code_object_id = code_object_id
         record.frame.instruction_offset = instruction_offset
         record.frame.is_entry_frame = is_entry_frame
         return self._writer.get().writeThreadSpecificRecord(tid, record)
 
-    def write_frame_pop(self, thread_id_t tid, size_t count) -> bool:
+    def write_frame_pop(self, records.thread_id_t tid, size_t count) -> bool:
         """Write a frame pop record to the file."""
-        cdef FramePop record
+        cdef records.FramePop record
         record.count = count
         return self._writer.get().writeThreadSpecificRecord(tid, record)
 
-    def write_thread_record(self, thread_id_t tid, str name) -> bool:
+    def write_thread_record(self, records.thread_id_t tid, str name) -> bool:
         """Write a thread record to the file."""
-        cdef ThreadRecord record
+        cdef records.ThreadRecord record
         cdef bytes name_bytes = name.encode('utf-8')
         record.name = name_bytes
         return self._writer.get().writeThreadSpecificRecord(tid, record)
@@ -445,11 +432,11 @@ cdef class RecordWriterTestHarness:
         """Write memory mappings to the file."""
         return self._writer.get().writeMappings(
             [
-                ImageSegments(
+                records.ImageSegments(
                     mapping['filename'].encode('utf-8'),
                     mapping['addr'],
                     [
-                        Segment(seg["vaddr"], seg["memsz"])
+                        records.Segment(seg["vaddr"], seg["memsz"])
                         for seg in mapping["segments"]
                     ],
                 )
@@ -461,7 +448,7 @@ cdef class RecordWriterTestHarness:
         """Write the trailer to the file."""
         return self._writer.get().writeTrailer()
 
-    def set_main_tid_and_skipped_frames(self, thread_id_t main_tid,
+    def set_main_tid_and_skipped_frames(self, records.thread_id_t main_tid,
                                       size_t skipped_frames) -> None:
         """Set the main thread ID and number of skipped frames."""
         self._writer.get().setMainTidAndSkippedFrames(main_tid, skipped_frames)
