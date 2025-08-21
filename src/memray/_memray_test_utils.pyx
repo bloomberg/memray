@@ -443,19 +443,19 @@ cdef class TestRecordWriter:
 
     def write_mappings(self, list mappings) -> bool:
         """Write memory mappings to the file."""
-        cdef vector[ImageSegments] cpp_mappings
-        cdef ImageSegments segments
-        cdef Segment segment
-        for mapping in mappings:
-            segments = ImageSegments()
-            segments.filename = mapping['filename'].encode('utf-8')
-            segments.addr = mapping['addr']
-            for seg in mapping['segments']:
-                segment.vaddr = seg['vaddr']
-                segment.memsz = seg['memsz']
-                segments.segments.push_back(segment)
-            cpp_mappings.push_back(segments)
-        return self._writer.get().writeMappings(cpp_mappings)
+        return self._writer.get().writeMappings(
+            [
+                ImageSegments(
+                    mapping['filename'].encode('utf-8'),
+                    mapping['addr'],
+                    [
+                        Segment(seg["vaddr"], seg["memsz"])
+                        for seg in mapping["segments"]
+                    ],
+                )
+                for mapping in mappings
+            ]
+        )
 
     def write_trailer(self) -> bool:
         """Write the trailer to the file."""
