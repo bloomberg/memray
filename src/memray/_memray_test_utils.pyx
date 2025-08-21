@@ -362,7 +362,10 @@ cdef class TestRecordWriter:
             raise IOError("Failed to create record writer")
 
         # Write the header
-        if not self._writer.get().writeHeader(True):
+        self.write_header(False)
+
+    def write_header(self, bool seek_to_start) -> None:
+        if not self._writer.get().writeHeader(seek_to_start):
             raise RuntimeError("Failed to write header")
 
     def write_memory_record(self, unsigned long ms_since_epoch, size_t rss) -> bool:
