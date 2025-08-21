@@ -57,7 +57,6 @@ from _memray.records cimport FramePush
 from _memray.records cimport HeaderRecord
 from _memray.records cimport ImageSegments
 from _memray.records cimport MemoryRecord
-from _memray.records cimport NativeAllocationRecord
 from _memray.records cimport Segment
 from _memray.records cimport ThreadRecord
 from _memray.records cimport UnresolvedNativeFrame
@@ -370,20 +369,12 @@ cdef class TestRecordWriter:
         record.rss = rss
         return self._writer.get().writeRecord(record)
 
-    def write_allocation_record(self, thread_id_t tid, uintptr_t address,
-                              size_t size, unsigned char allocator) -> bool:
-        """Write an allocation record to the file."""
-        cdef AllocationRecord record
-        record.address = address
-        record.size = size
-        record.allocator = <Allocator>allocator
-        return self._writer.get().writeThreadSpecificRecord(tid, record)
 
-    def write_native_allocation_record(self, thread_id_t tid, uintptr_t address,
+    def write_allocation_record(self, thread_id_t tid, uintptr_t address,
                                      size_t size, unsigned char allocator,
-                                     size_t native_frame_id) -> bool:
+                                     size_t native_frame_id=0) -> bool:
         """Write a native allocation record to the file."""
-        cdef NativeAllocationRecord record
+        cdef AllocationRecord record
         record.address = address
         record.size = size
         record.allocator = <Allocator>allocator

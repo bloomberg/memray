@@ -34,11 +34,6 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        uintptr_t address
        size_t size
        Allocator allocator
-
-   struct NativeAllocationRecord:
-       uintptr_t address
-       size_t size
-       Allocator allocator
        frame_id_t native_frame_id
 
    struct Frame:

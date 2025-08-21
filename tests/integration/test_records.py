@@ -45,9 +45,7 @@ def test_write_basic_records(tmp_path):
     assert writer.write_allocation_record(1, 0x2000, 2048, AllocatorType.FREE)  # free
 
     # Write some native allocation records
-    assert writer.write_native_allocation_record(
-        1, 0x3000, 4096, AllocatorType.MALLOC, 1
-    )
+    assert writer.write_allocation_record(1, 0x3000, 4096, AllocatorType.MALLOC, 1)
 
     # Write memory mappings
     mappings = [
