@@ -6,7 +6,7 @@ import pytest
 from memray import AllocatorType
 from memray import FileFormat
 from memray import FileReader
-from memray._test import RecordWriterTestHarness
+from memray._memray import RecordWriterTestHarness
 
 
 def test_write_basic_records(tmp_path):

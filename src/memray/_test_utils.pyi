@@ -1,6 +1,5 @@
 from typing import Callable
 
-from ._memray import FileFormat
 from ._memray import PymallocDomain as PymallocDomain
 
 class MemoryAllocator:
@@ -44,45 +43,3 @@ class PrimeCaches:
     def __init__(self, size: int) -> None: ...
     def __enter__(self) -> None: ...
     def __exit__(self, *args: object) -> None: ...
-
-class RecordWriterTestHarness:
-    def __init__(
-        self,
-        file_path: str,
-        native_traces: bool = False,
-        trace_python_allocators: bool = False,
-        file_format: FileFormat = FileFormat.ALL_ALLOCATIONS,
-    ) -> None: ...
-    def write_header(self, seek_to_start: bool) -> None: ...
-    def write_memory_record(self, ms_since_epoch: int, rss: int) -> bool: ...
-    def write_code_object(
-        self,
-        id: int,
-        function_name: str,
-        filename: str,
-        linetable: str,
-        firstlineno: int,
-    ) -> bool: ...
-    def write_unresolved_native_frame(self, ip: int, index: int) -> bool: ...
-    def write_allocation_record(
-        self,
-        tid: int,
-        address: int,
-        size: int,
-        allocator: int,
-        native_frame_id: int = 0,
-    ) -> bool: ...
-    def write_frame_push(
-        self,
-        tid: int,
-        code_object_id: int,
-        instruction_offset: int,
-        is_entry_frame: bool,
-    ) -> bool: ...
-    def write_frame_pop(self, tid: int, count: int) -> bool: ...
-    def write_thread_record(self, tid: int, name: str) -> bool: ...
-    def write_mappings(self, mappings: list) -> bool: ...
-    def write_trailer(self) -> bool: ...
-    def set_main_tid_and_skipped_frames(
-        self, main_tid: int, skipped_frames: int
-    ) -> None: ...
