@@ -48,17 +48,18 @@ def test_write_basic_records(tmp_path):
     assert writer.write_allocation_record(1, 0x3000, 4096, AllocatorType.MALLOC, 1)
 
     # Write memory mappings
-    mappings = [
-        {
-            "filename": "/usr/lib/libc.so.6",
-            "addr": 0x7F1234567890,
-            "segments": [
-                {"vaddr": 0x7F1234567890, "memsz": 0x1000},
-                {"vaddr": 0x7F1234568890, "memsz": 0x2000},
-            ],
-        }
-    ]
-    assert writer.write_mappings(mappings)
+    assert writer.write_mappings(
+        [
+            {
+                "filename": "/usr/lib/libc.so.6",
+                "addr": 0x7F1234567890,
+                "segments": [
+                    {"vaddr": 0x7F1234567890, "memsz": 0x1000},
+                    {"vaddr": 0x7F1234568890, "memsz": 0x2000},
+                ],
+            }
+        ]
+    )
 
     # Write trailer
     assert writer.write_trailer()

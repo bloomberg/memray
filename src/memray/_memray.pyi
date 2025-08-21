@@ -10,6 +10,7 @@ from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 from typing import Type
+from typing import TypedDict
 from typing import Union
 from typing import overload
 
@@ -282,6 +283,15 @@ class AllocationLifetimeAggregatorTestHarness:
     def capture_snapshot(self) -> None: ...
     def get_allocations(self) -> list[TemporalAllocationRecord]: ...
 
+class Segment(TypedDict):
+    vaddr: int
+    memsz: int
+
+class Mapping(TypedDict):
+    filename: str
+    addr: int
+    segments: list[Segment]
+
 class RecordWriterTestHarness:
     def __init__(
         self,
@@ -318,7 +328,7 @@ class RecordWriterTestHarness:
     ) -> bool: ...
     def write_frame_pop(self, tid: int, count: int) -> bool: ...
     def write_thread_record(self, tid: int, name: str) -> bool: ...
-    def write_mappings(self, mappings: list) -> bool: ...
+    def write_mappings(self, mappings: list[Mapping]) -> bool: ...
     def write_trailer(self) -> bool: ...
     def set_main_tid_and_skipped_frames(
         self, main_tid: int, skipped_frames: int
