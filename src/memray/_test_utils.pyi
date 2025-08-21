@@ -63,6 +63,7 @@ class TestRecordWriter:
         linetable: str,
         firstlineno: int,
     ) -> bool: ...
+    def write_unresolved_native_frame(self, ip: int, index: int) -> bool: ...
     def write_allocation_record(
         self,
         tid: int,

@@ -396,6 +396,13 @@ cdef class TestRecordWriter:
             )
         )
 
+    def write_unresolved_native_frame(self, uintptr_t ip, size_t index) -> bool:
+        """Write an unresolved native frame record to the file."""
+        cdef UnresolvedNativeFrame record
+        record.ip = ip
+        record.index = index
+        return self._writer.get().writeRecord(record)
+
     def write_allocation_record(self, thread_id_t tid, uintptr_t address,
                                      size_t size, unsigned char allocator,
                                      size_t native_frame_id=0) -> bool:
