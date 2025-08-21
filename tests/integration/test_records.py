@@ -6,7 +6,7 @@ import pytest
 from memray import AllocatorType
 from memray import FileFormat
 from memray import FileReader
-from memray._test import TestRecordWriter
+from memray._test import RecordWriterTestHarness
 
 
 def test_write_basic_records(tmp_path):
@@ -14,7 +14,7 @@ def test_write_basic_records(tmp_path):
     output_file = tmp_path / "test.memray"
 
     # Create a writer
-    writer = TestRecordWriter(
+    writer = RecordWriterTestHarness(
         str(output_file),
         native_traces=True,
         trace_python_allocators=True,
@@ -112,7 +112,7 @@ def test_write_aggregated_records(tmp_path):
     output_file = tmp_path / "test_aggregated.memray"
 
     # Create a writer with aggregated format
-    writer = TestRecordWriter(
+    writer = RecordWriterTestHarness(
         str(output_file),
         native_traces=True,
         trace_python_allocators=True,
@@ -178,7 +178,7 @@ def test_write_records_with_multiple_threads(tmp_path):
     output_file = tmp_path / "test_multiple_threads.memray"
 
     # Create a writer
-    writer = TestRecordWriter(str(output_file))
+    writer = RecordWriterTestHarness(str(output_file))
 
     # Set main thread info
     writer.set_main_tid_and_skipped_frames(1, 0)

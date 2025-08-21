@@ -45,7 +45,7 @@ class PrimeCaches:
     def __enter__(self) -> None: ...
     def __exit__(self, *args: object) -> None: ...
 
-class TestRecordWriter:
+class RecordWriterTestHarness:
     def __init__(
         self,
         file_path: str,

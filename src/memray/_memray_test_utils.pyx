@@ -317,7 +317,7 @@ cdef class PrimeCaches:
         sys.setprofile(self.old_profile)
 
 
-cdef class TestRecordWriter:
+cdef class RecordWriterTestHarness:
     """A Python wrapper around the C++ RecordWriter class for testing purposes."""
 
     cdef unique_ptr[RecordWriter] _writer
@@ -329,7 +329,7 @@ cdef class TestRecordWriter:
     def __cinit__(self, str file_path, bool native_traces=False,
                   bool trace_python_allocators=False,
                   FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
-        """Initialize a new TestRecordWriter.
+        """Initialize a new RecordWriterTestHarness.
 
         Args:
             file_path: Path to the output file
