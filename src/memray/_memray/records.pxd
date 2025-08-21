@@ -24,11 +24,18 @@ cdef extern from "hooks.h" namespace "memray::hooks":
 cdef extern from "records.h" namespace "memray::tracking_api":
    ctypedef unsigned long thread_id_t
    ctypedef size_t frame_id_t
+   ctypedef size_t code_object_id_t
    ctypedef long long millis_t
 
    struct MemoryRecord:
        unsigned long int ms_since_epoch
        size_t rss
+
+   struct CodeObjectInfo:
+       string function_name
+       string filename
+       string linetable
+       int firstlineno
 
    struct AllocationRecord:
        uintptr_t address
@@ -37,12 +44,12 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        frame_id_t native_frame_id
 
    struct Frame:
-       string function_name
-       string filename
-       int lineno
+       code_object_id_t code_object_id
+       int instruction_offset
+       bool is_entry_frame
 
    struct FramePush:
-       frame_id_t frame_id
+       Frame frame
 
    struct FramePop:
        size_t count

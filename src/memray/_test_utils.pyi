@@ -54,6 +54,14 @@ class TestRecordWriter:
         file_format: FileFormat = FileFormat.ALL_ALLOCATIONS,
     ) -> None: ...
     def write_memory_record(self, ms_since_epoch: int, rss: int) -> bool: ...
+    def write_code_object(
+        self,
+        id: int,
+        function_name: str,
+        filename: str,
+        linetable: str,
+        firstlineno: int,
+    ) -> bool: ...
     def write_allocation_record(
         self,
         tid: int,
@@ -62,7 +70,13 @@ class TestRecordWriter:
         allocator: int,
         native_frame_id: int = 0,
     ) -> bool: ...
-    def write_frame_push(self, tid: int, frame_id: int) -> bool: ...
+    def write_frame_push(
+        self,
+        tid: int,
+        code_object_id: int,
+        instruction_offset: int,
+        is_entry_frame: bool,
+    ) -> bool: ...
     def write_frame_pop(self, tid: int, count: int) -> bool: ...
     def write_thread_record(self, tid: int, name: str) -> bool: ...
     def write_mappings(self, mappings: list) -> bool: ...

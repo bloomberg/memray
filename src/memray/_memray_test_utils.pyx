@@ -43,6 +43,7 @@ from libc.errno cimport errno
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport exit as _exit
 from libcpp.utility cimport move
+from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 
 from ._destination import Destination
@@ -51,6 +52,7 @@ from _memray.record_writer cimport RecordWriter
 from _memray.record_writer cimport createRecordWriter
 from _memray.records cimport AllocationRecord
 from _memray.records cimport Allocator
+from _memray.records cimport CodeObjectInfo
 from _memray.records cimport FileFormat
 from _memray.records cimport FramePop
 from _memray.records cimport FramePush
@@ -60,6 +62,7 @@ from _memray.records cimport MemoryRecord
 from _memray.records cimport Segment
 from _memray.records cimport ThreadRecord
 from _memray.records cimport UnresolvedNativeFrame
+from _memray.records cimport code_object_id_t
 from _memray.records cimport thread_id_t
 from _memray.sink cimport FileSink
 from _memray.sink cimport Sink
@@ -369,6 +372,26 @@ cdef class TestRecordWriter:
         record.rss = rss
         return self._writer.get().writeRecord(record)
 
+    def write_code_object(
+        self,
+        code_object_id_t id,
+        str function_name,
+        str filename,
+        str linetable,
+        int firstlineno,
+    ) -> bool:
+        """Write a code object record to the file."""
+        return self._writer.get().writeRecord(
+            pair[code_object_id_t, CodeObjectInfo](
+                id,
+                CodeObjectInfo(
+                    function_name.encode('utf-8'),
+                    filename.encode('utf-8'),
+                    linetable.encode('utf-8'),
+                    firstlineno,
+                )
+            )
+        )
 
     def write_allocation_record(self, thread_id_t tid, uintptr_t address,
                                      size_t size, unsigned char allocator,
@@ -381,10 +404,18 @@ cdef class TestRecordWriter:
         record.native_frame_id = native_frame_id
         return self._writer.get().writeThreadSpecificRecord(tid, record)
 
-    def write_frame_push(self, thread_id_t tid, size_t frame_id) -> bool:
+    def write_frame_push(
+        self,
+        thread_id_t tid,
+        code_object_id_t code_object_id,
+        int instruction_offset,
+        bool is_entry_frame,
+    ) -> bool:
         """Write a frame push record to the file."""
         cdef FramePush record
-        record.frame_id = frame_id
+        record.frame.code_object_id = code_object_id
+        record.frame.instruction_offset = instruction_offset
+        record.frame.is_entry_frame = is_entry_frame
         return self._writer.get().writeThreadSpecificRecord(tid, record)
 
     def write_frame_pop(self, thread_id_t tid, size_t count) -> bool:
