@@ -26,7 +26,9 @@ from _memray.logging cimport setLogThreshold
 from _memray.native_resolver cimport unwindHere
 from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
+from _memray.record_writer cimport PyCodeObject
 from _memray.record_writer cimport RecordWriter
+from _memray.record_writer cimport codeGetLinetable
 from _memray.record_writer cimport createRecordWriter
 from _memray.records cimport AggregatedAllocation
 from _memray.records cimport Allocation as _Allocation
@@ -1624,7 +1626,7 @@ cdef class RecordWriterTestHarness:
         records.code_object_id_t id,
         str function_name,
         str filename,
-        str linetable,
+        bytes linetable,
         int firstlineno,
     ) -> bool:
         """Write a code object record to the file."""
@@ -1632,13 +1634,24 @@ cdef class RecordWriterTestHarness:
             pair[records.code_object_id_t, records.CodeObjectInfo](
                 id,
                 records.CodeObjectInfo(
-                    function_name.encode('utf-8'),
-                    filename.encode('utf-8'),
-                    linetable.encode('utf-8'),
+                    function_name.encode(),
+                    filename.encode(),
+                    linetable,
                     firstlineno,
                 )
             )
         )
+
+    @staticmethod
+    def get_linetable(code_object):
+        """Get the linetable from a code object."""
+        cdef const char* addr
+        cdef size_t size
+        import types
+        if not isinstance(code_object, types.CodeType):
+            raise TypeError("Expected a code object")
+        addr = codeGetLinetable(<PyCodeObject*>code_object, &size)
+        return <bytes>addr[:size]
 
     def write_unresolved_native_frame(self, uintptr_t ip, size_t index) -> bool:
         """Write an unresolved native frame record to the file."""

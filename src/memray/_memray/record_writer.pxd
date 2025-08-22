@@ -18,6 +18,15 @@ from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 
 
+cdef extern from *:
+    ctypedef struct PyCodeObject:
+        pass
+
+
+cdef extern from "compat.h" namespace "memray::compat":
+    char* codeGetLinetable(PyCodeObject*, size_t*)
+
+
 cdef extern from "record_writer.h" namespace "memray::tracking_api":
     cdef cppclass RecordWriter:
         bool writeRecord(const MemoryRecord& record) except+

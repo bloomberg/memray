@@ -1,5 +1,6 @@
 import enum
 from pathlib import Path
+from types import CodeType
 from types import FrameType
 from types import TracebackType
 from typing import Any
@@ -333,3 +334,5 @@ class RecordWriterTestHarness:
     def set_main_tid_and_skipped_frames(
         self, main_tid: int, skipped_frames: int
     ) -> None: ...
+    @staticmethod
+    def get_linetable(code_object: CodeType) -> bytes: ...

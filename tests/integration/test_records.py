@@ -1,3 +1,4 @@
+import inspect
 import os
 import time
 
@@ -9,8 +10,46 @@ from memray import FileReader
 from memray._memray import RecordWriterTestHarness
 
 
+def get_sample_line_number_tables():
+    callers = []
+
+    def save_caller():
+        stack = inspect.stack()
+        caller = stack[1].frame
+        linetable = RecordWriterTestHarness.get_linetable(caller.f_code)
+
+        callers.append({"lasti": caller.f_lasti, "linetable": linetable})
+
+    def foo():
+        x = 10
+        y = 20
+        _ = x + y
+        save_caller()
+        return
+
+    def bar():
+        x = []
+        for i in range(100):
+            x.append(x)
+
+        save_caller()
+
+        return None
+
+    def baz():
+        yield
+        save_caller()
+        return "foo"
+
+    foo()
+    bar()
+    list(baz())
+    return callers
+
+
 def test_write_basic_records(tmp_path):
     """Test writing basic records to a file."""
+    funcs = get_sample_line_number_tables()
     output_file = tmp_path / "test.memray"
 
     # Create a writer
@@ -32,11 +71,16 @@ def test_write_basic_records(tmp_path):
     # Write thread info
     assert writer.write_thread_record(1, "MainThread")
 
+    # Write some code objects
+    assert writer.write_code_object(1, "foo", "foo.py", funcs[0]["linetable"], 1)
+    assert writer.write_code_object(2, "bar", "bar.py", funcs[1]["linetable"], 11)
+    assert writer.write_code_object(3, "baz", "baz.py", funcs[2]["linetable"], 21)
+
     # Write some frame records
-    assert writer.write_frame_push(1, 1)  # Push frame 1
-    assert writer.write_frame_push(1, 2)  # Push frame 2
-    assert writer.write_frame_pop(1, 1)  # Pop frame 2
-    assert writer.write_frame_push(1, 3)  # Push frame 3
+    assert writer.write_frame_push(1, 1, funcs[0]["lasti"], True)
+    assert writer.write_frame_push(1, 2, funcs[1]["lasti"], True)
+    assert writer.write_frame_pop(1, 1)
+    assert writer.write_frame_push(1, 3, funcs[2]["lasti"], True)
 
     # Write some allocation records
     assert writer.write_allocation_record(
@@ -79,6 +123,19 @@ def test_write_basic_records(tmp_path):
         # Get all allocation records
         allocations = list(reader.get_allocation_records())
         assert len(allocations) == 3  # malloc, free, native malloc
+
+        with pytest.raises(
+            NotImplementedError,
+            match="Stack traces for deallocations aren't captured",
+        ):
+            allocations[1].stack_trace()
+
+        assert allocations[0].stack_trace() == allocations[2].stack_trace()
+
+        assert allocations[0].stack_trace() == [
+            ("baz", "baz.py", 23),
+            ("foo", "foo.py", 5),
+        ]
 
         # Verify malloc record
         malloc_record = allocations[0]
@@ -125,10 +182,6 @@ def test_write_aggregated_records(tmp_path):
 
     # Write thread info
     assert writer.write_thread_record(1, "MainThread")
-
-    # Write some frame records
-    assert writer.write_frame_push(1, 1)  # Push frame 1
-    assert writer.write_frame_push(1, 2)  # Push frame 2
 
     # Write some allocation records
     assert writer.write_allocation_record(
@@ -188,11 +241,6 @@ def test_write_records_with_multiple_threads(tmp_path):
     assert writer.write_thread_record(1, "MainThread")
     assert writer.write_thread_record(2, "WorkerThread1")
     assert writer.write_thread_record(3, "WorkerThread2")
-
-    # Write frame records for different threads
-    assert writer.write_frame_push(1, 1)  # Main thread
-    assert writer.write_frame_push(2, 2)  # Worker 1
-    assert writer.write_frame_push(3, 3)  # Worker 2
 
     # Write allocation records for different threads
     assert writer.write_allocation_record(
