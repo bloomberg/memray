@@ -22,15 +22,15 @@ void*
 test_free_sized(void)
 {
     void* address;
-    
+
     check_functions_available();
     if (!functions_available) {
         return address;
     }
-    
+
     void* ptr = malloc(1024);
     assert(ptr != NULL);
-    
+
     address = ptr;
 
     free_sized(ptr, 1024);
@@ -41,17 +41,17 @@ void*
 test_free_aligned_sized(void)
 {
     void* address;
-    
+
     check_functions_available();
     if (!functions_available) {
         return address;
     }
-    
+
     void* ptr = aligned_alloc(64, 1024);
     assert(ptr != NULL);
-    
+
     address = ptr;
-    
+
     free_aligned_sized(ptr, 64, 1024);
     return address;
 }
@@ -60,22 +60,22 @@ void*
 test_both_free_functions(void)
 {
     void* address;
-    
+
     check_functions_available();
     if (!functions_available) {
         return NULL;
     }
-    
+
     void* ptr1 = malloc(512);
     assert(ptr1 != NULL);
     free_sized(ptr1, 512);
-    
+
     void* ptr2 = aligned_alloc(32, 256);
     assert(ptr2 != NULL);
     free_aligned_sized(ptr2, 32, 256);
-    
+
     address = ptr2;
-    
+
     return address;
 }
 
@@ -84,11 +84,11 @@ run_free_sized_test(PyObject* self, PyObject* args)
 {
     check_functions_available();
     if (!functions_available) {
-        Py_RETURN_NONE; 
+        Py_RETURN_NONE;
     }
-    
+
     void* address = test_free_sized();
-    
+
     // Return address for verification
     PyObject* result = Py_BuildValue("(KII)", address);
     return result;
@@ -99,11 +99,11 @@ run_free_aligned_sized_test(PyObject* self, PyObject* args)
 {
     check_functions_available();
     if (!functions_available) {
-        Py_RETURN_NONE; 
+        Py_RETURN_NONE;
     }
-    
+
     void* address = test_free_aligned_sized();
-    
+
     PyObject* result = Py_BuildValue("(KII)", address);
     return result;
 }
@@ -115,9 +115,9 @@ run_both_tests(PyObject* self, PyObject* args)
     if (!functions_available) {
         Py_RETURN_NONE; // Skip test if functions not available
     }
-    
+
     void* address = test_both_free_functions();
-    
+
     PyObject* result = Py_BuildValue("(KII)", address);
     return result;
 }

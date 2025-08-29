@@ -31,7 +31,7 @@
         FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
         FOR_EACH_HOOKED_FUNCTION(prctl)                                                                 \
         FOR_EACH_HOOKED_FUNCTION(pvalloc)                                                               \
-        FOR_EACH_HOOKED_FUNCTION(mmap64)                                                                \
+        FOR_EACH_HOOKED_FUNCTION(mmap64)
 #else
 #    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS                                                            \
         FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
