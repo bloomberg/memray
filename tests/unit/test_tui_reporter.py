@@ -141,7 +141,11 @@ def compare(monkeypatch, tmp_path, snap_compare):
 
 def render_widget(widget: Widget) -> str:
     output = StringIO()
-    rprint(widget.renderable, file=output)  # type: ignore
+    content = getattr(widget, "renderable", None)
+    if content is None:
+        content = widget.content  # type: ignore
+    assert content is not None
+    rprint(content, file=output)
     return output.getvalue()
 
 
