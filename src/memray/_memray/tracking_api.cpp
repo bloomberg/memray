@@ -162,8 +162,6 @@ class PythonStackTracker
     static void recordAllStacks();
     static void removeProfileHooks();
 
-    void clear();
-
     static PythonStackTracker& get();
     void emitPendingPushesAndPops();
     void invalidateMostRecentFrameLineNumber();
@@ -179,6 +177,7 @@ class PythonStackTracker
 
     static std::vector<LazilyEmittedFrame> pythonFrameToStack(PyFrameObject* current_frame);
     void reloadStackIfTrackerChanged();
+    void clear();
 
     static LazilyEmittedFrame createLazilyEmittedFrame(PyFrameObject* frame);
     void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
@@ -507,13 +506,7 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     RecursionGuard guard;
 
     // Clear any old TLS stack, emitting pops for frames that had been pushed.
-    if (d_stack) {
-        d_num_pending_pops += std::count_if(d_stack->begin(), d_stack->end(), [](const auto& f) {
-            return f.state != FrameState::NOT_EMITTED;
-        });
-        d_stack->clear();
-        emitPendingPushesAndPops();
-    }
+    this->clear();
 
     // Save current TID on old greenlet. Print errors but otherwise ignore them.
     PyObject* tid = PyLong_FromUnsignedLong(t_tid);
@@ -661,10 +654,10 @@ PythonStackTracker::clear()
         return;
     }
 
-    while (!d_stack->empty()) {
-        d_num_pending_pops += (d_stack->back().state != FrameState::NOT_EMITTED);
-        d_stack->pop_back();
-    }
+    d_num_pending_pops += std::count_if(d_stack->begin(), d_stack->end(), [](const auto& f) {
+        return f.state != FrameState::NOT_EMITTED;
+    });
+    d_stack->clear();
     emitPendingPushesAndPops();
 }
 
