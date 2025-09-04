@@ -141,17 +141,60 @@ class PythonStackTracker
   private:
     PythonStackTracker() = default;
 
-    enum class FrameState {
-        NOT_EMITTED = 0,
-        EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED = 1,
-        EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED = 2,
-    };
-
-    struct LazilyEmittedFrame
+    class LazilyEmittedFrame
     {
-        PyFrameObject* frame;
-        RawFrame raw_frame_record;
-        FrameState state;
+      public:
+        LazilyEmittedFrame(PyFrameObject* frame);
+
+        // Has this frame been emitted already?
+        bool isEmitted() const;
+
+        // Update the instruction offset from the frame, if possible.
+        // If the offset changes, mark the frame as not emitted.
+        void updateInstructionOffset();
+
+        // Drop our reference to the frame, freezing the instruction offset.
+        void freezeInstructionOffset();
+
+        // Has the instruction offset been frozen?
+        bool isFrozen() const;
+
+        // If we haven't already, register the held code object, saving its ID
+        // and dropping our borrowed reference to the code object.
+        void resolveCodeObjectId(Tracker& tracker);
+
+        // Emit this frame if it hasn't already been emitted.
+        // Returns true on success or if the frame was already emitted.
+        bool emit(Tracker& tracker);
+
+      private:
+        bool d_emitted{false};
+
+        // Threads' initial stacks can have calls to sys.settrace tracing
+        // functions which our profile function won't see get popped. We can't
+        // hold borrowed references to those frames; we won't know when they
+        // die. For frames on those initial stacks, we resolve the instruction
+        // offset once up front then set `d_frame` to a null pointer.
+        PyFrameObject* d_frame{};
+
+        // Likewise, we can't hold borrowed references to the code objects
+        // owned by initial frames. We drop our reference once a code object id
+        // has been assigned. For initial frames, we assign that ID while the
+        // world is stopped, before the reference could become invalid.
+        PyCodeObject* d_code{};
+
+        // Information extracted from PyCodeObject while the GIL is held,
+        // and later used while the GIL may not be held.
+        CodeObject d_code_info{};
+
+        // The unique ID assigned by the Tracker for the associated code object
+        code_object_id_t d_code_object_id{};
+
+        // Whether this frame is an entry frame for native unwinding purposes.
+        bool d_is_entry_frame{};
+
+        // The frame's current bytecode offset within the code object.
+        int d_instruction_offset{};
     };
 
   public:
@@ -159,12 +202,11 @@ class PythonStackTracker
     static bool s_native_tracking_enabled;
 
     static void installProfileHooks();
-    static void recordAllStacks();
+    static void recordAllStacks(Tracker& tracker);
     static void removeProfileHooks();
 
     static PythonStackTracker& get();
     void emitPendingPushesAndPops();
-    void invalidateMostRecentFrameLineNumber();
     void populateShadowStack();
     void handleTraceEvent(int what, PyFrameObject* frame);
 
@@ -175,11 +217,12 @@ class PythonStackTracker
     // Fetch the thread-local stack tracker without checking if its stack needs to be reloaded.
     static PythonStackTracker& getUnsafe();
 
-    static std::vector<LazilyEmittedFrame> pythonFrameToStack(PyFrameObject* current_frame);
+    static std::vector<LazilyEmittedFrame>
+    pythonFrameToStack(PyFrameObject* current_frame, Tracker& tracker);
+
     void reloadStackIfTrackerChanged();
     void clear();
 
-    static LazilyEmittedFrame createLazilyEmittedFrame(PyFrameObject* frame);
     void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
 
     int pushPythonFrame(PyFrameObject* frame);
@@ -242,32 +285,34 @@ PythonStackTracker::emitPendingPushesAndPops()
     PyGILState_STATE gstate = PyGILState_Ensure();
 #endif
 
-    // At any time, the stack contains (pushed in this order):
-    // Any number of EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED frames
-    // 0 or 1 EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED frame
-    // Any number of NOT_EMITTED frames
-
+    // At any time, the stack contains (from beginning to end) any number of
+    // emitted frames followed by any number of not yet emitted frames.
+    // The line number of the last emitted frame may be out of date.
+    // We iterate in reverse order, to see the not emitted frames first.
+    // After the loop, `it` points to the first frame not to need emitting,
+    // or to `rend()` if all frames need emitting.
     auto it = d_stack->rbegin();
     for (; it != d_stack->rend(); ++it) {
-        if (it->state == FrameState::NOT_EMITTED) {
-            int lasti = compat::frameGetLasti(it->frame);
-            it->raw_frame_record.instruction_offset = lasti;
-        } else if (it->state == FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED) {
-            int lasti = compat::frameGetLasti(it->frame);
-            int offset = lasti;
-            if (offset != it->raw_frame_record.instruction_offset) {
-                // Instruction offset was wrong; emit an artificial pop so we can push
-                // back in with the right offset.
-                d_num_pending_pops++;
-                it->state = FrameState::NOT_EMITTED;
-                it->raw_frame_record.instruction_offset = offset;
+        // Note: updateInstructionOffset() may change isEmitted()!
+        if (!it->isEmitted()) {
+            // Has not been emitted before; now will be the first time.
+            it->updateInstructionOffset();
+        } else {
+            // Has been emitted...
+            it->updateInstructionOffset();
+            if (it->isEmitted()) {
+                // ... and the line number didn't change. This and all later
+                // frames have been emitted and don't need to be re-emitted.
+                break;
             } else {
-                it->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
+                // ... but the instruction offset was wrong; emit an artificial
+                // pop so we can push back in with the right offset.
+                d_num_pending_pops++;
+
+                // The next frame is the first to not need (re)emitting.
+                ++it;
                 break;
             }
-        } else {
-            assert(it->state == FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED);
-            break;
         }
     }
     auto first_to_emit = it.base();
@@ -282,31 +327,15 @@ PythonStackTracker::emitPendingPushesAndPops()
 
         // Emit pending pushes
         for (auto to_emit = first_to_emit; to_emit != d_stack->end(); ++to_emit) {
-            if (!tracker->pushFrame(to_emit->raw_frame_record)) {
+            if (!to_emit->emit(*tracker)) {
                 break;
             }
-            to_emit->state = FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED;
         }
     }
-
-    invalidateMostRecentFrameLineNumber();
 
 #ifdef Py_GIL_DISABLED
     PyGILState_Release(gstate);
 #endif
-}
-
-void
-PythonStackTracker::invalidateMostRecentFrameLineNumber()
-{
-    // As bytecode instructions are executed, the line number in the most
-    // recent Python frame can change without us finding out. Cache its line
-    // number, but verify it the next time this frame might need to be emitted.
-    if (d_stack && !d_stack->empty()
-        && d_stack->back().state == FrameState::EMITTED_AND_LINE_NUMBER_HAS_NOT_CHANGED)
-    {
-        d_stack->back().state = FrameState::EMITTED_BUT_LINE_NUMBER_MAY_HAVE_CHANGED;
-    }
 }
 
 void
@@ -351,6 +380,8 @@ PythonStackTracker::populateShadowStack()
 {
     installGreenletTraceFunctionIfNeeded();
 
+    clear();
+
     PyFrameObject* frame = PyEval_GetFrame();
 
     std::vector<PyFrameObject*> stack;
@@ -367,6 +398,20 @@ PythonStackTracker::handleTraceEvent(int what, PyFrameObject* frame)
 {
     installGreenletTraceFunctionIfNeeded();
 
+    if (d_stack && !d_stack->empty() && d_stack->back().isFrozen()) {
+        // This stack was set by reloadStackIfTrackerChanged and may have calls
+        // to sys.settrace tracing functions on it. Drop it now, replacing it
+        // with a stack fetched from PyEval_GetFrame which we know can't have
+        // trace function frames on it, and which we can track properly.
+        populateShadowStack();
+
+        if (what == PyTrace_CALL) {
+            // The stack we just populated includes the frame for this call.
+            // Return early to avoid duplicating it.
+            return;
+        }
+    }
+
     if (what == PyTrace_CALL) {
         pushPythonFrame(frame);
     } else if (what == PyTrace_RETURN) {
@@ -378,7 +423,7 @@ int
 PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
 {
     try {
-        pushLazilyEmittedFrame(createLazilyEmittedFrame(frame));
+        pushLazilyEmittedFrame(LazilyEmittedFrame(frame));
         return 0;
     } catch (const std::runtime_error&) {
         return -1;
@@ -389,16 +434,6 @@ void
 PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
 {
     // Note: this function does not require the GIL.
-    if (d_stack) {
-        // This frame may already be on the stack if another thread installed
-        // a Tracker and captured our stack while this frame was being pushed.
-        // Avoid duplicating it.
-        if (d_stack->empty() || d_stack->back().frame != frame.frame) {
-            d_stack->push_back(frame);
-        }
-        return;
-    }
-
     struct StackCreator
     {
         std::vector<LazilyEmittedFrame> stack;
@@ -427,12 +462,11 @@ PythonStackTracker::popPythonFrame()
         return;
     }
 
-    if (d_stack->back().state != FrameState::NOT_EMITTED) {
+    if (d_stack->back().isEmitted()) {
         d_num_pending_pops += 1;
         assert(d_num_pending_pops != 0);  // Ensure we didn't overflow.
     }
     d_stack->pop_back();
-    invalidateMostRecentFrameLineNumber();
 }
 
 void
@@ -535,55 +569,112 @@ pthread_key_t Tracker::s_native_unwind_vector_key;
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
 
-PythonStackTracker::LazilyEmittedFrame
-PythonStackTracker::createLazilyEmittedFrame(PyFrameObject* frame)
+PythonStackTracker::LazilyEmittedFrame::LazilyEmittedFrame(PyFrameObject* frame)
 {
-    PyCodeObject* code = compat::frameGetCode(frame);
-    CodeObject code_info;
+    assert(PyGILState_Check());
+
+    d_frame = frame;
+    d_code = compat::frameGetCode(frame);
 #if PY_VERSION_HEX < 0x030C0000
     if (s_extra_index != -1) {
         void* extra;
-        if (-1 == _PyCode_GetExtra((PyObject*)code, s_extra_index, &extra)) {
+        if (-1 == _PyCode_GetExtra((PyObject*)d_code, s_extra_index, &extra)) {
             throw std::runtime_error("Failed to get extra data from code object");
         }
-        if (!extra && -1 == _PyCode_SetExtra((PyObject*)code, s_extra_index, code)) {
+        if (!extra && -1 == _PyCode_SetExtra((PyObject*)d_code, s_extra_index, d_code)) {
             throw std::runtime_error("Failed to set extra data on code object");
         }
     }
 #endif
 
-    code_info.function_name = PyUnicode_AsUTF8(code->co_name);
-    if (code_info.function_name == nullptr) {
+    d_code_info.function_name = PyUnicode_AsUTF8(d_code->co_name);
+    if (d_code_info.function_name == nullptr) {
         throw std::runtime_error("Failed to get function name from frame");
     }
 
-    code_info.filename = PyUnicode_AsUTF8(code->co_filename);
-    if (code_info.filename == nullptr) {
+    d_code_info.filename = PyUnicode_AsUTF8(d_code->co_filename);
+    if (d_code_info.filename == nullptr) {
         throw std::runtime_error("Failed to get filename from frame");
     }
 
     // Get linetable information
-    code_info.linetable = compat::codeGetLinetable(code, &code_info.linetable_size);
-    code_info.firstlineno = code->co_firstlineno;
+    d_code_info.linetable = compat::codeGetLinetable(d_code, &d_code_info.linetable_size);
+    d_code_info.firstlineno = d_code->co_firstlineno;
 
     // If native tracking is not enabled, treat every frame as an entry frame.
     // It doesn't matter to the reader, and is more efficient.
-    bool is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
+    d_is_entry_frame = !s_native_tracking_enabled || compat::isEntryFrame(frame);
+}
 
-    return {frame, {code, code_info, is_entry_frame, 0}, FrameState::NOT_EMITTED};
+bool
+PythonStackTracker::LazilyEmittedFrame::isEmitted() const
+{
+    return d_emitted;
+}
+
+void
+PythonStackTracker::LazilyEmittedFrame::updateInstructionOffset()
+{
+    if (d_frame) {
+        auto old_instruction_offset = d_instruction_offset;
+        d_instruction_offset = compat::frameGetLasti(d_frame);
+
+        if (d_instruction_offset != old_instruction_offset) {
+            d_emitted = false;
+        }
+    }
+}
+
+void
+PythonStackTracker::LazilyEmittedFrame::freezeInstructionOffset()
+{
+    d_frame = nullptr;
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::isFrozen() const
+{
+    return d_frame == nullptr;
+}
+
+void
+PythonStackTracker::LazilyEmittedFrame::resolveCodeObjectId(Tracker& tracker)
+{
+    if (d_code) {
+        d_code_object_id = tracker.registerCodeObject(d_code, d_code_info);
+        d_code = nullptr;
+    }
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::emit(Tracker& tracker)
+{
+    if (d_emitted) {
+        return true;  // Already emitted.
+    }
+
+    resolveCodeObjectId(tracker);
+    bool ret = tracker.pushFrame(Frame{d_code_object_id, d_instruction_offset, d_is_entry_frame});
+    if (ret) {
+        d_emitted = true;
+    }
+    return ret;
 }
 
 std::vector<PythonStackTracker::LazilyEmittedFrame>
-PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
+PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame, Tracker& tracker)
 {
     std::vector<LazilyEmittedFrame> stack;
-
     while (current_frame) {
         try {
-            stack.push_back(createLazilyEmittedFrame(current_frame));
+            stack.push_back(LazilyEmittedFrame(current_frame));
         } catch (const std::runtime_error&) {
             return {};
         }
+
+        stack.back().resolveCodeObjectId(tracker);
+        stack.back().updateInstructionOffset();
+        stack.back().freezeInstructionOffset();
         current_frame = compat::frameGetBack(current_frame);
     }
 
@@ -591,7 +682,7 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
 }
 
 void
-PythonStackTracker::recordAllStacks()
+PythonStackTracker::recordAllStacks(Tracker& tracker)
 {
     // We need to ensure that stacks are captured atomically with respect to
     // incrementing s_tracker_generation and to setting Tracker::isActive().
@@ -600,34 +691,48 @@ PythonStackTracker::recordAllStacks()
     // stack may become inconsistent with the true stack for a thread, which
     // leads to frames being used after they've been freed.
 
+    // Additionally, the Tracker mutex must be held, as pythonFrameToStack
+    // calls registerCodeObject. The Tracker is an argument as this function
+    // is called before tracking is activated and the singleton is installed.
+
     assert(PyGILState_Check());
+    PyThreadState* current_thread = PyThreadState_Get();
 
     // Record the current Python stack of every thread
     std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> stack_by_thread;
     for (PyThreadState* tstate =
-                 PyInterpreterState_ThreadHead(compat::threadStateGetInterpreter(PyThreadState_Get()));
+                 PyInterpreterState_ThreadHead(compat::threadStateGetInterpreter(current_thread));
          tstate != nullptr;
          tstate = PyThreadState_Next(tstate))
     {
+        if (tstate == current_thread) {
+            // Handled by the call to populateShadowStack in below
+            continue;
+        }
+
         PyFrameObject* frame = compat::threadStateGetFrame(tstate);
         if (!frame) {
             continue;
         }
 
-        stack_by_thread[tstate] = pythonFrameToStack(frame);
+        stack_by_thread[tstate] = pythonFrameToStack(frame, tracker);
         if (PyErr_Occurred()) {
             throw std::runtime_error("Failed to capture a thread's Python stack");
         }
     }
 
-    std::unique_lock<std::mutex> lock(s_mutex);
-    s_initial_stack_by_thread.swap(stack_by_thread);
+    {
+        std::unique_lock<std::mutex> lock(s_mutex);
+        s_initial_stack_by_thread.swap(stack_by_thread);
 
-    // Register that tracking has begun (again?), telling threads to sync their
-    // TLS from these captured stacks. Update this atomically with the map, or
-    // a thread that's 2 generations behind could grab the new stacks with the
-    // previous generation number and immediately think they're out of date.
-    s_tracker_generation++;
+        // Register that tracking has begun (again?), telling threads to sync their
+        // TLS from these captured stacks. Update this atomically with the map, or
+        // a thread that's 2 generations behind could grab the new stacks with the
+        // previous generation number and immediately think they're out of date.
+        s_tracker_generation++;
+    }
+
+    PythonStackTracker::get().populateShadowStack();
 }
 
 void
@@ -654,9 +759,8 @@ PythonStackTracker::clear()
         return;
     }
 
-    d_num_pending_pops += std::count_if(d_stack->begin(), d_stack->end(), [](const auto& f) {
-        return f.state != FrameState::NOT_EMITTED;
-    });
+    d_num_pending_pops +=
+            std::count_if(d_stack->begin(), d_stack->end(), [](const auto& f) { return f.isEmitted(); });
     d_stack->clear();
     emitPendingPushesAndPops();
 }
@@ -954,8 +1058,8 @@ Tracker::childFork()
             old_tracker->d_trace_python_allocators));
 
     StopTheWorldGuard stop_the_world;
-    PythonStackTracker::recordAllStacks();
     std::unique_lock<std::mutex> lock(*s_mutex);
+    PythonStackTracker::recordAllStacks(*s_instance_owner);
     tracking_api::Tracker::activate();
     RecursionGuard::setValue(false);
 }
@@ -1195,11 +1299,8 @@ Tracker::popFrames(uint32_t count)
 }
 
 bool
-Tracker::pushFrame(const RawFrame& frame)
+Tracker::pushFrame(const Frame& cooked)
 {
-    code_object_id_t code_object_id = registerCodeObject(frame.code, frame.code_info);
-    Frame cooked{code_object_id, frame.instruction_offset, frame.is_entry_frame};
-
     const FramePush entry{cooked};
     if (!d_writer->writeThreadSpecificRecord(thread_id(), entry)) {
         std::cerr << "memray: Failed to write output, deactivating tracking" << std::endl;
@@ -1246,8 +1347,8 @@ Tracker::createTracker(
             trace_python_allocators));
 
     StopTheWorldGuard stop_the_world;
-    PythonStackTracker::recordAllStacks();
     std::unique_lock<std::mutex> lock(*s_mutex);
+    PythonStackTracker::recordAllStacks(*s_instance_owner);
     tracking_api::Tracker::activate();
     Py_RETURN_NONE;
 }
