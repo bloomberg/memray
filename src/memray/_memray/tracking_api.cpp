@@ -167,8 +167,8 @@ class PythonStackTracker
     static PythonStackTracker& get();
     void emitPendingPushesAndPops();
     void invalidateMostRecentFrameLineNumber();
-    int pushPythonFrame(PyFrameObject* frame);
-    void popPythonFrame();
+    void populateShadowStack();
+    void handleTraceEvent(int what, PyFrameObject* frame);
 
     void installGreenletTraceFunctionIfNeeded();
     void handleGreenletSwitch(PyObject* from, PyObject* to);
@@ -181,8 +181,10 @@ class PythonStackTracker
     void reloadStackIfTrackerChanged();
 
     static LazilyEmittedFrame createLazilyEmittedFrame(PyFrameObject* frame);
-
     void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
+
+    int pushPythonFrame(PyFrameObject* frame);
+    void popPythonFrame();
 
     static std::mutex s_mutex;
     static std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> s_initial_stack_by_thread;
@@ -345,11 +347,37 @@ PythonStackTracker::reloadStackIfTrackerChanged()
     }
 }
 
-int
-PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
+void
+PythonStackTracker::populateShadowStack()
 {
     installGreenletTraceFunctionIfNeeded();
 
+    PyFrameObject* frame = PyEval_GetFrame();
+
+    std::vector<PyFrameObject*> stack;
+    while (frame) {
+        stack.push_back(frame);
+        frame = compat::frameGetBack(frame);
+    }
+
+    std::for_each(stack.rbegin(), stack.rend(), [this](auto& frame) { pushPythonFrame(frame); });
+}
+
+void
+PythonStackTracker::handleTraceEvent(int what, PyFrameObject* frame)
+{
+    installGreenletTraceFunctionIfNeeded();
+
+    if (what == PyTrace_CALL) {
+        pushPythonFrame(frame);
+    } else if (what == PyTrace_RETURN) {
+        popPythonFrame();
+    }
+}
+
+int
+PythonStackTracker::pushPythonFrame(PyFrameObject* frame)
+{
     try {
         pushLazilyEmittedFrame(createLazilyEmittedFrame(frame));
         return 0;
@@ -396,8 +424,6 @@ PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
 void
 PythonStackTracker::popPythonFrame()
 {
-    installGreenletTraceFunctionIfNeeded();
-
     if (!d_stack || d_stack->empty()) {
         return;
     }
@@ -508,17 +534,7 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     }
     Py_XDECREF(tid);
 
-    // Re-create our TLS stack from our Python frames, most recent last.
-    // Note: `frame` may be null; the new greenlet may not have a Python stack.
-    PyFrameObject* frame = PyEval_GetFrame();
-
-    std::vector<PyFrameObject*> stack;
-    while (frame) {
-        stack.push_back(frame);
-        frame = compat::frameGetBack(frame);
-    }
-
-    std::for_each(stack.rbegin(), stack.rend(), [this](auto& frame) { pushPythonFrame(frame); });
+    populateShadowStack();
 }
 
 std::unique_ptr<std::mutex> Tracker::s_mutex(new std::mutex);
@@ -1320,17 +1336,7 @@ PyTraceFunction(
         return 0;
     }
 
-    switch (what) {
-        case PyTrace_CALL: {
-            return PythonStackTracker::get().pushPythonFrame(frame);
-        }
-        case PyTrace_RETURN: {
-            PythonStackTracker::get().popPythonFrame();
-            break;
-        }
-        default:
-            break;
-    }
+    PythonStackTracker::get().handleTraceEvent(what, frame);
     return 0;
 }
 
@@ -1384,22 +1390,7 @@ install_trace_function()
     }
 
     PyEval_SetProfile(PyTraceFunction, nullptr);
-    PyFrameObject* frame = PyEval_GetFrame();
-
-    // Push all of our Python frames, most recent last.  If we reached here
-    // from PyGILState_Ensure on a C thread there may be no Python frames.
-    std::vector<PyFrameObject*> stack;
-    while (frame) {
-        stack.push_back(frame);
-        frame = compat::frameGetBack(frame);
-    }
-
-    auto& python_stack_tracker = PythonStackTracker::get();
-    for (auto frame_it = stack.rbegin(); frame_it != stack.rend(); ++frame_it) {
-        python_stack_tracker.pushPythonFrame(*frame_it);
-    }
-
-    python_stack_tracker.installGreenletTraceFunctionIfNeeded();
+    PythonStackTracker::get().populateShadowStack();
 }
 
 }  // namespace memray::tracking_api
