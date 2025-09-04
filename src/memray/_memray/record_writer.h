@@ -29,6 +29,7 @@ class RecordWriter
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const FramePush& record) = 0;
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const AllocationRecord& record) = 0;
     virtual bool writeThreadSpecificRecord(thread_id_t tid, const ThreadRecord& record) = 0;
+    virtual bool writeThreadSpecificRecord(thread_id_t tid, const ObjectRecord& record) = 0;
 
     virtual bool writeHeader(bool seek_to_start) = 0;
     virtual bool writeTrailer() = 0;
@@ -62,7 +63,8 @@ createRecordWriter(
         const std::string& command_line,
         bool native_traces,
         FileFormat file_format,
-        bool trace_python_allocators);
+        bool trace_python_allocators,
+        bool track_object_lifetimes);
 
 template<typename T>
 bool inline RecordWriter::writeSimpleType(const T& item)

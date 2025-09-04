@@ -173,4 +173,22 @@ parseLinetable(
         int firstlineno,
         LocationInfo* info);
 
+#if PY_VERSION_HEX >= 0x030D0000
+using RefTracer = PyRefTracer;
+using RefTracerEvent = PyRefTracerEvent;
+#else
+typedef enum { RefTracer_CREATE = 0, RefTracer_DESTROY = 1 } RefTracerEvent;
+using RefTracer = int (*)(PyObject*, RefTracerEvent event, void* data);
+#endif
+
+inline int
+refTracerSetTracer(RefTracer tracer, void* data)
+{
+#if PY_VERSION_HEX >= 0x030D0000
+    return PyRefTracer_SetTracer(tracer, data);
+#else
+    return 0;
+#endif
+}
+
 }  // namespace memray::compat

@@ -32,6 +32,7 @@ from _memray.records cimport Allocation as _Allocation
 from _memray.records cimport FileFormat as _FileFormat
 from _memray.records cimport MemoryRecord
 from _memray.records cimport MemorySnapshot as _MemorySnapshot
+from _memray.records cimport TrackedObject
 from _memray.sink cimport FileSink
 from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
@@ -57,7 +58,9 @@ from _memray.tracking_api cimport RecursionGuard
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport install_trace_function
 from _memray.tracking_api cimport set_up_pthread_fork_handlers
+from cpython cimport Py_DECREF
 from cpython cimport PyErr_CheckSignals
+from cpython cimport PyObject
 from libc.math cimport ceil
 from libc.stdint cimport uint64_t
 from libcpp cimport bool
@@ -68,6 +71,7 @@ from libcpp.memory cimport shared_ptr
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string as cppstring
 from libcpp.unordered_map cimport unordered_map
+from libcpp.unordered_set cimport unordered_set
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
@@ -117,6 +121,10 @@ cpdef enum AllocatorType:
     MMAP = 14
     MUNMAP = 15
 
+cpdef enum ObjectTrackingEvent:
+    OBJECT_CREATED = 1
+    OBJECT_DESTROYED = 2
+
 cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC = 1
     PYTHON_ALLOCATOR_PYMALLOC_DEBUG = 2
@@ -146,7 +154,7 @@ cdef stack_trace(
     python_stack_id,
     max_stacks=None,
 ):
-    if allocator in (AllocatorType.FREE, AllocatorType.MUNMAP):
+    if allocator in (AllocatorType.FREE, AllocatorType.MUNMAP, ObjectTrackingEvent.OBJECT_DESTROYED):
         raise NotImplementedError("Stack traces for deallocations aren't captured.")
 
     assert reader != NULL, "Cannot get stack trace without reader."
@@ -363,6 +371,108 @@ cdef class AllocationRecord:
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
                 f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}, "
                 f"allocations={self.n_allocations}>")
+
+
+@cython.freelist(1024)
+cdef class TrackedObjectRecord:
+    cdef object _tuple
+    cdef dict _stack_trace_cache
+    cdef shared_ptr[RecordReader] _reader
+
+    def __init__(self, record):
+        self._tuple = record
+        self._stack_trace_cache = {}
+
+    def __eq__(self, other):
+        cdef TrackedObjectRecord _other
+        if isinstance(other, TrackedObjectRecord):
+            _other = other
+            return self._tuple == _other._tuple
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self._tuple)
+
+    @property
+    def tid(self):
+        return self._tuple[0]
+
+    @property
+    def address(self):
+        return self._tuple[1]
+
+    @property
+    def is_created(self):
+        return self._tuple[2]
+
+    @property
+    def stack_id(self):
+        return self._tuple[3]
+
+    @property
+    def native_stack_id(self):
+        return self._tuple[4]
+
+    @property
+    def native_segment_generation(self):
+        return self._tuple[5]
+
+    @property
+    def thread_name(self):
+        if self.tid == -1:
+            return "merged thread"
+        assert self._reader.get() != NULL, "Cannot get thread name without reader."
+        return self._reader.get().getThreadName(self.tid)
+
+    def stack_trace(self, max_stacks=None):
+        cache_key = ("python", max_stacks)
+        event = (
+                ObjectTrackingEvent.OBJECT_CREATED if self.is_created
+                else ObjectTrackingEvent.OBJECT_DESTROYED
+        )
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = stack_trace(
+                self._reader.get(),
+                self.tid,
+                event,
+                self.stack_id,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
+
+    def native_stack_trace(self, max_stacks=None):
+        cache_key = ("native", max_stacks)
+        event = (
+                ObjectTrackingEvent.OBJECT_CREATED if self.is_created
+                else ObjectTrackingEvent.OBJECT_DESTROYED
+        )
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = native_stack_trace(
+                self._reader.get(),
+                event,
+                self.native_stack_id,
+                self.native_segment_generation,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
+
+    def hybrid_stack_trace(self, max_stacks=None):
+        cache_key = ("hybrid", max_stacks)
+        if cache_key not in self._stack_trace_cache:
+            self._stack_trace_cache[cache_key] = hybrid_stack_trace(
+                self._reader.get(),
+                self.tid,
+                None,  # No allocator for objects
+                self.stack_id,
+                self.native_stack_id,
+                self.native_segment_generation,
+                max_stacks,
+            )
+        return self._stack_trace_cache[cache_key]
+
+    def __repr__(self):
+        return (f"TrackedObjectRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
+                f"is_created={self.is_created}, stack_id={self.stack_id}>")
 
 
 @cython.freelist(1024)
@@ -619,12 +729,14 @@ cdef class Tracker:
             of supported file formats and their limitations.
     """
     cdef bool _native_traces
+    cdef bool _track_object_lifetimes
     cdef unsigned int _memory_interval_ms
     cdef bool _follow_fork
     cdef bool _trace_python_allocators
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
     cdef unique_ptr[RecordWriter] _writer
+    cdef object _surviving_objects
 
     cdef unique_ptr[Sink] _make_writer(self, destination) except*:
         # Creating a Sink can raise Python exceptions (if is interrupted by signal
@@ -649,12 +761,20 @@ cdef class Tracker:
     def __cinit__(self, object file_name=None, *, object destination=None,
                   bool native_traces=False, unsigned int memory_interval_ms = 10,
                   bool follow_fork=False, bool trace_python_allocators=False,
-                  FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
+                  track_object_lifetimes=False, FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
+        # Check Python version if reference tracking is enabled
+        if track_object_lifetimes and sys.version_info < (3, 13, 3):
+            raise RuntimeError(
+                "Python object reference tracking requires Python 3.13.3 or later. "
+                f"Current version: {'.'.join(map(str, sys.version_info[:3]))}"
+            )
+
         cdef cppstring command_line = " ".join(sys.argv)
         self._native_traces = native_traces
+        self._track_object_lifetimes = track_object_lifetimes
         self._memory_interval_ms = memory_interval_ms
         self._follow_fork = follow_fork
         self._trace_python_allocators = trace_python_allocators
@@ -676,6 +796,7 @@ cdef class Tracker:
                 native_traces,
                 file_format,
                 trace_python_allocators,
+                track_object_lifetimes,
             )
         )
 
@@ -713,17 +834,21 @@ cdef class Tracker:
             if "greenlet" in sys.modules:
                 NativeTracker.beginTrackingGreenlets()
 
+            self._surviving_objects = []
+
             NativeTracker.createTracker(
                 move(writer),
                 self._native_traces,
                 self._memory_interval_ms,
                 self._follow_fork,
                 self._trace_python_allocators,
+                self._track_object_lifetimes,
             )
             return self
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
+        self._populate_suriving_objects()
         with tracker_creation_lock:
             NativeTracker.destroyTracker()
             sys.setprofile(self._previous_profile_func)
@@ -731,6 +856,25 @@ cdef class Tracker:
 
             for attr in ("_name", "_ident"):
                 delattr(threading.Thread, attr)
+
+    cdef void _populate_suriving_objects(self):
+        assert NativeTracker.getTracker() != NULL
+        cdef unordered_set[PyObject*] objects = NativeTracker.getTracker().getSurvivingObjects()
+        for obj in objects:
+            self._surviving_objects.append(<object>obj)
+            Py_DECREF(<object>obj)
+
+    def get_surviving_objects(self):
+        """Get a list of objects that were alive at the end of the tracking period.
+
+        Returns:
+            list: A list of objects that were alive at the end of the tracking period.
+        """
+        if not self._track_object_lifetimes:
+            raise RuntimeError(
+                "track_object_lifetimes=True was not provided at Tracker construction"
+            )
+        return tuple(self._surviving_objects)
 
 
 def start_thread_trace(frame, event, arg):
@@ -899,7 +1043,7 @@ cdef class FileReader:
         # Initial pass to populate _header, _high_watermark, and _memory_snapshots.
         cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
             unique_ptr[FileSource](new FileSource(self._path)),
-            False
+            False, False
         )
         cdef RecordReader* reader = reader_sp.get()
 
@@ -1244,6 +1388,59 @@ cdef class FileReader:
         for record in self._memory_snapshots:
             yield MemorySnapshot(record.ms_since_epoch, record.rss, record.heap)
 
+    def get_object_lifetime_events(self, included_objects=None):
+        """Return all tracked objects from the file.
+
+        This method yields TrackedObjectRecord instances representing Python objects
+        that were tracked during the recording session.
+
+        Args:
+            included_objects (list, optional): A list of objects to filter the results by.
+
+        Returns:
+            An iterator of TrackedObjectRecord instances.
+        """
+        self._ensure_not_closed()
+
+        object_ids = set()
+        if included_objects is not None:
+            object_ids = {id(obj) for obj in included_objects}
+
+        cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
+            unique_ptr[FileSource](new FileSource(self._path))
+        )
+        cdef RecordReader* reader = reader_sp.get()
+
+        # Check if the file was generated with object lifetime tracking enabled
+        cdef object header = reader.getHeader()
+        if not header.get("track_object_lifetimes", False):
+            raise RuntimeError(
+                "Object lifetime events are not available in this capture file. "
+                "The file was not generated with track_object_lifetimes=True."
+            )
+
+        cdef TrackedObject tracked_object
+        while True:
+            PyErr_CheckSignals()
+            ret = reader.nextRecord()
+            if ret == RecordResult.RecordResultObjectRecord:
+                tracked_object = reader.getLatestObject()
+                if included_objects is not None and tracked_object.address not in object_ids:
+                    continue
+                object_record = TrackedObjectRecord(tracked_object.toPythonObject())
+                object_record._reader = reader_sp
+                yield object_record
+            elif ret == RecordResult.RecordResultAllocationRecord:
+                pass
+            elif ret == RecordResult.RecordResultMemoryRecord:
+                pass
+            elif ret == RecordResult.RecordResultMemorySnapshot:
+                pass
+            else:
+                break
+
+        reader.close()
+
     @property
     def metadata(self):
         return _create_metadata(self._header, self._high_watermark.peak_memory)
@@ -1287,6 +1484,8 @@ def compute_statistics(
             elif ret == RecordResult.RecordResultMemoryRecord:
                 pass
             elif ret == RecordResult.RecordResultMemorySnapshot:
+                pass
+            elif ret == RecordResult.RecordResultObjectRecord:
                 pass
             else:
                 assert ret != RecordResult.RecordResultMemorySnapshot
