@@ -1,0 +1,1 @@
+Fix a crash that could occur if tracking was started in one thread while another thread was inside of a trace function installed with ``sys.settrace``. This crash wasn't possible to hit with ``memray run``, but could happen when using ``pytest-memray`` and ``pytest-cov`` together.

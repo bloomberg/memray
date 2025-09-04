@@ -349,9 +349,14 @@ class Tracker
         }
     }
 
-    // RawFrame stack interface
+    // stack interface
+    bool pushFrame(const Frame& frame);
     bool pushFrame(const RawFrame& frame);
     bool popFrames(uint32_t count);
+
+    // code object registration
+    code_object_id_t registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj);
+    void forgetCodeObject(PyCodeObject* code);
 
     // Interface to activate/deactivate the tracking
     static bool isActive();
@@ -420,8 +425,6 @@ class Tracker
 
     // Methods
     static size_t computeMainTidSkip();
-    code_object_id_t registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj);
-    void forgetCodeObject(PyCodeObject* code);
 
     void trackAllocationImpl(
             void* ptr,
