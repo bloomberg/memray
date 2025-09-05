@@ -1100,10 +1100,11 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                             "<unknown allocator " + std::to_string((int)record.allocator) + ">";
                     allocator = unknownAllocator.c_str();
                 }
-                printf("address=%p size=%zd allocator=%s\n",
+                printf("address=%p size=%zd allocator=%s native_frame_id=%zd\n",
                        (void*)record.address,
                        record.size,
-                       allocator);
+                       allocator,
+                       record.native_frame_id);
             } break;
             case RecordType::FRAME_PUSH: {
                 printf("FRAME_PUSH ");

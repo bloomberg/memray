@@ -18,6 +18,7 @@ from posix.time cimport CLOCK_MONOTONIC
 from posix.time cimport clock_gettime
 from posix.time cimport timespec
 
+from _memray cimport records
 from _memray.algorithm cimport count
 from _memray.hooks cimport Allocator
 from _memray.hooks cimport isDeallocator
@@ -25,8 +26,12 @@ from _memray.logging cimport setLogThreshold
 from _memray.native_resolver cimport unwindHere
 from _memray.record_reader cimport RecordReader
 from _memray.record_reader cimport RecordResult
+from _memray.record_writer cimport PyCodeObject
+from _memray.record_writer cimport PyFrameObject
 from _memray.record_writer cimport RecordWriter
+from _memray.record_writer cimport codeGetLinetable
 from _memray.record_writer cimport createRecordWriter
+from _memray.record_writer cimport frameGetLasti
 from _memray.records cimport AggregatedAllocation
 from _memray.records cimport Allocation as _Allocation
 from _memray.records cimport FileFormat as _FileFormat
@@ -60,6 +65,7 @@ from _memray.tracking_api cimport set_up_pthread_fork_handlers
 from cpython cimport PyErr_CheckSignals
 from libc.math cimport ceil
 from libc.stdint cimport uint64_t
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.limits cimport numeric_limits
 from libcpp.memory cimport make_shared
@@ -69,6 +75,7 @@ from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string as cppstring
 from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
+from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 
 from ._destination import Destination
@@ -1556,3 +1563,153 @@ cdef class AllocationLifetimeAggregatorTestHarness:
         cdef TemporalAllocationGenerator gen = TemporalAllocationGenerator()
         gen.setup(move(self.aggregator.generateIndex()), reader)
         yield from gen
+
+
+cdef class RecordWriterTestHarness:
+    """A Python wrapper around the C++ RecordWriter class for testing purposes."""
+
+    cdef unique_ptr[RecordWriter] _writer
+
+    def __cinit__(
+        self,
+        str file_path,
+        bool native_traces=False,
+        bool trace_python_allocators=False,
+        records.FileFormat file_format=records.FileFormat.ALL_ALLOCATIONS,
+        records.thread_id_t main_tid=1,
+        size_t skipped_frames=0,
+        str command_line="memray test harness",
+    ):
+        """Initialize a new RecordWriterTestHarness.
+
+        Args:
+            file_path: Path to the output file
+            native_traces: Whether to include native traces
+            trace_python_allocators: Whether to trace Python allocators
+            file_format: The format of the output file
+        """
+        self._writer = createRecordWriter(
+            unique_ptr[Sink](new FileSink(file_path.encode('utf-8'), True, False)),
+            command_line.encode(),
+            native_traces,
+            file_format,
+            trace_python_allocators,
+        )
+        self._writer.get().setMainTidAndSkippedFrames(main_tid, skipped_frames)
+        self.write_header(False)
+
+    def write_header(self, bool seek_to_start) -> None:
+        if not self._writer.get().writeHeader(seek_to_start):
+            raise RuntimeError("Failed to write header")
+
+    def write_memory_record(self, unsigned long ms_since_epoch, size_t rss) -> bool:
+        """Write a memory record to the file."""
+        cdef records.MemoryRecord record
+        record.ms_since_epoch = ms_since_epoch
+        record.rss = rss
+        return self._writer.get().writeRecord(record)
+
+    def write_code_object(
+        self,
+        records.code_object_id_t id,
+        str function_name,
+        str filename,
+        bytes linetable,
+        int firstlineno,
+    ) -> bool:
+        """Write a code object record to the file."""
+        return self._writer.get().writeRecord(
+            pair[records.code_object_id_t, records.CodeObjectInfo](
+                id,
+                records.CodeObjectInfo(
+                    function_name.encode(),
+                    filename.encode(),
+                    linetable,
+                    firstlineno,
+                )
+            )
+        )
+
+    @staticmethod
+    def get_linetable(code_object):
+        """Get the linetable from a code object."""
+        cdef const char* addr
+        cdef size_t size
+        import types
+        if not isinstance(code_object, types.CodeType):
+            raise TypeError("Expected a code object")
+        addr = codeGetLinetable(<PyCodeObject*>code_object, &size)
+        return <bytes>addr[:size]
+
+    @staticmethod
+    def get_lasti(frame_object):
+        """Get the linetable from a code object."""
+        import types
+        if not isinstance(frame_object, types.FrameType):
+            raise TypeError("Expected a frame object")
+        return frameGetLasti(<PyFrameObject*>frame_object)
+
+    def write_unresolved_native_frame(self, uintptr_t ip, size_t index) -> bool:
+        """Write an unresolved native frame record to the file."""
+        cdef records.UnresolvedNativeFrame record
+        record.ip = ip
+        record.index = index
+        return self._writer.get().writeRecord(record)
+
+    def write_allocation_record(self, records.thread_id_t tid, uintptr_t address,
+                                     size_t size, unsigned char allocator,
+                                     size_t native_frame_id=0) -> bool:
+        """Write a native allocation record to the file."""
+        cdef records.AllocationRecord record
+        record.address = address
+        record.size = size
+        record.allocator = <records.Allocator>allocator
+        record.native_frame_id = native_frame_id
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_frame_push(
+        self,
+        records.thread_id_t tid,
+        records.code_object_id_t code_object_id,
+        int instruction_offset,
+        bool is_entry_frame,
+    ) -> bool:
+        """Write a frame push record to the file."""
+        cdef records.FramePush record
+        record.frame.code_object_id = code_object_id
+        record.frame.instruction_offset = instruction_offset
+        record.frame.is_entry_frame = is_entry_frame
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_frame_pop(self, records.thread_id_t tid, size_t count) -> bool:
+        """Write a frame pop record to the file."""
+        cdef records.FramePop record
+        record.count = count
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_thread_record(self, records.thread_id_t tid, str name) -> bool:
+        """Write a thread record to the file."""
+        cdef records.ThreadRecord record
+        cdef bytes name_bytes = name.encode('utf-8')
+        record.name = name_bytes
+        return self._writer.get().writeThreadSpecificRecord(tid, record)
+
+    def write_mappings(self, list mappings) -> bool:
+        """Write memory mappings to the file."""
+        return self._writer.get().writeMappings(
+            [
+                records.ImageSegments(
+                    mapping['filename'].encode('utf-8'),
+                    mapping['addr'],
+                    [
+                        records.Segment(seg["vaddr"], seg["memsz"])
+                        for seg in mapping["segments"]
+                    ],
+                )
+                for mapping in mappings
+            ]
+        )
+
+    def write_trailer(self) -> bool:
+        """Write the trailer to the file."""
+        return self._writer.get().writeTrailer()
