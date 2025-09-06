@@ -1602,7 +1602,7 @@ cdef class RecordWriterTestHarness:
         if not self._writer.get().writeHeader(seek_to_start):
             raise RuntimeError("Failed to write header")
 
-    def write_memory_record(self, unsigned long ms_since_epoch, size_t rss) -> bool:
+    def write_memory_record(self, uint64_t ms_since_epoch, size_t rss) -> bool:
         """Write a memory record to the file."""
         cdef records.MemoryRecord record
         record.ms_since_epoch = ms_since_epoch

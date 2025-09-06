@@ -1,4 +1,5 @@
 from _memray.hooks cimport Allocator
+from libc.stdint cimport uint64_t
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.string cimport string
@@ -26,10 +27,6 @@ cdef extern from "records.h" namespace "memray::tracking_api":
    ctypedef size_t frame_id_t
    ctypedef size_t code_object_id_t
    ctypedef long long millis_t
-
-   struct MemoryRecord:
-       unsigned long int ms_since_epoch
-       size_t rss
 
    struct CodeObjectInfo:
        string function_name
@@ -120,11 +117,11 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        Allocation contributionToLeaks()
 
    struct MemoryRecord:
-       unsigned long int ms_since_epoch
+       uint64_t ms_since_epoch
        size_t rss
 
    struct MemorySnapshot:
-       unsigned long int ms_since_epoch
+       uint64_t ms_since_epoch
        size_t rss
        size_t heap
 

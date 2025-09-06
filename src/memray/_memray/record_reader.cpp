@@ -1201,7 +1201,7 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                     Py_RETURN_NONE;
                 }
 
-                printf("time=%ld memory=%" PRIxPTR "\n", record.ms_since_epoch, record.rss);
+                printf("time=%" PRIu64 " memory=%zd\n", record.ms_since_epoch, record.rss);
             } break;
             case RecordType::CONTEXT_SWITCH: {
                 printf("CONTEXT_SWITCH ");
@@ -1243,7 +1243,10 @@ RecordReader::dumpAllRecordsFromAggregatedAllocationsFile()
                     Py_RETURN_NONE;
                 }
 
-                printf("time=%ld rss=%zd heap=%zd\n", record.ms_since_epoch, record.rss, record.heap);
+                printf("time=%" PRIu64 " rss=%zd heap=%zd\n",
+                       record.ms_since_epoch,
+                       record.rss,
+                       record.heap);
             } break;
 
             case AggregatedRecordType::AGGREGATED_ALLOCATION: {
