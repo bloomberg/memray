@@ -779,7 +779,7 @@ Tracker::BackgroundThread::BackgroundThread(
 #endif
 }
 
-unsigned long int
+uint64_t
 Tracker::BackgroundThread::timeElapsed()
 {
     std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(

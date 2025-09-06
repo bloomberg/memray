@@ -1,18 +1,71 @@
 from _memray.hooks cimport Allocator
+from libc.stdint cimport uint64_t
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 
 
+cdef extern from "hooks.h" namespace "memray::hooks":
+    cdef enum Allocator:
+        MALLOC "memray::hooks::Allocator::MALLOC"
+        CALLOC "memray::hooks::Allocator::CALLOC"
+        REALLOC "memray::hooks::Allocator::REALLOC"
+        VALLOC "memray::hooks::Allocator::VALLOC"
+        ALIGNED_ALLOC "memray::hooks::Allocator::ALIGNED_ALLOC"
+        POSIX_MEMALIGN "memray::hooks::Allocator::POSIX_MEMALIGN"
+        MEMALIGN "memray::hooks::Allocator::MEMALIGN"
+        PVALLOC "memray::hooks::Allocator::PVALLOC"
+        FREE "memray::hooks::Allocator::FREE"
+        PYMALLOC_MALLOC "memray::hooks::Allocator::PYMALLOC_MALLOC"
+        PYMALLOC_CALLOC "memray::hooks::Allocator::PYMALLOC_CALLOC"
+        PYMALLOC_REALLOC "memray::hooks::Allocator::PYMALLOC_REALLOC"
+        PYMALLOC_FREE "memray::hooks::Allocator::PYMALLOC_FREE"
+
 cdef extern from "records.h" namespace "memray::tracking_api":
    ctypedef unsigned long thread_id_t
    ctypedef size_t frame_id_t
+   ctypedef size_t code_object_id_t
+   ctypedef long long millis_t
 
-   struct Frame:
+   struct CodeObjectInfo:
        string function_name
        string filename
-       int lineno
+       string linetable
+       int firstlineno
+
+   struct AllocationRecord:
+       uintptr_t address
+       size_t size
+       Allocator allocator
+       frame_id_t native_frame_id
+
+   struct Frame:
+       code_object_id_t code_object_id
+       int instruction_offset
+       bool is_entry_frame
+
+   struct FramePush:
+       Frame frame
+
+   struct FramePop:
+       size_t count
+
+   struct ThreadRecord:
+       const char* name
+
+   struct Segment:
+       uintptr_t vaddr
+       size_t memsz
+
+   struct ImageSegments:
+       string filename
+       uintptr_t addr
+       vector[Segment] segments
+
+   struct UnresolvedNativeFrame:
+       uintptr_t ip
+       frame_id_t index
 
    struct TrackerStats:
        size_t n_allocations
@@ -64,11 +117,11 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        Allocation contributionToLeaks()
 
    struct MemoryRecord:
-       unsigned long int ms_since_epoch
+       uint64_t ms_since_epoch
        size_t rss
 
    struct MemorySnapshot:
-       unsigned long int ms_since_epoch
+       uint64_t ms_since_epoch
        size_t rss
        size_t heap
 

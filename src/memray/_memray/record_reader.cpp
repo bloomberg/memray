@@ -102,7 +102,7 @@ RecordReader::readHeader(HeaderRecord& header)
 }
 
 bool
-RecordReader::readVarint(size_t* val)
+RecordReader::readVarint(uint64_t* val)
 {
     *val = 0;
     int shift = 0;
@@ -113,7 +113,7 @@ RecordReader::readVarint(size_t* val)
             return false;
         }
 
-        *val |= (static_cast<size_t>(next & 0x7f) << shift);
+        *val |= (static_cast<uint64_t>(next & 0x7f) << shift);
         if (0 == (next & 0x80)) {
             return true;
         }
@@ -126,14 +126,14 @@ RecordReader::readVarint(size_t* val)
 }
 
 bool
-RecordReader::readSignedVarint(ssize_t* val)
+RecordReader::readSignedVarint(int64_t* val)
 {
-    size_t zigzag_val;
+    uint64_t zigzag_val;
     if (!readVarint(&zigzag_val)) {
         return false;
     }
 
-    *val = static_cast<ssize_t>((zigzag_val >> 1) ^ (~(zigzag_val & 1) + 1));
+    *val = static_cast<int64_t>((zigzag_val >> 1) ^ (~(zigzag_val & 1) + 1));
     return true;
 }
 
@@ -1100,10 +1100,11 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                             "<unknown allocator " + std::to_string((int)record.allocator) + ">";
                     allocator = unknownAllocator.c_str();
                 }
-                printf("address=%p size=%zd allocator=%s\n",
+                printf("address=%p size=%zd allocator=%s native_frame_id=%zd\n",
                        (void*)record.address,
                        record.size,
-                       allocator);
+                       allocator,
+                       record.native_frame_id);
             } break;
             case RecordType::FRAME_PUSH: {
                 printf("FRAME_PUSH ");
@@ -1200,7 +1201,7 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                     Py_RETURN_NONE;
                 }
 
-                printf("time=%ld memory=%" PRIxPTR "\n", record.ms_since_epoch, record.rss);
+                printf("time=%" PRIu64 " memory=%zd\n", record.ms_since_epoch, record.rss);
             } break;
             case RecordType::CONTEXT_SWITCH: {
                 printf("CONTEXT_SWITCH ");
@@ -1242,7 +1243,10 @@ RecordReader::dumpAllRecordsFromAggregatedAllocationsFile()
                     Py_RETURN_NONE;
                 }
 
-                printf("time=%ld rss=%zd heap=%zd\n", record.ms_since_epoch, record.rss, record.heap);
+                printf("time=%" PRIu64 " rss=%zd heap=%zd\n",
+                       record.ms_since_epoch,
+                       record.rss,
+                       record.heap);
             } break;
 
             case AggregatedRecordType::AGGREGATED_ALLOCATION: {
