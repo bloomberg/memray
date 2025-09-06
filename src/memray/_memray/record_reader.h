@@ -73,10 +73,10 @@ class RecordReader
     void readHeader(HeaderRecord& header);
     template<typename T>
     bool readVarint(T* val);
-    bool readVarint(size_t* val);
+    bool readVarint(uint64_t* val);
     template<typename T>
     bool readSignedVarint(T* val);
-    bool readSignedVarint(ssize_t* val);
+    bool readSignedVarint(int64_t* val);
     template<typename T>
     bool readIntegralDelta(T* cache, T* new_val);
     Location frameToLocation(frame_id_t frame);
@@ -172,7 +172,7 @@ bool
 RecordReader::readVarint(T* val)
 {
     static_assert(std::is_unsigned<T>::value, "Only unsigned varints are supported");
-    size_t temp;
+    uint64_t temp;
     if (!readVarint(&temp)) {
         return false;
     }
@@ -185,7 +185,7 @@ bool
 RecordReader::readSignedVarint(T* val)
 {
     static_assert(!std::is_unsigned<T>::value, "Only signed varints are supported");
-    ssize_t temp;
+    int64_t temp;
     if (!readSignedVarint(&temp)) {
         return false;
     }
@@ -197,7 +197,7 @@ template<typename T>
 bool
 RecordReader::readIntegralDelta(T* prev, T* new_val)
 {
-    ssize_t delta;
+    int64_t delta;
     if (!readSignedVarint(&delta)) {
         return false;
     }
