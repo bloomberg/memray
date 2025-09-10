@@ -116,6 +116,7 @@ def compare(monkeypatch, tmp_path, snap_compare):
                     await result
 
             await pilot.pause()
+            await pilot.pause(0.2)
             header = pilot.app.screen.query_one("Header")
             header.last_update = header.start + datetime.timedelta(seconds=42)
 
