@@ -37,35 +37,6 @@ jobs:
             exit 1
           fi
 
-  test_with_coverage:
-    name: "Test with coverage"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10"
-      - name: Set up dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -qy libdebuginfod-dev libunwind-dev liblz4-dev pkg-config npm gdb lldb lcov
-      - name: Create virtual environment
-        run: |
-          python3 -m venv venv
-      - name: Install Python dependencies
-        run: |
-          ./venv/bin/python -m pip install --upgrade pip
-      - name: Disable ptrace security restrictions
-        run: |
-          echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
-      - name: Run coverage
-        env:
-          CYTHON_TEST_MACROS: 1
-          PYTHON: ./venv/bin/python
-        run: |
-          make dev-install pycoverage
-
   test_in_alpine:
     name: "Test in Alpine Linux"
     runs-on: ubuntu-latest
