@@ -1,1 +1,0 @@
-Fix timestamps on the heap usage line chart when Memray is run on a 32-bit platform.

@@ -1,4 +1,0 @@
-Reduced memory profiling overhead and capture file size by changing how
-Python code locations are recorded. This makes allocation tracking
-faster, produces smaller capture files, and improves the accuracy of
-reports that group allocations by source location.

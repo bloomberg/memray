@@ -8,6 +8,27 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.19.0 (2025-09-26)
+--------------------------
+
+Features
+~~~~~~~~
+
+- Add a mode that can be used in Python 3.13.3 and newer where Memray will track Python object creation and destruction events, which can be used to find leaked objects (ones that were created during a tracking session and not destroyed before the end of that tracking session). (#752)
+- Added ``--no-web`` flag to ``flamegraph`` and ``table`` commands for offline HTML report generation. When this flag is specified, memray bundles all external dependencies (Bootstrap, jQuery, D3, DataTables, Plotly.js) directly into the generated HTML files instead of loading them from CDNs. This enables memray to generate fully functional HTML reports on airgapped systems without internet connectivity. (#790)
+- Reduced memory profiling overhead and capture file size by changing how
+  Python code locations are recorded. This makes allocation tracking
+  faster, produces smaller capture files, and improves the accuracy of
+  reports that group allocations by source location. (#801)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix a crash that could occur if tracking was started in one thread while another thread was inside of a trace function installed with ``sys.settrace``. This crash wasn't possible to hit with ``memray run``, but could happen when using ``pytest-memray`` and ``pytest-cov`` together. (#823)
+- Fix timestamps on the heap usage line chart when Memray is run on a 32-bit platform. (#826)
+
+
 memray 1.18.0 (2025-08-07)
 --------------------------
 
