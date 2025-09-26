@@ -1,1 +1,0 @@
-Add a mode that can be used in Python 3.13.3 and newer where Memray will track Python object creation and destruction events, which can be used to find leaked objects (ones that were created during a tracking session and not destroyed before the end of that tracking session).
