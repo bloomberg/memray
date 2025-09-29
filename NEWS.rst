@@ -8,6 +8,12 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.19.1 (2025-09-29)
+--------------------------
+
+- Fix a bug that caused Memray to refuse to produce stack traces for ``pymalloc`` allocations when ``--trace-python-allocators`` was used. (#832)
+
+
 memray 1.19.0 (2025-09-26)
 --------------------------
 
