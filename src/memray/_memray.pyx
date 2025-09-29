@@ -128,9 +128,11 @@ cpdef enum AllocatorType:
     MMAP = 14
     MUNMAP = 15
 
+# Note: enumerator values are negative because they must be unique
+#       from the enumerator values of the AllocatorType enum above
 cpdef enum ObjectTrackingEvent:
-    OBJECT_CREATED = 1
-    OBJECT_DESTROYED = 2
+    OBJECT_CREATED = -1
+    OBJECT_DESTROYED = -2
 
 cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC = 1
