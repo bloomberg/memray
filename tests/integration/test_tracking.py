@@ -1630,6 +1630,52 @@ class TestHeader:
         assert metadata.python_allocator == allocator_name
 
 
+def test_pymalloc_with_python_stack_traces(tmp_path):
+    """Test that pymalloc allocations have Python stack traces"""
+    # GIVEN
+    allocator = PymallocMemoryAllocator(PymallocDomain.PYMALLOC_OBJECT)
+    output = tmp_path / "test.bin"
+
+    def alloc_func3():
+        return allocator.malloc(ALLOC_SIZE)
+
+    def alloc_func2():
+        return alloc_func3()
+
+    def alloc_func1():
+        return alloc_func2()
+
+    # WHEN
+    with Tracker(output, trace_python_allocators=True):
+        res = alloc_func1()
+        if res:
+            allocator.free()
+
+    if not res:
+        pytest.skip("PymallocMemoryAllocator not supported on this platform")
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+    allocs = [
+        event
+        for event in allocations
+        if event.size == ALLOC_SIZE and event.allocator == AllocatorType.PYMALLOC_MALLOC
+    ]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+
+    # Check the Python stack trace
+    traceback = list(alloc.stack_trace())
+    assert len(traceback) > 0
+
+    # Verify our calling functions are in the stack
+    func_names = [frame[0] for frame in traceback]
+    assert "alloc_func3" in func_names
+    assert "alloc_func2" in func_names
+    assert "alloc_func1" in func_names
+    assert "test_pymalloc_with_python_stack_traces" in func_names
+
+
 class TestMemorySnapshots:
     @pytest.mark.valgrind
     def test_memory_snapshots_are_written(self, tmp_path):
