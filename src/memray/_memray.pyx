@@ -129,8 +129,8 @@ cpdef enum AllocatorType:
     MUNMAP = 15
 
 cpdef enum ObjectTrackingEvent:
-    OBJECT_CREATED = 1
-    OBJECT_DESTROYED = 2
+    OBJECT_CREATED = 10
+    OBJECT_DESTROYED = 20
 
 cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC = 1
