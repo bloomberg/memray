@@ -24,7 +24,7 @@ from .run import _get_free_port
 try:
     from typing import Literal
 except ImportError:
-    from typing_extensions import Literal  # type: ignore
+    from typing_extensions import Literal
 
 TrackingMode = Literal["ACTIVATE", "DEACTIVATE", "FOR_DURATION"]
 

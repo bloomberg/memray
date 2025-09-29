@@ -227,7 +227,7 @@ class FlamegraphMagics(Magics):
             )
         dump_file.unlink()
         pprint(f"Results saved to [bold cyan]{flamegraph_path}")
-        display(IFrame(flamegraph_path, width="100%", height="600"))  # type: ignore
+        display(IFrame(flamegraph_path, width="100%", height="600"))
 
 
 assert FlamegraphMagics.memray_flamegraph.__doc__ is not None

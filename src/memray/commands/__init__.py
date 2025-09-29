@@ -10,7 +10,7 @@ from memray._version import __version__
 try:
     from typing import Protocol
 except ImportError:
-    from typing_extensions import Protocol  # type: ignore
+    from typing_extensions import Protocol
 
 from memray._errors import MemrayCommandError
 from memray._errors import MemrayError
