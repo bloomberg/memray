@@ -1,3 +1,4 @@
+import ctypes
 import shutil
 import subprocess
 import sys
@@ -15,6 +16,7 @@ HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_MISBEHAVING_EXTENSION = HERE / "misbehaving_extension"
 TEST_RPATH_EXTENSION = HERE / "rpath_extension"
+TEST_FREE_SIZED_EXTENSION = HERE / "free_sized_extension"
 
 
 @pytest.mark.valgrind
@@ -108,7 +110,7 @@ def test_misbehaving_extension(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "allocating_function"
     assert filename.endswith(__file__)
-    assert line == 83
+    assert line == 85
 
     frees = [
         event
@@ -171,7 +173,7 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "test_extension_that_uses_pygilstate_ensure"
     assert filename.endswith(__file__)
-    assert line == 154
+    assert line == 156
 
     # We should have 2 frames here: this function calling `allocator.valloc`,
     # and `allocator.valloc` calling the C `valloc`.
@@ -186,7 +188,7 @@ def test_extension_that_uses_pygilstate_ensure(tmpdir, monkeypatch):
     func, filename, line = caller
     assert func == "test_extension_that_uses_pygilstate_ensure"
     assert filename.endswith(__file__)
-    assert line == 155
+    assert line == 157
 
     frees = [
         event
@@ -242,7 +244,7 @@ def test_native_dlopen(tmpdir, monkeypatch):
     func, filename, line = bottom_frame
     assert func == "test_native_dlopen"
     assert filename.endswith(__file__)
-    assert line == 226
+    assert line == 228
 
     frees = [
         event
@@ -386,3 +388,99 @@ def test_dlopen_with_rpath(tmpdir, monkeypatch):
         # THEN
         with Tracker(output):
             hello_world()
+
+
+@pytest.mark.skipif(
+    not hasattr(ctypes.CDLL(None), "free_sized"),
+    reason="free_sized not available on this system",
+)
+def test_free_sized_extension(tmpdir, monkeypatch):
+    """Test allocations in a native extension using free_sized and free_aligned_sized."""
+    # GIVEN
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "free_sized_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_FREE_SIZED_EXTENSION, extension_path)
+
+    # Try to build the extension, skip if compilation fails
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                str(extension_path / "setup.py"),
+                "build_ext",
+                "--inplace",
+            ],
+            check=True,
+            cwd=extension_path,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        pytest.skip(f"Failed to compile C23 extension: {e}")
+    except Exception as e:
+        pytest.skip(f"Unexpected error building extension: {e}")
+
+    # WHEN
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+
+        try:
+            from free_sized_test import run_both_tests  # type: ignore
+        except ImportError as e:
+            pytest.skip(f"Failed to import compiled extension: {e}")
+
+        with Tracker(output):
+            # Get allocation info from the extension
+            result = run_both_tests()
+
+            # Skip test if functions not available (e.g., on macOS)
+            if result is None:
+                pytest.skip("C23 functions not available on this system")
+
+    # THEN
+    records = list(FileReader(output).get_allocation_records())
+    assert records
+
+    # Check that at least 2 allocations from malloc and aligned_alloc
+    mallocs = [
+        record for record in records if record.allocator == AllocatorType.ALIGNED_ALLOC
+    ]
+    assert len(mallocs) >= 2
+
+    # Check that corresponding FREE records - this verifies hooks are working!
+    mallocs_addr = {record.address for record in mallocs}
+    frees = [
+        record
+        for record in records
+        if record.address in mallocs_addr and record.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) == len(mallocs)
+
+    assert all(len(malloc.stack_trace()) == 0 for malloc in mallocs)
+    assert all(len(free.stack_trace()) == 0 for free in frees)
+
+    # Verify that the specific addresses returned by the extension were tracked
+    if result is not None:
+        expected_address = result[0]
+
+        # Find the allocation record for this address
+        matching_allocs = [
+            record
+            for record in records
+            if record.address == expected_address
+            and record.allocator == AllocatorType.ALIGNED_ALLOC
+        ]
+        assert (
+            len(matching_allocs) >= 1
+        ), f"Expected allocation at address {expected_address} not found"
+
+        # Find the corresponding free record
+        matching_frees = [
+            record
+            for record in records
+            if record.address == expected_address
+            and record.allocator == AllocatorType.FREE
+        ]
+        assert (
+            len(matching_frees) >= 1
+        ), f"Expected free at address {expected_address} not found"
