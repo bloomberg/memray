@@ -1,4 +1,4 @@
-name: Python 3.14 Tail Call Interpreter Tests
+name: UV Python Tests
 
 on:
   push:
@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test_python_314_tailcall:
-    name: "Test with Python 3.14 tail call interpreter"
+  test_uv_python:
+    name: "Test with UV Python 3.14"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -37,13 +37,13 @@ jobs:
       
       - name: Install Python dependencies
         run: |
-          uv pip install --system --upgrade pip cython pkgconfig
-          uv pip install --system -r requirements-test.txt
+          uv pip install --upgrade pip cython pkgconfig
+          uv pip install -r requirements-test.txt
       
       - name: Build package
         run: |
           make build-js
-          uv pip install --system -e .
+          uv pip install -e .
       
       - name: Disable ptrace security restrictions
         run: |
@@ -51,4 +51,4 @@ jobs:
       
       - name: Run tests
         run: |
-          python -m pytest -vvv --log-cli-level=info tests/unit/test_frame_tools.py
+          uv run pytest -vvv --log-cli-level=info tests
