@@ -38,6 +38,9 @@ SYMBOL_IGNORELIST = {
 def _is_cpython_internal_symbol(symbol: str, file: str) -> bool:
     if "PyEval_EvalFrameEx" in symbol or "_PyEval_EvalFrameDefault" in symbol:
         is_candidate = True
+    elif symbol.startswith("_TAIL_CALL_") and ".llvm." in symbol:
+        # Python 3.14 tail call interpreter uses LLVM-generated functions
+        is_candidate = True
     elif symbol.startswith(("PyEval", "_Py")):
         is_candidate = True
     elif "vectorcall" in symbol.lower():

@@ -31,8 +31,32 @@ class TestFrameFiltering:
                 ),
                 True,
             ],
+            # Python 3.14 tail call interpreter LLVM-generated functions
+            [
+                (
+                    "_TAIL_CALL_INSTRUMENTED_CALL.llvm.10282351651392433962",
+                    "/src/python/python3.14/Python/ceval.c",
+                    100,
+                ),
+                True,
+            ],
+            [
+                (
+                    "_TAIL_CALL_POP_TOP.llvm.123456789",
+                    "/src/python/python3.14/Python/ceval.c",
+                    50,
+                ),
+                True,
+            ],
             [("somefunc", "myapp.py", 100), False],
             [("function_code_fastcall", "myapp.py", 100), False],
+            # _TAIL_CALL_ pattern should not match without .llvm.
+            [
+                ("_TAIL_CALL_SOMETHING", "/src/python/python3.14/Python/ceval.c", 100),
+                False,
+            ],
+            # _TAIL_CALL_ pattern should not match in non-CPython files
+            [("_TAIL_CALL_SOMETHING.llvm.123", "myapp.py", 100), False],
         ],
     )
     def test_cpython_internal_calls(self, frame, expected):
@@ -47,6 +71,15 @@ class TestFrameFiltering:
                 (
                     "_PyEval_EvalFrameDefault",
                     "/src/python/python3.8/Python/ceval.c",
+                    100,
+                ),
+                False,
+            ],
+            # Python 3.14 tail call interpreter frames should not be interesting
+            [
+                (
+                    "_TAIL_CALL_INSTRUMENTED_CALL.llvm.10282351651392433962",
+                    "/src/python/python3.14/Python/ceval.c",
                     100,
                 ),
                 False,
