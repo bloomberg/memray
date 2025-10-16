@@ -1,0 +1,58 @@
+name: UV Python Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test_uv_python:
+    name: "Test with UV Python 3.14"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv and set Python 3.14
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+
+      - name: Create virtual environment
+        run: |
+          uv venv --python 3.14
+
+      - name: Set up system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -qy \
+            pkg-config \
+            libdebuginfod-dev \
+            libunwind-dev \
+            liblz4-dev \
+            gdb \
+            npm
+
+      - name: Install Python dependencies
+        run: |
+          uv pip install --upgrade pip cython pkgconfig
+          uv pip install -r requirements-test.txt
+
+      - name: Build package
+        run: |
+          make build-js
+          uv pip install -e .
+
+      - name: Disable ptrace security restrictions
+        run: |
+          echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+
+      - name: Run tests
+        run: |
+          uv run pytest -vvv --log-cli-level=info tests
