@@ -247,7 +247,12 @@ cdef hybrid_stack_trace(
 
     for native_frame in native_stack:
         symbol = native_frame[0]
-        if pidx >= 0 and "_PyEval_EvalFrameDefault" in symbol:
+        # Check for Python frame boundaries: traditional _PyEval_EvalFrameDefault
+        # or Python 3.14 tail call interpreter LLVM-generated functions
+        is_python_frame_boundary = "_PyEval_EvalFrameDefault" in symbol or (
+            symbol.startswith("_TAIL_CALL_") and ".llvm." in symbol
+        )
+        if pidx >= 0 and is_python_frame_boundary:
             while True:
                 # If we're not keeping all frames and we've reached the
                 # first one we want to keep, remove frames above it.
@@ -272,7 +277,8 @@ cdef hybrid_stack_trace(
         # We ran out of native frames without using up all of our Python
         # frames. We've seen this happen on stripped interpreters on Alpine
         # Linux in CI. Presumably this indicates that unwinding failed to
-        # symbolify some of the calls to _PyEval_EvalFrameDefault.
+        # symbolify some of the Python frame boundaries (_PyEval_EvalFrameDefault
+        # or Python 3.14 tail call interpreter functions).
         return python_stack
     assert hidx == -1
 
@@ -1642,7 +1648,12 @@ def get_symbolic_support():
     locations = unwindHere()
     for location in locations:
         function, file, line = location.split(":")
-        if function != "_PyEval_EvalFrameDefault":
+        # Check for Python frame boundaries: traditional _PyEval_EvalFrameDefault
+        # or Python 3.14 tail call interpreter LLVM-generated functions
+        is_python_frame_boundary = function == "_PyEval_EvalFrameDefault" or (
+            function.startswith("_TAIL_CALL_") and ".llvm." in function
+        )
+        if not is_python_frame_boundary:
             continue
         if not file:
             return SymbolicSupport.FUNCTION_NAME_ONLY
