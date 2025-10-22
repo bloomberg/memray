@@ -17,9 +17,13 @@ import threading
 
 import memray
 from memray._errors import MemrayCommandError
+from rich.console import Console
+from rich.status import Status
 
 from .live import LiveCommand
 from .run import _get_free_port
+
+console = Console(stderr=True)
 
 try:
     from typing import Literal
@@ -407,20 +411,30 @@ class _DebuggerCommand:
             server.listen(1)
             sidechannel_port = server.getsockname()[1]
 
-            errmsg = inject(
-                method, pid, sidechannel_port, verbose=verbose, tmpdir=tmpdir
-            )
-            if errmsg:
-                raise MemrayCommandError(errmsg, exit_code=1)
-
-            server.settimeout(10)
-            try:
-                return server.accept()[0]
-            except TimeoutError:
-                raise MemrayCommandError(
-                    f"Timed out waiting for connection from pid {pid}",
-                    exit_code=1,
+            # Show progress spinner while attaching
+            with Status(
+                f"[bold blue]Attaching to process {pid} using {method}...",
+                console=console,
+                spinner="dots",
+            ) as status:
+                errmsg = inject(
+                    method, pid, sidechannel_port, verbose=verbose, tmpdir=tmpdir
                 )
+                if errmsg:
+                    raise MemrayCommandError(errmsg, exit_code=1)
+
+                # Update status while waiting for connection
+                status.update(
+                    f"[bold blue]Waiting for response from process {pid} (timeout: 30s)..."
+                )
+                server.settimeout(30)
+                try:
+                    return server.accept()[0]
+                except TimeoutError:
+                    raise MemrayCommandError(
+                        f"Timed out waiting for connection from pid {pid}",
+                        exit_code=1,
+                    )
 
 
 class AttachCommand(_DebuggerCommand):
@@ -531,6 +545,10 @@ class AttachCommand(_DebuggerCommand):
         )
 
         client = self.inject_control_channel(args.method, args.pid, verbose=verbose)
+        console.print(
+            f"[bold green]✓[/] Successfully attached to process {args.pid}",
+        )
+        
         client.sendall(
             PAYLOAD.format(
                 tracker_call=tracker_call,
@@ -547,6 +565,24 @@ class AttachCommand(_DebuggerCommand):
                     f"Failed to start tracking in remote process: {err}",
                     exit_code=1,
                 )
+            
+            # Print helpful message about what happens next
+            if duration:
+                console.print(
+                    f"\n[bold cyan]Tracking started in process {args.pid}[/]\n"
+                    f"  • Output file: [bold]{args.output}[/]\n"
+                    f"  • Duration: [bold]{duration} seconds[/]\n"
+                    f"  • The process will continue tracking allocations in the background.\n"
+                    f"  • Tracking will automatically stop after {duration} seconds.\n"
+                    f"  • You can also stop tracking early with: [bold]memray detach {args.pid}[/]\n"
+                )
+            else:
+                console.print(
+                    f"\n[bold cyan]Tracking started in process {args.pid}[/]\n"
+                    f"  • Output file: [bold]{args.output}[/]\n"
+                    f"  • The process will continue tracking allocations in the background.\n"
+                    f"  • Stop tracking with: [bold]memray detach {args.pid}[/]\n"
+                )
             return
 
         # If an error prevents the tracked process from binding a server to
@@ -557,6 +593,11 @@ class AttachCommand(_DebuggerCommand):
         # error (if no header is sent over the socket), and the background
         # thread may raise a SIGINT that we see only after the live TUI has
         # already exited. If so we must ignore the extra KeyboardInterrupt.
+        console.print(
+            f"\n[bold cyan]Starting live tracking session for process {args.pid}[/]\n"
+            f"  • Press Ctrl+C to stop tracking and exit the live view.\n"
+        )
+        
         error_reader = ErrorReaderThread(client)
         error_reader.start()
         live = LiveCommand()
