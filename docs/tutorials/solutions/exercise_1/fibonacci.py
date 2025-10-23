@@ -27,7 +27,11 @@ def generate_fibonacci_hash(length_1, length_2, length_3):
     return (
         reduce(
             operator.add,
-            chain(fibonacci(length_1), fibonacci(length_2), fibonacci(length_3)),
+            chain(
+                fibonacci(length_1),
+                fibonacci(length_2),
+                fibonacci(length_3),
+            ),
             0,
         )
         % 10000
@@ -36,9 +40,9 @@ def generate_fibonacci_hash(length_1, length_2, length_3):
 
 if __name__ == "__main__":
     # DO NOT CHANGE
-    LENGTH_OF_SEQUENCE_1 = 33333
-    LENGTH_OF_SEQUENCE_2 = 30000
-    LENGTH_OF_SEQUENCE_3 = 34567
+    LENGTH_OF_SEQUENCE_1 = 11111
+    LENGTH_OF_SEQUENCE_2 = 22222
+    LENGTH_OF_SEQUENCE_3 = 33333
     # DO NOT CHANGE
     generate_fibonacci_hash(
         LENGTH_OF_SEQUENCE_1, LENGTH_OF_SEQUENCE_2, LENGTH_OF_SEQUENCE_3
