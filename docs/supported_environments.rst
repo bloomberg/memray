@@ -34,8 +34,7 @@ Supported CPU architectures
 ---------------------------
 
 For Linux, we test on ``i686``, ``x86-64``, and ``aarch64``. Pre-built wheels
-are only available on PyPI for ``i686`` and ``x86-64``, though. That is
-unlikely to change until cibuildwheel_ provides `non-emulated aarch64 support`_.
+are available on PyPI.
 
 For macOS, we test on ``x86-64`` and ``arm64`` - so, both Intel and Apple
 Silicon Macs. Pre-built wheels are available for both architectures, though
@@ -71,8 +70,6 @@ Known issues and limitations
   start tracking in one thread while another thread is already making use of
   the Greenlet library.
 
-.. _cibuildwheel: https://github.com/pypa/cibuildwheel
-.. _non-emulated aarch64 support: https://cibuildwheel.readthedocs.io/en/stable/faq/#emulation
 .. _an os.exec function: https://docs.python.org/3/library/os.html#os.execl
 .. _multiprocessing start method: https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
 .. _Cython: http://docs.cython.org/en/latest/
