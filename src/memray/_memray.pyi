@@ -247,6 +247,7 @@ class Tracker:
         trace_python_allocators: bool = ...,
         file_format: FileFormat = ...,
         reference_tracking: bool = ...,
+        track_object_lifetimes: bool = ...,
     ) -> None: ...
     @overload
     def __init__(
@@ -267,6 +268,7 @@ class Tracker:
         excinst: Optional[BaseException],
         exctb: Optional[TracebackType],
     ) -> bool: ...
+    def get_surviving_objects(self) -> list[object]: ...
 
 def greenlet_trace(event: str, args: Any) -> None: ...
 
