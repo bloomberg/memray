@@ -841,8 +841,6 @@ cdef class Tracker:
             if "greenlet" in sys.modules:
                 NativeTracker.beginTrackingGreenlets()
 
-            self._surviving_objects = []
-
             NativeTracker.createTracker(
                 move(writer),
                 self._native_traces,
@@ -871,6 +869,7 @@ cdef class Tracker:
             return
 
         cdef unordered_set[PyObject*] objects = tracker.getSurvivingObjects()
+        self._surviving_objects = []
         for obj in objects:
             self._surviving_objects.append(<object>obj)
             Py_DECREF(<object>obj)
@@ -884,6 +883,10 @@ cdef class Tracker:
         if not self._track_object_lifetimes:
             raise RuntimeError(
                 "track_object_lifetimes=True was not provided at Tracker construction"
+            )
+        if self._surviving_objects is None:
+            raise RuntimeError(
+                "Tracking was never started or has not finished yet or failed."
             )
         return tuple(self._surviving_objects)
 
