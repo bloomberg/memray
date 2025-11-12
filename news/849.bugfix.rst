@@ -1,0 +1,1 @@
+Prevent an ``AssertionError`` when the tracked process exits after the live TUI was closed.

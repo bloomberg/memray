@@ -863,7 +863,8 @@ cdef class Tracker:
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self._populate_suriving_objects()
+        if self._track_object_lifetimes:
+            self._populate_surviving_objects()
         with tracker_creation_lock:
             NativeTracker.destroyTracker()
             sys.setprofile(self._previous_profile_func)
@@ -872,9 +873,12 @@ cdef class Tracker:
             for attr in ("_name", "_ident"):
                 delattr(threading.Thread, attr)
 
-    cdef void _populate_suriving_objects(self):
-        assert NativeTracker.getTracker() != NULL
-        cdef unordered_set[PyObject*] objects = NativeTracker.getTracker().getSurvivingObjects()
+    cdef void _populate_surviving_objects(self):
+        cdef NativeTracker *tracker = NativeTracker.getTracker()
+        if tracker == NULL:
+            return
+
+        cdef unordered_set[PyObject*] objects = tracker.getSurvivingObjects()
         for obj in objects:
             self._surviving_objects.append(<object>obj)
             Py_DECREF(<object>obj)
