@@ -90,6 +90,15 @@ interpreter will assign the wrong name to the main thread if ``threading`` is
 later imported by the script. That should not have any major effect on the
 behavior of the program.
 
+When attaching to a running process, Memray will ``import`` a helper module.
+This means that Memray must be installed in the Python environment that the
+process is running in. If it's not, things can fail in various ways, including
+crashing the process (see https://github.com/bloomberg/memray/issues/846 for
+instance). It may be possible to attach to a process in a container from
+outside the container if the same version of Memray is installed in both
+environments, but it's safer and more reliable to run Memray in the container
+instead.
+
 If you do find some case where ``memray attach`` either doesn't work or causes
 a crash or deadlock, we want to hear about it! Please `file a bug report`_
 explaining what went wrong. If the issue is reproducible, please try running
