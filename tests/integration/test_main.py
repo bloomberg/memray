@@ -1567,6 +1567,7 @@ class TestLiveRemoteSubcommand:
 
         # THEN
         assert "Encountered error in 'send' call:" not in stderr
+        assert "Traceback" not in stderr
 
     def test_live_tracking_server_exits_properly_on_sigint(self, simple_test_file):
         # GIVEN

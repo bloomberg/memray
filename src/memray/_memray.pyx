@@ -728,6 +728,10 @@ cdef class Tracker:
         trace_python_allocators (bool): Whether or not to trace Python allocators
             as independent allocations. (see :ref:`Python allocators`).
             Defaults to False.
+        track_object_lifetimes (bool): Whether or not to track which objects are
+            created during the tracking session and still alive at the end (or
+            in other words, what objects are leaked by the code being tracked).
+            Defaults to False.
         follow_fork (bool): Whether or not to continue tracking in a subprocess
             that is forked from the tracked process (see :ref:`Tracking across
             Forks`). Defaults to False.
@@ -776,7 +780,8 @@ cdef class Tracker:
     def __cinit__(self, object file_name=None, *, object destination=None,
                   bool native_traces=False, unsigned int memory_interval_ms = 10,
                   bool follow_fork=False, bool trace_python_allocators=False,
-                  track_object_lifetimes=False, FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
+                  bool track_object_lifetimes=False,
+                  FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
@@ -849,8 +854,6 @@ cdef class Tracker:
             if "greenlet" in sys.modules:
                 NativeTracker.beginTrackingGreenlets()
 
-            self._surviving_objects = []
-
             NativeTracker.createTracker(
                 move(writer),
                 self._native_traces,
@@ -863,7 +866,8 @@ cdef class Tracker:
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self._populate_suriving_objects()
+        if self._track_object_lifetimes:
+            self._populate_surviving_objects()
         with tracker_creation_lock:
             NativeTracker.destroyTracker()
             sys.setprofile(self._previous_profile_func)
@@ -872,9 +876,13 @@ cdef class Tracker:
             for attr in ("_name", "_ident"):
                 delattr(threading.Thread, attr)
 
-    cdef void _populate_suriving_objects(self):
-        assert NativeTracker.getTracker() != NULL
-        cdef unordered_set[PyObject*] objects = NativeTracker.getTracker().getSurvivingObjects()
+    cdef void _populate_surviving_objects(self):
+        cdef NativeTracker *tracker = NativeTracker.getTracker()
+        if tracker == NULL:
+            return
+
+        cdef unordered_set[PyObject*] objects = tracker.getSurvivingObjects()
+        self._surviving_objects = []
         for obj in objects:
             self._surviving_objects.append(<object>obj)
             Py_DECREF(<object>obj)
@@ -884,10 +892,18 @@ cdef class Tracker:
 
         Returns:
             list: A list of objects that were alive at the end of the tracking period.
+
+        Raises:
+            RuntimeError: If *track_object_lifetimes* was not enabled at
+                Tracker construction, or if tracking has not completed yet.
         """
         if not self._track_object_lifetimes:
             raise RuntimeError(
                 "track_object_lifetimes=True was not provided at Tracker construction"
+            )
+        if self._surviving_objects is None:
+            raise RuntimeError(
+                "Tracking was never started or has not finished yet or failed."
             )
         return tuple(self._surviving_objects)
 

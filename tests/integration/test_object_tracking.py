@@ -505,3 +505,35 @@ def test_track_object_lifetimes_aggregating_writer(tmp_path):
     assert (
         temp_obj_id not in tracked_addresses
     ), "temp_obj should not be in tracked objects"
+
+
+@requires_at_least_py313
+def test_track_object_lifetimes_fails_before_tracking_starts(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    tracker = Tracker(output, track_object_lifetimes=True)
+    with pytest.raises(RuntimeError) as exc_info:
+        tracker.get_surviving_objects()
+
+    # THEN
+    assert "Tracking was never started or has not finished yet or failed." in str(
+        exc_info.value
+    )
+
+
+@requires_at_least_py313
+def test_track_object_lifetimes_fails_before_tracking_ends(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output, track_object_lifetimes=True) as tracker:
+        with pytest.raises(RuntimeError) as exc_info:
+            tracker.get_surviving_objects()
+
+    # THEN
+    assert "Tracking was never started or has not finished yet or failed." in str(
+        exc_info.value
+    )
