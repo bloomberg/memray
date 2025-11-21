@@ -17,7 +17,7 @@ jobs:
     name: "Test with UV Python 3.14"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install uv and set Python 3.14
         uses: astral-sh/setup-uv@v7
