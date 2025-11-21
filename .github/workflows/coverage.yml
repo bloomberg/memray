@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up dependencies
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa

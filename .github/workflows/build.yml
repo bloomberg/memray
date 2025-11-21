@@ -17,7 +17,7 @@ jobs:
     name: "Check if generated files are up to date"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up dependencies
         run: |
           sudo apt-get update
@@ -47,7 +47,7 @@ jobs:
       # Coverage is kind of broken in Alpine
       SKIP_COVERAGE_HTML: 1
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up dependencies
         run: |
           apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev python3-dbg gdb lldb git bash perl perl-datetime build-base perl-app-cpanminus
@@ -88,7 +88,7 @@ jobs:
     name: "Lint and Docs"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
@@ -121,7 +121,7 @@ jobs:
     name: "Valgrind & Helgrind"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Python 3.10
         uses: actions/setup-python@v6
         with:
