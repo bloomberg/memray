@@ -126,3 +126,24 @@ memray detach
     :path: detach
     :prog: memray
     :nodefaultconst:
+
+Attaching to processes running inside containers
+------------------------------------------------
+
+When attaching to a process that runs inside a container from the host,
+memray's GDB-based injector relies on being able to load the memray helper
+library and access the target process's Python symbols inside the target
+PID namespace. If memray (and its extension module) is not installed inside
+the container, GDB's injection may fail and the target process can crash
+(see: https://github.com/bloomberg/memray/issues/846).
+
+To avoid this issue:
+
+Install memray inside the container as well as on the host:
+``pip install memray`` (or your preferred installation method) in the
+container environment so the injector can find the correct _inject.abi3.so
+and interpreter symbols.
+
+Alternatively, run memray directly inside the container (preferred when
+possible), e.g. ``docker exec -it <container> memray run ...`` or attach
+from within the container.
