@@ -2,6 +2,7 @@ import distutils.command.build
 import distutils.log
 import os
 import pathlib
+import platform as platform_module
 import subprocess
 import sys
 import tempfile
@@ -39,7 +40,28 @@ class BuildMemray(build_ext_orig):
     def run(self):
         self.build_js_files()
         self.build_libbacktrace()
+        self.build_ghost_stack_asm()
         super().run()
+
+    def build_ghost_stack_asm(self):
+        """Compile ghost_stack assembly files to object files."""
+        if not GHOST_STACK_ASM_FILES:
+            return
+
+        for asm_file in GHOST_STACK_ASM_FILES:
+            asm_path = pathlib.Path(asm_file)
+            obj_path = GHOST_STACK_LOCATION / "src" / (asm_path.stem + ".o")
+
+            if obj_path.exists():
+                continue
+
+            self.announce(
+                f"Compiling assembly file: {asm_file}",
+                level=distutils.log.INFO,
+            )
+            self.announce_and_run(
+                ["cc", "-c", str(asm_path), "-o", str(obj_path)],
+            )
 
     def announce_and_run(self, command, **kwargs):
         self.announce(
@@ -217,6 +239,47 @@ if MEMRAY_FAST_TLS:
 BINARY_FORMATS = {"darwin": "macho", "linux": "elf"}
 BINARY_FORMAT = BINARY_FORMATS.get(sys.platform, "elf")
 
+# Ghost Stack configuration for fast native unwinding
+GHOST_STACK_LOCATION = (
+    pathlib.Path(__file__).parent / "src" / "memray" / "_memray" / "ghost_stack"
+).resolve()
+
+ARCH = platform_module.machine()
+if ARCH == "x86_64":
+    GHOST_STACK_ARCH = "x86_64"
+elif ARCH in ("aarch64", "arm64"):
+    GHOST_STACK_ARCH = "aarch64"
+else:
+    GHOST_STACK_ARCH = None
+
+# Ghost stack sources (cpp only) and assembly files (compiled separately)
+GHOST_STACK_SOURCES = []
+GHOST_STACK_ASM_FILES = []
+GHOST_STACK_OBJECTS = []
+if IS_LINUX and GHOST_STACK_ARCH:
+    GHOST_STACK_SOURCES = [
+        "src/memray/_memray/ghost_stack/src/ghost_stack.cpp",
+    ]
+    GHOST_STACK_ASM_FILES = [
+        f"src/memray/_memray/ghost_stack/src/{GHOST_STACK_ARCH}_linux_trampoline.s",
+    ]
+    GHOST_STACK_OBJECTS = [
+        str(GHOST_STACK_LOCATION / "src" / f"{GHOST_STACK_ARCH}_linux_trampoline.o"),
+    ]
+elif IS_MAC and GHOST_STACK_ARCH:
+    GHOST_STACK_SOURCES = [
+        "src/memray/_memray/ghost_stack/src/ghost_stack.cpp",
+    ]
+    GHOST_STACK_ASM_FILES = [
+        f"src/memray/_memray/ghost_stack/src/{GHOST_STACK_ARCH}_darwin_trampoline.s",
+    ]
+    GHOST_STACK_OBJECTS = [
+        str(GHOST_STACK_LOCATION / "src" / f"{GHOST_STACK_ARCH}_darwin_trampoline.o"),
+    ]
+
+if GHOST_STACK_SOURCES:
+    DEFINE_MACROS.append(("MEMRAY_HAS_GHOST_STACK", "1"))
+
 library_flags = {"libraries": ["lz4"]}
 if IS_LINUX:
     library_flags["libraries"].append("unwind")
@@ -251,17 +314,22 @@ MEMRAY_EXTENSION = Extension(
         "src/memray/_memray/snapshot.cpp",
         "src/memray/_memray/socket_reader_thread.cpp",
         "src/memray/_memray/native_resolver.cpp",
+        *GHOST_STACK_SOURCES,
     ],
     language="c++",
     extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
-    extra_objects=[str(LIBBACKTRACE_LIBDIR / "libbacktrace.a")],
+    extra_objects=[str(LIBBACKTRACE_LIBDIR / "libbacktrace.a"), *GHOST_STACK_OBJECTS],
     extra_link_args=["-std=c++17", *EXTRA_LINK_ARGS],
     define_macros=DEFINE_MACROS,
     undef_macros=UNDEF_MACROS,
     **library_flags,
 )
 
-MEMRAY_EXTENSION.include_dirs[:0] = ["src", str(LIBBACKTRACE_INCLUDEDIRS)]
+MEMRAY_EXTENSION.include_dirs[:0] = [
+    "src",
+    str(LIBBACKTRACE_INCLUDEDIRS),
+    str(GHOST_STACK_LOCATION / "include"),
+]
 MEMRAY_EXTENSION.libraries.append("dl")
 
 

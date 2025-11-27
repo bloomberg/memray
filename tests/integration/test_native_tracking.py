@@ -12,6 +12,7 @@ import pytest
 from memray import AllocatorType
 from memray import FileReader
 from memray import Tracker
+from memray._memray import has_fast_unwind_support
 from memray._test import MemoryAllocator
 from tests.utils import filter_relevant_allocations
 
@@ -20,7 +21,20 @@ TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_NATIVE_EXTENSION = HERE / "native_extension"
 
 
-def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
+# Dynamic parametrization based on platform fast unwind support
+def _get_fast_unwind_params():
+    """Returns parametrization values for fast_unwind based on platform support."""
+    if has_fast_unwind_support():
+        return [False, True]
+    else:
+        return [False]
+
+
+fast_unwind_params = _get_fast_unwind_params()
+
+
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch, fast_unwind):
     """Test tracking allocations in a native extension which spawns multiple threads,
     each thread allocating and freeing memory."""
     # GIVEN
@@ -40,7 +54,7 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from testext import run  # type: ignore
 
-        with Tracker(output, native_traces=True):
+        with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
             run()
 
     # THEN
@@ -75,7 +89,8 @@ def test_multithreaded_extension_with_native_tracking(tmpdir, monkeypatch):
 
 
 @pytest.mark.valgrind
-def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch, fast_unwind):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
     extension_name = "multithreaded_extension"
@@ -93,7 +108,7 @@ def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from native_ext import run_simple  # type: ignore
 
-        with Tracker(output, native_traces=True):
+        with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
             run_simple()
 
     # THEN
@@ -120,7 +135,8 @@ def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
     sys.platform == "darwin",
     reason="we cannot use debug information to resolve inline functions on macOS",
 )
-def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch, fast_unwind):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
     extension_name = "multithreaded_extension"
@@ -138,7 +154,7 @@ def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from native_ext import run_inline
 
-        with Tracker(output, native_traces=True):
+        with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
             run_inline()
 
     # THEN
@@ -162,7 +178,8 @@ def test_inlined_call_chain_with_native_tracking(tmpdir, monkeypatch):
 
 
 @pytest.mark.valgrind
-def test_deep_call_chain_with_native_tracking(tmpdir, monkeypatch):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_deep_call_chain_with_native_tracking(tmpdir, monkeypatch, fast_unwind):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
     extension_name = "multithreaded_extension"
@@ -180,7 +197,7 @@ def test_deep_call_chain_with_native_tracking(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from native_ext import run_deep
 
-        with Tracker(output, native_traces=True):
+        with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
             run_deep(2048)
 
     # THEN
@@ -206,7 +223,8 @@ def test_deep_call_chain_with_native_tracking(tmpdir, monkeypatch):
     assert all("deep_call" in stack[0] for stack in native_stack[3 : 3 + 2048])
 
 
-def test_hybrid_stack_in_pure_python(tmpdir):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_hybrid_stack_in_pure_python(tmpdir, fast_unwind):
     # GIVEN
     allocator = MemoryAllocator()
     output = Path(tmpdir) / "test.bin"
@@ -219,7 +237,7 @@ def test_hybrid_stack_in_pure_python(tmpdir):
 
     # WHEN
 
-    with Tracker(output, native_traces=True):
+    with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
         recursive_func(MAX_RECURSIONS)
 
     # THEN
@@ -254,7 +272,8 @@ def test_hybrid_stack_in_pure_python(tmpdir):
     assert hybrid_stack[-1] == "test_hybrid_stack_in_pure_python"
 
 
-def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir, fast_unwind):
     # GIVEN
     allocator = MemoryAllocator()
     output = Path(tmpdir) / "test.bin"
@@ -278,7 +297,7 @@ def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir):
 
     # WHEN
 
-    with Tracker(output, native_traces=True):
+    with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
         ham()
 
     # THEN
@@ -314,7 +333,8 @@ def test_hybrid_stack_in_pure_python_with_callbacks(tmpdir):
     assert [frame[0] for frame in valloc.stack_trace()].count("valloc") == 1
 
 
-def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_hybrid_stack_of_allocations_inside_ceval(tmpdir, fast_unwind):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
 
@@ -330,7 +350,7 @@ def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
 
     # WHEN
     program = textwrap.dedent(
-        """
+        f"""
         import functools
         import sys
 
@@ -352,7 +372,7 @@ def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
             pass
 
 
-        with memray.Tracker(sys.argv[1], native_traces=True):
+        with memray.Tracker(sys.argv[1], native_traces=True, fast_unwind={fast_unwind}):
             functools.partial(foo)()
         """
     )
@@ -388,7 +408,8 @@ def test_hybrid_stack_of_allocations_inside_ceval(tmpdir):
     assert found_an_interesting_stack
 
 
-def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch, fast_unwind):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
     extension_name = "multithreaded_extension"
@@ -411,7 +432,7 @@ def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
         def callback(n):
             return run_recursive(n, callback)
 
-        with Tracker(output, native_traces=True):
+        with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
             run_recursive(MAX_RECURSIONS, callback)
 
     # THEN
@@ -445,7 +466,8 @@ def test_hybrid_stack_in_recursive_python_c_call(tmpdir, monkeypatch):
     assert hybrid_stack[-1] == "test_hybrid_stack_in_recursive_python_c_call"
 
 
-def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch, fast_unwind):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
     extension_name = "multithreaded_extension"
@@ -463,7 +485,7 @@ def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):
         ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
         from native_ext import run_in_thread
 
-        with Tracker(output, native_traces=True):
+        with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
             run_in_thread()
 
     # THEN
@@ -482,7 +504,8 @@ def test_hybrid_stack_in_a_thread(tmpdir, monkeypatch):
     assert expected_symbols == [stack[0] for stack in valloc.hybrid_stack_trace()][:3]
 
 
-def test_hybrid_stack_of_python_thread_starts_with_native_frames(tmp_path):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_hybrid_stack_of_python_thread_starts_with_native_frames(tmp_path, fast_unwind):
     """Ensure there are native frames above a thread's first Python frame."""
     # GIVEN
     allocator = MemoryAllocator()
@@ -493,7 +516,7 @@ def test_hybrid_stack_of_python_thread_starts_with_native_frames(tmp_path):
         allocator.free()
 
     # WHEN
-    with Tracker(output, native_traces=True):
+    with Tracker(output, native_traces=True, fast_unwind=fast_unwind):
         thread = threading.Thread(target=func)
         thread.start()
         thread.join()
@@ -511,14 +534,18 @@ def test_hybrid_stack_of_python_thread_starts_with_native_frames(tmp_path):
 
 
 @pytest.mark.parametrize("native_traces", [True, False])
-def test_native_tracing_header(native_traces, tmpdir):
+@pytest.mark.parametrize("fast_unwind", fast_unwind_params)
+def test_native_tracing_header(native_traces, fast_unwind, tmpdir):
     # GIVEN
     allocator = MemoryAllocator()
     output = Path(tmpdir) / "test.bin"
 
     # WHEN
+    kwargs = {"native_traces": native_traces}
+    if native_traces and fast_unwind:
+        kwargs["fast_unwind"] = fast_unwind
 
-    with Tracker(output, native_traces=native_traces):
+    with Tracker(output, **kwargs):
         allocator.valloc(1234)
 
     # THEN

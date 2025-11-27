@@ -25,6 +25,10 @@
 #    include <execinfo.h>
 #endif
 
+#ifdef MEMRAY_HAS_GHOST_STACK
+#    include "ghost_stack.h"
+#endif
+
 #include "frame_tree.h"
 #include "hooks.h"
 #include "linker_shenanigans.h"
@@ -136,6 +140,7 @@ class NativeTrace
 {
   public:
     using ip_t = frame_id_t;
+    static inline bool s_use_fast_unwind = false;
 
     NativeTrace(std::vector<ip_t>& data)
     : d_data(data)
@@ -163,9 +168,25 @@ class NativeTrace
         size_t size;
         while (true) {
 #ifdef __linux__
+#    ifdef MEMRAY_HAS_GHOST_STACK
+            if (s_use_fast_unwind) {
+                size = ghost_stack_backtrace((void**)d_data.data(), d_data.size());
+            } else {
+                size = unw_backtrace((void**)d_data.data(), d_data.size());
+            }
+#    else
             size = unw_backtrace((void**)d_data.data(), d_data.size());
+#    endif
 #elif defined(__APPLE__)
+#    ifdef MEMRAY_HAS_GHOST_STACK
+            if (s_use_fast_unwind) {
+                size = ghost_stack_backtrace((void**)d_data.data(), d_data.size());
+            } else {
+                size = ::backtrace((void**)d_data.data(), d_data.size());
+            }
+#    else
             size = ::backtrace((void**)d_data.data(), d_data.size());
+#    endif
 #else
             return 0;
 #endif
@@ -180,7 +201,7 @@ class NativeTrace
         return d_size > 0;
     }
 
-    static void setup()
+    static void setup(bool use_fast_unwind = false)
     {
 #ifdef __linux__
         // configure libunwind for better speed
@@ -192,7 +213,21 @@ class NativeTrace
             fprintf(stderr, "WARNING: Failed to set libunwind cache size.\n");
         }
 #    endif
+#    ifdef MEMRAY_HAS_GHOST_STACK
+        if (use_fast_unwind) {
+            ghost_stack_init(nullptr);
+            s_use_fast_unwind = true;
+        }
+#    endif
+#elif defined(__APPLE__)
+#    ifdef MEMRAY_HAS_GHOST_STACK
+        if (use_fast_unwind) {
+            ghost_stack_init(nullptr);
+            s_use_fast_unwind = true;
+        }
+#    endif
 #else
+        (void)use_fast_unwind;
         return;
 #endif
     }
@@ -203,6 +238,17 @@ class NativeTrace
         unw_flush_cache(unw_local_addr_space, 0, 0);
 #else
         return;
+#endif
+    }
+
+    static inline void resetGhostStack()
+    {
+#if defined(__linux__) || defined(__APPLE__)
+#    ifdef MEMRAY_HAS_GHOST_STACK
+        if (s_use_fast_unwind) {
+            ghost_stack_reset();
+        }
+#    endif
 #endif
     }
 
@@ -236,6 +282,7 @@ class Tracker
     static PyObject* createTracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
+            bool fast_unwind,
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators,
@@ -438,6 +485,7 @@ class Tracker
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     const bool d_unwind_native_frames;
+    const bool d_fast_unwind;
     const unsigned int d_memory_interval;
     const bool d_follow_fork;
     const bool d_trace_python_allocators;
@@ -473,6 +521,7 @@ class Tracker
     explicit Tracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
+            bool fast_unwind,
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators,

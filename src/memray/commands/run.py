@@ -50,8 +50,12 @@ def _run_tracker(
             kwargs["trace_python_allocators"] = True
         if args.aggregate:
             kwargs["file_format"] = FileFormat.AGGREGATED_ALLOCATIONS
+        if args.fast_unwind:
+            kwargs["fast_unwind"] = True
         tracker = Tracker(destination=destination, native_traces=args.native, **kwargs)
     except OSError as error:
+        raise MemrayCommandError(str(error), exit_code=1)
+    except ValueError as error:
         raise MemrayCommandError(str(error), exit_code=1)
 
     with tracker:
@@ -83,6 +87,7 @@ def _run_tracker(
 def _child_process(
     port: int,
     native: bool,
+    fast_unwind: bool,
     trace_python_allocators: bool,
     run_as_module: bool,
     run_as_cmd: bool,
@@ -92,6 +97,7 @@ def _child_process(
 ) -> None:
     args = argparse.Namespace(
         native=native,
+        fast_unwind=fast_unwind,
         trace_python_allocators=trace_python_allocators,
         follow_fork=False,
         aggregate=False,
@@ -112,7 +118,7 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
         raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     arguments = (
-        f"{port},{args.native},{args.trace_python_allocators},"
+        f"{port},{args.native},{args.fast_unwind},{args.trace_python_allocators},"
         f"{args.run_as_module},{args.run_as_cmd},{args.quiet},"
         f"{args.script!r},{args.script_args}"
     )
@@ -238,6 +244,13 @@ class RunCommand:
             help="Track native (C/C++) stack frames as well",
             action="store_true",
             dest="native",
+            default=False,
+        )
+        parser.add_argument(
+            "--fast-unwind",
+            help="Use optimized native stack unwinding with shadow stack caching (requires --native)",
+            action="store_true",
+            dest="fast_unwind",
             default=False,
         )
         parser.add_argument(

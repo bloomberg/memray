@@ -768,19 +768,21 @@ PythonStackTracker::clear()
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
+        bool fast_unwind,
         unsigned int memory_interval,
         bool follow_fork,
         bool trace_python_allocators,
         bool reference_tracking)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
+, d_fast_unwind(fast_unwind)
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
 , d_reference_tracking(reference_tracking)
 {
     static std::once_flag once;
-    call_once(once, [] {
+    call_once(once, [fast_unwind] {
         // We use the pthread TLS API for this vector because we must be able
         // to re-create it while TLS destructors are running (a destructor can
         // call malloc, hitting our malloc hook). POSIX guarantees multiple
@@ -794,7 +796,7 @@ Tracker::Tracker(
         }
 
         hooks::ensureAllHooksAreValid();
-        NativeTrace::setup();
+        NativeTrace::setup(fast_unwind);
 
 #if PY_VERSION_HEX >= 0x030C0000
         PyCode_AddWatcher([](PyCodeEvent event, PyCodeObject* code) {
@@ -1064,6 +1066,7 @@ Tracker::childFork()
     s_instance_owner.reset(new Tracker(
             std::move(new_writer),
             old_tracker->d_unwind_native_frames,
+            old_tracker->d_fast_unwind,
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators,
@@ -1438,6 +1441,7 @@ PyObject*
 Tracker::createTracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
+        bool fast_unwind,
         unsigned int memory_interval,
         bool follow_fork,
         bool trace_python_allocators,
@@ -1446,6 +1450,7 @@ Tracker::createTracker(
     s_instance_owner.reset(new Tracker(
             std::move(record_writer),
             native_traces,
+            fast_unwind,
             memory_interval,
             follow_fork,
             trace_python_allocators,
