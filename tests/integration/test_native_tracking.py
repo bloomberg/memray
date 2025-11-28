@@ -392,10 +392,12 @@ def test_hybrid_stack_of_allocations_inside_ceval(tmpdir, fast_unwind):
     for record in records:
         try:
             stack = [frame[0] for frame in record.hybrid_stack_trace()]
+            native_stack = [frame[0] for frame in record.native_stack_trace()]
         except NotImplementedError:
             continue  # Must be a free; we don't have its stack.
 
         print(stack)
+        print(native_stack)
 
         # This function never allocates anything, so we should never see it.
         assert "baz" not in stack
