@@ -266,7 +266,7 @@ if IS_LINUX and GHOST_STACK_ARCH:
     GHOST_STACK_OBJECTS = [
         str(GHOST_STACK_LOCATION / "src" / f"{GHOST_STACK_ARCH}_linux_trampoline.o"),
     ]
-elif IS_MAC and GHOST_STACK_ARCH:
+elif IS_MAC and GHOST_STACK_ARCH == "aarch64":
     GHOST_STACK_SOURCES = [
         "src/memray/_memray/ghost_stack/src/ghost_stack.cpp",
     ]
