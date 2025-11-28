@@ -337,12 +337,6 @@ public:
                   tail, (unsigned long)entry.ip, (unsigned long)entry.return_address,
                   (void*)entry.location, (unsigned long)entry.stack_pointer);
 
-        // Always log the SP comparison for debugging
-        fprintf(stderr, "[GS][TRAMP] tail=%zu expected_sp=0x%lx actual_sp=0x%lx diff=%ld match=%d\n",
-                tail, (unsigned long)entry.stack_pointer, (unsigned long)sp,
-                (long)((long)entry.stack_pointer - (long)sp),
-                (int)(entry.stack_pointer == sp));
-
         // Check for longjmp: if SP doesn't match expected, search backward
         // through shadow stack for matching entry (frames were skipped)
         if (sp != 0 && entry.stack_pointer != 0 && entry.stack_pointer != sp) {
