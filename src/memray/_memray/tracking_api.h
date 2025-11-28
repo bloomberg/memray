@@ -27,6 +27,11 @@
 
 #ifdef MEMRAY_HAS_GHOST_STACK
 #    include "ghost_stack.h"
+#if defined(__linux__)
+# define GHOST_STACK_SKIP_FRAMES 2
+#elif defined(__APPLE__)
+# define GHOST_STACK_SKIP_FRAMES 1
+#endif
 #endif
 
 #include "frame_tree.h"
@@ -197,7 +202,11 @@ class NativeTrace
             d_data.resize(d_data.size() * 2);
         }
         d_size = size > skip ? size - skip : 0;
+#ifdef MEMRAY_HAS_GHOST_STACK
+        d_skip = skip + (s_use_fast_unwind ? GHOST_STACK_SKIP_FRAMES : 0);
+#else
         d_skip = skip;
+#endif
         return d_size > 0;
     }
 

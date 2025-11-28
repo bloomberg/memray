@@ -251,7 +251,7 @@ private:
         size_t count = (available < max_frames) ? available : max_frames;
 
         for (size_t i = 0; i < count; ++i) {
-            buffer[i] = reinterpret_cast<void*>(entries_[i].ip);
+            buffer[i] = reinterpret_cast<void*>(entries_[count - 1 - i].ip);
         }
 
         LOG_DEBUG("Fast path: %zu frames\n", count);
@@ -277,15 +277,6 @@ private:
         unw_cursor_t cursor;
         unw_getcontext(&ctx);
         unw_init_local(&cursor, &ctx);
-
-        // Skip internal frames (platform-specific due to backtrace/libunwind differences)
-#ifdef __APPLE__
-        // macOS: Skip fewer frames due to backtrace()/libunwind difference
-        for (int i = 0; i < 1 && unw_step(&cursor) > 0; ++i) {}
-#else
-        // Linux: Skip internal frames (this function + backtrace)
-        for (int i = 0; i < 3 && unw_step(&cursor) > 0; ++i) {}
-#endif
 
         // Process frames: read current frame, then step to next
         // Note: After skip loop, cursor is positioned AT the first frame we want
