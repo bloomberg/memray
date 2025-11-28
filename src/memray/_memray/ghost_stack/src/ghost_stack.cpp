@@ -394,12 +394,7 @@ private:
 #else
         // Linux: use libunwind's unw_backtrace
         int ret = unw_backtrace(buffer, static_cast<int>(max_frames));
-        size_t count = (ret > 0) ? static_cast<size_t>(ret) : 0;
-        LOG_DEBUG("do_unwind: unw_backtrace returned %zu frames\n", count);
-        for (size_t i = 0; i < count && i < 10; ++i) {
-            LOG_DEBUG("  raw frame %zu: ip=%p\n", i, buffer[i]);
-        }
-        return count;
+        return (ret > 0) ? static_cast<size_t>(ret) : 0;
 #endif
     }
 
@@ -426,9 +421,6 @@ private:
 // Thread-Local Instance Management
 // ============================================================================
 
-// Global counter for debugging
-static std::atomic<int> g_backtrace_call_count{0};
-
 /**
  * RAII wrapper for thread-local GhostStackImpl.
  *
@@ -441,8 +433,7 @@ struct ThreadLocalInstance {
 
     ~ThreadLocalInstance() {
         if (ptr) {
-            LOG_DEBUG("Thread exit: resetting shadow stack (total backtrace calls: %d)\n",
-                      g_backtrace_call_count.load());
+            LOG_DEBUG("Thread exit: resetting shadow stack\n");
             ptr->reset();
             delete ptr;
             ptr = nullptr;
@@ -501,11 +492,8 @@ static void register_atfork_handler() {
 extern "C" {
 
 void ghost_stack_init(ghost_stack_unwinder_t unwinder) {
-    LOG_DEBUG("ghost_stack_init called\n");
     std::call_once(g_init_flag, [unwinder]() {
         g_custom_unwinder = unwinder;
-        LOG_DEBUG("Initialized with %s unwinder\n",
-                  unwinder ? "custom" : "default");
     });
 
     // Register fork handler (idempotent, safe to call multiple times)
@@ -513,9 +501,6 @@ void ghost_stack_init(ghost_stack_unwinder_t unwinder) {
 }
 
 size_t ghost_stack_backtrace(void** buffer, size_t size) {
-    int call_num = g_backtrace_call_count.fetch_add(1) + 1;
-    LOG_DEBUG("ghost_stack_backtrace called (call #%d, size=%zu)\n", call_num, size);
-
     // Auto-init if needed
     std::call_once(g_init_flag, []() {
         g_custom_unwinder = nullptr;
@@ -533,9 +518,7 @@ size_t ghost_stack_backtrace(void** buffer, size_t size) {
         unwinder_set = true;
     }
 
-    size_t result = impl.backtrace(buffer, size);
-    LOG_DEBUG("ghost_stack_backtrace returning %zu frames (call #%d)\n", result, call_num);
-    return result;
+    return impl.backtrace(buffer, size);
 }
 
 void ghost_stack_reset(void) {
