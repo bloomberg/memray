@@ -305,11 +305,6 @@ private:
 
             if (save_loc_ret == 0 && loc.type == UNW_SLT_MEMORY && loc.u.addr != 0) {
                 ret_loc = reinterpret_cast<uintptr_t*>(loc.u.addr);
-                // Sanity check: ret_loc should be somewhere near FP (which is our sp variable)
-                uintptr_t addr = loc.u.addr;
-                if (addr < sp - 0x10000 || addr > sp + 0x10000) {
-                    ret_loc = nullptr;  // Don't use this suspicious address
-                }
             }
 #else
             // macOS: return address is at fp + sizeof(void*)
@@ -337,11 +332,12 @@ private:
             // Store the stack pointer that the trampoline will pass.
             // This allows longjmp detection by comparing against the stored value.
             //
-            // On x86_64: RET pops return address, so trampoline sees ret_loc + 8
-            // On ARM64:  RET doesn't touch SP. The trampoline receives the actual SP
-            //            at the moment of return (after the function's epilogue ran).
-            //            This is the value from UNW_REG_SP, not the FP (UNW_AARCH64_X29).
-#ifdef GS_ARCH_AARCH64
+            // On x86_64:   RET pops return address, so trampoline sees ret_loc + 8
+            // On ARM64:    RET doesn't touch SP. The trampoline receives the actual SP
+            //              at the moment of return (after the function's epilogue ran).
+            //              This is the value from UNW_REG_SP, not the FP (UNW_AARCH64_X29).
+            // macOS ARM64: Trampoline passes ret_loc + 8
+#if defined(GS_ARCH_AARCH64) && defined(__linux__)
             uintptr_t expected_sp = actual_sp;  // Actual SP at this frame
 #else
             uintptr_t expected_sp = reinterpret_cast<uintptr_t>(ret_loc) + sizeof(void*);
