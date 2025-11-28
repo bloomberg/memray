@@ -53,12 +53,12 @@ extern "C" void ghost_ret_trampoline();
 // ============================================================================
 
 #ifdef DEBUG
-#define LOG_DEBUG(...) do { fprintf(stderr, "[GhostStack] " __VA_ARGS__); fflush(stderr); } while(0)
+#define LOG_DEBUG(...) fprintf(stderr, "[GhostStack] " __VA_ARGS__)
 #else
 #define LOG_DEBUG(...) ((void)0)
 #endif
 
-#define LOG_ERROR(...) do { fprintf(stderr, "[GhostStack][ERROR] " __VA_ARGS__); fflush(stderr); } while(0)
+#define LOG_ERROR(...) fprintf(stderr, "[GhostStack][ERROR] " __VA_ARGS__)
 
 // ============================================================================
 // Utilities
@@ -85,7 +85,7 @@ static inline uintptr_t ptrauth_strip(uintptr_t val) { return val; }
 struct StackEntry {
     uintptr_t ip;               // Instruction pointer of this frame (what to return to caller)
     uintptr_t return_address;   // Original return address (what we replaced with trampoline)
-    uintptr_t* location;        // Where return address lives on the stack
+    uintptr_t* location;        // Where it lives on the stack
     uintptr_t stack_pointer;    // SP at capture time (for validation)
 };
 
@@ -111,18 +111,20 @@ public:
     // Main capture function - returns number of frames
     size_t backtrace(void** buffer, size_t max_frames) {
         if (is_capturing_) {
-            LOG_DEBUG("backtrace: recursive call, bailing out\n");
             return 0;  // Recursive call, bail out
         }
         is_capturing_ = true;
 
         size_t result = 0;
 
-        // Always use capture_and_install - it handles both cases:
-        // 1. No trampolines installed: full capture + install
-        // 2. Trampolines installed: capture new frames up to trampoline, merge with cached
-        LOG_DEBUG("backtrace: capture_and_install (trampolines_installed=%d, entries=%zu)\n",
-                  trampolines_installed_, entries_.size());
+        // Fast path: trampolines installed, return cached frames
+        if (trampolines_installed_ && !entries_.empty()) {
+            result = copy_cached_frames(buffer, max_frames);
+            is_capturing_ = false;
+            return result;
+        }
+
+        // Slow path: capture with unwinder and install trampolines
         result = capture_and_install(buffer, max_frames);
         is_capturing_ = false;
         return result;
@@ -136,12 +138,27 @@ public:
      */
     void reset() {
         if (trampolines_installed_) {
-            size_t loc = location_.load(std::memory_order_acquire);
-            for (size_t i = loc; i < entries_.size(); ++i) {
+            size_t tail = tail_.load(std::memory_order_acquire);
+            // With reversed order, iterate from 0 to tail (all entries below tail)
+            for (size_t i = 0; i < tail; ++i) {
                 *entries_[i].location = entries_[i].return_address;
             }
         }
         clear_entries();
+    }
+
+public:
+    /**
+     * Direct entry access method for exception handling.
+     * Decrements tail and returns the return address without longjmp checking.
+     */
+    uintptr_t pop_entry() {
+        size_t tail = tail_.fetch_sub(1, std::memory_order_acq_rel) - 1;
+        if (tail >= entries_.size()) {
+            LOG_ERROR("Stack corruption in pop_entry!\n");
+            std::abort();
+        }
+        return entries_[tail].return_address;
     }
 
 private:
@@ -154,7 +171,7 @@ private:
         epoch_.fetch_add(1, std::memory_order_release);
 
         entries_.clear();
-        location_.store(0, std::memory_order_release);
+        tail_.store(0, std::memory_order_release);
         trampolines_installed_ = false;
     }
 
@@ -168,7 +185,7 @@ public:
      * stale or cleared entries.
      *
      * Implements longjmp detection by comparing the current stack pointer
-     * against the expected value. If they don't match, searches forward
+     * against the expected value. If they don't match, searches backward
      * through the shadow stack to find the matching entry (like nwind does).
      *
      * @param sp  Stack pointer at return time (for longjmp detection)
@@ -178,45 +195,37 @@ public:
         // Capture current epoch - if it changes, reset() was called
         uint64_t current_epoch = epoch_.load(std::memory_order_acquire);
 
-        size_t loc = location_.load(std::memory_order_acquire);
+        // Decrement tail first, like nwind does
+        size_t tail = tail_.fetch_sub(1, std::memory_order_acq_rel) - 1;
 
-        if (entries_.empty() || loc >= entries_.size()) {
+        if (entries_.empty() || tail >= entries_.size()) {
             LOG_ERROR("Stack corruption in trampoline!\n");
             std::abort();
         }
 
-        auto& entry = entries_[loc];
+        auto& entry = entries_[tail];
 
-        // Check for longjmp: if SP doesn't match expected, search forward
+        // Check for longjmp: if SP doesn't match expected, search backward
         // through shadow stack for matching entry (frames were skipped)
         if (sp != 0 && entry.stack_pointer != 0 && entry.stack_pointer != sp) {
             LOG_DEBUG("SP mismatch at index %zu: expected 0x%lx, got 0x%lx - checking for longjmp\n",
-                      loc, entry.stack_pointer, sp);
+                      tail, entry.stack_pointer, sp);
 
-            // Search forward through shadow stack for matching SP
-            bool found = false;
-            for (size_t i = loc + 1; i < entries_.size(); ++i) {
-                if (entries_[i].stack_pointer == sp) {
+            // Search backward through shadow stack for matching SP (nwind style)
+            // Only update tail_ if we find a match - don't corrupt it during search
+            for (size_t i = tail; i > 0; --i) {
+                if (entries_[i - 1].stack_pointer == sp) {
+                    size_t skipped = tail - (i - 1);
                     LOG_DEBUG("longjmp detected: found matching SP at index %zu (skipped %zu frames)\n",
-                              i, i - loc);
+                              i - 1, skipped);
 
-                    // Don't restore return addresses for skipped frames - they no longer
-                    // exist on the stack after longjmp. Just skip over them.
-                    loc = i;
-                    location_.store(loc, std::memory_order_release);
-                    found = true;
+                    // Update tail_ to skip all the frames that were bypassed by longjmp
+                    tail_.store(i - 1, std::memory_order_release);
+                    tail = i - 1;
                     break;
                 }
             }
-
-            if (!found) {
-                // No matching entry found - this could be:
-                // 1. A bug in our SP calculation
-                // 2. Stack corruption
-                // 3. Some other unexpected scenario
-                // For now, log and continue with the expected entry
-                LOG_DEBUG("No matching SP found in shadow stack - continuing with current entry\n");
-            }
+            // If no match found, continue with current entry (SP calculation may differ by platform)
         }
 
         // Verify epoch hasn't changed (reset wasn't called during our execution)
@@ -225,10 +234,7 @@ public:
             std::abort();
         }
 
-        // Re-read location in case it was updated during longjmp handling
-        loc = location_.load(std::memory_order_acquire);
-        uintptr_t ret_addr = entries_[loc].return_address;
-        location_.fetch_add(1, std::memory_order_acq_rel);
+        uintptr_t ret_addr = entries_[tail].return_address;
         return ret_addr;
     }
 
@@ -240,18 +246,15 @@ private:
      * directly from the shadow stack.
      */
     size_t copy_cached_frames(void** buffer, size_t max_frames) {
-        size_t loc = location_.load(std::memory_order_acquire);
-        size_t available = entries_.size() - loc;
+        size_t tail = tail_.load(std::memory_order_acquire);
+        size_t available = tail; // frames from 0 to tail-1
         size_t count = (available < max_frames) ? available : max_frames;
 
-        LOG_DEBUG("Fast path: loc=%zu, entries_.size()=%zu, available=%zu, count=%zu\n",
-                  loc, entries_.size(), available, count);
-
         for (size_t i = 0; i < count; ++i) {
-            buffer[i] = reinterpret_cast<void*>(entries_[loc + i].ip);
+            buffer[i] = reinterpret_cast<void*>(entries_[i].ip);
         }
 
-        LOG_DEBUG("Fast path: returning %zu frames\n", count);
+        LOG_DEBUG("Fast path: %zu frames\n", count);
         return count;
     }
 
@@ -260,8 +263,6 @@ private:
         // First, capture IPs using the unwinder
         std::vector<void*> raw_frames(max_frames);
         size_t raw_count = do_unwind(raw_frames.data(), max_frames);
-
-        LOG_DEBUG("capture_and_install: raw_count=%zu from unwinder\n", raw_count);
 
         if (raw_count == 0) {
             return 0;
@@ -286,13 +287,10 @@ private:
         for (int i = 0; i < 3 && unw_step(&cursor) > 0; ++i) {}
 #endif
 
-        size_t frame_idx = 0;
-        LOG_DEBUG("capture_and_install: walking stack frames (raw_count=%zu)...\n", raw_count);
-        LOG_DEBUG("capture_and_install: Comparing raw vs walked frames:\n");
-
         // Process frames: read current frame, then step to next
         // Note: After skip loop, cursor is positioned AT the first frame we want
         // We need to read first, then step (not step-then-read)
+        size_t frame_idx = 0;
         int step_result;
         do {
             if (frame_idx >= raw_count) break;
@@ -300,6 +298,23 @@ private:
             unw_word_t ip, sp;
             unw_get_reg(&cursor, UNW_REG_IP, &ip);
             unw_get_reg(&cursor, GS_SP_REGISTER, &sp);
+
+            // On ARM64, strip PAC (Pointer Authentication Code) bits from IP.
+            // PAC-signed addresses have authentication bits in the upper bits
+            // that must be stripped for valid address comparison and symbolization.
+#ifdef GS_ARCH_AARCH64
+            ip = ptrauth_strip(ip);
+#endif
+
+            // On ARM64 Linux, unw_backtrace returns addresses adjusted by -1
+            // (to point inside the call instruction for symbolization),
+            // but unw_get_reg(UNW_REG_IP) returns the raw return address.
+            // Adjust to match unw_backtrace's behavior for consistency.
+#if defined(GS_ARCH_AARCH64) && defined(__linux__)
+            if (ip > 0) {
+                ip = ip - 1;
+            }
+#endif
 
             // Get location where return address is stored
             uintptr_t* ret_loc = nullptr;
@@ -313,10 +328,7 @@ private:
             // macOS: return address is at fp + sizeof(void*)
             ret_loc = reinterpret_cast<uintptr_t*>(sp + sizeof(void*));
 #endif
-            if (!ret_loc) {
-                LOG_DEBUG("  frame %zu: ret_loc is NULL, stopping\n", frame_idx);
-                break;
-            }
+            if (!ret_loc) break;
 
             uintptr_t ret_addr = *ret_loc;
 
@@ -329,12 +341,9 @@ private:
             // Compare against stripped address since trampoline address doesn't have PAC
             if (stripped_ret_addr == reinterpret_cast<uintptr_t>(ghost_ret_trampoline)) {
                 found_existing = true;
-                LOG_DEBUG("  frame %zu: Found existing trampoline (ip=0x%lx)\n", frame_idx, (unsigned long)ip);
+                LOG_DEBUG("Found existing trampoline at frame %zu\n", frame_idx);
                 break;
             }
-
-            LOG_DEBUG("  frame %zu: ip=0x%lx, ret_addr=0x%lx, ret_loc=%p\n",
-                      frame_idx, (unsigned long)ip, (unsigned long)ret_addr, (void*)ret_loc);
 
             // Store the stack pointer that the trampoline will pass.
             // The trampoline passes RSP right after landing (before its stack manipulations).
@@ -343,32 +352,30 @@ private:
             // This allows longjmp detection by comparing against the stored value.
             uintptr_t expected_sp = reinterpret_cast<uintptr_t>(ret_loc) + sizeof(void*);
             // Store both IP (for returning to caller) and return_address (for trampoline restoration)
-            new_entries.push_back({ip, ret_addr, ret_loc, expected_sp});
+            // Insert at beginning to reverse order (oldest at index 0, newest at end)
+            new_entries.insert(new_entries.begin(), {ip, ret_addr, ret_loc, expected_sp});
             frame_idx++;
 
             step_result = unw_step(&cursor);
         } while (step_result > 0);
-        LOG_DEBUG("capture_and_install: walked %zu frames, found_existing=%d\n", frame_idx, found_existing);
 
         // Install trampolines on new entries
-        LOG_DEBUG("capture_and_install: installing %zu trampolines\n", new_entries.size());
         for (auto& e : new_entries) {
             *e.location = reinterpret_cast<uintptr_t>(ghost_ret_trampoline);
         }
 
         // Merge with existing entries if we found a patched frame
         if (found_existing && !entries_.empty()) {
-            size_t loc = location_.load(std::memory_order_acquire);
-            LOG_DEBUG("capture_and_install: merging with existing entries (loc=%zu, existing entries=%zu)\n",
-                      loc, entries_.size());
-            new_entries.insert(new_entries.end(),
-                               entries_.begin() + static_cast<long>(loc),
-                               entries_.end());
-            LOG_DEBUG("capture_and_install: after merge, total entries=%zu\n", new_entries.size());
+            size_t tail = tail_.load(std::memory_order_acquire);
+            // With reversed order, entries below tail are still valid
+            // Insert existing valid entries at the beginning of new_entries
+            new_entries.insert(new_entries.begin(),
+                               entries_.begin(),
+                               entries_.begin() + tail);
         }
 
         entries_ = std::move(new_entries);
-        location_.store(0, std::memory_order_release);
+        tail_.store(entries_.size(), std::memory_order_release);
         trampolines_installed_ = true;
 
         // Copy to output buffer - return the IP of each frame (what unw_backtrace returns)
@@ -377,7 +384,7 @@ private:
             buffer[i] = reinterpret_cast<void*>(entries_[i].ip);
         }
 
-        LOG_DEBUG("Captured %zu frames (total entries=%zu)\n", count, entries_.size());
+        LOG_DEBUG("Captured %zu frames\n", count);
         return count;
     }
 
@@ -402,7 +409,7 @@ private:
     std::vector<StackEntry> entries_;
 
     // Current position in the shadow stack (atomic for signal safety)
-    std::atomic<size_t> location_{0};
+    std::atomic<size_t> tail_{0};
 
     // Epoch counter - incremented on reset to invalidate in-flight operations
     std::atomic<uint64_t> epoch_{0};
@@ -494,6 +501,8 @@ extern "C" {
 void ghost_stack_init(ghost_stack_unwinder_t unwinder) {
     std::call_once(g_init_flag, [unwinder]() {
         g_custom_unwinder = unwinder;
+        LOG_DEBUG("Initialized with %s unwinder\n",
+                  unwinder ? "custom" : "default");
     });
 
     // Register fork handler (idempotent, safe to call multiple times)
@@ -544,8 +553,9 @@ uintptr_t ghost_trampoline_handler(uintptr_t sp) {
 uintptr_t ghost_exception_handler(void* exception) {
     LOG_DEBUG("Exception through trampoline\n");
 
-    uintptr_t ret = get_instance().on_ret_trampoline(0);
-    get_instance().reset();
+    auto& impl = get_instance();
+    uintptr_t ret = impl.pop_entry();  // Direct pop, no longjmp check
+    impl.reset();
 
     __cxxabiv1::__cxa_begin_catch(exception);
     return ret;
