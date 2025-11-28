@@ -491,10 +491,15 @@ private:
             }
 
             // Store the stack pointer that the trampoline will pass.
-            // Use libunwind's SP value directly.
+            // Linux: libunwind's SP matches what the trampoline passes
+            // macOS: trampoline passes ret_loc + sizeof(void*), NOT libunwind's SP
+#ifdef __APPLE__
+            uintptr_t expected_sp = reinterpret_cast<uintptr_t>(ret_loc) + sizeof(void*);
+#else
             unw_word_t actual_sp;
             unw_get_reg(&cursor, UNW_REG_SP, &actual_sp);
             uintptr_t expected_sp = static_cast<uintptr_t>(actual_sp);
+#endif
             // Store both IP (for returning to caller) and return_address (for trampoline restoration)
             // Insert at beginning to reverse order (oldest at index 0, newest at end)
             new_entries.insert(new_entries.begin(), {ip, ret_addr, ret_loc, expected_sp});
