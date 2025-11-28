@@ -381,7 +381,7 @@ private:
         // Copy to output buffer - return the IP of each frame (what unw_backtrace returns)
         size_t count = (entries_.size() < max_frames) ? entries_.size() : max_frames;
         for (size_t i = 0; i < count; ++i) {
-            buffer[i] = reinterpret_cast<void*>(entries_[i].ip);
+            buffer[i] = reinterpret_cast<void*>(entries_[count - 1 - i].ip);
         }
 
         LOG_DEBUG("Captured %zu frames\n", count);
