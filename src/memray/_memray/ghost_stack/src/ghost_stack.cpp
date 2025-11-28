@@ -337,6 +337,12 @@ public:
                   tail, (unsigned long)entry.ip, (unsigned long)entry.return_address,
                   (void*)entry.location, (unsigned long)entry.stack_pointer);
 
+        // Always log the SP comparison for debugging
+        fprintf(stderr, "[GS][TRAMP] tail=%zu expected_sp=0x%lx actual_sp=0x%lx diff=%ld match=%d\n",
+                tail, (unsigned long)entry.stack_pointer, (unsigned long)sp,
+                (long)((long)entry.stack_pointer - (long)sp),
+                (int)(entry.stack_pointer == sp));
+
         // Check for longjmp: if SP doesn't match expected, search backward
         // through shadow stack for matching entry (frames were skipped)
         if (sp != 0 && entry.stack_pointer != 0 && entry.stack_pointer != sp) {
@@ -421,14 +427,10 @@ private:
         unw_init_local(&cursor, &ctx);
         LOG_DEBUG("  Initialized libunwind cursor\n");
 
-        // Skip internal frames (platform-specific due to backtrace/libunwind differences)
-#ifdef __APPLE__
-        // macOS: Skip fewer frames due to backtrace()/libunwind difference
-        for (int i = 0; i < 1 && unw_step(&cursor) > 0; ++i) {}
-#else
-        // Linux: Skip internal frames (this function + backtrace)
-        for (int i = 0; i < 3 && unw_step(&cursor) > 0; ++i) {}
-#endif
+        // Skip the current frame to avoid patching our own return address
+        if (unw_step(&cursor) > 0) {
+            // Skipped internal frame
+        }
 
         // Process frames: read current frame, then step to next
         // Note: After skip loop, cursor is positioned AT the first frame we want
@@ -489,22 +491,10 @@ private:
             }
 
             // Store the stack pointer that the trampoline will pass.
-            // This allows longjmp detection by comparing against the stored value.
-            //
-            // The trampoline passes different SP values depending on platform:
-            // - x86_64: RET pops return address, so trampoline sees ret_loc + 8
-            // - Linux ARM64: Trampoline passes SP after saving registers, which
-            //                corresponds to actual_sp from libunwind
-            // - macOS ARM64: Trampoline passes ret_loc + 8 (similar to x86_64)
-#if defined(GS_ARCH_AARCH64) && defined(__linux__)
-            // Linux ARM64: use actual SP from libunwind
+            // Use libunwind's SP value directly.
             unw_word_t actual_sp;
             unw_get_reg(&cursor, UNW_REG_SP, &actual_sp);
             uintptr_t expected_sp = static_cast<uintptr_t>(actual_sp);
-#else
-            // x86_64 and macOS ARM64: use ret_loc + sizeof(void*)
-            uintptr_t expected_sp = reinterpret_cast<uintptr_t>(ret_loc) + sizeof(void*);
-#endif
             // Store both IP (for returning to caller) and return_address (for trampoline restoration)
             // Insert at beginning to reverse order (oldest at index 0, newest at end)
             new_entries.insert(new_entries.begin(), {ip, ret_addr, ret_loc, expected_sp});
