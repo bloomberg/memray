@@ -99,8 +99,14 @@ before-all = [
   "CFLAGS='-Wno-error -g -O3' CXXFLAGS='-Wno-error -g -O3' LDFLAGS=-lrt ./configure --enable-libdebuginfod --disable-debuginfod --disable-nls --with-zstd",
   "make install",
 
-  # Install Memray's other build and test dependencies
-  "yum install -y libunwind-devel",
+  # Build libunwind from source
+  "cd /",
+  "LIBUNWIND_VERS=1.8.3",
+  "/usr/bin/curl -LO https://github.com/libunwind/libunwind/releases/download/v$LIBUNWIND_VERS/libunwind-$LIBUNWIND_VERS.tar.gz",
+  "tar xf libunwind-$LIBUNWIND_VERS.tar.gz",
+  "cd libunwind-$LIBUNWIND_VERS",
+  "./configure --disable-minidebuginfo",
+  "make install",
 ]
 
 [tool.cibuildwheel.macos]
@@ -160,6 +166,15 @@ before-all = [
   "apk del musl-libintl",
   "apk add libintl",
 
+  # Build libunwind from source
+  "cd /",
+  "LIBUNWIND_VERS=1.8.3",
+  "curl -LO https://github.com/libunwind/libunwind/releases/download/v$LIBUNWIND_VERS/libunwind-$LIBUNWIND_VERS.tar.gz",
+  "tar xf libunwind-$LIBUNWIND_VERS.tar.gz",
+  "cd libunwind-$LIBUNWIND_VERS",
+  "./configure --disable-minidebuginfo",
+  "make install",
+
   # Install Memray's other build and test dependencies
-  "apk add --update libunwind-dev lz4-dev"
+  "apk add --update lz4-dev",
 ]
