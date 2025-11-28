@@ -53,12 +53,12 @@ extern "C" void ghost_ret_trampoline();
 // ============================================================================
 
 #ifdef DEBUG
-#define LOG_DEBUG(...) fprintf(stderr, "[GhostStack] " __VA_ARGS__)
+#define LOG_DEBUG(...) do { fprintf(stderr, "[GhostStack] " __VA_ARGS__); fflush(stderr); } while(0)
 #else
 #define LOG_DEBUG(...) ((void)0)
 #endif
 
-#define LOG_ERROR(...) fprintf(stderr, "[GhostStack][ERROR] " __VA_ARGS__)
+#define LOG_ERROR(...) do { fprintf(stderr, "[GhostStack][ERROR] " __VA_ARGS__); fflush(stderr); } while(0)
 
 // ============================================================================
 // Utilities
@@ -83,8 +83,9 @@ static inline uintptr_t ptrauth_strip(uintptr_t val) { return val; }
 // ============================================================================
 
 struct StackEntry {
-    uintptr_t return_address;   // Original return address
-    uintptr_t* location;        // Where it lives on the stack
+    uintptr_t ip;               // Instruction pointer of this frame (what to return to caller)
+    uintptr_t return_address;   // Original return address (what we replaced with trampoline)
+    uintptr_t* location;        // Where return address lives on the stack
     uintptr_t stack_pointer;    // SP at capture time (for validation)
 };
 
@@ -110,20 +111,18 @@ public:
     // Main capture function - returns number of frames
     size_t backtrace(void** buffer, size_t max_frames) {
         if (is_capturing_) {
+            LOG_DEBUG("backtrace: recursive call, bailing out\n");
             return 0;  // Recursive call, bail out
         }
         is_capturing_ = true;
 
         size_t result = 0;
 
-        // Fast path: trampolines installed, return cached frames
-        if (trampolines_installed_ && !entries_.empty()) {
-            result = copy_cached_frames(buffer, max_frames);
-            is_capturing_ = false;
-            return result;
-        }
-
-        // Slow path: capture with unwinder and install trampolines
+        // Always use capture_and_install - it handles both cases:
+        // 1. No trampolines installed: full capture + install
+        // 2. Trampolines installed: capture new frames up to trampoline, merge with cached
+        LOG_DEBUG("backtrace: capture_and_install (trampolines_installed=%d, entries=%zu)\n",
+                  trampolines_installed_, entries_.size());
         result = capture_and_install(buffer, max_frames);
         is_capturing_ = false;
         return result;
@@ -245,11 +244,14 @@ private:
         size_t available = entries_.size() - loc;
         size_t count = (available < max_frames) ? available : max_frames;
 
+        LOG_DEBUG("Fast path: loc=%zu, entries_.size()=%zu, available=%zu, count=%zu\n",
+                  loc, entries_.size(), available, count);
+
         for (size_t i = 0; i < count; ++i) {
-            buffer[i] = reinterpret_cast<void*>(entries_[loc + i].return_address);
+            buffer[i] = reinterpret_cast<void*>(entries_[loc + i].ip);
         }
 
-        LOG_DEBUG("Fast path: %zu frames\n", count);
+        LOG_DEBUG("Fast path: returning %zu frames\n", count);
         return count;
     }
 
@@ -258,6 +260,8 @@ private:
         // First, capture IPs using the unwinder
         std::vector<void*> raw_frames(max_frames);
         size_t raw_count = do_unwind(raw_frames.data(), max_frames);
+
+        LOG_DEBUG("capture_and_install: raw_count=%zu from unwinder\n", raw_count);
 
         if (raw_count == 0) {
             return 0;
@@ -283,7 +287,16 @@ private:
 #endif
 
         size_t frame_idx = 0;
-        while (unw_step(&cursor) > 0 && frame_idx < raw_count) {
+        LOG_DEBUG("capture_and_install: walking stack frames (raw_count=%zu)...\n", raw_count);
+        LOG_DEBUG("capture_and_install: Comparing raw vs walked frames:\n");
+
+        // Process frames: read current frame, then step to next
+        // Note: After skip loop, cursor is positioned AT the first frame we want
+        // We need to read first, then step (not step-then-read)
+        int step_result;
+        do {
+            if (frame_idx >= raw_count) break;
+
             unw_word_t ip, sp;
             unw_get_reg(&cursor, UNW_REG_IP, &ip);
             unw_get_reg(&cursor, GS_SP_REGISTER, &sp);
@@ -300,7 +313,10 @@ private:
             // macOS: return address is at fp + sizeof(void*)
             ret_loc = reinterpret_cast<uintptr_t*>(sp + sizeof(void*));
 #endif
-            if (!ret_loc) break;
+            if (!ret_loc) {
+                LOG_DEBUG("  frame %zu: ret_loc is NULL, stopping\n", frame_idx);
+                break;
+            }
 
             uintptr_t ret_addr = *ret_loc;
 
@@ -313,9 +329,12 @@ private:
             // Compare against stripped address since trampoline address doesn't have PAC
             if (stripped_ret_addr == reinterpret_cast<uintptr_t>(ghost_ret_trampoline)) {
                 found_existing = true;
-                LOG_DEBUG("Found existing trampoline at frame %zu\n", frame_idx);
+                LOG_DEBUG("  frame %zu: Found existing trampoline (ip=0x%lx)\n", frame_idx, (unsigned long)ip);
                 break;
             }
+
+            LOG_DEBUG("  frame %zu: ip=0x%lx, ret_addr=0x%lx, ret_loc=%p\n",
+                      frame_idx, (unsigned long)ip, (unsigned long)ret_addr, (void*)ret_loc);
 
             // Store the stack pointer that the trampoline will pass.
             // The trampoline passes RSP right after landing (before its stack manipulations).
@@ -323,11 +342,16 @@ private:
             //   RSP_trampoline = ret_loc + sizeof(void*)
             // This allows longjmp detection by comparing against the stored value.
             uintptr_t expected_sp = reinterpret_cast<uintptr_t>(ret_loc) + sizeof(void*);
-            new_entries.push_back({ret_addr, ret_loc, expected_sp});
+            // Store both IP (for returning to caller) and return_address (for trampoline restoration)
+            new_entries.push_back({ip, ret_addr, ret_loc, expected_sp});
             frame_idx++;
-        }
+
+            step_result = unw_step(&cursor);
+        } while (step_result > 0);
+        LOG_DEBUG("capture_and_install: walked %zu frames, found_existing=%d\n", frame_idx, found_existing);
 
         // Install trampolines on new entries
+        LOG_DEBUG("capture_and_install: installing %zu trampolines\n", new_entries.size());
         for (auto& e : new_entries) {
             *e.location = reinterpret_cast<uintptr_t>(ghost_ret_trampoline);
         }
@@ -335,22 +359,25 @@ private:
         // Merge with existing entries if we found a patched frame
         if (found_existing && !entries_.empty()) {
             size_t loc = location_.load(std::memory_order_acquire);
+            LOG_DEBUG("capture_and_install: merging with existing entries (loc=%zu, existing entries=%zu)\n",
+                      loc, entries_.size());
             new_entries.insert(new_entries.end(),
                                entries_.begin() + static_cast<long>(loc),
                                entries_.end());
+            LOG_DEBUG("capture_and_install: after merge, total entries=%zu\n", new_entries.size());
         }
 
         entries_ = std::move(new_entries);
         location_.store(0, std::memory_order_release);
         trampolines_installed_ = true;
 
-        // Copy to output buffer
+        // Copy to output buffer - return the IP of each frame (what unw_backtrace returns)
         size_t count = (entries_.size() < max_frames) ? entries_.size() : max_frames;
         for (size_t i = 0; i < count; ++i) {
-            buffer[i] = reinterpret_cast<void*>(entries_[i].return_address);
+            buffer[i] = reinterpret_cast<void*>(entries_[i].ip);
         }
 
-        LOG_DEBUG("Captured %zu frames\n", count);
+        LOG_DEBUG("Captured %zu frames (total entries=%zu)\n", count, entries_.size());
         return count;
     }
 
@@ -367,7 +394,12 @@ private:
 #else
         // Linux: use libunwind's unw_backtrace
         int ret = unw_backtrace(buffer, static_cast<int>(max_frames));
-        return (ret > 0) ? static_cast<size_t>(ret) : 0;
+        size_t count = (ret > 0) ? static_cast<size_t>(ret) : 0;
+        LOG_DEBUG("do_unwind: unw_backtrace returned %zu frames\n", count);
+        for (size_t i = 0; i < count && i < 10; ++i) {
+            LOG_DEBUG("  raw frame %zu: ip=%p\n", i, buffer[i]);
+        }
+        return count;
 #endif
     }
 
@@ -394,6 +426,9 @@ private:
 // Thread-Local Instance Management
 // ============================================================================
 
+// Global counter for debugging
+static std::atomic<int> g_backtrace_call_count{0};
+
 /**
  * RAII wrapper for thread-local GhostStackImpl.
  *
@@ -406,7 +441,8 @@ struct ThreadLocalInstance {
 
     ~ThreadLocalInstance() {
         if (ptr) {
-            LOG_DEBUG("Thread exit: resetting shadow stack\n");
+            LOG_DEBUG("Thread exit: resetting shadow stack (total backtrace calls: %d)\n",
+                      g_backtrace_call_count.load());
             ptr->reset();
             delete ptr;
             ptr = nullptr;
@@ -465,6 +501,7 @@ static void register_atfork_handler() {
 extern "C" {
 
 void ghost_stack_init(ghost_stack_unwinder_t unwinder) {
+    LOG_DEBUG("ghost_stack_init called\n");
     std::call_once(g_init_flag, [unwinder]() {
         g_custom_unwinder = unwinder;
         LOG_DEBUG("Initialized with %s unwinder\n",
@@ -476,6 +513,9 @@ void ghost_stack_init(ghost_stack_unwinder_t unwinder) {
 }
 
 size_t ghost_stack_backtrace(void** buffer, size_t size) {
+    int call_num = g_backtrace_call_count.fetch_add(1) + 1;
+    LOG_DEBUG("ghost_stack_backtrace called (call #%d, size=%zu)\n", call_num, size);
+
     // Auto-init if needed
     std::call_once(g_init_flag, []() {
         g_custom_unwinder = nullptr;
@@ -493,7 +533,9 @@ size_t ghost_stack_backtrace(void** buffer, size_t size) {
         unwinder_set = true;
     }
 
-    return impl.backtrace(buffer, size);
+    size_t result = impl.backtrace(buffer, size);
+    LOG_DEBUG("ghost_stack_backtrace returning %zu frames (call #%d)\n", result, call_num);
+    return result;
 }
 
 void ghost_stack_reset(void) {
