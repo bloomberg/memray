@@ -26,7 +26,16 @@
 #endif
 
 // Assembly trampoline (defined in *_trampoline.s)
+// The 'used' attribute prevents LTO from stripping the symbol and its eh_frame data
 extern "C" void ghost_ret_trampoline();
+extern "C" void ghost_ret_trampoline_start();
+
+// Force references to trampoline symbols to prevent LTO from stripping eh_frame
+// These are never called, just referenced to keep the symbols alive
+__attribute__((used)) static void* const _ghost_trampoline_refs[] = {
+    reinterpret_cast<void*>(&ghost_ret_trampoline),
+    reinterpret_cast<void*>(&ghost_ret_trampoline_start),
+};
 
 // ============================================================================
 // Platform Configuration
