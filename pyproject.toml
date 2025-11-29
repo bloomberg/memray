@@ -144,6 +144,9 @@ show_missing = true
 # Override the default linux before-all for musl linux
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
+# Exclude libgcc_s from bundling - it contains _Unwind_* symbols and having
+# multiple copies (bundled + system) breaks C++ exception handling.
+repair-wheel-command = "auditwheel repair --exclude libgcc_s.so.1 -w {dest_dir} {wheel}"
 before-all = [
   # Remove gettext-dev, which conficts with the musl-libintl, which is a build
   # dependency of elfutils.
