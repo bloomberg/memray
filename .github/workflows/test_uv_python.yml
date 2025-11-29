@@ -34,10 +34,21 @@ jobs:
           sudo apt-get install -qy \
             pkg-config \
             libdebuginfod-dev \
-            libunwind-dev \
             liblz4-dev \
             gdb \
             npm
+
+      - name: Build libunwind from source
+        run: |
+          cd /tmp
+          LIBUNWIND_VERS=1.8.3
+          curl -LO https://github.com/libunwind/libunwind/releases/download/v$LIBUNWIND_VERS/libunwind-$LIBUNWIND_VERS.tar.gz
+          tar xf libunwind-$LIBUNWIND_VERS.tar.gz
+          cd libunwind-$LIBUNWIND_VERS
+          ./configure --disable-minidebuginfo --prefix=/usr/local
+          make
+          sudo make install
+          sudo ldconfig
 
       - name: Install Python dependencies
         run: |
