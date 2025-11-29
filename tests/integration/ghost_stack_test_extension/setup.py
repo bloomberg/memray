@@ -1,4 +1,5 @@
-from distutils.core import Extension, setup
+from distutils.core import Extension
+from distutils.core import setup
 
 setup(
     name="ghost_stack_test",

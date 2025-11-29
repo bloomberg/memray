@@ -28,7 +28,7 @@
 #ifdef MEMRAY_HAS_GHOST_STACK
 #    include "ghost_stack.h"
 // ghost_stack skips 1 internal frame, we skip 1 more for our tracking frame
-# define GHOST_STACK_SKIP_FRAMES 1
+#    define GHOST_STACK_SKIP_FRAMES 1
 #endif
 
 #include "frame_tree.h"

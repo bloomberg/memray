@@ -53,7 +53,8 @@ typedef size_t (*ghost_stack_unwinder_t)(void** buffer, size_t size);
  * Will be called automatically on first ghost_stack_backtrace() if not
  * explicitly initialized.
  */
-void ghost_stack_init(ghost_stack_unwinder_t unwinder);
+void
+ghost_stack_init(ghost_stack_unwinder_t unwinder);
 
 /**
  * Capture stack trace - drop-in replacement for unw_backtrace().
@@ -65,7 +66,8 @@ void ghost_stack_init(ghost_stack_unwinder_t unwinder);
  * @param size     Maximum number of frames to capture
  * @return         Number of frames captured (0 on error)
  */
-size_t ghost_stack_backtrace(void** buffer, size_t size);
+size_t
+ghost_stack_backtrace(void** buffer, size_t size);
 
 /**
  * Reset the shadow stack, restoring all original return addresses.
@@ -77,7 +79,8 @@ size_t ghost_stack_backtrace(void** buffer, size_t size);
  *
  * Safe to call even if no capture has occurred.
  */
-void ghost_stack_reset(void);
+void
+ghost_stack_reset(void);
 
 /**
  * Clean up thread-local resources.
@@ -85,7 +88,8 @@ void ghost_stack_reset(void);
  * Optional - resources are cleaned up automatically on thread exit.
  * Call explicitly if you want immediate cleanup.
  */
-void ghost_stack_thread_cleanup(void);
+void
+ghost_stack_thread_cleanup(void);
 
 #ifdef __cplusplus
 }

@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from memray._test_utils import GhostStackTestContext, has_ghost_stack_support
+from memray._test_utils import GhostStackTestContext
+from memray._test_utils import has_ghost_stack_support
 
 HERE = Path(__file__).parent
 TEST_GHOST_STACK_EXTENSION = HERE / "ghost_stack_test_extension"
@@ -100,7 +101,7 @@ class TestGhostStackEquivalence:
 
     def _find_common_start(self, ghost_frames, libunwind_frames, max_skip=3):
         """Find indices where frames start matching (max skip of 3 frames each)."""
-        libunwind_set = set(libunwind_frames[:max_skip + 1])
+        libunwind_set = set(libunwind_frames[: max_skip + 1])
         for gi in range(min(max_skip + 1, len(ghost_frames))):
             gf = ghost_frames[gi]
             if gf in libunwind_set:
@@ -142,10 +143,14 @@ class TestGhostStackEquivalence:
     def test_frames_match_deep(self):
         """Verify frame matching at recursion depth 10."""
         with GhostStackTestContext() as ctx:
-            ghost_frames, libunwind_frames = self._capture_frames_at_depth(ctx, depth=10)
+            ghost_frames, libunwind_frames = self._capture_frames_at_depth(
+                ctx, depth=10
+            )
 
             assert len(ghost_frames) >= 10, "should capture at least 10 frames"
-            assert len(libunwind_frames) >= 10, "libunwind should capture at least 10 frames"
+            assert (
+                len(libunwind_frames) >= 10
+            ), "libunwind should capture at least 10 frames"
 
             # Find where frames start matching (skip at most 3 capture internals)
             gi, li = self._find_common_start(ghost_frames, libunwind_frames)

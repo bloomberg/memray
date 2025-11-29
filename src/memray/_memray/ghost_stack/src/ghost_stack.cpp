@@ -22,19 +22,21 @@
 #include <libunwind.h>
 
 #ifdef __APPLE__
-#include <execinfo.h>
+#    include <execinfo.h>
 #endif
 
 // Assembly trampoline (defined in *_trampoline.s)
 // The 'used' attribute prevents LTO from stripping the symbol and its eh_frame data
-extern "C" void ghost_ret_trampoline();
-extern "C" void ghost_ret_trampoline_start();
+extern "C" void
+ghost_ret_trampoline();
+extern "C" void
+ghost_ret_trampoline_start();
 
 // Force references to trampoline symbols to prevent LTO from stripping eh_frame
 // These are never called, just referenced to keep the symbols alive
 __attribute__((used)) static void* const _ghost_trampoline_refs[] = {
-    reinterpret_cast<void*>(&ghost_ret_trampoline),
-    reinterpret_cast<void*>(&ghost_ret_trampoline_start),
+        reinterpret_cast<void*>(&ghost_ret_trampoline),
+        reinterpret_cast<void*>(&ghost_ret_trampoline_start),
 };
 
 // ============================================================================
@@ -42,19 +44,19 @@ __attribute__((used)) static void* const _ghost_trampoline_refs[] = {
 // ============================================================================
 
 #if defined(__aarch64__) || defined(__arm64__)
-    #define GS_ARCH_AARCH64 1
-    #define GS_SP_REGISTER UNW_AARCH64_X29
-    #define GS_RA_REGISTER UNW_AARCH64_X30
+#    define GS_ARCH_AARCH64 1
+#    define GS_SP_REGISTER UNW_AARCH64_X29
+#    define GS_RA_REGISTER UNW_AARCH64_X30
 #elif defined(__x86_64__)
-    #define GS_ARCH_X86_64 1
-    #define GS_SP_REGISTER UNW_X86_64_RBP
-    #define GS_RA_REGISTER UNW_X86_64_RIP
+#    define GS_ARCH_X86_64 1
+#    define GS_SP_REGISTER UNW_X86_64_RBP
+#    define GS_RA_REGISTER UNW_X86_64_RIP
 #else
-    #error "Unsupported architecture"
+#    error "Unsupported architecture"
 #endif
 
 #ifndef GHOST_STACK_MAX_FRAMES
-#define GHOST_STACK_MAX_FRAMES 512
+#    define GHOST_STACK_MAX_FRAMES 512
 #endif
 
 // ============================================================================
@@ -63,69 +65,97 @@ __attribute__((used)) static void* const _ghost_trampoline_refs[] = {
 
 // GS_FORCE_DEBUG can be defined via compiler flag (-DGS_FORCE_DEBUG) for test builds
 #if defined(DEBUG) || defined(GS_FORCE_DEBUG)
-#define LOG_DEBUG(...) do { fprintf(stderr, "[GhostStack][DEBUG] " __VA_ARGS__); fflush(stderr); } while(0)
+#    define LOG_DEBUG(...)                                                                              \
+        do {                                                                                            \
+            fprintf(stderr, "[GhostStack][DEBUG] " __VA_ARGS__);                                        \
+            fflush(stderr);                                                                             \
+        } while (0)
 #else
-#define LOG_DEBUG(...) ((void)0)
+#    define LOG_DEBUG(...) ((void)0)
 #endif
 
-#define LOG_ERROR(...) do { fprintf(stderr, "[GhostStack][ERROR] " __VA_ARGS__); fflush(stderr); } while(0)
-#define LOG_INFO(...) do { fprintf(stderr, "[GhostStack][INFO] " __VA_ARGS__); fflush(stderr); } while(0)
+#define LOG_ERROR(...)                                                                                  \
+    do {                                                                                                \
+        fprintf(stderr, "[GhostStack][ERROR] " __VA_ARGS__);                                            \
+        fflush(stderr);                                                                                 \
+    } while (0)
+#define LOG_INFO(...)                                                                                   \
+    do {                                                                                                \
+        fprintf(stderr, "[GhostStack][INFO] " __VA_ARGS__);                                             \
+        fflush(stderr);                                                                                 \
+    } while (0)
 
 // ============================================================================
 // Utilities
 // ============================================================================
 
 #ifdef GS_ARCH_AARCH64
-static inline uintptr_t ptrauth_strip(uintptr_t val) {
+static inline uintptr_t
+ptrauth_strip(uintptr_t val)
+{
     uint64_t ret;
-    asm volatile(
-        "mov x30, %1\n\t"
-        "xpaclri\n\t"
-        "mov %0, x30\n\t"
-        : "=r"(ret) : "r"(val) : "x30");
+    asm volatile("mov x30, %1\n\t"
+                 "xpaclri\n\t"
+                 "mov %0, x30\n\t"
+                 : "=r"(ret)
+                 : "r"(val)
+                 : "x30");
     return ret;
 }
 #else
-static inline uintptr_t ptrauth_strip(uintptr_t val) { return val; }
+static inline uintptr_t
+ptrauth_strip(uintptr_t val)
+{
+    return val;
+}
 #endif
 
 // ============================================================================
 // Stack Entry
 // ============================================================================
 
-struct StackEntry {
-    uintptr_t ip;               // Instruction pointer of this frame (what to return to caller)
-    uintptr_t return_address;   // Original return address (what we replaced with trampoline)
-    uintptr_t* location;        // Where it lives on the stack
-    uintptr_t stack_pointer;    // SP at capture time (for validation)
+struct StackEntry
+{
+    uintptr_t ip;  // Instruction pointer of this frame (what to return to caller)
+    uintptr_t return_address;  // Original return address (what we replaced with trampoline)
+    uintptr_t* location;  // Where it lives on the stack
+    uintptr_t stack_pointer;  // SP at capture time (for validation)
 };
 
 // ============================================================================
 // GhostStack Core (thread-local)
 // ============================================================================
 
-class GhostStackImpl {
-public:
-    GhostStackImpl() {
+class GhostStackImpl
+{
+  public:
+    GhostStackImpl()
+    {
         entries_.reserve(64);
     }
 
-    ~GhostStackImpl() {
+    ~GhostStackImpl()
+    {
         reset();
     }
 
     // Set custom unwinder (NULL = use default libunwind)
-    void set_unwinder(ghost_stack_unwinder_t unwinder) {
+    void set_unwinder(ghost_stack_unwinder_t unwinder)
+    {
         custom_unwinder_ = unwinder;
     }
 
     // Main capture function - returns number of frames
-    size_t backtrace(void** buffer, size_t max_frames) {
+    size_t backtrace(void** buffer, size_t max_frames)
+    {
         LOG_DEBUG("=== backtrace ENTER ===\n");
         LOG_DEBUG("  this=%p, buffer=%p, max_frames=%zu\n", (void*)this, (void*)buffer, max_frames);
-        LOG_DEBUG("  is_capturing_=%d, trampolines_installed_=%d, entries_.size()=%zu, tail_=%zu\n",
-                  (int)is_capturing_, (int)trampolines_installed_, entries_.size(),
-                  tail_.load(std::memory_order_acquire));
+        LOG_DEBUG(
+                "  is_capturing_=%d, trampolines_installed_=%d, entries_.size()=%zu, tail_=%zu\n",
+                (int)is_capturing_,
+                (int)trampolines_installed_,
+                entries_.size(),
+                tail_.load(std::memory_order_acquire));
 
         if (is_capturing_) {
             LOG_DEBUG("  Recursive call detected, returning 0\n");
@@ -172,15 +202,21 @@ public:
      * still contains the trampoline address. This handles the case where a
      * location was reused by a new frame after its original trampoline fired.
      */
-    void reset() {
+    void reset()
+    {
         LOG_DEBUG("=== reset ENTER ===\n");
-        LOG_DEBUG("  this=%p, trampolines_installed_=%d, entries_.size()=%zu, tail_=%zu\n",
-                  (void*)this, (int)trampolines_installed_, entries_.size(),
-                  tail_.load(std::memory_order_acquire));
+        LOG_DEBUG(
+                "  this=%p, trampolines_installed_=%d, entries_.size()=%zu, tail_=%zu\n",
+                (void*)this,
+                (int)trampolines_installed_,
+                entries_.size(),
+                tail_.load(std::memory_order_acquire));
 
         if (trampolines_installed_) {
             uintptr_t tramp_addr = reinterpret_cast<uintptr_t>(ghost_ret_trampoline);
-            LOG_DEBUG("  Restoring locations that still have trampoline (0x%lx)\n", (unsigned long)tramp_addr);
+            LOG_DEBUG(
+                    "  Restoring locations that still have trampoline (0x%lx)\n",
+                    (unsigned long)tramp_addr);
 
             // Restore ALL entries whose locations still contain the trampoline.
             // This handles both pending entries AND already-fired entries whose
@@ -191,12 +227,18 @@ public:
                 // the value read from stack may be PAC-signed while tramp_addr is not
                 uintptr_t stripped_value = ptrauth_strip(current_value);
                 if (stripped_value == tramp_addr) {
-                    LOG_DEBUG("    [%zu] location=%p, restoring 0x%lx\n",
-                              i, (void*)entries_[i].location, (unsigned long)entries_[i].return_address);
+                    LOG_DEBUG(
+                            "    [%zu] location=%p, restoring 0x%lx\n",
+                            i,
+                            (void*)entries_[i].location,
+                            (unsigned long)entries_[i].return_address);
                     *entries_[i].location = entries_[i].return_address;
                 } else {
-                    LOG_DEBUG("    [%zu] location=%p, skipping (current=0x%lx, not trampoline)\n",
-                              i, (void*)entries_[i].location, (unsigned long)current_value);
+                    LOG_DEBUG(
+                            "    [%zu] location=%p, skipping (current=0x%lx, not trampoline)\n",
+                            i,
+                            (void*)entries_[i].location,
+                            (unsigned long)current_value);
                 }
             }
 
@@ -208,21 +250,26 @@ public:
 
             // Increment epoch to signal state change
             epoch_.fetch_add(1, std::memory_order_release);
-            LOG_DEBUG("  New epoch=%lu (entries preserved for stale trampolines)\n",
-                      (unsigned long)epoch_.load(std::memory_order_acquire));
+            LOG_DEBUG(
+                    "  New epoch=%lu (entries preserved for stale trampolines)\n",
+                    (unsigned long)epoch_.load(std::memory_order_acquire));
         }
         LOG_DEBUG("=== reset EXIT ===\n");
     }
 
-public:
+  public:
     /**
      * Direct entry access method for exception handling.
      * Decrements tail and returns the return address without longjmp checking.
      */
-    uintptr_t pop_entry() {
+    uintptr_t pop_entry()
+    {
         LOG_DEBUG("=== pop_entry ENTER ===\n");
-        LOG_DEBUG("  this=%p, entries_.size()=%zu, tail_=%zu\n",
-                  (void*)this, entries_.size(), tail_.load(std::memory_order_acquire));
+        LOG_DEBUG(
+                "  this=%p, entries_.size()=%zu, tail_=%zu\n",
+                (void*)this,
+                entries_.size(),
+                tail_.load(std::memory_order_acquire));
 
         size_t tail = tail_.fetch_sub(1, std::memory_order_acq_rel) - 1;
         LOG_DEBUG("  After fetch_sub: tail=%zu\n", tail);
@@ -238,16 +285,20 @@ public:
         return ret;
     }
 
-private:
+  private:
     /**
      * Internal helper to clear all state.
      * Increments epoch to invalidate any in-flight trampoline operations.
      */
-    void clear_entries() {
+    void clear_entries()
+    {
         LOG_DEBUG("=== clear_entries ENTER ===\n");
-        LOG_DEBUG("  this=%p, entries_.size()=%zu, tail_=%zu, epoch_=%lu\n",
-                  (void*)this, entries_.size(), tail_.load(std::memory_order_acquire),
-                  (unsigned long)epoch_.load(std::memory_order_acquire));
+        LOG_DEBUG(
+                "  this=%p, entries_.size()=%zu, tail_=%zu, epoch_=%lu\n",
+                (void*)this,
+                entries_.size(),
+                tail_.load(std::memory_order_acquire),
+                (unsigned long)epoch_.load(std::memory_order_acquire));
 
         // Increment epoch FIRST to signal any in-flight operations
         epoch_.fetch_add(1, std::memory_order_release);
@@ -259,8 +310,7 @@ private:
         LOG_DEBUG("=== clear_entries EXIT ===\n");
     }
 
-public:
-
+  public:
     /**
      * Called by trampoline when a function returns.
      *
@@ -272,15 +322,19 @@ public:
      * @param sp  Stack pointer at return time (for longjmp detection / entry lookup)
      * @return    Original return address to jump to
      */
-    uintptr_t on_ret_trampoline(uintptr_t sp) {
+    uintptr_t on_ret_trampoline(uintptr_t sp)
+    {
         LOG_DEBUG("=== on_ret_trampoline ENTER ===\n");
         LOG_DEBUG("  this=%p, sp=0x%lx\n", (void*)this, (unsigned long)sp);
 
         // Log state
         size_t tail_before = tail_.load(std::memory_order_acquire);
         size_t entries_size = entries_.size();
-        LOG_DEBUG("  BEFORE: tail_=%zu, entries_.size()=%zu, trampolines_installed_=%d\n",
-                  tail_before, entries_size, (int)trampolines_installed_);
+        LOG_DEBUG(
+                "  BEFORE: tail_=%zu, entries_.size()=%zu, trampolines_installed_=%d\n",
+                tail_before,
+                entries_size,
+                (int)trampolines_installed_);
 
         // =========================================================
         // POST-RESET STALE TRAMPOLINE HANDLING (ARM64)
@@ -294,8 +348,10 @@ public:
         // We simply return entries in order starting from tail_-1 and decrementing.
         if (!trampolines_installed_ && !entries_.empty()) {
             size_t current_tail = tail_.load(std::memory_order_acquire);
-            LOG_DEBUG("  POST-RESET stale trampoline! tail_=%zu, entries_.size()=%zu\n",
-                      current_tail, entries_.size());
+            LOG_DEBUG(
+                    "  POST-RESET stale trampoline! tail_=%zu, entries_.size()=%zu\n",
+                    current_tail,
+                    entries_.size());
 
             if (current_tail > 0 && current_tail <= entries_.size()) {
                 // Return the entry at tail-1 (the deepest pending entry)
@@ -336,29 +392,41 @@ public:
 
         if (tail >= entries_.size()) {
             LOG_ERROR("Stack corruption in trampoline: tail >= entries_.size()!\n");
-            LOG_ERROR("  tail=%zu, entries_.size()=%zu, tail_before=%zu\n",
-                      tail, entries_.size(), tail_before);
+            LOG_ERROR(
+                    "  tail=%zu, entries_.size()=%zu, tail_before=%zu\n",
+                    tail,
+                    entries_.size(),
+                    tail_before);
             LOG_ERROR("  this=%p\n", (void*)this);
             std::abort();
         }
 
         auto& entry = entries_[tail];
-        LOG_DEBUG("  entry[%zu]: ip=0x%lx, return_address=0x%lx, location=%p, stack_pointer=0x%lx\n",
-                  tail, (unsigned long)entry.ip, (unsigned long)entry.return_address,
-                  (void*)entry.location, (unsigned long)entry.stack_pointer);
+        LOG_DEBUG(
+                "  entry[%zu]: ip=0x%lx, return_address=0x%lx, location=%p, stack_pointer=0x%lx\n",
+                tail,
+                (unsigned long)entry.ip,
+                (unsigned long)entry.return_address,
+                (void*)entry.location,
+                (unsigned long)entry.stack_pointer);
 
         // Check for longjmp: if SP doesn't match expected, search backward
         // through shadow stack for matching entry (frames were skipped)
         if (sp != 0 && entry.stack_pointer != 0 && entry.stack_pointer != sp) {
-            LOG_DEBUG("SP mismatch at index %zu: expected 0x%lx, got 0x%lx - checking for longjmp\n",
-                      tail, (unsigned long)entry.stack_pointer, (unsigned long)sp);
+            LOG_DEBUG(
+                    "SP mismatch at index %zu: expected 0x%lx, got 0x%lx - checking for longjmp\n",
+                    tail,
+                    (unsigned long)entry.stack_pointer,
+                    (unsigned long)sp);
 
             // Search backward through shadow stack for matching SP (nwind style)
             // Only update tail_ if we find a match - don't corrupt it during search
             for (size_t i = tail; i > 0; --i) {
                 if (entries_[i - 1].stack_pointer == sp) {
-                    LOG_DEBUG("longjmp detected: found matching SP at index %zu (skipped %zu frames)\n",
-                              i - 1, tail - (i - 1));
+                    LOG_DEBUG(
+                            "longjmp detected: found matching SP at index %zu (skipped %zu frames)\n",
+                            i - 1,
+                            tail - (i - 1));
 
                     // Update tail_ to skip all the frames that were bypassed by longjmp
                     tail_.store(i - 1, std::memory_order_release);
@@ -373,8 +441,10 @@ public:
         uint64_t final_epoch = epoch_.load(std::memory_order_acquire);
         if (final_epoch != current_epoch) {
             LOG_ERROR("Reset detected during trampoline - aborting\n");
-            LOG_ERROR("  current_epoch=%lu, final_epoch=%lu\n",
-                      (unsigned long)current_epoch, (unsigned long)final_epoch);
+            LOG_ERROR(
+                    "  current_epoch=%lu, final_epoch=%lu\n",
+                    (unsigned long)current_epoch,
+                    (unsigned long)final_epoch);
             std::abort();
         }
 
@@ -384,16 +454,17 @@ public:
         return ret_addr;
     }
 
-private:
+  private:
     /**
      * Copy cached frames to output buffer (fast path).
      *
      * Called when trampolines are already installed and we can read
      * directly from the shadow stack.
      */
-    size_t copy_cached_frames(void** buffer, size_t max_frames) {
+    size_t copy_cached_frames(void** buffer, size_t max_frames)
+    {
         size_t tail = tail_.load(std::memory_order_acquire);
-        size_t available = tail; // frames from 0 to tail-1
+        size_t available = tail;  // frames from 0 to tail-1
         size_t count = (available < max_frames) ? available : max_frames;
 
         for (size_t i = 0; i < count; ++i) {
@@ -405,7 +476,8 @@ private:
     }
 
     // Capture frames using unwinder, install trampolines
-    size_t capture_and_install(void** buffer, size_t max_frames) {
+    size_t capture_and_install(void** buffer, size_t max_frames)
+    {
         LOG_DEBUG("=== capture_and_install ENTER ===\n");
         LOG_DEBUG("  this=%p, max_frames=%zu\n", (void*)this, max_frames);
 
@@ -468,8 +540,7 @@ private:
             uintptr_t* ret_loc = nullptr;
 #ifdef __linux__
             unw_save_loc_t loc;
-            if (unw_get_save_loc(&cursor, GS_RA_REGISTER, &loc) == 0 &&
-                loc.type == UNW_SLT_MEMORY) {
+            if (unw_get_save_loc(&cursor, GS_RA_REGISTER, &loc) == 0 && loc.type == UNW_SLT_MEMORY) {
                 ret_loc = reinterpret_cast<uintptr_t*>(loc.u.addr);
             }
 #else
@@ -511,15 +582,22 @@ private:
             step_result = unw_step(&cursor);
         } while (step_result > 0);
 
-        LOG_DEBUG("  Collected %zu new entries, found_existing=%d\n", new_entries.size(), (int)found_existing);
+        LOG_DEBUG(
+                "  Collected %zu new entries, found_existing=%d\n",
+                new_entries.size(),
+                (int)found_existing);
 
         // Install trampolines on new entries
         LOG_DEBUG("  Installing trampolines (trampoline addr=%p):\n", (void*)ghost_ret_trampoline);
         for (size_t i = 0; i < new_entries.size(); ++i) {
             auto& e = new_entries[i];
-            LOG_DEBUG("    [%zu] location=%p, old_value=0x%lx, ip=0x%lx, expected_sp=0x%lx\n",
-                      i, (void*)e.location, (unsigned long)*e.location,
-                      (unsigned long)e.ip, (unsigned long)e.stack_pointer);
+            LOG_DEBUG(
+                    "    [%zu] location=%p, old_value=0x%lx, ip=0x%lx, expected_sp=0x%lx\n",
+                    i,
+                    (void*)e.location,
+                    (unsigned long)*e.location,
+                    (unsigned long)e.ip,
+                    (unsigned long)e.stack_pointer);
             *e.location = reinterpret_cast<uintptr_t>(ghost_ret_trampoline);
         }
 
@@ -529,17 +607,17 @@ private:
             LOG_DEBUG("  Merging with %zu existing entries\n", tail);
             // With reversed order, entries below tail are still valid
             // Insert existing valid entries at the beginning of new_entries
-            new_entries.insert(new_entries.begin(),
-                               entries_.begin(),
-                               entries_.begin() + tail);
+            new_entries.insert(new_entries.begin(), entries_.begin(), entries_.begin() + tail);
         }
 
         entries_ = std::move(new_entries);
         tail_.store(entries_.size(), std::memory_order_release);
         trampolines_installed_ = true;
 
-        LOG_DEBUG("  Final state: entries_.size()=%zu, tail_=%zu\n",
-                  entries_.size(), tail_.load(std::memory_order_acquire));
+        LOG_DEBUG(
+                "  Final state: entries_.size()=%zu, tail_=%zu\n",
+                entries_.size(),
+                tail_.load(std::memory_order_acquire));
 
         // Copy to output buffer - return the IP of each frame (what unw_backtrace returns)
         // Reverse order: newest frame at buffer[0], oldest at buffer[count-1]
@@ -553,7 +631,8 @@ private:
     }
 
     // Call the unwinder (custom or default)
-    size_t do_unwind(void** buffer, size_t max_frames) {
+    size_t do_unwind(void** buffer, size_t max_frames)
+    {
         if (custom_unwinder_) {
             return custom_unwinder_(buffer, max_frames);
         }
@@ -599,10 +678,12 @@ private:
  * the shadow stack (restoring original return addresses). This matches nwind's
  * approach using pthread_key_t destructors, but uses idiomatic C++11.
  */
-struct ThreadLocalInstance {
+struct ThreadLocalInstance
+{
     GhostStackImpl* ptr = nullptr;
 
-    ~ThreadLocalInstance() {
+    ~ThreadLocalInstance()
+    {
         if (ptr) {
             LOG_DEBUG("Thread exit: resetting shadow stack\n");
             ptr->reset();
@@ -614,11 +695,15 @@ struct ThreadLocalInstance {
 
 static thread_local ThreadLocalInstance t_instance;
 
-static GhostStackImpl& get_instance() {
+static GhostStackImpl&
+get_instance()
+{
     if (!t_instance.ptr) {
         t_instance.ptr = new GhostStackImpl();
-        LOG_DEBUG("Created new shadow stack instance for thread: this=%p, tid=%lu\n",
-                  (void*)t_instance.ptr, (unsigned long)pthread_self());
+        LOG_DEBUG(
+                "Created new shadow stack instance for thread: this=%p, tid=%lu\n",
+                (void*)t_instance.ptr,
+                (unsigned long)pthread_self());
     }
     return *t_instance.ptr;
 }
@@ -643,14 +728,18 @@ static ghost_stack_unwinder_t g_custom_unwinder = nullptr;
  * locations in the child's own stack. We must restore the original return
  * addresses before the child returns through any trampolined frames.
  */
-static void fork_child_handler() {
+static void
+fork_child_handler()
+{
     if (t_instance.ptr) {
         t_instance.ptr->reset();
     }
     LOG_DEBUG("Fork child handler: reset shadow stack\n");
 }
 
-static void register_atfork_handler() {
+static void
+register_atfork_handler()
+{
     std::call_once(g_atfork_flag, []() {
         pthread_atfork(nullptr, nullptr, fork_child_handler);
         LOG_DEBUG("Registered pthread_atfork handler\n");
@@ -663,22 +752,23 @@ static void register_atfork_handler() {
 
 extern "C" {
 
-void ghost_stack_init(ghost_stack_unwinder_t unwinder) {
+void
+ghost_stack_init(ghost_stack_unwinder_t unwinder)
+{
     std::call_once(g_init_flag, [unwinder]() {
         g_custom_unwinder = unwinder;
-        LOG_DEBUG("Initialized with %s unwinder\n",
-                  unwinder ? "custom" : "default");
+        LOG_DEBUG("Initialized with %s unwinder\n", unwinder ? "custom" : "default");
     });
 
     // Register fork handler (idempotent, safe to call multiple times)
     register_atfork_handler();
 }
 
-size_t ghost_stack_backtrace(void** buffer, size_t size) {
+size_t
+ghost_stack_backtrace(void** buffer, size_t size)
+{
     // Auto-init if needed
-    std::call_once(g_init_flag, []() {
-        g_custom_unwinder = nullptr;
-    });
+    std::call_once(g_init_flag, []() { g_custom_unwinder = nullptr; });
 
     // Ensure fork handler is registered (idempotent)
     register_atfork_handler();
@@ -695,13 +785,17 @@ size_t ghost_stack_backtrace(void** buffer, size_t size) {
     return impl.backtrace(buffer, size);
 }
 
-void ghost_stack_reset(void) {
+void
+ghost_stack_reset(void)
+{
     if (t_instance.ptr) {
         t_instance.ptr->reset();
     }
 }
 
-void ghost_stack_thread_cleanup(void) {
+void
+ghost_stack_thread_cleanup(void)
+{
     if (t_instance.ptr) {
         t_instance.ptr->reset();
         delete t_instance.ptr;
@@ -710,9 +804,13 @@ void ghost_stack_thread_cleanup(void) {
 }
 
 // Called by assembly trampoline
-uintptr_t ghost_trampoline_handler(uintptr_t sp) {
-    LOG_DEBUG(">>> ghost_trampoline_handler called, sp=0x%lx, tid=%lu\n",
-              (unsigned long)sp, (unsigned long)pthread_self());
+uintptr_t
+ghost_trampoline_handler(uintptr_t sp)
+{
+    LOG_DEBUG(
+            ">>> ghost_trampoline_handler called, sp=0x%lx, tid=%lu\n",
+            (unsigned long)sp,
+            (unsigned long)pthread_self());
     auto& impl = get_instance();
     LOG_DEBUG(">>> got instance=%p\n", (void*)&impl);
     uintptr_t result = impl.on_ret_trampoline(sp);
@@ -721,7 +819,9 @@ uintptr_t ghost_trampoline_handler(uintptr_t sp) {
 }
 
 // Called when exception passes through trampoline
-uintptr_t ghost_exception_handler(void* exception) {
+uintptr_t
+ghost_exception_handler(void* exception)
+{
     LOG_DEBUG("Exception through trampoline\n");
 
     auto& impl = get_instance();
@@ -732,4 +832,4 @@ uintptr_t ghost_exception_handler(void* exception) {
     return ret;
 }
 
-} // extern 
+}  // extern
