@@ -198,8 +198,9 @@ public:
             trampolines_installed_ = false;
 
             // Increment epoch to signal state change
-            uint64_t new_epoch = epoch_.fetch_add(1, std::memory_order_release) + 1;
-            LOG_DEBUG("  New epoch=%lu (entries preserved for stale trampolines)\n", (unsigned long)new_epoch);
+            epoch_.fetch_add(1, std::memory_order_release);
+            LOG_DEBUG("  New epoch=%lu (entries preserved for stale trampolines)\n",
+                      (unsigned long)epoch_.load(std::memory_order_acquire));
         }
         LOG_DEBUG("=== reset EXIT ===\n");
     }
@@ -240,8 +241,8 @@ private:
                   (unsigned long)epoch_.load(std::memory_order_acquire));
 
         // Increment epoch FIRST to signal any in-flight operations
-        uint64_t new_epoch = epoch_.fetch_add(1, std::memory_order_release) + 1;
-        LOG_DEBUG("  New epoch=%lu\n", (unsigned long)new_epoch);
+        epoch_.fetch_add(1, std::memory_order_release);
+        LOG_DEBUG("  New epoch=%lu\n", (unsigned long)epoch_.load(std::memory_order_acquire));
 
         entries_.clear();
         tail_.store(0, std::memory_order_release);
@@ -347,9 +348,8 @@ public:
             // Only update tail_ if we find a match - don't corrupt it during search
             for (size_t i = tail; i > 0; --i) {
                 if (entries_[i - 1].stack_pointer == sp) {
-                    size_t skipped = tail - (i - 1);
                     LOG_DEBUG("longjmp detected: found matching SP at index %zu (skipped %zu frames)\n",
-                              i - 1, skipped);
+                              i - 1, tail - (i - 1));
 
                     // Update tail_ to skip all the frames that were bypassed by longjmp
                     tail_.store(i - 1, std::memory_order_release);
@@ -723,4 +723,4 @@ uintptr_t ghost_exception_handler(void* exception) {
     return ret;
 }
 
-} // extern "C"
+} // extern 

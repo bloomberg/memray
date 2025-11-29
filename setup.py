@@ -337,13 +337,24 @@ MEMRAY_TEST_EXTENSION = Extension(
     name="memray._test_utils",
     sources=[
         "src/memray/_memray_test_utils.pyx",
+        "src/memray/_memray/ghost_stack_test_utils.cpp",
+        *GHOST_STACK_SOURCES,
     ],
     language="c++",
     extra_compile_args=["-std=c++17", "-Wall", *EXTRA_COMPILE_ARGS],
     extra_link_args=["-std=c++17", *EXTRA_LINK_ARGS],
+    extra_objects=[*GHOST_STACK_OBJECTS],
     define_macros=DEFINE_MACROS,
     undef_macros=UNDEF_MACROS,
 )
+
+MEMRAY_TEST_EXTENSION.include_dirs = [
+    "src",
+    str(GHOST_STACK_LOCATION / "include"),
+]
+
+if IS_LINUX:
+    MEMRAY_TEST_EXTENSION.libraries = ["unwind"]
 
 MEMRAY_INJECT_EXTENSION = Extension(
     name="memray._inject",
