@@ -285,3 +285,50 @@ cdef class PrimeCaches:
         return self
     def __exit__(self, *args):
         sys.setprofile(self.old_profile)
+
+
+# Ghost stack test utilities
+cdef extern from "_memray/ghost_stack_test_utils.h":
+    object ghost_stack_test_backtrace()
+    object libunwind_test_backtrace()
+    void ghost_stack_test_reset()
+    void ghost_stack_test_init()
+    int ghost_stack_test_has_support()
+
+
+def has_ghost_stack_support():
+    """Check if ghost_stack support is available."""
+    return ghost_stack_test_has_support() != 0
+
+
+cdef class GhostStackTestContext:
+    """Context manager for ghost_stack testing.
+
+    Usage:
+        with GhostStackTestContext() as ctx:
+            frames = ctx.backtrace()
+            libunwind_frames = ctx.libunwind_backtrace()
+    """
+
+    def __enter__(self):
+        # init is defensive in case ghost_stack wasn't initialized globally;
+        # reset clears any stale shadow stack state from previous operations
+        ghost_stack_test_init()
+        ghost_stack_test_reset()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        ghost_stack_test_reset()
+        return False
+
+    def backtrace(self):
+        """Capture ghost_stack frames and return as list of addresses."""
+        return ghost_stack_test_backtrace()
+
+    def libunwind_backtrace(self):
+        """Capture libunwind frames for comparison."""
+        return libunwind_test_backtrace()
+
+    def reset(self):
+        """Reset ghost_stack shadow stack."""
+        ghost_stack_test_reset()

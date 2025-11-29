@@ -242,6 +242,7 @@ class Tracker:
         file_name: Union[Path, str],
         *,
         native_traces: bool = ...,
+        fast_unwind: bool = ...,
         memory_interval_ms: int = ...,
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
@@ -255,6 +256,7 @@ class Tracker:
         *,
         destination: Destination,
         native_traces: bool = ...,
+        fast_unwind: bool = ...,
         memory_interval_ms: int = ...,
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
@@ -285,6 +287,7 @@ class SymbolicSupport(enum.IntEnum):
     TOTAL = 3
 
 def get_symbolic_support() -> SymbolicSupport: ...
+def has_fast_unwind_support() -> bool: ...
 
 RTLD_NOW: int
 RTLD_DEFAULT: int
