@@ -99,7 +99,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-13
+          - os: macos-15-intel
             arch: x86_64
           - os: macos-14
             arch: arm64
@@ -131,6 +131,7 @@ jobs:
         uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_BUILD: "cp3{8..14}{t,}-*"
+          CIBW_ARCHS: "${{matrix.arch}}"
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
