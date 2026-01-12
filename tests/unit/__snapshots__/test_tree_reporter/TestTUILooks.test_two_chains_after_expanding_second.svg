@@ -42,7 +42,7 @@
 .terminal-r8 { fill: #4797a8 }
 .terminal-r9 { fill: #f8f8f2 }
 .terminal-r10 { fill: #ddedf9;font-weight: bold }
-.terminal-r11 { fill: #9fa9b1;font-weight: bold }
+.terminal-r11 { fill: #92c5ec;font-weight: bold }
 .terminal-r12 { fill: #0178d4 }
 .terminal-r13 { fill: #7fb725 }
 .terminal-r14 { fill: #1e1f35 }
