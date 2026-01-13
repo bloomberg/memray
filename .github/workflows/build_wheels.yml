@@ -97,6 +97,7 @@ jobs:
     name: macosx_${{ matrix.arch }} wheels
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-15-intel
