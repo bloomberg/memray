@@ -24,12 +24,12 @@ jobs:
       - name: Build sdist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: dist
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: tests
           path: tests
@@ -87,7 +87,7 @@ jobs:
           CIBW_PRERELEASE_PYTHONS: True
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.wheel_type }}-wheels
           path: ./wheelhouse/*.whl
@@ -141,7 +141,7 @@ jobs:
           LDFLAGS: "-L${{env.LZ4_INSTALL_DIR}}/lib -Wl,-rpath,${{env.LZ4_INSTALL_DIR}}/lib"
           PKG_CONFIG_PATH: "${{env.LZ4_INSTALL_DIR}}/lib/pkgconfig"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: "DYLD_LIBRARY_PATH=${{env.LZ4_INSTALL_DIR}}/lib delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: macosx_${{ matrix.arch }}-wheels
           path: ./wheelhouse/*.whl
