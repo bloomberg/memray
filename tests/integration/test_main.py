@@ -82,8 +82,10 @@ def track_and_wait(output_dir, sleep_after=100):
 
 
 def _wait_until_process_blocks(pid: int) -> None:
+    # Sleep longer on GitHub Actions macOS runners to reduce test flakiness
+    default_sleep = 5.0 if "GITHUB_ACTIONS" in os.environ else 1.0
     if "linux" not in sys.platform:
-        time.sleep(1.0)
+        time.sleep(default_sleep)
         return
     # Signal numbers from https://filippo.io/linux-syscall-table/
     arch = platform.machine()
@@ -100,7 +102,7 @@ def _wait_until_process_blocks(pid: int) -> None:
     else:
         # No idea what syscalls numbers to wait on, so we will just
         # sleep for a long enough period and hope for the best
-        time.sleep(1.0)
+        time.sleep(default_sleep)
         return
     syscalls_to_wait = {sleep_syscall, clock_nanosleep, connect_syscall, accept_syscall}
     current_syscall = ""
