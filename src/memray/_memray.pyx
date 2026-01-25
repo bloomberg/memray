@@ -725,6 +725,9 @@ cdef class Tracker:
         native_traces (bool): Whether or not to capture native stack frames, in
             addition to Python stack frames (see :ref:`Native Tracking`).
             Defaults to False.
+        fast_unwind (bool): Whether to use optimized native stack unwinding with
+            shadow stack caching. This can significantly improve performance when
+            native_traces is enabled. Requires native_traces=True. Defaults to False.
         trace_python_allocators (bool): Whether or not to trace Python allocators
             as independent allocations. (see :ref:`Python allocators`).
             Defaults to False.
@@ -748,6 +751,7 @@ cdef class Tracker:
             of supported file formats and their limitations.
     """
     cdef bool _native_traces
+    cdef bool _fast_unwind
     cdef bool _track_object_lifetimes
     cdef unsigned int _memory_interval_ms
     cdef bool _follow_fork
@@ -778,7 +782,8 @@ cdef class Tracker:
             raise TypeError("destination must be a SocketDestination or FileDestination")
 
     def __cinit__(self, object file_name=None, *, object destination=None,
-                  bool native_traces=False, unsigned int memory_interval_ms = 10,
+                  bool native_traces=False, bool fast_unwind=False,
+                  unsigned int memory_interval_ms = 10,
                   bool follow_fork=False, bool trace_python_allocators=False,
                   bool track_object_lifetimes=False,
                   FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
@@ -792,8 +797,13 @@ cdef class Tracker:
                 f"Current version: {'.'.join(map(str, sys.version_info[:3]))}"
             )
 
+        # Validate fast_unwind requires native_traces
+        if fast_unwind and not native_traces:
+            raise ValueError("fast_unwind requires native_traces to be enabled")
+
         cdef cppstring command_line = " ".join(sys.argv)
         self._native_traces = native_traces
+        self._fast_unwind = fast_unwind
         self._track_object_lifetimes = track_object_lifetimes
         self._memory_interval_ms = memory_interval_ms
         self._follow_fork = follow_fork
@@ -857,6 +867,7 @@ cdef class Tracker:
             NativeTracker.createTracker(
                 move(writer),
                 self._native_traces,
+                self._fast_unwind,
                 self._memory_interval_ms,
                 self._follow_fork,
                 self._trace_python_allocators,
@@ -1675,6 +1686,26 @@ def get_symbolic_support():
             return SymbolicSupport.FUNCTION_NAME_ONLY
         return SymbolicSupport.TOTAL
     return SymbolicSupport.NONE
+
+
+cdef extern from *:
+    """
+    #ifdef MEMRAY_HAS_GHOST_STACK
+    constexpr bool _has_fast_unwind_support = true;
+    #else
+    constexpr bool _has_fast_unwind_support = false;
+    #endif
+    """
+    bool _has_fast_unwind_support
+
+
+def has_fast_unwind_support() -> bool:
+    """Check if fast_unwind support is available.
+
+    Returns True if memray was compiled with ghost_stack support,
+    which enables the fast_unwind option for native stack unwinding.
+    """
+    return _has_fast_unwind_support
 
 
 cdef extern from "<dlfcn.h>":

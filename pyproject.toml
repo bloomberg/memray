@@ -99,8 +99,14 @@ before-all = [
   "CFLAGS='-Wno-error -g -O3' CXXFLAGS='-Wno-error -g -O3' LDFLAGS=-lrt ./configure --enable-libdebuginfod --disable-debuginfod --disable-nls --with-zstd",
   "make install",
 
-  # Install Memray's other build and test dependencies
-  "yum install -y libunwind-devel",
+  # Build libunwind from source
+  "cd /",
+  "LIBUNWIND_VERS=1.8.3",
+  "/usr/bin/curl -LO https://github.com/libunwind/libunwind/releases/download/v$LIBUNWIND_VERS/libunwind-$LIBUNWIND_VERS.tar.gz",
+  "tar xf libunwind-$LIBUNWIND_VERS.tar.gz",
+  "cd libunwind-$LIBUNWIND_VERS",
+  "./configure --disable-minidebuginfo",
+  "make install",
 ]
 
 [tool.cibuildwheel.macos]
@@ -138,6 +144,9 @@ show_missing = true
 # Override the default linux before-all for musl linux
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
+# Exclude libgcc_s from bundling - it contains _Unwind_* symbols and having
+# multiple copies (bundled + system) breaks C++ exception handling.
+repair-wheel-command = "auditwheel repair --exclude libgcc_s.so.1 -w {dest_dir} {wheel}"
 before-all = [
   # Remove gettext-dev, which conficts with the musl-libintl, which is a build
   # dependency of elfutils.
@@ -161,5 +170,14 @@ before-all = [
   "apk add libintl",
 
   # Install Memray's other build and test dependencies
-  "apk add --update libunwind-dev lz4-dev"
+  "apk add --update lz4-dev",
+
+  # Build libunwind from source
+  "cd /",
+  "LIBUNWIND_VERS=1.8.3",
+  "curl -LO https://github.com/libunwind/libunwind/releases/download/v$LIBUNWIND_VERS/libunwind-$LIBUNWIND_VERS.tar.gz",
+  "tar xf libunwind-$LIBUNWIND_VERS.tar.gz",
+  "cd libunwind-$LIBUNWIND_VERS",
+  "./configure --disable-minidebuginfo",
+  "make install",
 ]
