@@ -766,6 +766,36 @@ class TestFlamegraphSubCommand:
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
+    def test_no_web_embeds_v4_d3_assets(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "flamegraph",
+                "--no-web",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        output_file = tmp_path / "memray-flamegraph-result.html"
+        html = output_file.read_text()
+        assert '<script src="https://' not in html
+        assert '<link rel="stylesheet" href="https://' not in html
+        assert "createPopper" not in html
+        assert 't.version="4.' in html
+
     def test_can_generate_reports_with_native_traces(self, tmp_path, simple_test_file):
         # GIVEN
         results_file, source_file = generate_sample_results(
