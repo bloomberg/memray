@@ -10,11 +10,11 @@
     "webpack-cli": "^4.7.0"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.7.5",
     "bootstrap": "4.6.0",
     "d3": "4.13.0",
     "d3-flame-graph": "4.0.6",
     "d3-scale-chromatic": "1.5.0",
-    "d3-tip": "0.9.1",
     "datatables.net": "1.11.3",
     "datatables.net-bs4": "1.10.23",
     "jquery": "3.6.0",
