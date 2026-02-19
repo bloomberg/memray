@@ -6,6 +6,7 @@ import {
   makeTooltipString,
   sumAllocations,
 } from "./common";
+import { autoUpdate, computePosition, flip, offset, shift } from "@floating-ui/dom";
 
 const FILTER_UNINTERESTING = "filter_uninteresting";
 const FILTER_IMPORT_SYSTEM = "filter_import_system";
@@ -34,6 +35,7 @@ class FilteredChart {
 }
 
 var chart = null;
+var flamegraphTooltip = null;
 let filteredChart = new FilteredChart();
 
 export function getFlamegraph() {
@@ -166,33 +168,104 @@ export function onFilterImportSystem() {
   filteredChart.drawChart(data);
 }
 
-// For determining values for the graph
+function getTooltipDirection(d) {
+  const midpoint = (d.x1 + d.x0) / 2;
+  // If the midpoint is in a reasonable location, put it below the element.
+  if (0.25 < midpoint && midpoint < 0.75) {
+    return "s";
+  }
+  // We're far from the right
+  if (d.x1 < 0.75) {
+    return "e";
+  }
+  // We're far from the left
+  if (d.x0 > 0.25) {
+    return "w";
+  }
+  // This shouldn't happen reasonably? If it does, just put it above and
+  // we'll deal with it later. :)
+  return "n";
+}
+
+function toPlacement(direction) {
+  if (direction === "s") {
+    return "bottom";
+  }
+  if (direction === "e") {
+    return "right";
+  }
+  if (direction === "w") {
+    return "left";
+  }
+  return "top";
+}
+
+// d3-flame-graph expects a callable tooltip object with show/hide methods.
 function getTooltip() {
-  let tip = d3
-    .tip()
-    .attr("class", "d3-flame-graph-tip")
-    .html((d) => {
-      const totalSize = humanFileSize(d.data.value);
-      return makeTooltipString(d.data, totalSize, merge_threads);
-    })
-    .direction((d) => {
-      const midpoint = (d.x1 + d.x0) / 2;
-      // If the midpoint is in a reasonable location, put it below the element.
-      if (0.25 < midpoint && midpoint < 0.75) {
-        return "s";
-      }
-      // We're far from the right
-      if (d.x1 < 0.75) {
-        return "e";
-      }
-      // We're far from the left
-      if (d.x0 > 0.25) {
-        return "w";
-      }
-      // This shouldn't happen reasonably? If it does, just put it above and
-      // we'll deal with it later. :)
-      return "n";
+  const tooltipElement = document.createElement("div");
+  tooltipElement.className = "d3-flame-graph-tip";
+  tooltipElement.style.position = "fixed";
+  tooltipElement.style.top = "0";
+  tooltipElement.style.left = "0";
+  tooltipElement.style.visibility = "hidden";
+  tooltipElement.style.pointerEvents = "none";
+  document.body.appendChild(tooltipElement);
+
+  let cleanupAutoUpdate = null;
+  let referenceElement = null;
+  let placement = "top";
+
+  const updatePosition = () => {
+    if (!referenceElement) {
+      return;
+    }
+    computePosition(referenceElement, tooltipElement, {
+      strategy: "fixed",
+      placement: placement,
+      middleware: [offset(6), flip(), shift({ padding: 8 })],
+    }).then(({ x, y }) => {
+      tooltipElement.style.left = `${x}px`;
+      tooltipElement.style.top = `${y}px`;
     });
+  };
+
+  const tip = function () {
+    return tip;
+  };
+
+  tip.show = (d, target) => {
+    if (!d || !target) {
+      return;
+    }
+    const totalSize = humanFileSize(d.data.value);
+    tooltipElement.innerHTML = makeTooltipString(d.data, totalSize, merge_threads);
+    placement = toPlacement(getTooltipDirection(d));
+    referenceElement = target;
+    tooltipElement.style.visibility = "visible";
+    // Replace any existing observer when quickly moving between frames
+    if (cleanupAutoUpdate) {
+      cleanupAutoUpdate();
+    }
+    // Keep the tooltip anchored while layout/scroll/resize changes happen
+    cleanupAutoUpdate = autoUpdate(referenceElement, tooltipElement, updatePosition);
+    updatePosition();
+  };
+
+  tip.hide = () => {
+    referenceElement = null;
+    tooltipElement.style.visibility = "hidden";
+    // Stop position observers once the tooltip is hidden
+    if (cleanupAutoUpdate) {
+      cleanupAutoUpdate();
+      cleanupAutoUpdate = null;
+    }
+  };
+
+  tip.destroy = () => {
+    tip.hide();
+    tooltipElement.remove();
+  };
+
   return tip;
 }
 
@@ -264,8 +337,14 @@ export function drawChart(chart_data) {
   // Clear any existing chart
   if (chart) {
     chart.destroy();
+    if (flamegraphTooltip) {
+      flamegraphTooltip.destroy();
+      flamegraphTooltip = null;
+    }
     d3.selectAll(".d3-flame-graph-tip").remove();
   }
+
+  flamegraphTooltip = getTooltip();
 
   // Create the chart
   chart = flamegraph()
@@ -281,7 +360,7 @@ export function drawChart(chart_data) {
     // set our custom handlers
     .setColorMapper(memrayColorMapper)
     .onClick(onClick)
-    .tooltip(getTooltip());
+    .tooltip(flamegraphTooltip);
 
   // Render the chart
   d3.select("#chart").datum(chart_data).call(chart);

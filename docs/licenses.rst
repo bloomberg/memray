@@ -361,13 +361,13 @@ d3-scale-chromatic
     CONDITIONS OF ANY KIND, either express or implied. See the License for the
     specific language governing permissions and limitations under the License.
 
-d3-tip
-------
+@floating-ui/dom
+----------------
 
 .. code-block:: text
 
     The MIT License (MIT)
-    Copyright (c) 2013 Justin Palmer
+    Copyright (c) 2021 Floating UI contributors
 
     Permission is hereby granted, free of charge, to any person obtaining
     a copy of this software and associated documentation files (the
