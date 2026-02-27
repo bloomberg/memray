@@ -95,13 +95,13 @@
 {% block scripts %}
 {{ super() }}
 {% if no_web %}
-<script type="text/javascript">{{ include_file("assets/vendor/d3.v4.min.js") }}</script>
-<script type="text/javascript">{{ include_file("assets/vendor/d3-scale-chromatic.v1.min.js") }}</script>
+<script type="text/javascript">{{ include_file("assets/vendor/d3.min.js") }}</script>
+<script type="text/javascript">{{ include_file("assets/vendor/d3-scale-chromatic.min.js") }}</script>
 <script type="text/javascript">{{ include_file("assets/vendor/d3-flamegraph.min.js") }}</script>
 {% else %}
-<script src="https://d3js.org/d3.v4.min.js" charset="utf-8"></script>
-<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@4.0.6/dist/d3-flamegraph.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3.1.0/dist/d3-scale-chromatic.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@4.1.3/dist/d3-flamegraph.min.js"></script>
 {% endif %}
 
 {% block flamegraph_script %}

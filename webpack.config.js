@@ -53,12 +53,12 @@ module.exports = {
           to: "vendor/plotly.min.js",
         },
         {
-          from: "node_modules/d3/build/d3.min.js",
-          to: "vendor/d3.v4.min.js",
+          from: "node_modules/d3/dist/d3.min.js",
+          to: "vendor/d3.min.js",
         },
         {
           from: "node_modules/d3-scale-chromatic/dist/d3-scale-chromatic.min.js",
-          to: "vendor/d3-scale-chromatic.v1.min.js",
+          to: "vendor/d3-scale-chromatic.min.js",
         },
         {
           from: "node_modules/d3-flame-graph/dist/d3-flamegraph.min.js",
