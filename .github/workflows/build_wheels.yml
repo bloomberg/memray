@@ -65,11 +65,11 @@ jobs:
             os: ubuntu-latest
             cibw_archs_linux: auto32
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: sdist
           path: dist
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: tests
           path: tests
@@ -105,11 +105,11 @@ jobs:
           - os: macos-14
             arch: arm64
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: sdist
           path: dist
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: tests
           path: tests
@@ -165,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           # with no name set, it downloads all of the artifacts
           path: dist
