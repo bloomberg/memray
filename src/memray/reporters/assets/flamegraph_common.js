@@ -6,7 +6,13 @@ import {
   makeTooltipString,
   sumAllocations,
 } from "./common";
-import { autoUpdate, computePosition, flip, offset, shift } from "@floating-ui/dom";
+import {
+  autoUpdate,
+  computePosition,
+  flip,
+  offset,
+  shift,
+} from "@floating-ui/dom";
 
 const FILTER_UNINTERESTING = "filter_uninteresting";
 const FILTER_IMPORT_SYSTEM = "filter_import_system";
@@ -238,7 +244,11 @@ function getTooltip() {
       return;
     }
     const totalSize = humanFileSize(d.data.value);
-    tooltipElement.innerHTML = makeTooltipString(d.data, totalSize, merge_threads);
+    tooltipElement.innerHTML = makeTooltipString(
+      d.data,
+      totalSize,
+      merge_threads,
+    );
     placement = toPlacement(getTooltipDirection(d));
     referenceElement = target;
     tooltipElement.style.visibility = "visible";
@@ -247,7 +257,11 @@ function getTooltip() {
       cleanupAutoUpdate();
     }
     // Keep the tooltip anchored while layout/scroll/resize changes happen
-    cleanupAutoUpdate = autoUpdate(referenceElement, tooltipElement, updatePosition);
+    cleanupAutoUpdate = autoUpdate(
+      referenceElement,
+      tooltipElement,
+      updatePosition,
+    );
     updatePosition();
   };
 
