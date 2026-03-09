@@ -4,6 +4,9 @@ import tempfile
 from pathlib import Path
 from textwrap import dedent
 from textwrap import indent
+from typing import Any
+from typing import Callable
+from typing import cast
 
 from IPython.core.error import UsageError
 from IPython.core.magic import Magics
@@ -28,6 +31,16 @@ with Tracker(
 ) as tracker:
 {code}
 """
+
+
+def _run_cell(shell: Any, code: str) -> None:
+    run_cell = cast(Callable[[str], Any], shell.run_cell)
+    run_cell(code)
+
+
+def _display_iframe(frame: IFrame) -> None:
+    show = cast(Callable[[IFrame], Any], display)
+    show(frame)
 
 
 def argument_parser() -> argparse.ArgumentParser:
@@ -155,7 +168,7 @@ class FlamegraphMagics(Magics):
             code=indent(cell, " " * 4),
             file_format=file_format,
         )
-        self.shell.run_cell(code)
+        _run_cell(self.shell, code)
 
         merge_threads = not options.split_threads
 
@@ -227,7 +240,7 @@ class FlamegraphMagics(Magics):
             )
         dump_file.unlink()
         pprint(f"Results saved to [bold cyan]{flamegraph_path}")
-        display(IFrame(flamegraph_path, width="100%", height="600"))
+        _display_iframe(IFrame(flamegraph_path, width="100%", height="600"))
 
 
 assert FlamegraphMagics.memray_flamegraph.__doc__ is not None
