@@ -3,7 +3,7 @@
   "private": true,
   "devDependencies": {
     "@babel/preset-env": "^7.14.7",
-    "copy-webpack-plugin": "^11.0.0",
+    "copy-webpack-plugin": "^14.0.0",
     "jest": "^27.0.1",
     "lodash": "^4.17.23",
     "webpack": "^5.105.2",
