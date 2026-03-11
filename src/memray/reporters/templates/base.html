@@ -101,7 +101,7 @@
           </button>
         </div>
         <div class="modal-body">
-          Command line: <code>{{ metadata.command_line }}</code><br>
+          Command line: <code>{{ metadata.command_line|e }}</code><br>
           Start time: <span id="stats-start-time"> {{ metadata.start_time }}</span><br>
           End time: <span id="stats-end-time"> {{ metadata.end_time }}</span><br>
           Duration: {{ metadata.end_time - metadata.start_time }}<br>
