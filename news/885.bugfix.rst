@@ -1,1 +1,0 @@
-Ensure the command line is properly HTML escaped when writing it into flamegraph and table reports.
