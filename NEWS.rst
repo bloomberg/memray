@@ -8,6 +8,18 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.19.2 (2026-03-12)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Add support for Python 3.14's tail call interpreter. Memray now correctly identifies Python frame boundaries in native stack traces when Python 3.14 is built with the tail call interpreter enabled (``--with-tail-call-interp``), recognizing LLVM-generated tail call functions alongside traditional ``_PyEval_EvalFrameDefault`` functions. (#836)
+- Prevent an ``AssertionError`` when the tracked process exits after the live TUI was closed. (#849)
+- Ensure the command line is properly HTML escaped when writing it into flamegraph and table reports. (#885)
+- Fix the ``--no-web`` option for ``memray flamegraph``, which was generating broken flame graphs. (#876)
+
+
 memray 1.19.1 (2025-09-29)
 --------------------------
 
