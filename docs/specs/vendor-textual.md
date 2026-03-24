@@ -181,6 +181,9 @@ These are pure-Python, stable, and low-risk.
   by vendoring script)
 - Pin the vendored Textual version in a config file (`vendor.cfg` or
   `[tool.vendoring]` in pyproject.toml)
+- Pin the newest Textual release that still supports Python 3.7. Treat Python
+  3.7 compatibility as a hard constraint for future vendor bumps unless memray
+  itself raises its minimum supported Python version
 
 ### 6. _textual_hacks.py
 **Eliminate.** Apply the compatibility fixes directly as patches to the vendored
@@ -202,6 +205,9 @@ Remove from the vendored Textual source:
 
 Keep all runtime code including unused widgets — avoids breaking internal
 transitive imports within Textual.
+
+Keep Textual's license file. Let the `vendoring` tool fetch and place it
+alongside the vendored package in `src/memray/_vendor/textual/`.
 
 ### 9. Dependency declaration changes
 
@@ -230,6 +236,11 @@ In both cases: remove `textual` from test requirements. Keep
 `pytest-textual-snapshot` pinned to a version compatible with the vendored
 Textual.
 
+Runtime dependency changes are independent from test-only dependencies. If
+`pytest-textual-snapshot` still requires a non-vendored `textual` import path,
+keep `textual` in test requirements until the plugin is patched, replaced, or
+explicitly proven to work against the vendored copy.
+
 ## Vendoring Tooling
 
 ### Approach: `vendoring` tool + custom script
@@ -254,14 +265,13 @@ drop = [
     "*.md",
     "*.rst",
     "*.txt",
-    "LICENSE*",
     "CHANGELOG*",
 ]
 ```
 
 ### Pin file (`vendor.txt`)
 ```
-textual==X.Y.Z
+textual==X.Y.Z         # newest release still supporting Python 3.7
 rich==A.B.C          # only if Option B (vendor rich)
 ```
 
@@ -285,8 +295,13 @@ Formal `.patch` files applied after copying and import rewriting:
 1. Update version in `vendor.txt`
 2. Run `make vendor-update`
 3. Update `pytest-textual-snapshot` pin if needed
-4. Regenerate snapshot SVGs (`pytest --snapshot-update`)
-5. Review diff, run tests, commit
+4. Build sdist and wheel (`python -m build`)
+5. Install the built wheel in a clean env and smoke-test importing the vendored
+   reporter modules
+6. Run at least one CSS/snapshot test from the wheel install to verify runtime
+   assets were packaged correctly
+7. Regenerate snapshot SVGs (`pytest --snapshot-update`)
+8. Review diff, run tests, commit
 
 ## Import Safety
 
@@ -309,54 +324,27 @@ Implementation: custom ruff rule or a simple grep-based pre-commit hook:
   --exclude-dir="_vendor"
 ```
 
-### Test-time import hook (conftest.py)
-Auto-loaded in the top-level `conftest.py`. Installs a `sys.meta_path` finder
-that **raises ImportError** if any code tries to import `textual` (non-vendored)
-during the test run:
-
-```python
-class VendorImportGuard:
-    """Prevent accidental imports of non-vendored textual."""
-
-    def find_module(self, fullname, path=None):
-        if fullname == "textual" or fullname.startswith("textual."):
-            raise ImportError(
-                f"Importing '{fullname}' directly is forbidden. "
-                f"Use 'memray._vendor.{fullname}' instead."
-            )
-        return None
-
-sys.meta_path.insert(0, VendorImportGuard())
-```
-
-This catches missed import rewrites in both vendored Textual internals and
-memray's own code.
-
 ## Test Changes
 
 ### Snapshot testing
 - Pin `pytest-textual-snapshot` to a version compatible with the vendored
   Textual version
 - Update both together when upgrading vendored Textual
-- Monkeypatch in `conftest.py`: before `pytest-textual-snapshot` loads, inject
-  the vendored textual into `sys.modules` so the plugin's `from textual...`
-  imports resolve to the vendored copy:
-
-```python
-import memray._vendor.textual as _vendored_textual
-sys.modules["textual"] = _vendored_textual
-# Also inject submodules as needed
-```
-
-**Note:** The monkeypatch and the VendorImportGuard are mutually exclusive —
-the monkeypatch must run first (or the guard must whitelist modules injected
-via the monkeypatch). Order them carefully in conftest.py: first do the
-sys.modules injection for test infrastructure, then install the guard to
-catch any other accidental imports.
+- Do not use `sys.modules` aliasing or an import hook to test rewrite
+  completeness
+- If the plugin still requires bare `textual` imports, keep `textual` as a
+  test-only dependency or patch/replace the plugin separately
 
 ### Reporter tests
 Update all `from textual...` imports in test files to use
 `from memray._vendor.textual...`.
+
+## Packaging
+
+- Include the full vendored Textual tree in source distributions:
+  `recursive-include src/memray/_vendor/textual *`
+- Verify wheel contents match the sdist and include non-Python runtime assets
+  such as CSS/TCSS files
 
 ## Mypy / Type Checking
 
