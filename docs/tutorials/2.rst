@@ -116,5 +116,3 @@ More resources:
   <https://pythonspeed.com/articles/function-calls-prevent-garbage-collection/>`_
 - Another `related article <https://pythonspeed.com/articles/minimizing-copying/>`_ about
   unnecessary memory allocation
-- A great `article <https://pythonsimplified.com/mutability-immutability-in-python/>`_ on mutability
-  and immutability in Python
