@@ -35,6 +35,7 @@ recursive-include src/vendor *
 recursive-include src/memray *.py
 recursive-include src/memray *.pyi
 recursive-include src/memray *.html *.js *.css
+recursive-include src/memray/_vendor/textual *
 recursive-include src/memray *.pyx *.pxd
 recursive-include src/memray *.gdb *.lldb
 recursive-include src/memray/_memray *
