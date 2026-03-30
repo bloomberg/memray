@@ -1,13 +1,42 @@
+import importlib
+import pkgutil
 import socket
 import sys
 
 import pytest
+import pytest_textual_snapshot as _pytest_textual_snapshot
 from packaging import version
 
+# Patch textual imports to avoid pytest-textual-snapshot loading it from the environment
+import memray._vendor.textual as _vendored_textual
+from memray._vendor.textual.app import App as _vendored_textual_app
+
+sys.modules["textual"] = _vendored_textual
+_pytest_textual_snapshot.App = _vendored_textual_app
+
+
+def _alias_vendored_textual_submodule(modname: str) -> None:
+    try:
+        mod = importlib.import_module(modname)
+    except Exception:
+        return
+    bare_name = modname.replace("memray._vendor.", "", 1)
+    sys.modules[bare_name] = mod
+
+
+# Also inject commonly used submodules that pytest-textual-snapshot accesses
+for _importer, _modname, _ispkg in pkgutil.walk_packages(
+    _vendored_textual.__path__,
+    prefix="memray._vendor.textual.",
+):
+    _alias_vendored_textual_submodule(_modname)
+
+
 SNAPSHOT_MINIMUM_VERSIONS = {
-    "textual": "6.8.0",
     "pytest-textual-snapshot": "1.1.0",
 }
+
+VENDORED_TEXTUAL_VERSION = _vendored_textual.__version__
 
 
 @pytest.fixture
@@ -20,11 +49,10 @@ def free_port():
 
 
 def _snapshot_skip_reason():
-    if sys.version_info < (3, 8):
-        # Every version available for 3.7 is too old
-        return f"snapshot tests require textual>={SNAPSHOT_MINIMUM_VERSIONS['textual']}"
+    if sys.version_info < (3, 9):
+        return "snapshot tests require Python >= 3.9"
 
-    from importlib import metadata  # Added in 3.8
+    from importlib import metadata
 
     for lib, min_ver in SNAPSHOT_MINIMUM_VERSIONS.items():
         try:
@@ -40,7 +68,7 @@ def _snapshot_skip_reason():
 
 def pytest_configure(config):
     if config.option.update_snapshots:
-        from importlib import metadata  # Added in 3.8
+        from importlib import metadata
 
         for lib, min_ver in SNAPSHOT_MINIMUM_VERSIONS.items():
             ver = version.parse(metadata.version(lib))

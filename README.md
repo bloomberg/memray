@@ -119,6 +119,28 @@ pre-commit install
 
 This will ensure that your contribution passes our linting checks.
 
+# Vendoring Textual
+
+Memray vendors Textual under `src/memray/_vendor/textual`.
+
+To bump Textual:
+
+```shell
+# 1) Update pins
+# - vendor.txt: textual==<new-version>
+# - tools/vendoring/patches/textual-version.patch: __version__ = "<new-version>"
+# - setup.py test_requires: textual==<new-version>
+
+# 2) Regenerate vendored tree
+make vendor-update
+
+# 3) Verify version consistency checks
+python3 tools/check_vendor_versions.py
+```
+
+CI (`.github/workflows/build.yml`, `check_generated_files`) reruns vendoring
+and `tools/check_vendor_versions.py`, then fails if generated files drift.
+
 # Documentation
 
 You can find the latest documentation available [here](https://bloomberg.github.io/memray/).
