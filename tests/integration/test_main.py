@@ -1246,23 +1246,32 @@ class TestTableSubCommand:
         assert output_file.exists()
         assert str(source_file) in output_file.read_text()
 
-    def test_no_split_threads(self, tmp_path):
-        # GIVEN/WHEN/THEN
-        with pytest.raises(subprocess.CalledProcessError):
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "memray",
-                    "table",
-                    "--split-threads",
-                    "somefile",
-                ],
-                cwd=str(tmp_path),
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+    def test_split_threads(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, source_file = generate_sample_results(
+            tmp_path, simple_test_file, native=True
+        )
+
+        # WHEN
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "table",
+                "--split-threads",
+                str(results_file),
+            ],
+            cwd=str(tmp_path),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        output_file = tmp_path / "memray-table-result.html"
+        assert output_file.exists()
+        assert str(source_file) in output_file.read_text()
 
 
 class TestReporterSubCommands:

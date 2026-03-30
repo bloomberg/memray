@@ -33,7 +33,10 @@ class TableReporter:
         native_traces: bool,
         **kwargs: Any,
     ) -> "TableReporter":
-        result = []
+        # Aggregate records that share the same displayed fields, since the
+        # table only shows the top stack frame and records with different full
+        # call stacks can map to the same displayed row.
+        aggregated: Dict[tuple, Dict[str, Any]] = {}
         for record in allocations:
             stack_trace = (
                 list(record.hybrid_stack_trace(max_stacks=1))
@@ -46,17 +49,21 @@ class TableReporter:
                 stack = f"{function} at {file}:{line}"
 
             allocator = AllocatorType(record.allocator)
-            result.append(
-                {
-                    "tid": format_thread_name(record),
+            tid = format_thread_name(record)
+            key = (tid, allocator.name.lower(), stack)
+            if key in aggregated:
+                aggregated[key]["size"] += record.size
+                aggregated[key]["n_allocations"] += record.n_allocations
+            else:
+                aggregated[key] = {
+                    "tid": tid,
                     "size": record.size,
                     "allocator": allocator.name.lower(),
                     "n_allocations": record.n_allocations,
                     "stack_trace": html.escape(stack),
                 }
-            )
 
-        return cls(result, memory_records=memory_records)
+        return cls(list(aggregated.values()), memory_records=memory_records)
 
     def render(
         self,
@@ -67,8 +74,6 @@ class TableReporter:
         inverted: bool,
         no_web: bool = False,
     ) -> None:
-        if not merge_threads:
-            raise NotImplementedError("TableReporter only supports merged threads.")
         if inverted:
             raise NotImplementedError(
                 "TableReporter does not support inverted argument"

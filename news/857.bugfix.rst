@@ -1,0 +1,3 @@
+Deduplicate rows in the table reporter that had identical displayed fields but
+different underlying call stacks. Also add a ``--split-threads`` option to the
+table reporter, matching the flamegraph reporter's existing option.
