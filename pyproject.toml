@@ -18,6 +18,7 @@ extra=['mypy', 'bump2version', 'towncrier', 'prek', 'vendoring', {include-group 
 line-length = 95
 select = ["C4", "E", "F", "I001", "PERF", "W"]
 fix = true
+exclude = ["src/memray/_vendor"]
 
 [tool.ruff.isort]
 force-single-line = true
@@ -64,10 +65,10 @@ ignore = [
 ]
 
 [tool.mypy]
-exclude="tests/integration/(native_extension|multithreaded_extension)/"
+exclude = "tests/integration/(native_extension|multithreaded_extension)/|_vendor/"
 
 [tool.cibuildwheel]
-build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+build = ["cp39-*", "cp310-*", "cp311-*"]
 skip = "*musllinux*{i686,aarch64}*"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
@@ -125,6 +126,7 @@ before-test = [
 destination = "src/memray/_vendor/"
 requirements = "vendor.txt"
 namespace = "memray._vendor"
+protected-files = ["__init__.py"]
 patches-dir = "tools/vendoring/patches"
 
 [tool.vendoring.transformations]
@@ -137,6 +139,7 @@ drop = [
     "*.txt",
     "CHANGELOG*",
 ]
+
 [tool.coverage.run]
 plugins = [
   "Cython.Coverage",
@@ -149,6 +152,7 @@ branch = true
 parallel = true
 omit = [
   "*__init__.py",
+  "src/memray/_vendor/*",
 ]
 
 [tool.coverage.report]
