@@ -109,6 +109,7 @@ lint_requires = [
     "isort",
     "mypy",
     "check-manifest",
+    "vendoring",
 ]
 
 test_requires = [

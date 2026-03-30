@@ -116,6 +116,22 @@ before-test = [
   "codesign --remove-signature /Library/Frameworks/Python.framework/Versions/*/Resources/Python.app/Contents/MacOS/Python || true",
 ]
 
+[tool.vendoring]
+destination = "src/memray/_vendor/"
+requirements = "vendor.txt"
+namespace = "memray._vendor"
+patches-dir = "tools/vendoring/patches"
+
+[tool.vendoring.transformations]
+drop = [
+    "tests/",
+    "docs/",
+    "examples/",
+    "*.md",
+    "*.rst",
+    "*.txt",
+    "CHANGELOG*",
+]
 [tool.coverage.run]
 plugins = [
   "Cython.Coverage",
