@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import functools
 import linecache
 import sys
@@ -15,31 +16,27 @@ from typing import Tuple
 
 from rich.style import Style
 from rich.text import Text
-from textual import binding
-from textual import work
-from textual.app import App
-from textual.app import ComposeResult
-from textual.binding import Binding
-from textual.color import Color
-from textual.color import Gradient
-from textual.containers import Grid
-from textual.containers import Horizontal
-from textual.containers import Vertical
-from textual.dom import DOMNode
-from textual.reactive import reactive
-from textual.screen import Screen
-from textual.widget import Widget
-from textual.widgets import Footer
-from textual.widgets import Label
-from textual.widgets import TextArea
-from textual.widgets import Tree
-from textual.widgets.tree import TreeNode
 
 from memray import AllocationRecord
 from memray._memray import size_fmt
-from memray.reporters._textual_hacks import Bindings
-from memray.reporters._textual_hacks import redraw_footer
-from memray.reporters._textual_hacks import update_key_description
+from memray._vendor.textual import work
+from memray._vendor.textual.app import App
+from memray._vendor.textual.app import ComposeResult
+from memray._vendor.textual.binding import ActiveBinding
+from memray._vendor.textual.binding import Binding
+from memray._vendor.textual.color import Color
+from memray._vendor.textual.color import Gradient
+from memray._vendor.textual.containers import Grid
+from memray._vendor.textual.containers import Horizontal
+from memray._vendor.textual.containers import Vertical
+from memray._vendor.textual.reactive import reactive
+from memray._vendor.textual.screen import Screen
+from memray._vendor.textual.widget import Widget
+from memray._vendor.textual.widgets import Footer
+from memray._vendor.textual.widgets import Label
+from memray._vendor.textual.widgets import TextArea
+from memray._vendor.textual.widgets import Tree
+from memray._vendor.textual.widgets.tree import TreeNode
 from memray.reporters.common import format_thread_name
 from memray.reporters.frame_tools import is_cpython_internal
 from memray.reporters.frame_tools import is_frame_from_import_system
@@ -51,6 +48,16 @@ MAX_STACKS = int(sys.getrecursionlimit() // 2.5)
 StackElement = Tuple[str, str, int]
 
 ROOT_NODE = ("<ROOT>", "", 0)
+
+
+def _ensure_event_loop() -> None:
+    # Vendored Textual may create asyncio.Lock during widget/screen init
+    # (via textual.rlock). App objects can be constructed before a current
+    # loop exists, so bootstrap one to avoid runtime failures.
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
 
 
 @dataclass
@@ -369,7 +376,7 @@ class TreeScreen(Screen[None]):
         else:
             self.import_system_filter = None
 
-        redraw_footer(self.app)
+        self.app.screen.query_one(Footer).refresh(recompose=True)
         self.repopulate_tree(self.query_one(FrameTree))
 
     def action_toggle_uninteresting(self) -> None:
@@ -378,17 +385,27 @@ class TreeScreen(Screen[None]):
         else:
             self.uninteresting_filter = None
 
-        redraw_footer(self.app)
+        self.app.screen.query_one(Footer).refresh(recompose=True)
         self.repopulate_tree(self.query_one(FrameTree))
 
-    def rewrite_bindings(self, bindings: Bindings) -> None:
+    def rewrite_bindings(self, bindings: Dict[str, ActiveBinding]) -> None:
         if self.import_system_filter is not None:
-            update_key_description(bindings, "i", "Show import system")
+            ab = bindings["i"]
+            bindings["i"] = ab._replace(
+                binding=dataclasses.replace(
+                    ab.binding, description="Show import system"
+                )
+            )
         if self.uninteresting_filter is not None:
-            update_key_description(bindings, "u", "Show uninteresting")
+            ab = bindings["u"]
+            bindings["u"] = ab._replace(
+                binding=dataclasses.replace(
+                    ab.binding, description="Show uninteresting"
+                )
+            )
 
     @property
-    def active_bindings(self) -> Dict[str, "binding.ActiveBinding"]:
+    def active_bindings(self) -> Dict[str, ActiveBinding]:
         bindings = super().active_bindings.copy()
         self.rewrite_bindings(bindings)
         return bindings
@@ -400,19 +417,12 @@ class TreeApp(App[None]):
         data: Frame,
         elided_locations: ElidedLocations,
     ):
+        _ensure_event_loop()
         super().__init__()
         self.tree_screen = TreeScreen(data, elided_locations)
 
     def on_mount(self) -> None:
         self.push_screen(self.tree_screen)
-
-    if hasattr(App, "namespace_bindings"):
-        # Removed in Textual 0.61
-        @property
-        def namespace_bindings(self) -> Dict[str, Tuple[DOMNode, Binding]]:
-            bindings = super().namespace_bindings.copy()  # type: ignore[misc]
-            self.tree_screen.rewrite_bindings(bindings)
-            return bindings  # type: ignore[no-any-return]
 
 
 @functools.lru_cache(maxsize=None)

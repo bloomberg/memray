@@ -10,7 +10,7 @@ requires = [
 build-backend = 'setuptools.build_meta'
 
 [dependency-groups]
-test=['Cython', 'coverage[toml]', "greenlet; python_version < '3.14'", 'pytest', 'pytest-cov', 'ipython', 'setuptools', 'pkgconfig', 'pytest-textual-snapshot', 'textual >= 0.43, != 0.65.2, != 0.66', 'packaging']
+test=['Cython', 'coverage[toml]', "greenlet; python_version < '3.14'", 'pytest', 'pytest-cov', 'ipython', 'setuptools', 'pkgconfig', 'pytest-textual-snapshot', 'textual==8.2.1', 'packaging']
 docs=['IPython', 'sphinx', 'sphinx-autobuild', 'sphinx-argparse', 'furo']
 extra=['mypy', 'bump2version', 'towncrier', 'prek', 'vendoring', {include-group = "docs"}]
 

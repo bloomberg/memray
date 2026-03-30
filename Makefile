@@ -37,6 +37,7 @@ ENV :=
 .PHONY: vendor-update
 vendor-update:  ## Update vendored dependencies (Textual)
 	$(PYTHON) -m vendoring sync .
+
 .PHONY: build
 build: build-js build-vendor build-ext  ## (default) Build package extensions, JS assets, and vendor assets in-place
 
