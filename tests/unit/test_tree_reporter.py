@@ -13,12 +13,12 @@ from typing import Tuple
 from unittest.mock import patch
 
 import pytest
-from textual.pilot import Pilot
-from textual.widgets import Tree
-from textual.widgets.tree import TreeNode
 
 from memray import AllocationRecord
 from memray import AllocatorType
+from memray._vendor.textual.pilot import Pilot
+from memray._vendor.textual.widgets import Tree
+from memray._vendor.textual.widgets.tree import TreeNode
 from memray.reporters.tree import MAX_STACKS
 from memray.reporters.tree import Frame
 from memray.reporters.tree import TreeReporter

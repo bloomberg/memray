@@ -22,8 +22,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -qy npm git
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install -r requirements-extra.txt
       - name: Check if files are up to date
-        run: make build-js
+        run: |
+          make build-js
+          make vendor-update
+          python3 tools/check_vendor_versions.py
       - name: Check for changes
         run: |
           git add -u

@@ -12,16 +12,16 @@ from typing import cast
 
 import pytest
 from rich import print as rprint
-from textual.app import App
-from textual.coordinate import Coordinate
-from textual.pilot import Pilot
-from textual.widget import Widget
-from textual.widgets import DataTable
-from textual.widgets import Label
 
 import memray.reporters.tui
 from memray import AllocationRecord
 from memray import AllocatorType
+from memray._vendor.textual.app import App
+from memray._vendor.textual.coordinate import Coordinate
+from memray._vendor.textual.pilot import Pilot
+from memray._vendor.textual.widget import Widget
+from memray._vendor.textual.widgets import DataTable
+from memray._vendor.textual.widgets import Label
 from memray.reporters.tui import Location
 from memray.reporters.tui import MemoryGraph
 from memray.reporters.tui import Snapshot
