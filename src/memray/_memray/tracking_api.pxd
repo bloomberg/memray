@@ -1,5 +1,6 @@
 from _memray.record_writer cimport RecordWriter
 from cpython cimport PyObject
+from libc.stddef cimport size_t
 from libc.stdint cimport uint64_t
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
@@ -8,6 +9,8 @@ from libcpp.unordered_set cimport unordered_set
 
 
 cdef extern from "tracking_api.h" namespace "memray::tracking_api":
+    bool getRSSFromProcStatus(const string& proc_status, size_t* rss_in_bytes)
+
     void set_up_pthread_fork_handlers() except+
     void install_trace_function() except*
 
