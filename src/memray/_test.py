@@ -50,12 +50,19 @@ class MemoryAllocator:
         return self.allocator.run_in_pthread(callback)
 
 
+def rss_from_proc_status(proc_status: str) -> int:
+    from ._memray import _rss_from_proc_status_for_testing
+
+    return _rss_from_proc_status_for_testing(proc_status)
+
+
 __all__ = [
     "allocate_cpp_vector",
     "MemoryAllocator",
     "MmapAllocator",
     "PymallocDomain",
     "PymallocMemoryAllocator",
+    "rss_from_proc_status",
     "_cython_allocate_in_two_places",
     "_cython_nested_allocation",
     "allocate_without_gil_held",

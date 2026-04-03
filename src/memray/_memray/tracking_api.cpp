@@ -50,9 +50,34 @@ get_executable()
 }
 
 static bool
-starts_with(const std::string& haystack, const std::string_view& needle)
+starts_with(const std::string_view& haystack, const std::string_view& needle)
 {
     return haystack.compare(0, needle.size(), needle) == 0;
+}
+
+static bool
+parse_proc_status_value_in_kb(
+        const std::string& proc_status,
+        const std::string_view& field_name,
+        size_t* value_in_kb)
+{
+    size_t line_start = 0;
+    while (line_start < proc_status.size()) {
+        size_t line_end = proc_status.find('\n', line_start);
+        if (line_end == std::string::npos) {
+            line_end = proc_status.size();
+        }
+
+        std::string_view line = std::string_view(proc_status).substr(line_start, line_end - line_start);
+        if (starts_with(line, field_name)
+            && sscanf(proc_status.c_str() + line_start + field_name.size(), "%zu kB", value_in_kb) == 1)
+        {
+            return true;
+        }
+
+        line_start = line_end + 1;
+    }
+    return false;
 }
 #endif
 
@@ -85,6 +110,27 @@ Py_ssize_t s_extra_index = -1;
 }  // namespace
 
 namespace memray::tracking_api {
+
+bool
+getRSSFromProcStatus(const std::string& proc_status, size_t* rss_in_bytes)
+{
+#ifdef __linux__
+    size_t rss_in_kb;
+    if (!parse_proc_status_value_in_kb(proc_status, "VmRSS:", &rss_in_kb)) {
+        return false;
+    }
+
+    size_t hugetlb_in_kb;
+    if (parse_proc_status_value_in_kb(proc_status, "HugetlbPages:", &hugetlb_in_kb)) {
+        rss_in_kb += hugetlb_in_kb;
+    }
+
+    *rss_in_bytes = rss_in_kb * 1024;
+    return true;
+#else
+    return false;
+#endif
+}
 
 #ifdef __linux__
 MEMRAY_FAST_TLS thread_local bool RecursionGuard::_isActive = false;
@@ -896,9 +942,9 @@ Tracker::BackgroundThread::BackgroundThread(
 , d_memory_interval(memory_interval)
 {
 #ifdef __linux__
-    d_procs_statm.open("/proc/self/statm");
+    d_procs_statm.open("/proc/self/status");
     if (!d_procs_statm) {
-        throw IoError{"Failed to open /proc/self/statm"};
+        throw IoError{"Failed to open /proc/self/status"};
     }
 #endif
 }
@@ -915,23 +961,20 @@ size_t
 Tracker::BackgroundThread::getRSS() const
 {
 #ifdef __linux__
-    static long pagesize = sysconf(_SC_PAGE_SIZE);
-    constexpr int max_unsigned_long_chars = std::numeric_limits<unsigned long>::digits10 + 1;
-    constexpr int bufsize = (max_unsigned_long_chars + sizeof(' ')) * 2;
-    char buffer[bufsize];
-    d_procs_statm.read(buffer, sizeof(buffer) - 1);
-    buffer[d_procs_statm.gcount()] = '\0';
+    std::string proc_status{
+            std::istreambuf_iterator<char>(d_procs_statm),
+            std::istreambuf_iterator<char>()};
     d_procs_statm.clear();
     d_procs_statm.seekg(0);
 
-    size_t rss;
-    if (sscanf(buffer, "%*u %zu", &rss) != 1) {
-        std::cerr << "WARNING: Failed to read RSS value from /proc/self/statm" << std::endl;
+    size_t rss_in_bytes;
+    if (!getRSSFromProcStatus(proc_status, &rss_in_bytes)) {
+        std::cerr << "WARNING: Failed to read RSS value from /proc/self/status" << std::endl;
         d_procs_statm.close();
         return 0;
     }
 
-    return rss * pagesize;
+    return rss_in_bytes;
 #elif defined(__APPLE__)
     struct mach_task_basic_info info;
     mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;

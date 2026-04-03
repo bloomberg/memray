@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_set>
 
@@ -42,6 +43,9 @@
 #endif
 
 namespace memray::tracking_api {
+
+bool
+getRSSFromProcStatus(const std::string& proc_status, size_t* rss_in_bytes);
 
 struct RecursionGuard
 {

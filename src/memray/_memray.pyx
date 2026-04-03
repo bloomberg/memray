@@ -61,6 +61,7 @@ from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
 from _memray.tracking_api cimport RecursionGuard
 from _memray.tracking_api cimport Tracker as NativeTracker
+from _memray.tracking_api cimport getRSSFromProcStatus
 from _memray.tracking_api cimport install_trace_function
 from _memray.tracking_api cimport set_up_pthread_fork_handlers
 from cpython cimport Py_DECREF
@@ -1684,6 +1685,15 @@ cdef extern from "<dlfcn.h>":
 
 RTLD_NOW = _RTLD_NOW
 RTLD_DEFAULT = <long long>_RTLD_DEFAULT
+
+
+def _rss_from_proc_status_for_testing(str proc_status):
+    cdef cppstring encoded_proc_status = proc_status.encode("utf-8")
+    cdef size_t rss_in_bytes
+
+    if not getRSSFromProcStatus(encoded_proc_status, &rss_in_bytes):
+        raise ValueError("Failed to parse VmRSS from proc status")
+    return rss_in_bytes
 
 
 cdef extern from "snapshot.h":
