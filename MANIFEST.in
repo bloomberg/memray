@@ -27,6 +27,7 @@ include .bumpversion.cfg
 include .babelrc
 include webpack.config.js
 include NEWS.rst
+include KEYS
 include .flake8
 include src/memray/py.typed
 include .pre-commit-config.yaml
