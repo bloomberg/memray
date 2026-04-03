@@ -1,0 +1,1 @@
+Include Linux HugeTLB memory in memray's RSS snapshots by adding ``HugetlbPages`` from ``/proc/<pid>/status`` to ``VmRSS``. This makes resident-memory graphs and memory snapshot records account for huge pages that the kernel reports separately from normal RSS.
