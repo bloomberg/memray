@@ -1,14 +1,19 @@
 import argparse
 import importlib.util
+import os
 import shutil
 import sys
 
 from rich import print as pprint
 
+from memray import FileReader
 from memray._errors import MemrayCommandError
+from memray._memray import FileFormat
 
 from ..reporters.transform import TransformReporter
 from .common import HighWatermarkCommand
+from .common import warn_if_file_is_not_aggregated_and_is_too_big
+from .common import warn_if_not_enough_symbols
 
 
 class TransformCommand(HighWatermarkCommand):
@@ -72,3 +77,103 @@ class TransformCommand(HighWatermarkCommand):
         print()
         print("To generate a graph from the transform file, run for example:")
         print(f"{command} -f json {self.output_file} | dot -Tpng -o output.png")
+
+    def write_report(
+        self,
+        result_path,
+        output_file,
+        show_memory_leaks,
+        temporary_allocation_threshold,
+        merge_threads=None,
+        inverted=None,
+        temporal=False,
+        max_memory_records=None,
+        no_web=False,
+    ) -> None:
+        if self.reporter_name != "speedscope":
+            return super().write_report(
+                result_path=result_path,
+                output_file=output_file,
+                show_memory_leaks=show_memory_leaks,
+                temporary_allocation_threshold=temporary_allocation_threshold,
+                merge_threads=merge_threads,
+                inverted=inverted,
+                temporal=temporal,
+                max_memory_records=max_memory_records,
+                no_web=no_web,
+            )
+
+        try:
+            kwargs = {}
+            if max_memory_records is not None:
+                kwargs["max_memory_records"] = max_memory_records
+            reader = FileReader(os.fspath(result_path), report_progress=True, **kwargs)
+            merge_threads = True if merge_threads is None else merge_threads
+            inverted = False if inverted is None else inverted
+
+            if reader.metadata.has_native_traces:
+                warn_if_not_enough_symbols()
+
+            if not temporal and temporary_allocation_threshold < 0:
+                warn_if_file_is_not_aggregated_and_is_too_big(reader, result_path)
+
+            memory_records = tuple(reader.get_memory_snapshots())
+            reporter_kwargs = {
+                "memory_records": memory_records,
+                "native_traces": reader.metadata.has_native_traces,
+            }
+
+            use_temporal_fallback = (
+                reader.metadata.file_format == FileFormat.ALL_ALLOCATIONS
+                and not reader.metadata.has_allocation_timestamps
+                and temporary_allocation_threshold < 0
+            )
+
+            if use_temporal_fallback:
+                if show_memory_leaks:
+                    allocations = reader.get_temporal_allocation_records(
+                        merge_threads=merge_threads
+                    )
+                    reporter = self.reporter_factory(allocations, **reporter_kwargs)
+                else:
+                    (
+                        allocations,
+                        high_water_mark_by_snapshot,
+                    ) = reader.get_temporal_high_water_mark_allocation_records(
+                        merge_threads=merge_threads
+                    )
+                    reporter = self.reporter_factory(
+                        allocations,
+                        high_water_mark_by_snapshot=high_water_mark_by_snapshot,
+                        **reporter_kwargs,
+                    )
+            else:
+                if show_memory_leaks:
+                    allocations = reader.get_leaked_allocation_records(
+                        merge_threads=merge_threads
+                    )
+                elif temporary_allocation_threshold >= 0:
+                    allocations = reader.get_temporary_allocation_records(
+                        threshold=temporary_allocation_threshold,
+                        merge_threads=merge_threads,
+                    )
+                else:
+                    allocations = reader.get_high_watermark_allocation_records(
+                        merge_threads=merge_threads
+                    )
+                reporter = self.reporter_factory(allocations, **reporter_kwargs)
+        except OSError as e:
+            raise MemrayCommandError(
+                f"Failed to parse allocation records in {result_path}\nReason: {e}",
+                exit_code=1,
+            )
+
+        with open(os.fspath(output_file.expanduser()), "w") as f:
+            reporter.render(
+                outfile=f,
+                metadata=reader.metadata,
+                show_memory_leaks=show_memory_leaks,
+                merge_threads=merge_threads,
+                inverted=inverted,
+                no_web=no_web,
+            )

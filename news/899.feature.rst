@@ -1,0 +1,4 @@
+Add ``allocation_timestamps`` support to ``Tracker`` and a ``speedscope``
+output format for ``memray transform``. Speedscope exports now fall back to
+temporal allocation records to preserve chronological ordering when a capture
+does not include per-allocation timestamps.

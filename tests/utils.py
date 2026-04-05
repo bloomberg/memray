@@ -87,6 +87,25 @@ class MockAllocationRecord(_MockStackTraceMixin):
     timestamp_us: int = 0
 
 
+@dataclass
+class MockInterval:
+    allocated_before_snapshot: int
+    deallocated_before_snapshot: Optional[int]
+    n_allocations: int
+    n_bytes: int
+
+
+@dataclass
+class MockTemporalAllocationRecord(_MockStackTraceMixin):
+    tid: int
+    allocator: AllocatorType
+    stack_id: int
+    intervals: List[MockInterval]
+    _stack: Optional[List[Tuple[str, str, int]]] = None
+    _hybrid_stack: Optional[List[Tuple[str, str, int]]] = None
+    thread_name: str = ""
+
+
 @contextmanager
 def run_without_tracer():
     """Fixture to run a test without custom tracer or profiling."""

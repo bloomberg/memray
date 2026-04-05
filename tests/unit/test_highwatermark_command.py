@@ -12,6 +12,7 @@ import pytest
 from memray._errors import MemrayCommandError
 from memray._memray import FileFormat
 from memray.commands.common import HighWatermarkCommand
+from memray.commands.transform import TransformCommand
 
 
 class TestFilenameValidation:
@@ -244,4 +245,74 @@ class TestReportGeneration:
         reader_mock.assert_has_calls(calls)
 
         reporter_factory_mock.assert_called_once()
+        reporter_factory_mock().render.assert_called_once()
+
+
+class TestTransformSpeedscopeFallback:
+    def test_uses_temporal_high_water_mark_without_exact_timestamps(self, tmp_path):
+        reporter_factory_mock = Mock()
+        command = TransformCommand()
+        command.reporter_name = "speedscope"
+        command.reporter_factory = reporter_factory_mock
+        result_path = tmp_path / "results.bin"
+        output_file = tmp_path / "output.txt"
+        result_path.touch()
+
+        with patch("memray.commands.transform.FileReader") as reader_mock:
+            reader_mock.return_value.metadata.has_native_traces = False
+            reader_mock.return_value.metadata.file_format = FileFormat.ALL_ALLOCATIONS
+            reader_mock.return_value.metadata.has_allocation_timestamps = False
+            reader_mock.return_value.get_memory_snapshots.return_value = ["memory"]
+            (
+                reader_mock.return_value.get_temporal_high_water_mark_allocation_records.return_value
+            ) = ("temporal", [0, 1])
+
+            command.write_report(
+                result_path=result_path,
+                output_file=output_file,
+                show_memory_leaks=False,
+                temporary_allocation_threshold=-1,
+            )
+
+        reader_mock.return_value.get_temporal_high_water_mark_allocation_records.assert_called_once_with(
+            merge_threads=True
+        )
+        reader_mock.return_value.get_high_watermark_allocation_records.assert_not_called()
+        reporter_factory_mock.assert_called_once_with(
+            "temporal",
+            high_water_mark_by_snapshot=[0, 1],
+            memory_records=("memory",),
+            native_traces=False,
+        )
+        reporter_factory_mock().render.assert_called_once()
+
+    def test_uses_snapshot_high_water_mark_with_exact_timestamps(self, tmp_path):
+        reporter_factory_mock = Mock()
+        command = TransformCommand()
+        command.reporter_name = "speedscope"
+        command.reporter_factory = reporter_factory_mock
+        result_path = tmp_path / "results.bin"
+        output_file = tmp_path / "output.txt"
+        result_path.touch()
+
+        with patch("memray.commands.transform.FileReader") as reader_mock:
+            reader_mock.return_value.metadata.has_native_traces = False
+            reader_mock.return_value.metadata.file_format = FileFormat.ALL_ALLOCATIONS
+            reader_mock.return_value.metadata.has_allocation_timestamps = True
+            reader_mock.return_value.get_memory_snapshots.return_value = ["memory"]
+            reader_mock.return_value.get_high_watermark_allocation_records.return_value = (
+                "snapshot"
+            )
+
+            command.write_report(
+                result_path=result_path,
+                output_file=output_file,
+                show_memory_leaks=False,
+                temporary_allocation_threshold=-1,
+            )
+
+        reader_mock.return_value.get_high_watermark_allocation_records.assert_called_once_with(
+            merge_threads=True
+        )
+        reader_mock.return_value.get_temporal_high_water_mark_allocation_records.assert_not_called()
         reporter_factory_mock().render.assert_called_once()

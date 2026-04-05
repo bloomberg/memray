@@ -4,11 +4,14 @@ from datetime import datetime
 from io import StringIO
 
 from memray import AllocatorType
+from memray import MemorySnapshot
 from memray import Metadata
 from memray import __version__
 from memray._memray import FileFormat
 from memray.reporters.transform import TransformReporter
 from tests.utils import MockAllocationRecord
+from tests.utils import MockInterval
+from tests.utils import MockTemporalAllocationRecord
 
 
 class TestGprof2DotTransformReporter:
@@ -436,7 +439,10 @@ class TestSpeedscopeTransformReporter:
         output = StringIO()
 
         reporter = TransformReporter(
-            peak_allocations, format="speedscope", memory_records=[], native_traces=False
+            peak_allocations,
+            format="speedscope",
+            memory_records=[],
+            native_traces=False,
         )
 
         reporter.render_as_speedscope(output)
@@ -482,7 +488,10 @@ class TestSpeedscopeTransformReporter:
         output = StringIO()
 
         reporter = TransformReporter(
-            peak_allocations, format="speedscope", memory_records=[], native_traces=False
+            peak_allocations,
+            format="speedscope",
+            memory_records=[],
+            native_traces=False,
         )
 
         reporter.render_as_speedscope(output)
@@ -521,7 +530,10 @@ class TestSpeedscopeTransformReporter:
         peak_allocations[1].timestamp_us = 10
 
         reporter = TransformReporter(
-            peak_allocations, format="speedscope", memory_records=[], native_traces=False
+            peak_allocations,
+            format="speedscope",
+            memory_records=[],
+            native_traces=False,
         )
         output = StringIO()
 
@@ -554,3 +566,75 @@ class TestSpeedscopeTransformReporter:
         assert output_data["profiles"][0]["weights"] == [2048, 1024]
         assert output_data["profiles"][1]["samples"] == [[1], [0]]
         assert output_data["profiles"][1]["weights"] == [2, 1]
+
+    def test_temporal_fallback_orders_by_snapshot_time(self):
+        allocations = [
+            MockTemporalAllocationRecord(
+                tid=1,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                intervals=[MockInterval(1, None, 1, 200)],
+                _stack=[("later", "later.py", 20)],
+            ),
+            MockTemporalAllocationRecord(
+                tid=1,
+                allocator=AllocatorType.CALLOC,
+                stack_id=2,
+                intervals=[MockInterval(0, None, 1, 100)],
+                _stack=[("earlier", "earlier.py", 10)],
+            ),
+        ]
+        reporter = TransformReporter(
+            allocations,
+            format="speedscope",
+            memory_records=[
+                MemorySnapshot(100, 0, 0),
+                MemorySnapshot(110, 0, 0),
+            ],
+            native_traces=False,
+            high_water_mark_by_snapshot=[100, 300],
+        )
+        output = StringIO()
+
+        reporter.render_as_speedscope(output, show_memory_leaks=False)
+        output.seek(0)
+
+        output_data = json.loads(output.read())
+        assert output_data["profiles"][0]["samples"] == [[1], [0]]
+        assert output_data["profiles"][0]["weights"] == [100, 200]
+        assert output_data["profiles"][1]["samples"] == [[1], [0]]
+        assert output_data["profiles"][1]["weights"] == [1, 1]
+
+    def test_temporal_leak_fallback_omits_freed_intervals(self):
+        allocations = [
+            MockTemporalAllocationRecord(
+                tid=1,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                intervals=[MockInterval(0, None, 1, 100)],
+                _stack=[("leaked", "leaked.py", 10)],
+            ),
+            MockTemporalAllocationRecord(
+                tid=1,
+                allocator=AllocatorType.CALLOC,
+                stack_id=2,
+                intervals=[MockInterval(0, 1, 1, 200)],
+                _stack=[("freed", "freed.py", 20)],
+            ),
+        ]
+        reporter = TransformReporter(
+            allocations,
+            format="speedscope",
+            memory_records=[MemorySnapshot(100, 0, 0)],
+            native_traces=False,
+        )
+        output = StringIO()
+
+        reporter.render_as_speedscope(output, show_memory_leaks=True)
+        output.seek(0)
+
+        output_data = json.loads(output.read())
+        assert output_data["profiles"][0]["samples"] == [[0]]
+        assert output_data["profiles"][0]["weights"] == [100]
+        assert output_data["profiles"][1]["samples"] == [[0]]
+        assert output_data["profiles"][1]["weights"] == [1]
