@@ -1007,7 +1007,7 @@ RecordReader::Py_GetNativeStackFrame(FrameTree::index_t index, size_t generation
         for (auto& native_frame : resolved_frames->frames()) {
             PyObject* pyframe = native_frame.toPythonObject(d_pystring_cache);
             if (pyframe == nullptr) {
-                return nullptr;
+                goto error;
             }
             int ret = PyList_Append(list, pyframe);
             Py_DECREF(pyframe);
