@@ -20,6 +20,11 @@ from memray import FileReader
 from memray.commands.common import warn_if_not_enough_symbols
 from memray.reporters.flamegraph import FlameGraphReporter
 
+_typed_cell_magic = cast(
+    Callable[[Callable[..., Any]], Callable[..., Any]],
+    cell_magic,
+)
+
 TEMPLATE = """\
 from memray import Tracker, FileFormat
 with Tracker(
@@ -133,7 +138,7 @@ def argument_parser() -> argparse.ArgumentParser:
 
 @magics_class
 class FlamegraphMagics(Magics):
-    @cell_magic  # type: ignore
+    @_typed_cell_magic
     def memray_flamegraph(self, line: str, cell: str) -> None:
         """Memory profile the code in the cell and display a flame graph."""
         if self.shell is None:

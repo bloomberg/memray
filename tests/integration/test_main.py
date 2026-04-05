@@ -1816,3 +1816,36 @@ class TestTransformSubCommands:
         if "<unknown stack>" in output_text:
             pytest.xfail("Hybrid stack generation is not fully working")
         assert str(source_file) in output_text
+
+    def test_report_speedscope_argument(self, tmp_path, simple_test_file):
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, native=False
+        )
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                "speedscope",
+                str(results_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        output_file = tmp_path / "memray-speedscope-result.speedscope.json"
+        assert output_file.exists()
+
+        output_text = output_file.read_text()
+        output_data = json.loads(output_text)
+        assert output_data["$schema"] == (
+            "https://www.speedscope.app/file-format-schema.json"
+        )
+        assert [profile["type"] for profile in output_data["profiles"]] == [
+            "sampled",
+            "sampled",
+        ]
+        assert output_data["shared"]["frames"]

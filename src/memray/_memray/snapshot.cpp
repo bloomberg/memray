@@ -111,9 +111,11 @@ Interval::rightIntersects(const Interval& other) const
 void
 SnapshotAllocationAggregator::addAllocation(const Allocation& allocation)
 {
+    SnapshotAllocation sequenced_allocation{allocation, d_index};
+
     switch (hooks::allocatorKind(allocation.allocator)) {
         case hooks::AllocatorKind::SIMPLE_ALLOCATOR: {
-            d_ptr_to_allocation[allocation.address] = allocation;
+            d_ptr_to_allocation[allocation.address] = sequenced_allocation;
             break;
         }
         case hooks::AllocatorKind::SIMPLE_DEALLOCATOR: {
@@ -124,7 +126,7 @@ SnapshotAllocationAggregator::addAllocation(const Allocation& allocation)
             break;
         }
         case hooks::AllocatorKind::RANGED_ALLOCATOR: {
-            d_interval_tree.addInterval(allocation.address, allocation.size, allocation);
+            d_interval_tree.addInterval(allocation.address, allocation.size, sequenced_allocation);
             break;
         }
         case hooks::AllocatorKind::RANGED_DEALLOCATOR: {
@@ -141,32 +143,38 @@ SnapshotAllocationAggregator::getSnapshotAllocations(bool merge_threads)
     reduced_snapshot_map_t stack_to_allocation{};
 
     for (const auto& it : d_ptr_to_allocation) {
-        const Allocation& record = it.second;
+        const auto& snapshot_allocation = it.second;
+        const Allocation& record = snapshot_allocation.allocation;
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.tid;
         auto loc_key = LocationKey{record.frame_index, record.native_frame_id, thread_id};
         auto alloc_it = stack_to_allocation.find(loc_key);
         if (alloc_it == stack_to_allocation.end()) {
-            stack_to_allocation.insert(alloc_it, std::pair(loc_key, record));
+            stack_to_allocation.insert(alloc_it, std::pair(loc_key, snapshot_allocation));
         } else {
-            alloc_it->second.size += record.size;
-            alloc_it->second.n_allocations += 1;
+            alloc_it->second.allocation.size += record.size;
+            alloc_it->second.allocation.n_allocations += 1;
+            alloc_it->second.sequence_number =
+                    std::min(alloc_it->second.sequence_number, snapshot_allocation.sequence_number);
         }
     }
 
     // Process ranged allocations. As there can be partial deallocations in mmap'd regions,
     // we update the allocation to reflect the actual size at the peak, based on the lengths
     // of the ranges in the interval tree.
-    for (const auto& [range, allocation] : d_interval_tree) {
+    for (const auto& [range, snapshot_allocation] : d_interval_tree) {
+        const Allocation& allocation = snapshot_allocation.allocation;
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : allocation.tid;
         auto loc_key = LocationKey{allocation.frame_index, allocation.native_frame_id, thread_id};
         auto alloc_it = stack_to_allocation.find(loc_key);
         if (alloc_it == stack_to_allocation.end()) {
-            Allocation new_alloc = allocation;
-            new_alloc.size = range.size();
+            SnapshotAllocation new_alloc = snapshot_allocation;
+            new_alloc.allocation.size = range.size();
             stack_to_allocation.insert(alloc_it, std::pair(loc_key, new_alloc));
         } else {
-            alloc_it->second.size += range.size();
-            alloc_it->second.n_allocations += 1;
+            alloc_it->second.allocation.size += range.size();
+            alloc_it->second.allocation.n_allocations += 1;
+            alloc_it->second.sequence_number =
+                    std::min(alloc_it->second.sequence_number, snapshot_allocation.sequence_number);
         }
     }
 
@@ -181,6 +189,8 @@ TemporaryAllocationsAggregator::TemporaryAllocationsAggregator(size_t max_items)
 void
 TemporaryAllocationsAggregator::addAllocation(const Allocation& allocation)
 {
+    SnapshotAllocation sequenced_allocation{allocation, d_index};
+
     hooks::AllocatorKind kind = hooks::allocatorKind(allocation.allocator);
     auto it = d_current_allocations.find(allocation.tid);
     switch (kind) {
@@ -189,10 +199,10 @@ TemporaryAllocationsAggregator::addAllocation(const Allocation& allocation)
             if (it == d_current_allocations.end()) {
                 it = d_current_allocations.insert(
                         it,
-                        std::pair(allocation.tid, std::deque<Allocation>()));
+                        std::pair(allocation.tid, std::deque<SnapshotAllocation>()));
             }
 
-            it->second.emplace_front(allocation);
+            it->second.emplace_front(sequenced_allocation);
             if (it->second.size() > d_max_items) {
                 it->second.pop_back();
             }
@@ -206,9 +216,9 @@ TemporaryAllocationsAggregator::addAllocation(const Allocation& allocation)
 
             auto alloc_it =
                     std::find_if(it->second.begin(), it->second.end(), [&](auto& current_allocation) {
-                        bool match = (current_allocation.address == allocation.address);
+                        bool match = (current_allocation.allocation.address == allocation.address);
                         if (kind == hooks::AllocatorKind::RANGED_DEALLOCATOR) {
-                            match = match && (current_allocation.size == allocation.size);
+                            match = match && (current_allocation.allocation.size == allocation.size);
                         }
                         return match;
                     });
@@ -219,6 +229,7 @@ TemporaryAllocationsAggregator::addAllocation(const Allocation& allocation)
             break;
         }
     }
+    d_index++;
 }
 
 reduced_snapshot_map_t
@@ -226,15 +237,18 @@ TemporaryAllocationsAggregator::getSnapshotAllocations(bool merge_threads)
 {
     reduced_snapshot_map_t stack_to_allocation{};
 
-    for (const auto& record : d_temporary_allocations) {
+    for (const auto& snapshot_allocation : d_temporary_allocations) {
+        const Allocation& record = snapshot_allocation.allocation;
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.tid;
         auto loc_key = LocationKey{record.frame_index, record.native_frame_id, thread_id};
         auto alloc_it = stack_to_allocation.find(loc_key);
         if (alloc_it == stack_to_allocation.end()) {
-            stack_to_allocation.insert(alloc_it, std::pair(loc_key, record));
+            stack_to_allocation.insert(alloc_it, std::pair(loc_key, snapshot_allocation));
         } else {
-            alloc_it->second.size += record.size;
-            alloc_it->second.n_allocations += 1;
+            alloc_it->second.allocation.size += record.size;
+            alloc_it->second.allocation.n_allocations += 1;
+            alloc_it->second.sequence_number =
+                    std::min(alloc_it->second.sequence_number, snapshot_allocation.sequence_number);
         }
     }
 
@@ -249,7 +263,7 @@ AggregatedCaptureReaggregator::addAllocation(const Allocation& allocation)
     assert(0 == allocation.address);
 
     if (allocation.n_allocations != 0) {
-        d_allocations.push_back(allocation);
+        d_allocations.push_back({allocation, d_allocations.size()});
     }
 }
 
@@ -259,15 +273,18 @@ AggregatedCaptureReaggregator::getSnapshotAllocations(bool merge_threads)
     // Spit them back out, possibly with threads merged.
     reduced_snapshot_map_t stack_to_allocation{};
 
-    for (const auto& record : d_allocations) {
+    for (const auto& snapshot_allocation : d_allocations) {
+        const Allocation& record = snapshot_allocation.allocation;
         const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.tid;
         auto loc_key = LocationKey{record.frame_index, record.native_frame_id, thread_id};
         auto alloc_it = stack_to_allocation.find(loc_key);
         if (alloc_it == stack_to_allocation.end()) {
-            stack_to_allocation.insert(alloc_it, std::pair(loc_key, record));
+            stack_to_allocation.insert(alloc_it, std::pair(loc_key, snapshot_allocation));
         } else {
-            alloc_it->second.size += record.size;
-            alloc_it->second.n_allocations += 1;
+            alloc_it->second.allocation.size += record.size;
+            alloc_it->second.allocation.n_allocations += 1;
+            alloc_it->second.sequence_number =
+                    std::min(alloc_it->second.sequence_number, snapshot_allocation.sequence_number);
         }
     }
 
@@ -934,10 +951,18 @@ Py_ListFromSnapshotAllocationRecords(const reduced_snapshot_map_t& stack_to_allo
     if (list == nullptr) {
         return nullptr;
     }
-    size_t list_index = 0;
+    std::vector<const SnapshotAllocation*> allocations;
+    allocations.reserve(stack_to_allocation.size());
     for (const auto& it : stack_to_allocation) {
-        const auto& record = it.second;
-        PyObject* pyrecord = record.toPythonObject();
+        allocations.push_back(&it.second);
+    }
+    std::sort(allocations.begin(), allocations.end(), [](const auto* lhs, const auto* rhs) {
+        return lhs->sequence_number < rhs->sequence_number;
+    });
+
+    size_t list_index = 0;
+    for (const auto* record : allocations) {
+        PyObject* pyrecord = record->allocation.toPythonObject();
         if (pyrecord == nullptr) {
             Py_DECREF(list);
             return nullptr;
