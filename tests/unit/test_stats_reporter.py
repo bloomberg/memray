@@ -438,11 +438,12 @@ def test_stats_output_json(fake_stats, tmp_path):
             "peak_memory": 1500000,
             "command_line": "fake stats",
             "pid": 123456,
+            "main_thread_id": 0x1,
             "python_allocator": "pymalloc",
             "has_native_traces": False,
             "trace_python_allocators": True,
             "file_format": 0,
-            "main_thread_id": 0x1,
+            "has_allocation_timestamps": False,
         },
     }
     actual = json.loads(output_file.read_text())

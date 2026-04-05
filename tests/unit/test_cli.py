@@ -80,6 +80,20 @@ class TestRunSubCommand:
             trace_python_allocators=True,
         )
 
+    def test_run_with_allocation_timestamps(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
+        getpid_mock.return_value = 0
+        assert 0 == main(["run", "--allocation-timestamps", "-m", "foobar"])
+        runpy_mock.run_module.assert_called_with(
+            "foobar", run_name="__main__", alter_sys=True
+        )
+        tracker_mock.assert_called_with(
+            destination=FileDestination("memray-foobar.0.bin", overwrite=False),
+            native_traces=False,
+            allocation_timestamps=True,
+        )
+
     def test_run_override_output(
         self, getpid_mock, runpy_mock, tracker_mock, validate_mock
     ):
@@ -168,7 +182,7 @@ class TestRunSubCommand:
                 sys.executable,
                 "-c",
                 "from memray.commands.run import _child_process;"
-                "_child_process(1234,False,False,False,False,False,"
+                "_child_process(1234,False,False,False,False,False,False,"
                 "'./directory/foobar.py',['arg1', 'arg2'])",
             ],
             stderr=-1,
@@ -209,7 +223,7 @@ class TestRunSubCommand:
                 sys.executable,
                 "-c",
                 "from memray.commands.run import _child_process;"
-                "_child_process(1234,False,True,False,False,False,"
+                "_child_process(1234,False,True,False,False,False,False,"
                 "'./directory/foobar.py',['arg1', 'arg2'])",
             ],
             stderr=-1,
@@ -330,6 +344,15 @@ class TestRunSubCommand:
             native_traces=False,
             trace_python_allocators=True,
         )
+
+    def test_run_with_aggregate_and_allocation_timestamps(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
+    ):
+        with pytest.raises(SystemExit):
+            main(["run", "--aggregate", "--allocation-timestamps", "-m", "foobar"])
+
+        captured = capsys.readouterr()
+        assert "--allocation-timestamps requires non-aggregated output" in captured.err
 
 
 class TestFlamegraphSubCommand:

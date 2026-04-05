@@ -105,3 +105,33 @@ def test_aggregated_capture_with_socket_destination():
             file_format=FileFormat.AGGREGATED_ALLOCATIONS,
         ):  # pragma: no cover
             pass
+
+
+def test_allocation_timestamps_are_exposed_in_records(tmp_path):
+    allocator = MemoryAllocator()
+    result_file = tmp_path / "test.bin"
+
+    with Tracker(result_file, allocation_timestamps=True):
+        allocator.valloc(1234)
+        allocator.free()
+
+    with FileReader(result_file) as reader:
+        records = list(filter_relevant_allocations(reader.get_allocation_records()))
+        assert reader.metadata.has_allocation_timestamps is True
+
+    assert len(records) == 2
+    assert records[0].timestamp_us > 0
+    assert records[1].timestamp_us >= records[0].timestamp_us
+
+
+def test_allocation_timestamps_require_all_allocations(tmp_path):
+    result_file = tmp_path / "test.bin"
+
+    with pytest.raises(
+        RuntimeError, match="allocation_timestamps requires FileFormat.ALL_ALLOCATIONS"
+    ):
+        Tracker(
+            result_file,
+            allocation_timestamps=True,
+            file_format=FileFormat.AGGREGATED_ALLOCATIONS,
+        )

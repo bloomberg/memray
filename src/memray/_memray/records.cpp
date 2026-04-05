@@ -15,7 +15,7 @@ Allocation::toPythonObject() const
     // operations speeds up the parsing moderately. Additionally, some of
     // the types we need to convert from are not supported by PyBuildValue
     // natively.
-    PyObject* tuple = PyTuple_New(8);
+    PyObject* tuple = PyTuple_New(9);
     if (tuple == nullptr) {
         return nullptr;
     }
@@ -51,6 +51,9 @@ Allocation::toPythonObject() const
     elem = PyLong_FromSize_t(native_segment_generation);
     __CHECK_ERROR(elem);
     PyTuple_SET_ITEM(tuple, 7, elem);
+    elem = PyLong_FromUnsignedLongLong(timestamp_us);
+    __CHECK_ERROR(elem);
+    PyTuple_SET_ITEM(tuple, 8, elem);
 #undef __CHECK_ERROR
     return tuple;
 }
@@ -67,6 +70,7 @@ AggregatedAllocation::contributionToHighWaterMark() const
             frame_index,
             native_segment_generation,
             n_allocations_in_high_water_mark,
+            0,
     };
 }
 
@@ -82,6 +86,7 @@ AggregatedAllocation::contributionToLeaks() const
             frame_index,
             native_segment_generation,
             n_allocations_leaked,
+            0,
     };
 }
 
