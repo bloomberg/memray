@@ -195,6 +195,33 @@ def test_write_basic_records(tmp_path):
     assert records == expected_records
 
 
+def test_snapshot_allocations_preserve_capture_order(tmp_path):
+    output_file = tmp_path / "ordered.memray"
+    writer = RecordWriterTestHarness(str(output_file))
+
+    assert writer.write_code_object(1, "location", "location.py", b"", 1)
+
+    assert writer.write_frame_push(1, 1, 0, True)
+    assert writer.write_allocation_record(1, 0x1000, 1024, AllocatorType.MALLOC)
+
+    assert writer.write_frame_push(2, 1, 0, True)
+    assert writer.write_allocation_record(2, 0x2000, 2048, AllocatorType.MALLOC)
+
+    assert writer.write_allocation_record(1, 0x3000, 512, AllocatorType.MALLOC)
+    assert writer.write_trailer()
+
+    with FileReader(output_file) as reader:
+        allocations = list(
+            reader.get_high_watermark_allocation_records(merge_threads=False)
+        )
+
+    assert [record.tid for record in allocations] == [1, 2]
+    assert [(record.size, record.n_allocations) for record in allocations] == [
+        (1536, 2),
+        (2048, 1),
+    ]
+
+
 def test_write_aggregated_records(tmp_path):
     """Test writing aggregated records to a file."""
     # GIVEN

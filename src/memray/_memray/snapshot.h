@@ -43,7 +43,15 @@ struct index_thread_pair_hash
 };
 
 using allocations_t = std::vector<Allocation>;
-using reduced_snapshot_map_t = std::unordered_map<LocationKey, Allocation, index_thread_pair_hash>;
+
+struct SnapshotAllocation
+{
+    Allocation allocation;
+    size_t sequence_number;
+};
+
+using reduced_snapshot_map_t =
+        std::unordered_map<LocationKey, SnapshotAllocation, index_thread_pair_hash>;
 
 struct Interval
 {
@@ -184,8 +192,8 @@ class SnapshotAllocationAggregator : public AbstractAggregator
 {
   private:
     size_t d_index{0};
-    IntervalTree<Allocation> d_interval_tree;
-    std::unordered_map<uintptr_t, Allocation> d_ptr_to_allocation{};
+    IntervalTree<SnapshotAllocation> d_interval_tree;
+    std::unordered_map<uintptr_t, SnapshotAllocation> d_ptr_to_allocation{};
 
   public:
     void addAllocation(const Allocation& allocation) override;
@@ -196,8 +204,9 @@ class TemporaryAllocationsAggregator : public AbstractAggregator
 {
   private:
     size_t d_max_items;
-    std::unordered_map<thread_id_t, std::deque<Allocation>> d_current_allocations{};
-    std::vector<Allocation> d_temporary_allocations{};
+    size_t d_index{0};
+    std::unordered_map<thread_id_t, std::deque<SnapshotAllocation>> d_current_allocations{};
+    std::vector<SnapshotAllocation> d_temporary_allocations{};
 
   public:
     TemporaryAllocationsAggregator(size_t max_items);
@@ -212,7 +221,7 @@ class AggregatedCaptureReaggregator : public AbstractAggregator
     reduced_snapshot_map_t getSnapshotAllocations(bool merge_threads) override;
 
   private:
-    std::vector<Allocation> d_allocations;
+    std::vector<SnapshotAllocation> d_allocations;
 };
 
 PyObject*
