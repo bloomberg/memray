@@ -86,7 +86,7 @@ or `brew install lz4` in MacOS). Note that you may need to teach the compiler wh
 example, in MacOS with `brew` you may need to run:
 
 ```shell
-export CFLAGS="-I$(brew --prefix lz4)/include" LDFLAGS="-L$(brew --prefix lz4)/lib -Wl,-rpath,$(brew --prefix lz4)/lib"
+export CPPFLAGS="-I$(brew --prefix lz4)/include" LDFLAGS="-L$(brew --prefix lz4)/lib -Wl,-rpath,$(brew --prefix lz4)/lib"
 ```
 
 before installing `memray`. Check the documentation of your package manager to know the location of the header and library
