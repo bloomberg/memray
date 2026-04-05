@@ -98,7 +98,10 @@ RecordReader::readHeader(HeaderRecord& header)
                 sizeof(header.trace_python_allocators))
         || !d_input->read(
                 reinterpret_cast<char*>(&header.track_object_lifetimes),
-                sizeof(header.track_object_lifetimes)))
+                sizeof(header.track_object_lifetimes))
+        || !d_input->read(
+                reinterpret_cast<char*>(&header.has_allocation_timestamps),
+                sizeof(header.has_allocation_timestamps)))
     {
         throw std::ios_base::failure("Failed to read input file header.");
     }
@@ -318,6 +321,17 @@ RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags
         return false;
     }
 
+    if (d_header.has_allocation_timestamps) {
+        uint64_t delta_us = 0;
+        if (!readVarint(&delta_us)) {
+            return false;
+        }
+        d_last.allocation_timestamp_us += delta_us;
+        record->timestamp_us = d_last.allocation_timestamp_us;
+    } else {
+        record->timestamp_us = 0;
+    }
+
     return true;
 }
 
@@ -342,6 +356,7 @@ RecordReader::processAllocationRecord(const AllocationRecord& record)
         d_latest_allocation.native_segment_generation = 0;
     }
     d_latest_allocation.n_allocations = 1;
+    d_latest_allocation.timestamp_us = record.timestamp_us;
     return true;
 }
 
@@ -1151,7 +1166,7 @@ RecordReader::dumpAllRecords()
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
            " pid=%d main_tid=%lu skipped_frames_on_main_tid=%zd"
            " command_line=%s python_allocator=%s trace_python_allocators=%s"
-           " track_object_lifetimes=%s\n",
+           " track_object_lifetimes=%s has_allocation_timestamps=%s\n",
            (int)sizeof(d_header.magic),
            d_header.magic,
            d_header.version,
@@ -1168,7 +1183,8 @@ RecordReader::dumpAllRecords()
            d_header.command_line.c_str(),
            python_allocator.c_str(),
            d_header.trace_python_allocators ? "true" : "false",
-           d_header.track_object_lifetimes ? "true" : "false");
+           d_header.track_object_lifetimes ? "true" : "false",
+           d_header.has_allocation_timestamps ? "true" : "false");
 
     switch (d_header.file_format) {
         case FileFormat::ALL_ALLOCATIONS:
@@ -1222,11 +1238,21 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                             "<unknown allocator " + std::to_string((int)record.allocator) + ">";
                     allocator = unknownAllocator.c_str();
                 }
-                printf("address=%p size=%zd allocator=%s native_frame_id=%zd\n",
-                       (void*)record.address,
-                       record.size,
-                       allocator,
-                       record.native_frame_id);
+                if (d_header.has_allocation_timestamps) {
+                    printf("address=%p size=%zd allocator=%s native_frame_id=%zd timestamp_us=%" PRIu64
+                           "\n",
+                           (void*)record.address,
+                           record.size,
+                           allocator,
+                           record.native_frame_id,
+                           record.timestamp_us);
+                } else {
+                    printf("address=%p size=%zd allocator=%s native_frame_id=%zd\n",
+                           (void*)record.address,
+                           record.size,
+                           allocator,
+                           record.native_frame_id);
+                }
             } break;
             case RecordType::FRAME_PUSH: {
                 printf("FRAME_PUSH ");

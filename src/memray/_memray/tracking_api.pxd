@@ -23,6 +23,7 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
             bool follow_fork,
             bool trace_pymalloc,
             bool reference_tracking,
+            bool allocation_timestamps,
         ) except+
 
         @staticmethod

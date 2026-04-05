@@ -771,13 +771,15 @@ Tracker::Tracker(
         unsigned int memory_interval,
         bool follow_fork,
         bool trace_python_allocators,
-        bool reference_tracking)
+        bool reference_tracking,
+        bool allocation_timestamps)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
 , d_reference_tracking(reference_tracking)
+, d_allocation_timestamps(allocation_timestamps)
 {
     static std::once_flag once;
     call_once(once, [] {
@@ -1067,7 +1069,8 @@ Tracker::childFork()
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators,
-            old_tracker->d_reference_tracking));
+            old_tracker->d_reference_tracking,
+            old_tracker->d_allocation_timestamps));
 
     StopTheWorldGuard stop_the_world;
     std::unique_lock<std::mutex> lock(*s_mutex);
@@ -1122,13 +1125,23 @@ Tracker::trackAllocationImpl(
                         return d_writer->writeRecord(UnresolvedNativeFrame{ip, index});
                     });
         }
-        AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func, native_index};
+        AllocationRecord record{
+                reinterpret_cast<uintptr_t>(ptr),
+                size,
+                func,
+                native_index,
+                d_allocation_timestamps ? currentTimestampUs() : 0};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
         }
     } else {
-        AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
+        AllocationRecord record{
+                reinterpret_cast<uintptr_t>(ptr),
+                size,
+                func,
+                0,
+                d_allocation_timestamps ? currentTimestampUs() : 0};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
             deactivate();
@@ -1140,7 +1153,12 @@ void
 Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
 {
     registerCachedThreadName();
-    AllocationRecord record{reinterpret_cast<uintptr_t>(ptr), size, func};
+    AllocationRecord record{
+            reinterpret_cast<uintptr_t>(ptr),
+            size,
+            func,
+            0,
+            d_allocation_timestamps ? currentTimestampUs() : 0};
     if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
         std::cerr << "Failed to write output, deactivating tracking" << std::endl;
         deactivate();
@@ -1441,7 +1459,8 @@ Tracker::createTracker(
         unsigned int memory_interval,
         bool follow_fork,
         bool trace_python_allocators,
-        bool reference_tracking)
+        bool reference_tracking,
+        bool allocation_timestamps)
 {
     s_instance_owner.reset(new Tracker(
             std::move(record_writer),
@@ -1449,7 +1468,8 @@ Tracker::createTracker(
             memory_interval,
             follow_fork,
             trace_python_allocators,
-            reference_tracking));
+            reference_tracking,
+            allocation_timestamps));
 
     StopTheWorldGuard stop_the_world;
     std::unique_lock<std::mutex> lock(*s_mutex);
@@ -1470,6 +1490,14 @@ Tracker*
 Tracker::getTracker()
 {
     return s_instance;
+}
+
+uint64_t
+Tracker::currentTimestampUs() const
+{
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+                   std::chrono::steady_clock::now() - d_monotonic_start)
+            .count();
 }
 
 static struct

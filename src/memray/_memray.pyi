@@ -48,6 +48,8 @@ class AllocationRecord:
     @property
     def native_segment_generation(self) -> int: ...
     @property
+    def timestamp_us(self) -> int: ...
+    @property
     def thread_name(self) -> str: ...
     def hybrid_stack_trace(
         self,
@@ -245,6 +247,7 @@ class Tracker:
         memory_interval_ms: int = ...,
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
+        allocation_timestamps: bool = ...,
         file_format: FileFormat = ...,
         reference_tracking: bool = ...,
         track_object_lifetimes: bool = ...,
@@ -258,6 +261,7 @@ class Tracker:
         memory_interval_ms: int = ...,
         follow_fork: bool = ...,
         trace_python_allocators: bool = ...,
+        allocation_timestamps: bool = ...,
         file_format: FileFormat = ...,
         reference_tracking: bool = ...,
     ) -> None: ...
@@ -335,6 +339,7 @@ class RecordWriterTestHarness:
         file_path: str,
         native_traces: bool = False,
         trace_python_allocators: bool = False,
+        allocation_timestamps: bool = False,
         file_format: FileFormat = FileFormat.ALL_ALLOCATIONS,
         main_tid: int = 1,
         skipped_frames: int = 0,
@@ -358,6 +363,7 @@ class RecordWriterTestHarness:
         size: int,
         allocator: int,
         native_frame_id: int = 0,
+        timestamp_us: int = 0,
     ) -> bool: ...
     def write_frame_push(
         self,

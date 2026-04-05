@@ -18,7 +18,7 @@
 namespace memray::tracking_api {
 
 extern const char MAGIC[7];  // Value assigned in records.cpp
-const int CURRENT_HEADER_VERSION = 12;
+const int CURRENT_HEADER_VERSION = 13;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
@@ -113,6 +113,7 @@ struct HeaderRecord
     PythonAllocatorType python_allocator{};
     bool trace_python_allocators{};
     bool track_object_lifetimes{false};
+    bool has_allocation_timestamps{false};
 };
 
 struct MemoryRecord
@@ -134,6 +135,7 @@ struct AllocationRecord
     size_t size;
     hooks::Allocator allocator;
     frame_id_t native_frame_id{0};
+    uint64_t timestamp_us{0};
 };
 
 struct Allocation
@@ -146,6 +148,7 @@ struct Allocation
     size_t frame_index{0};
     size_t native_segment_generation{0};
     size_t n_allocations{1};
+    uint64_t timestamp_us{0};
 
     PyObject* toPythonObject() const;
 };
@@ -308,6 +311,7 @@ struct DeltaEncodedFields
     uintptr_t data_pointer{};
     frame_id_t native_frame_id{};
     int code_firstlineno{};
+    uint64_t allocation_timestamp_us{};
 };
 
 template<typename RecordType>

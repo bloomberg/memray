@@ -338,6 +338,10 @@ cdef class AllocationRecord:
         return self._tuple[7]
 
     @property
+    def timestamp_us(self):
+        return self._tuple[8]
+
+    @property
     def thread_name(self):
         if self.tid == -1:
             return "merged thread"
@@ -385,7 +389,7 @@ cdef class AllocationRecord:
     def __repr__(self):
         return (f"AllocationRecord<tid={hex(self.tid)}, address={hex(self.address)}, "
                 f"size={'N/A' if not self.size else size_fmt(self.size)}, allocator={self.allocator!r}, "
-                f"allocations={self.n_allocations}>")
+                f"allocations={self.n_allocations}, timestamp_us={self.timestamp_us}>")
 
 
 @cython.freelist(1024)
@@ -732,6 +736,8 @@ cdef class Tracker:
             created during the tracking session and still alive at the end (or
             in other words, what objects are leaked by the code being tracked).
             Defaults to False.
+        allocation_timestamps (bool): Whether or not to record a timestamp for
+            every allocation and deallocation event. Defaults to False.
         follow_fork (bool): Whether or not to continue tracking in a subprocess
             that is forked from the tracked process (see :ref:`Tracking across
             Forks`). Defaults to False.
@@ -752,6 +758,7 @@ cdef class Tracker:
     cdef unsigned int _memory_interval_ms
     cdef bool _follow_fork
     cdef bool _trace_python_allocators
+    cdef bool _allocation_timestamps
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
     cdef unique_ptr[RecordWriter] _writer
@@ -780,6 +787,7 @@ cdef class Tracker:
     def __cinit__(self, object file_name=None, *, object destination=None,
                   bool native_traces=False, unsigned int memory_interval_ms = 10,
                   bool follow_fork=False, bool trace_python_allocators=False,
+                  bool allocation_timestamps=False,
                   bool track_object_lifetimes=False,
                   FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
         if (file_name, destination).count(None) != 1:
@@ -798,6 +806,7 @@ cdef class Tracker:
         self._memory_interval_ms = memory_interval_ms
         self._follow_fork = follow_fork
         self._trace_python_allocators = trace_python_allocators
+        self._allocation_timestamps = allocation_timestamps
 
         if file_name is not None:
             destination = FileDestination(path=file_name)
@@ -809,6 +818,11 @@ cdef class Tracker:
             if file_format != FileFormat.ALL_ALLOCATIONS:
                 raise RuntimeError("AGGREGATED_ALLOCATIONS requires an output file")
 
+        if allocation_timestamps and file_format != FileFormat.ALL_ALLOCATIONS:
+            raise RuntimeError(
+                "allocation_timestamps requires FileFormat.ALL_ALLOCATIONS"
+            )
+
         self._writer = move(
             createRecordWriter(
                 move(self._make_writer(destination)),
@@ -817,6 +831,7 @@ cdef class Tracker:
                 file_format,
                 trace_python_allocators,
                 track_object_lifetimes,
+                allocation_timestamps,
             )
         )
 
@@ -861,6 +876,7 @@ cdef class Tracker:
                 self._follow_fork,
                 self._trace_python_allocators,
                 self._track_object_lifetimes,
+                self._allocation_timestamps,
             )
             return self
 
@@ -956,6 +972,7 @@ cdef _create_metadata(header, peak_memory):
         has_native_traces=header["native_traces"],
         trace_python_allocators=header["trace_python_allocators"],
         file_format=FileFormat(header["file_format"]),
+        has_allocation_timestamps=header["has_allocation_timestamps"],
     )
 
 
@@ -1806,6 +1823,7 @@ cdef class RecordWriterTestHarness:
         str file_path,
         bool native_traces=False,
         bool trace_python_allocators=False,
+        bool allocation_timestamps=False,
         track_object_lifetimes=False,
         records.FileFormat file_format=records.FileFormat.ALL_ALLOCATIONS,
         records.thread_id_t main_tid=1,
@@ -1828,6 +1846,7 @@ cdef class RecordWriterTestHarness:
             file_format,
             trace_python_allocators,
             track_object_lifetimes,
+            allocation_timestamps,
         )
         self._writer.get().setMainTidAndSkippedFrames(main_tid, skipped_frames)
         self.write_header(False)
@@ -1892,13 +1911,15 @@ cdef class RecordWriterTestHarness:
 
     def write_allocation_record(self, records.thread_id_t tid, uintptr_t address,
                                      size_t size, unsigned char allocator,
-                                     size_t native_frame_id=0) -> bool:
+                                     size_t native_frame_id=0,
+                                     uint64_t timestamp_us=0) -> bool:
         """Write a native allocation record to the file."""
         cdef records.AllocationRecord record
         record.address = address
         record.size = size
         record.allocator = <records.Allocator>allocator
         record.native_frame_id = native_frame_id
+        record.timestamp_us = timestamp_us
         return self._writer.get().writeThreadSpecificRecord(tid, record)
 
     def write_frame_push(

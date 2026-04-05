@@ -39,6 +39,7 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        size_t size
        Allocator allocator
        frame_id_t native_frame_id
+       uint64_t timestamp_us
 
    struct Frame:
        code_object_id_t code_object_id
@@ -89,6 +90,7 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        int python_allocator
        bool trace_python_allocators
        bool track_object_lifetimes
+       bool has_allocation_timestamps
 
    cdef cppclass Allocation:
        thread_id_t tid
@@ -99,6 +101,7 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        size_t frame_index
        size_t native_segment_generation
        size_t n_allocations
+       uint64_t timestamp_us
 
        object toPythonObject()
 

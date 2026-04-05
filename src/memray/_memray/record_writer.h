@@ -64,7 +64,8 @@ createRecordWriter(
         bool native_traces,
         FileFormat file_format,
         bool trace_python_allocators,
-        bool track_object_lifetimes);
+        bool track_object_lifetimes,
+        bool has_allocation_timestamps);
 
 template<typename T>
 bool inline RecordWriter::writeSimpleType(const T& item)
