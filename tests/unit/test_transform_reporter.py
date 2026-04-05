@@ -1,8 +1,12 @@
 import csv
 import json
+from datetime import datetime
 from io import StringIO
 
 from memray import AllocatorType
+from memray import Metadata
+from memray import __version__
+from memray._memray import FileFormat
 from memray.reporters.transform import TransformReporter
 from tests.utils import MockAllocationRecord
 
@@ -373,3 +377,180 @@ class TestCSVTransformReporter:
         assert output_data == [
             ["MALLOC", "1", "1024", "1", "0x1", "me;foo.py;12|you;bar.py;21"]
         ]
+
+
+class TestSpeedscopeTransformReporter:
+    def test_empty_report(self):
+        reporter = TransformReporter(
+            [], format="speedscope", memory_records=[], native_traces=False
+        )
+        output = StringIO()
+
+        reporter.render_as_speedscope(output)
+        output.seek(0)
+
+        output_data = json.loads(output.read())
+        assert output_data == {
+            "$schema": "https://www.speedscope.app/file-format-schema.json",
+            "activeProfileIndex": 0,
+            "exporter": f"memray@{__version__}",
+            "name": "memray",
+            "profiles": [
+                {
+                    "endValue": 0,
+                    "name": "Memory",
+                    "samples": [],
+                    "startValue": 0,
+                    "type": "sampled",
+                    "unit": "bytes",
+                    "weights": [],
+                },
+                {
+                    "endValue": 0,
+                    "name": "Allocations",
+                    "samples": [],
+                    "startValue": 0,
+                    "type": "sampled",
+                    "unit": "none",
+                    "weights": [],
+                },
+            ],
+            "shared": {"frames": []},
+        }
+
+    def test_stacks_are_written_root_to_leaf(self):
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("leaf", "leaf.py", 30),
+                    ("root", "root.py", 10),
+                ],
+            ),
+        ]
+        output = StringIO()
+
+        reporter = TransformReporter(
+            peak_allocations, format="speedscope", memory_records=[], native_traces=False
+        )
+
+        reporter.render_as_speedscope(output)
+        output.seek(0)
+
+        output_data = json.loads(output.read())
+        assert output_data["shared"]["frames"] == [
+            {"file": "root.py", "line": 10, "name": "root"},
+            {"file": "leaf.py", "line": 30, "name": "leaf"},
+        ]
+        assert output_data["profiles"][0]["samples"] == [[0, 1]]
+        assert output_data["profiles"][0]["weights"] == [1024]
+        assert output_data["profiles"][1]["samples"] == [[0, 1]]
+        assert output_data["profiles"][1]["weights"] == [1]
+
+    def test_identical_stacks_are_aggregated(self):
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("leaf", "leaf.py", 30),
+                    ("root", "root.py", 10),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x2000000,
+                size=2048,
+                allocator=AllocatorType.CALLOC,
+                stack_id=2,
+                n_allocations=4,
+                _stack=[
+                    ("leaf", "leaf.py", 30),
+                    ("root", "root.py", 10),
+                ],
+            ),
+        ]
+        output = StringIO()
+
+        reporter = TransformReporter(
+            peak_allocations, format="speedscope", memory_records=[], native_traces=False
+        )
+
+        reporter.render_as_speedscope(output)
+        output.seek(0)
+
+        output_data = json.loads(output.read())
+        assert output_data["profiles"][0]["samples"] == [[0, 1]]
+        assert output_data["profiles"][0]["weights"] == [3072]
+        assert output_data["profiles"][0]["endValue"] == 3072
+        assert output_data["profiles"][1]["samples"] == [[0, 1]]
+        assert output_data["profiles"][1]["weights"] == [5]
+        assert output_data["profiles"][1]["endValue"] == 5
+
+    def test_stacks_with_exact_timestamps_are_ordered_by_timestamp(self):
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[("late", "late.py", 30)],
+            ),
+            MockAllocationRecord(
+                tid=1,
+                address=0x2000000,
+                size=2048,
+                allocator=AllocatorType.CALLOC,
+                stack_id=2,
+                n_allocations=2,
+                _stack=[("early", "early.py", 10)],
+            ),
+        ]
+        peak_allocations[0].timestamp_us = 50
+        peak_allocations[1].timestamp_us = 10
+
+        reporter = TransformReporter(
+            peak_allocations, format="speedscope", memory_records=[], native_traces=False
+        )
+        output = StringIO()
+
+        reporter.render_as_speedscope(
+            output,
+            metadata=Metadata(
+                start_time=datetime(2024, 1, 1, 0, 0, 0),
+                end_time=datetime(2024, 1, 1, 0, 0, 1),
+                total_allocations=2,
+                total_frames=2,
+                peak_memory=3072,
+                command_line="memray",
+                pid=1,
+                main_thread_id=1,
+                python_allocator="pymalloc",
+                has_native_traces=False,
+                trace_python_allocators=False,
+                file_format=FileFormat.ALL_ALLOCATIONS,
+                has_allocation_timestamps=True,
+            ),
+        )
+        output.seek(0)
+
+        output_data = json.loads(output.read())
+        assert output_data["shared"]["frames"] == [
+            {"file": "late.py", "line": 30, "name": "late"},
+            {"file": "early.py", "line": 10, "name": "early"},
+        ]
+        assert output_data["profiles"][0]["samples"] == [[1], [0]]
+        assert output_data["profiles"][0]["weights"] == [2048, 1024]
+        assert output_data["profiles"][1]["samples"] == [[1], [0]]
+        assert output_data["profiles"][1]["weights"] == [2, 1]

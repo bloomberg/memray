@@ -52,8 +52,27 @@ skip_if_macos = pytest.mark.skipif(
 )
 
 
+class _MockStackTraceMixin:
+    @staticmethod
+    def _get_stack_trace(stack, max_stacks):
+        if max_stacks == 0:
+            return stack
+        else:
+            return stack[:max_stacks]
+
+    def stack_trace(self, max_stacks=0):
+        if self._stack is None:
+            raise AssertionError("did not expect a call to `stack_trace`")
+        return self._get_stack_trace(self._stack, max_stacks)
+
+    def hybrid_stack_trace(self, max_stacks=0):
+        if self._hybrid_stack is None:
+            raise AssertionError("did not expect a call to `hybrid_stack_trace`")
+        return self._get_stack_trace(self._hybrid_stack, max_stacks)
+
+
 @dataclass
-class MockAllocationRecord:
+class MockAllocationRecord(_MockStackTraceMixin):
     """Mimics :py:class:`memray._memray.AllocationRecord`."""
 
     tid: int
@@ -65,23 +84,7 @@ class MockAllocationRecord:
     _stack: Optional[List[Tuple[str, str, int]]] = None
     _hybrid_stack: Optional[List[Tuple[str, str, int]]] = None
     thread_name: str = ""
-
-    @staticmethod
-    def __get_stack_trace(stack, max_stacks):
-        if max_stacks == 0:
-            return stack
-        else:
-            return stack[:max_stacks]
-
-    def stack_trace(self, max_stacks=0):
-        if self._stack is None:
-            raise AssertionError("did not expect a call to `stack_trace`")
-        return self.__get_stack_trace(self._stack, max_stacks)
-
-    def hybrid_stack_trace(self, max_stacks=0):
-        if self._hybrid_stack is None:
-            raise AssertionError("did not expect a call to `hybrid_stack_trace`")
-        return self.__get_stack_trace(self._hybrid_stack, max_stacks)
+    timestamp_us: int = 0
 
 
 @contextmanager
