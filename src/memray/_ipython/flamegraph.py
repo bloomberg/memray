@@ -133,7 +133,7 @@ def argument_parser() -> argparse.ArgumentParser:
 
 @magics_class
 class FlamegraphMagics(Magics):
-    @cell_magic  # type: ignore
+    @cell_magic
     def memray_flamegraph(self, line: str, cell: str) -> None:
         """Memory profile the code in the cell and display a flame graph."""
         if self.shell is None:

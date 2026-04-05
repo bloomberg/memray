@@ -6,8 +6,8 @@ from io import StringIO
 from memray import AllocatorType
 from memray import MemorySnapshot
 from memray import Metadata
-from memray import __version__
 from memray._memray import FileFormat
+from memray._version import __version__
 from memray.reporters.transform import TransformReporter
 from tests.utils import MockAllocationRecord
 from tests.utils import MockInterval

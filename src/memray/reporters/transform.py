@@ -8,13 +8,14 @@ from typing import Optional
 from typing import TextIO
 from typing import Tuple
 from typing import Union
+from typing import cast
 
 from memray import AllocationRecord
 from memray import AllocatorType
 from memray import MemorySnapshot
 from memray import Metadata
-from memray import __version__
 from memray._memray import TemporalAllocationRecord
+from memray._version import __version__
 from memray.reporters.common import format_thread_name
 
 Location = Tuple[str, str]
@@ -316,7 +317,7 @@ class TransformReporter:
 
         if allocations and self._is_temporal_record(allocations[0]):
             frames, sample_weights = self._aggregate_temporal_speedscope_samples(
-                allocations,
+                cast(List[TemporalAllocationRecord], allocations),
                 show_memory_leaks=show_memory_leaks,
             )
         else:
