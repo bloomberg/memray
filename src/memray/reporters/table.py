@@ -4,6 +4,7 @@ from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import TextIO
+from typing import Tuple
 
 from memray import AllocationRecord
 from memray import AllocatorType
@@ -36,7 +37,7 @@ class TableReporter:
         # Aggregate records that share the same displayed fields, since the
         # table only shows the top stack frame and records with different full
         # call stacks can map to the same displayed row.
-        aggregated: Dict[tuple, Dict[str, Any]] = {}
+        aggregated: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
         for record in allocations:
             stack_trace = (
                 list(record.hybrid_stack_trace(max_stacks=1))
