@@ -164,6 +164,8 @@ jobs:
     needs: [build_and_test_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
+    permissions:
+      id-token: write # Required to retrieve a Trusted Publishing token
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -178,4 +180,3 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip_existing: true
-          password: ${{ secrets.PYPI_PASSWORD }}
