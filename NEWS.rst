@@ -8,6 +8,24 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.19.3 (2026-04-07)
+--------------------------
+
+Bug Fixes
+~~~~~~~~~
+
+- Include Linux HugeTLB memory in memray's RSS snapshots by adding ``HugetlbPages`` from ``/proc/<pid>/status`` to ``VmRSS``. This makes resident-memory graphs and memory snapshot records account for huge pages that the kernel reports separately from normal RSS.
+- Fix a broken link in the tutorial documentation. (#891)
+- Fix a bug that would result in a crash if DNS resolution failed while setting up live mode tracking. (#894)
+- Fix a bug that could result in a list getting leaked if we ran out of memory while reporting allocations. (#895)
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+- Add a KEYS file to the repo documenting the PGP public keys of the maintainers who will tag new Memray releases and upload them to PyPI.
+- Enable PyPI Trusted Publishing for Memray releases, rather than using long-lived secrets.
+
+
 memray 1.19.2 (2026-03-12)
 --------------------------
 
