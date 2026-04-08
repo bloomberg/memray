@@ -179,4 +179,4 @@ jobs:
           ls -R dist
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          skip_existing: true
+          skip-existing: true
