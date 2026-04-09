@@ -1,0 +1,1 @@
+Fix the ``%%memray_flamegraph`` :ref:`Jupyter magic <Jupyter integration>` to correctly embed a flame graph for Python 3.12 and higher. Previously it was giving a 404 error due to ``tempfile.mkdtemp`` changing to return absolute paths.

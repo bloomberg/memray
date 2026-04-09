@@ -159,6 +159,8 @@ class FlamegraphMagics(Magics):
         results_dir.mkdir(exist_ok=True)
 
         tempdir = Path(tempfile.mkdtemp(dir=results_dir))
+        if tempdir.is_absolute():
+            tempdir = tempdir.relative_to(Path.cwd())
         dump_file = Path(tempdir) / "memray.dump"
         code = TEMPLATE.format(
             dump_file=dump_file,
@@ -229,7 +231,7 @@ class FlamegraphMagics(Magics):
                 )
 
         assert reporter is not None
-        flamegraph_path = Path(tempdir) / "flamegraph.html"
+        flamegraph_path = tempdir / "flamegraph.html"
         with open(flamegraph_path, "w") as f:
             reporter.render(
                 outfile=f,
