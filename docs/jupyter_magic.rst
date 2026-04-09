@@ -19,6 +19,11 @@ followed by some code whose memory usage you want to profile. Memray will run
 that cell's code, tracking its memory allocations, and then display a flame
 graph directly in Jupyter for you to analyze.
 
+.. note::
+
+    The flame graph is written to the current working directory, so Jupyter
+    won't be able to find it if you've changed directories.
+
 It's also possible to provide arguments on the ``%%memray_flamegraph`` line.
 For instance, ``%%memray_flamegraph --trace-python-allocators --leaks`` would
 let you look for memory not freed by the code in the cell::
