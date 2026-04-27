@@ -1,0 +1,1 @@
+Drop integration with 0.x versions of the ``greenlet`` module (which are from 2020 or earlier).
