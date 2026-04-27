@@ -35,6 +35,23 @@ def test_the_same_tracker_cannot_be_activated_twice(tmpdir):
                 pass
 
 
+def test_thread_class_swap_during_tracking_does_not_crash(tmpdir, monkeypatch):
+    """Regression test for https://github.com/bloomberg/memray/issues/856.
+
+    ``gevent.monkey.patch_all()`` replaces ``threading.Thread`` with its own
+    class while tracking is active. ``Tracker.__exit__`` must clean up the
+    instrumentation it installed on the original ``Thread`` class, not the
+    one that ``threading.Thread`` happens to point at on exit.
+    """
+    output = Path(tmpdir) / "test.bin"
+    with Tracker(output):
+
+        class FakeThread:
+            pass
+
+        monkeypatch.setattr("threading.Thread", FakeThread)
+
+
 @skip_if_macos
 def test_rss_from_proc_status_includes_hugetlb_pages():
     assert (

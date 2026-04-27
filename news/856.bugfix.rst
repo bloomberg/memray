@@ -1,0 +1,1 @@
+Fix an ``AttributeError`` crash on shutdown when tracking a script that calls ``gevent.monkey.patch_all()`` (or otherwise replaces ``threading.Thread`` while tracking). The ``Tracker`` now records the ``threading.Thread`` subclass it patched on entry and removes its instrumentation from that same class on exit, instead of looking up ``threading.Thread`` again.
