@@ -755,6 +755,7 @@ cdef class Tracker:
     cdef bool _trace_python_allocators
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
+    cdef object _patched_thread_class
     cdef unique_ptr[RecordWriter] _writer
     cdef object _surviving_objects
 
@@ -832,21 +833,22 @@ cdef class Tracker:
                 raise RuntimeError("Attempting to use stale output handle")
             writer = move(self._writer)
 
+            self._patched_thread_class = threading.Thread
             for attr in ("_name", "_ident"):
-                assert not hasattr(threading.Thread, attr)
+                assert not hasattr(self._patched_thread_class, attr)
                 setattr(
-                    threading.Thread,
+                    self._patched_thread_class,
                     attr,
                     ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
                 )
 
-            orig_set_os_name = getattr(threading.Thread, "_set_os_name", None)
+            orig_set_os_name = getattr(self._patched_thread_class, "_set_os_name", None)
             if orig_set_os_name is not None:
                 def set_os_name_wrapper(self):
                     cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
                     orig_set_os_name(self)
 
-                setattr(threading.Thread, "_set_os_name", set_os_name_wrapper)
+                setattr(self._patched_thread_class, "_set_os_name", set_os_name_wrapper)
 
             self._previous_profile_func = sys.getprofile()
             self._previous_thread_profile_func = threading._profile_hook
@@ -875,7 +877,11 @@ cdef class Tracker:
             threading.setprofile(self._previous_thread_profile_func)
 
             for attr in ("_name", "_ident"):
-                delattr(threading.Thread, attr)
+                try:
+                    delattr(self._patched_thread_class, attr)
+                except AttributeError:
+                    pass
+            self._patched_thread_class = None
 
     cdef void _populate_surviving_objects(self):
         cdef NativeTracker *tracker = NativeTracker.getTracker()
