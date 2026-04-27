@@ -1,0 +1,1 @@
+Log the underlying error (and a hint to try a different output location) when ``mmap`` or ``posix_fallocate`` fails inside ``FileSink``, and when the capture file header can't be serialized. Previously these failures surfaced only as a generic ``Failed to write output header`` ``RuntimeError`` with no information about the cause.
