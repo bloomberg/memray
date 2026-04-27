@@ -1,0 +1,1 @@
+When ``memray attach -o`` is used with ``--duration``, print a message clarifying that tracking continues in the target process after the command exits, and how to stop it early with ``memray detach``.
