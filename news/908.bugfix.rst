@@ -1,0 +1,2 @@
+Fix integration with the ``greenlet`` package when greenlet 3.4.0 is installed
+and when tracing is started before the greenlet module is imported.
