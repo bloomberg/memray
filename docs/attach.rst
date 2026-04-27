@@ -35,7 +35,11 @@ also provide most of the options that ``memray run`` accepts. See :ref:`the
 CLI reference <memray attach CLI reference>` for details.
 
 If you use the ``-o`` option, the process will continue recording allocations
-to the capture file even after ``memray attach`` has returned. Otherwise,
+to the capture file even after ``memray attach`` has returned. This is also
+true when ``--duration`` is supplied: ``memray attach`` exits as soon as the
+tracker has been injected, and the target process records allocations for the
+requested duration in the background. Use ``memray detach`` to stop tracking
+before the duration elapses. Otherwise,
 allocations are tracked only for as long as the :doc:`live mode TUI <live>`
 continues running. Once you quit the TUI, the attached process will stop
 tracking allocations. If you later reattach to the same process, it will start

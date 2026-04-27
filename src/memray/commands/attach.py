@@ -547,6 +547,12 @@ class AttachCommand(_DebuggerCommand):
                     f"Failed to start tracking in remote process: {err}",
                     exit_code=1,
                 )
+            if duration:
+                print(
+                    f"memray: tracking PID {args.pid} for {duration}s in the"
+                    f" background. Run `memray detach {args.pid}` to stop early.",
+                    file=sys.stderr,
+                )
             return
 
         # If an error prevents the tracked process from binding a server to
