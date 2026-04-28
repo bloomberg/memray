@@ -919,3 +919,26 @@ class TestTransformSubCommand:
         assert namespace.output == "output.html"
         assert namespace.force is True
         assert namespace.format == "gprof2dot"
+
+
+class TestRunCommandReal:
+    def test_run_non_existent_file(self, capsys):
+        # GIVEN
+        # WHEN
+        exit_code = main(["run", "non_existent_file.py"])
+
+        # THEN
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "No such file or directory: 'non_existent_file.py'" in captured.err
+
+    def test_run_non_existent_module(self, capsys):
+        # GIVEN
+        # WHEN
+        exit_code = main(["run", "-m", "non_existent_module"])
+
+        # THEN
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "No module named non_existent_module" in captured.err
+        assert "[memray] Successfully generated profile results." not in captured.out
