@@ -62,7 +62,13 @@ def _run_tracker(
                     sys.path[0] = os.getcwd()
                 # run_module will replace argv[0] with the script's path
                 sys.argv = ["", *args.script_args]
-                runpy.run_module(args.script, run_name="__main__", alter_sys=True)
+                try:
+                    runpy.run_module(args.script, run_name="__main__", alter_sys=True)
+                except ImportError as e:
+                    if e.name in (None, args.script):
+                        post_run_message = None  # Initial import failed
+                        raise MemrayCommandError(f"memray: {e}", exit_code=1)
+                    raise
             elif args.run_as_cmd:
                 if _should_modify_sys_path():
                     sys.path[0] = ""
@@ -314,6 +320,8 @@ class RunCommand:
                 "Only valid Python files or commands can be executed under memray",
                 exit_code=1,
             )
+        except (FileNotFoundError, PermissionError) as error:
+            raise MemrayCommandError(str(error), exit_code=1)
 
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         if args.no_compress:
