@@ -3,6 +3,7 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <sstream>
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -13,6 +14,7 @@
 #include <utility>
 
 #include "exceptions.h"
+#include "logging.h"
 #include "lz4_stream.h"
 #include "sink.h"
 
@@ -134,6 +136,14 @@ FileSink::seek(off_t offset, int whence)
     //       though not to write beyond the end.
     d_buffer = static_cast<char*>(mmap(d_buffer, BUFFER_SIZE, PROT_WRITE, MAP_SHARED, d_fd, offset));
     if (d_buffer == MAP_FAILED) {
+        std::ostringstream msg;
+        msg << "Failed to mmap " << BUFFER_SIZE << " bytes of output file " << d_filename
+            << " at offset " << offset << ": " << strerror(errno);
+        if (offset == 0) {
+            msg << ". The destination filesystem may not support shared writable mmap;"
+                   " try writing the capture file to a different location (e.g. /tmp).";
+        }
+        LOG(ERROR) << msg.str();
         d_buffer = nullptr;
         return false;
     }
@@ -163,6 +173,19 @@ FileSink::grow(size_t needed)
     } while (rc == EINTR);
 
     if (rc != 0) {
+        std::ostringstream msg;
+        msg << "Failed to grow output file " << d_filename << " by " << delta
+            << " bytes: " << strerror(rc);
+        if (d_fileSize == 0) {
+#ifdef __APPLE__
+            msg << ". The destination filesystem may not support F_PREALLOCATE;"
+                   " try writing the capture file to a different location (e.g. /tmp).";
+#else
+            msg << ". The destination filesystem may not support posix_fallocate;"
+                   " try writing the capture file to a different location (e.g. /tmp).";
+#endif
+        }
+        LOG(ERROR) << msg.str();
         errno = rc;
         return false;
     }
