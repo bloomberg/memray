@@ -1,0 +1,1 @@
+Intercept the C23 ``free_sized()`` and ``free_aligned_sized()`` deallocators on Linux. Calls to either are now recorded as ``FREE`` allocations, matching the behavior of plain ``free()``.
