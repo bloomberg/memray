@@ -52,8 +52,27 @@ skip_if_macos = pytest.mark.skipif(
 )
 
 
+class _MockStackTraceMixin:
+    @staticmethod
+    def _get_stack_trace(stack, max_stacks):
+        if max_stacks == 0:
+            return stack
+        else:
+            return stack[:max_stacks]
+
+    def stack_trace(self, max_stacks=0):
+        if self._stack is None:
+            raise AssertionError("did not expect a call to `stack_trace`")
+        return self._get_stack_trace(self._stack, max_stacks)
+
+    def hybrid_stack_trace(self, max_stacks=0):
+        if self._hybrid_stack is None:
+            raise AssertionError("did not expect a call to `hybrid_stack_trace`")
+        return self._get_stack_trace(self._hybrid_stack, max_stacks)
+
+
 @dataclass
-class MockAllocationRecord:
+class MockAllocationRecord(_MockStackTraceMixin):
     """Mimics :py:class:`memray._memray.AllocationRecord`."""
 
     tid: int
@@ -65,23 +84,26 @@ class MockAllocationRecord:
     _stack: Optional[List[Tuple[str, str, int]]] = None
     _hybrid_stack: Optional[List[Tuple[str, str, int]]] = None
     thread_name: str = ""
+    timestamp_us: int = 0
 
-    @staticmethod
-    def __get_stack_trace(stack, max_stacks):
-        if max_stacks == 0:
-            return stack
-        else:
-            return stack[:max_stacks]
 
-    def stack_trace(self, max_stacks=0):
-        if self._stack is None:
-            raise AssertionError("did not expect a call to `stack_trace`")
-        return self.__get_stack_trace(self._stack, max_stacks)
+@dataclass
+class MockInterval:
+    allocated_before_snapshot: int
+    deallocated_before_snapshot: Optional[int]
+    n_allocations: int
+    n_bytes: int
 
-    def hybrid_stack_trace(self, max_stacks=0):
-        if self._hybrid_stack is None:
-            raise AssertionError("did not expect a call to `hybrid_stack_trace`")
-        return self.__get_stack_trace(self._hybrid_stack, max_stacks)
+
+@dataclass
+class MockTemporalAllocationRecord(_MockStackTraceMixin):
+    tid: int
+    allocator: AllocatorType
+    stack_id: int
+    intervals: List[MockInterval]
+    _stack: Optional[List[Tuple[str, str, int]]] = None
+    _hybrid_stack: Optional[List[Tuple[str, str, int]]] = None
+    thread_name: str = ""
 
 
 @contextmanager

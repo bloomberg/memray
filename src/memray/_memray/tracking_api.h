@@ -4,6 +4,7 @@
 #include <Python.h>
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <fstream>
@@ -243,7 +244,8 @@ class Tracker
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators,
-            bool reference_tracking);
+            bool reference_tracking,
+            bool allocation_timestamps);
     static PyObject* destroyTracker();
     static Tracker* getTracker();
 
@@ -446,8 +448,10 @@ class Tracker
     const bool d_follow_fork;
     const bool d_trace_python_allocators;
     const bool d_reference_tracking;
+    const bool d_allocation_timestamps;
     linker::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
+    const std::chrono::steady_clock::time_point d_monotonic_start{std::chrono::steady_clock::now()};
 
     std::unordered_map<PyCodeObject*, code_object_id_t> d_code_object_cache;
     code_object_id_t d_next_code_object_id{1};
@@ -480,9 +484,11 @@ class Tracker
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators,
-            bool reference_tracking);
+            bool reference_tracking,
+            bool allocation_timestamps);
 
     static bool areNativeTracesEnabled();
+    uint64_t currentTimestampUs() const;
 };
 
 }  // namespace memray::tracking_api

@@ -142,7 +142,7 @@ def test_write_basic_records(tmp_path):
 
     assert header_fields == [
         ("magic", "memray"),
-        ("version", "12"),
+        ("version", "13"),
         ("python_version", f"{sys.hexversion:08x}"),
         ("native_traces", "true"),
         ("file_format", "ALL_ALLOCATIONS"),
@@ -157,6 +157,7 @@ def test_write_basic_records(tmp_path):
         ("python_allocator", allocator),
         ("trace_python_allocators", "true"),
         ("track_object_lifetimes", "false"),
+        ("has_allocation_timestamps", "false"),
     ]
 
     expected_parse_output = """
@@ -193,6 +194,40 @@ def test_write_basic_records(tmp_path):
 
     expected_records = textwrap.dedent(expected_parse_output).strip().splitlines()
     assert records == expected_records
+
+
+def test_write_basic_records_with_allocation_timestamps(tmp_path):
+    output_file = tmp_path / "timestamps.memray"
+
+    writer = RecordWriterTestHarness(
+        str(output_file),
+        file_format=FileFormat.ALL_ALLOCATIONS,
+        allocation_timestamps=True,
+    )
+
+    assert writer.write_allocation_record(
+        1, 0x1000, 1024, AllocatorType.MALLOC, timestamp_us=11
+    )
+    assert writer.write_allocation_record(
+        1, 0x1000, 0, AllocatorType.FREE, timestamp_us=29
+    )
+    assert writer.write_trailer()
+
+    header_fields, records = parse_capture_file(output_file)
+
+    assert dict(header_fields)["has_allocation_timestamps"] == "true"
+    assert records == [
+        "CONTEXT_SWITCH tid=1",
+        (
+            "ALLOCATION address=0x1000 size=1024 allocator=malloc "
+            "native_frame_id=0 timestamp_us=11"
+        ),
+        (
+            "ALLOCATION address=0x1000 size=0 allocator=free "
+            "native_frame_id=0 timestamp_us=29"
+        ),
+        "TRAILER",
+    ]
 
 
 def test_write_aggregated_records(tmp_path):
@@ -233,7 +268,7 @@ def test_write_aggregated_records(tmp_path):
 
     assert header_fields == [
         ("magic", "memray"),
-        ("version", "12"),
+        ("version", "13"),
         ("python_version", f"{sys.hexversion:08x}"),
         ("native_traces", "false"),
         ("file_format", "AGGREGATED_ALLOCATIONS"),
@@ -248,6 +283,7 @@ def test_write_aggregated_records(tmp_path):
         ("python_allocator", allocator),
         ("trace_python_allocators", "false"),
         ("track_object_lifetimes", "false"),
+        ("has_allocation_timestamps", "false"),
     ]
 
     records = sort_runs_of_same_record_type(records)

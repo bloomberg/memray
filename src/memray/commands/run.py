@@ -48,6 +48,8 @@ def _run_tracker(
             kwargs["follow_fork"] = True
         if args.trace_python_allocators:
             kwargs["trace_python_allocators"] = True
+        if args.allocation_timestamps:
+            kwargs["allocation_timestamps"] = True
         if args.aggregate:
             kwargs["file_format"] = FileFormat.AGGREGATED_ALLOCATIONS
         tracker = Tracker(destination=destination, native_traces=args.native, **kwargs)
@@ -90,6 +92,7 @@ def _child_process(
     port: int,
     native: bool,
     trace_python_allocators: bool,
+    allocation_timestamps: bool,
     run_as_module: bool,
     run_as_cmd: bool,
     quiet: bool,
@@ -99,6 +102,7 @@ def _child_process(
     args = argparse.Namespace(
         native=native,
         trace_python_allocators=trace_python_allocators,
+        allocation_timestamps=allocation_timestamps,
         follow_fork=False,
         aggregate=False,
         run_as_module=run_as_module,
@@ -118,7 +122,7 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
         raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     arguments = (
-        f"{port},{args.native},{args.trace_python_allocators},"
+        f"{port},{args.native},{args.trace_python_allocators},{args.allocation_timestamps},"
         f"{args.run_as_module},{args.run_as_cmd},{args.quiet},"
         f"{args.script!r},{args.script_args}"
     )
@@ -259,6 +263,12 @@ class RunCommand:
             default=False,
         )
         parser.add_argument(
+            "--allocation-timestamps",
+            action="store_true",
+            help="Record a timestamp for every allocation and deallocation event",
+            default=False,
+        )
+        parser.add_argument(
             "-q",
             "--quiet",
             help="Don't show any tracking-specific output while running",
@@ -333,6 +343,8 @@ class RunCommand:
             parser.error("--follow-fork cannot be used with the live TUI")
         if args.aggregate and (args.live_mode or args.live_remote_mode):
             parser.error("--aggregate cannot be used with the live TUI")
+        if args.aggregate and args.allocation_timestamps:
+            parser.error("--allocation-timestamps requires non-aggregated output")
         with contextlib.suppress(OSError):
             if args.run_as_cmd and pathlib.Path(args.script).exists():
                 parser.error("remove the option -c to run a file")

@@ -22,3 +22,4 @@ class Metadata:
     has_native_traces: bool
     trace_python_allocators: bool
     file_format: FileFormat
+    has_allocation_timestamps: bool = False
