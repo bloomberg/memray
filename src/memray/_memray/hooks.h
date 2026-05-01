@@ -14,11 +14,37 @@
 #        define _GNU_SOURCE
 #    endif
 #    include "elf_utils.h"
+#    include <features.h>
 #    include <malloc.h>
 #    include <sys/prctl.h>
 #endif
 
 #include <dlfcn.h>
+
+// C23 introduced free_sized() and free_aligned_sized(). They may be missing
+// from libc when memray is built against older system headers, but a binary
+// memray runs in may still call them (e.g. when the wheel is built against
+// an old glibc but installed on a newer one). Declare them with weak linkage
+// so the build succeeds either way; at tracker startup we resolve the actual
+// runtime addresses via dl_iterate_phdr.
+#if defined(__linux__)
+#    if defined(__GLIBC__)
+#        if !__GLIBC_PREREQ(2, 42)
+#            define MEMRAY_NEED_FREE_SIZED_WEAK_DECLS 1
+#        endif
+#    else
+#        define MEMRAY_NEED_FREE_SIZED_WEAK_DECLS 1
+#    endif
+#endif
+
+#ifdef MEMRAY_NEED_FREE_SIZED_WEAK_DECLS
+extern "C" {
+void
+free_sized(void* ptr, size_t size) __attribute__((weak));
+void
+free_aligned_sized(void* ptr, size_t alignment, size_t size) __attribute__((weak));
+}
+#endif
 
 #include "alloc.h"
 #include "compat.h"
@@ -31,7 +57,9 @@
         FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
         FOR_EACH_HOOKED_FUNCTION(prctl)                                                                 \
         FOR_EACH_HOOKED_FUNCTION(pvalloc)                                                               \
-        FOR_EACH_HOOKED_FUNCTION(mmap64)
+        FOR_EACH_HOOKED_FUNCTION(mmap64)                                                                \
+        FOR_EACH_HOOKED_FUNCTION(free_sized)                                                            \
+        FOR_EACH_HOOKED_FUNCTION(free_aligned_sized)
 #else
 #    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS                                                            \
         FOR_EACH_HOOKED_FUNCTION(memalign)                                                              \
@@ -166,6 +194,14 @@ malloc(size_t size) noexcept;
 
 void
 free(void* ptr) noexcept;
+
+#if defined(__GLIBC__)
+void
+free_sized(void* ptr, size_t size) noexcept;
+
+void
+free_aligned_sized(void* ptr, size_t alignment, size_t size) noexcept;
+#endif
 
 void*
 realloc(void* ptr, size_t size) noexcept;
