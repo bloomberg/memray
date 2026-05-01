@@ -13,6 +13,7 @@ build-backend = 'setuptools.build_meta'
 line-length = 95
 select = ["C4", "E", "F", "I001", "PERF", "W"]
 fix = true
+exclude = ["src/memray/_vendor"]
 
 [tool.ruff.isort]
 force-single-line = true
@@ -59,10 +60,10 @@ ignore = [
 ]
 
 [tool.mypy]
-exclude="tests/integration/(native_extension|multithreaded_extension)/"
+exclude = "tests/integration/(native_extension|multithreaded_extension)/|_vendor/"
 
 [tool.cibuildwheel]
-build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+build = ["cp39-*", "cp310-*", "cp311-*"]
 skip = "*musllinux*{i686,aarch64}*"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
@@ -116,6 +117,24 @@ before-test = [
   "codesign --remove-signature /Library/Frameworks/Python.framework/Versions/*/Resources/Python.app/Contents/MacOS/Python || true",
 ]
 
+[tool.vendoring]
+destination = "src/memray/_vendor/"
+requirements = "vendor.txt"
+namespace = "memray._vendor"
+protected-files = ["__init__.py"]
+patches-dir = "tools/vendoring/patches"
+
+[tool.vendoring.transformations]
+drop = [
+    "tests/",
+    "docs/",
+    "examples/",
+    "*.md",
+    "*.rst",
+    "*.txt",
+    "CHANGELOG*",
+]
+
 [tool.coverage.run]
 plugins = [
   "Cython.Coverage",
@@ -128,6 +147,7 @@ branch = true
 parallel = true
 omit = [
   "*__init__.py",
+  "src/memray/_vendor/*",
 ]
 
 [tool.coverage.report]

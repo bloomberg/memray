@@ -2,4 +2,5 @@ mypy
 bump2version
 towncrier
 pre-commit
+vendoring
 -r requirements-docs.txt
