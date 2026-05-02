@@ -81,13 +81,16 @@ class BuildMemray(build_ext_orig):
             self.announce_and_run(["make", "install"], cwd=tmpdirname)
 
     def build_js_files(self):
-        if any(ASSETS_LOCATION.glob("*.js")):
-            return
+        try:
+            if any(ASSETS_LOCATION.glob("*.js")):
+                return
 
-        self.announce_and_run(["npm", "install"])
-        self.announce_and_run(["npm", "run-script", "build"])
+            self.announce_and_run(["npm", "install"])
+            self.announce_and_run(["npm", "run-script", "build"])
 
 
+        except Exception:
+            raise
 install_requires = [
     "jinja2 >= 2.9",
     "typing_extensions; python_version < '3.8.0'",
