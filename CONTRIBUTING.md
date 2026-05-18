@@ -61,6 +61,35 @@ Changes should always include tests. If this is a bug fix it is a good idea to a
 first commit of the pull request and the changes to fix the issue in subsequent commits to make it
 easier to validate it.
 
+### Running tests
+
+To run the test suite, first install the project and the test requirements:
+
+```shell
+python3 -m pip install -e . --group test
+```
+
+Note that you may need to use `python3 -m pip install --upgrade pip` before installing the test
+requirements to ensure you have a recent version of pip that supports the `--group` option.
+
+Once the test dependencies are installed, you can run the full test suite by running:
+
+```shell
+make check
+```
+
+To run only the Python tests, you can instead run:
+
+```shell
+make check-python
+```
+
+Or to run only the JavaScript tests, you can run:
+
+```shell
+make check-js
+```
+
 ## Pull requests
 
 ### Linting your code
