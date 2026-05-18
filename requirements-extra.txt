@@ -1,5 +1,0 @@
-mypy
-bump2version
-towncrier
-prek
--r requirements-docs.txt

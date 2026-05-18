@@ -106,7 +106,7 @@ cd memray
 python3 -m venv ../memray-env/  # just an example, put this wherever you want
 source ../memray-env/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install -e . -r requirements-test.txt -r requirements-extra.txt
+python3 -m pip install -e . --group test --group extra
 ```
 
 This will install Memray in the virtual environment in development mode (the `-e` of the last `pip install` command).

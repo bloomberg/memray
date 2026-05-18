@@ -46,7 +46,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           uv pip install --upgrade pip cython pkgconfig
-          uv pip install -r requirements-test.txt
+          uv pip install --group test
 
       - name: Build package
         run: |

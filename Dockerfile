@@ -39,16 +39,16 @@ ENV PATH="${VIRTUAL_ENV}/bin:/usr/lib/ccache:${PATH}" \
     PYTHON="${VIRTUAL_ENV}/bin/python" \
     MEMRAY_MINIMIZE_INLINING="1"
 
-COPY requirements-test.txt requirements-extra.txt requirements-docs.txt /tmp/
+COPY pyproject.toml /tmp/pyproject.toml
 
-RUN $PYTHON -m pip install -U \
-    -r /tmp/requirements-extra.txt \
-    -r /tmp/requirements-test.txt \
-    -r /tmp/requirements-docs.txt \
-    cython \
-    pkgconfig \
-    setuptools \
-    wheel
+RUN $PYTHON -m pip install --upgrade pip \
+    && $PYTHON -m pip install \
+        --group /tmp/pyproject.toml:test \
+        --group /tmp/pyproject.toml:extra \
+        cython \
+        pkgconfig \
+        setuptools \
+        wheel
 
 RUN npm install -g prettier
 
