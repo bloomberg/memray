@@ -112,7 +112,7 @@ def set_log_level(int level):
     setLogThreshold(level)
 
 
-cpdef enum AllocatorType:
+cpdef enum class AllocatorType:
     PYMALLOC_FREE = 1
     PYMALLOC_MALLOC = 2
     PYMALLOC_CALLOC = 3
@@ -129,13 +129,13 @@ cpdef enum AllocatorType:
     MMAP = 14
     MUNMAP = 15
 
-# Note: enumerator values are greater than 100 because they must be unique
+# Note: enumerator values are negative because they must be unique
 #       from the enumerator values of the AllocatorType enum above
-cpdef enum ObjectTrackingEvent:
-    OBJECT_CREATED = 101
-    OBJECT_DESTROYED = 102
+cpdef enum class ObjectTrackingEvent:
+    OBJECT_CREATED = -1
+    OBJECT_DESTROYED = -2
 
-cpdef enum PythonAllocatorType:
+cpdef enum class PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC = 1
     PYTHON_ALLOCATOR_PYMALLOC_DEBUG = 2
     PYTHON_ALLOCATOR_MALLOC = 3
@@ -143,7 +143,7 @@ cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_MIMALLOC = 5
     PYTHON_ALLOCATOR_MIMALLOC_DEBUG = 6
 
-cpdef enum FileFormat:
+cpdef enum class FileFormat:
     ALL_ALLOCATIONS = _FileFormat.ALL_ALLOCATIONS
     AGGREGATED_ALLOCATIONS = _FileFormat.AGGREGATED_ALLOCATIONS
 
@@ -1662,7 +1662,7 @@ cdef class SocketReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
-cpdef enum SymbolicSupport:
+cpdef enum class SymbolicSupport:
     NONE = 1
     FUNCTION_NAME_ONLY = 2
     TOTAL = 3
