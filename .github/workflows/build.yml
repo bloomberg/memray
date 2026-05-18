@@ -100,7 +100,8 @@ jobs:
           sudo apt-get install -qy clang-format npm libdebuginfod-dev libunwind-dev liblz4-dev pkg-config
       - name: Install Python dependencies
         run: |
-          python3 -m pip install -r requirements-extra.txt
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --group extra
       - name: Install Package
         run: |
           python3 -m pip install -e .
@@ -130,7 +131,7 @@ jobs:
       - name: Install Python dependencies and package
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install -r requirements-test.txt
+          python3 -m pip install --group test
           python3 -m pip install -e .
         env:
           MEMRAY_MINIMIZE_INLINING: 1
