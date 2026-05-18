@@ -125,7 +125,7 @@ cdef class MemoryAllocator:
             pthread_join(thread, NULL)
 
 
-cpdef enum PymallocDomain:
+cpdef enum class PymallocDomain:
     PYMALLOC_RAW = 1
     PYMALLOC_MEM = 2
     PYMALLOC_OBJECT = 3
@@ -142,22 +142,22 @@ cdef class PymallocMemoryAllocator:
     def free(self):
         if self.ptr == NULL:
             raise RuntimeError("Pointer cannot be NULL")
-        if self.domain == PYMALLOC_RAW:
+        if self.domain == PymallocDomain.PYMALLOC_RAW:
             PyMem_RawFree(self.ptr)
-        elif self.domain == PYMALLOC_MEM:
+        elif self.domain == PymallocDomain.PYMALLOC_MEM:
             PyMem_Free(self.ptr)
-        elif self.domain == PYMALLOC_OBJECT:
+        elif self.domain == PymallocDomain.PYMALLOC_OBJECT:
             PyObject_Free(self.ptr)
         else:
             raise RuntimeError("Invlid pymalloc domain")
         self.ptr = NULL
 
     def malloc(self, size_t size):
-        if self.domain == PYMALLOC_RAW:
+        if self.domain == PymallocDomain.PYMALLOC_RAW:
             self.ptr = PyMem_RawMalloc(size)
-        elif self.domain == PYMALLOC_MEM:
+        elif self.domain == PymallocDomain.PYMALLOC_MEM:
             self.ptr = PyMem_Malloc(size)
-        elif self.domain == PYMALLOC_OBJECT:
+        elif self.domain == PymallocDomain.PYMALLOC_OBJECT:
             self.ptr = PyObject_Malloc(size)
         else:
             raise RuntimeError("Invlid pymalloc domain")
@@ -165,11 +165,11 @@ cdef class PymallocMemoryAllocator:
         return self.ptr != NULL
 
     def calloc(self, size_t size):
-        if self.domain == PYMALLOC_RAW:
+        if self.domain == PymallocDomain.PYMALLOC_RAW:
             self.ptr = PyMem_RawCalloc(1, size)
-        elif self.domain == PYMALLOC_MEM:
+        elif self.domain == PymallocDomain.PYMALLOC_MEM:
             self.ptr = PyMem_Calloc(1, size)
-        elif self.domain == PYMALLOC_OBJECT:
+        elif self.domain == PymallocDomain.PYMALLOC_OBJECT:
             self.ptr = PyObject_Calloc(1, size)
         else:
             raise RuntimeError("Invlid pymalloc domain")
@@ -177,11 +177,11 @@ cdef class PymallocMemoryAllocator:
         return self.ptr != NULL
 
     def realloc(self, size_t size):
-        if self.domain == PYMALLOC_RAW:
+        if self.domain == PymallocDomain.PYMALLOC_RAW:
             self.ptr = PyMem_RawRealloc(self.ptr, size)
-        elif self.domain == PYMALLOC_MEM:
+        elif self.domain == PymallocDomain.PYMALLOC_MEM:
             self.ptr = PyMem_Realloc(self.ptr, size)
-        elif self.domain == PYMALLOC_OBJECT:
+        elif self.domain == PymallocDomain.PYMALLOC_OBJECT:
             self.ptr = PyObject_Realloc(self.ptr, size)
         else:
             raise RuntimeError("Invlid pymalloc domain")
