@@ -8,6 +8,8 @@ on:
     branches:
       - main
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -17,7 +19,9 @@ jobs:
     name: "Check if generated files are up to date"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
       - name: Set up dependencies
         run: |
           sudo apt-get update
@@ -41,10 +45,12 @@ jobs:
     name: "Test in Alpine Linux"
     runs-on: ubuntu-latest
     container:
-      image: alpine
+      image: alpine:3.22
       options: --cap-add=SYS_PTRACE
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
       - name: Set up dependencies
         run: |
           apk add --update build-base libunwind-dev lz4-dev musl-dev python3-dev python3-dbg gdb lldb git bash perl perl-datetime build-base perl-app-cpanminus
@@ -75,15 +81,17 @@ jobs:
     name: "Lint and Docs"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 16
       - name: Symlink node as nodejs
         run: ln -sf "$(which node)" "$(which node)js"
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: Set up dependencies
@@ -108,9 +116,11 @@ jobs:
     name: "Valgrind & Helgrind"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: Set up dependencies

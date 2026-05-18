@@ -8,6 +8,8 @@ on:
       - "labeled"
       - "unlabeled"
 
+permissions: {}
+
 jobs:
   commits_check_job:
     runs-on: ubuntu-latest
@@ -15,10 +17,10 @@ jobs:
     steps:
       - name: Get PR Commits
         id: "get-pr-commits"
-        uses: tim-actions/get-pr-commits@master
+        uses: tim-actions/get-pr-commits@55b867b9b28954e6f5c1a0fe2f729dc926c306d0 # v1.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: DCO Check
-        uses: tim-actions/dco@master
+        uses: tim-actions/dco@f2279e6e62d5a7d9115b0cb8e837b777b1b02e21 # v1.1.0
         with:
           commits: ${{ steps.get-pr-commits.outputs.commits }}

@@ -5,17 +5,21 @@ on:
     branches:
       - main
 
+permissions: {}
+
 jobs:
   publish_docs:
     name: Publish docs
     runs-on: ubuntu-latest
     #if: github.event_name == 'release' && github.event.action == 'published'
     permissions:
-      contents: write
+      contents: write # Required: github-pages-deploy-action pushes to the deployment branch
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: Set up dependencies
@@ -32,7 +36,7 @@ jobs:
         run: |
           make docs
       - name: Publish docs to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
         with:
           folder: docs/_build/html
           single-commit: true
