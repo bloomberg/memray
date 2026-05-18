@@ -129,11 +129,11 @@ cpdef enum AllocatorType:
     MMAP = 14
     MUNMAP = 15
 
-# Note: enumerator values are negative because they must be unique
+# Note: enumerator values are greater than 100 because they must be unique
 #       from the enumerator values of the AllocatorType enum above
 cpdef enum ObjectTrackingEvent:
-    OBJECT_CREATED = -1
-    OBJECT_DESTROYED = -2
+    OBJECT_CREATED = 101
+    OBJECT_DESTROYED = 102
 
 cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC = 1
@@ -251,7 +251,7 @@ cdef hybrid_stack_trace(
         # Check for Python frame boundaries: traditional _PyEval_EvalFrameDefault
         # or Python 3.14 tail call interpreter LLVM-generated functions
         is_python_frame_boundary = "_PyEval_EvalFrameDefault" in symbol or (
-            symbol.startswith("_TAIL_CALL_") and ".llvm." in symbol
+            symbol.startswith("_TAIL_CALL_")
         )
         if pidx >= 0 and is_python_frame_boundary:
             while True:
