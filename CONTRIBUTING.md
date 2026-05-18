@@ -59,11 +59,11 @@ easier to validate it.
 
 ### Linting your code
 
-Before commiting anything, install the pre-commit hooks:
+Before commiting anything, install the prek (pre-commit) hooks:
 
 ```shell
 python3 -m pip install -r requirements-extra.txt
-pre-commit install
+prek install
 ```
 
 This will ensure that your contribution passes our linting checks.
