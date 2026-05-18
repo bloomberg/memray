@@ -11,6 +11,12 @@ You can also search this project for issues with the following labels:
 | [help wanted](https://github.com/bloomberg/memray/search?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+&type=Issues&utf8=%E2%9C%93)    | `is:issue is:open label:"help wanted"`    | General issues where contributors help is wanted.                                                                                                                  |
 | [question](https://github.com/bloomberg/memray/search?q=is%3Aissue+is%3Aopen+label%3Aquestion&type=Issues&utf8=%E2%9C%93)                 | `is:issue is:open label:question`         | Open discussions to resolve everything from implementation details to desired functionality.                                                                       |
 
+## Environment setup with GitHub Codespaces
+
+To create a new [Codespace](https://docs.github.com/en/codespaces), use the [Code dropdown on the repository main page](https://docs.github.com/en/codespaces/developing-in-a-codespace/creating-a-codespace-for-a-repository#creating-a-codespace-for-a-repository) or click the button below. Follow the prompts and select "Memray development" for Dev container configuration if it isn't already selected. It should take approximately 1-2 minutes to setup.
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/bloomberg/memray?devcontainer_path=.devcontainer%2Fdevcontainer.json)
+
 ## Contribution Licensing
 
 Since this project is distributed under the terms of an [open source license](LICENSE), contributions that
