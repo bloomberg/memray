@@ -299,13 +299,18 @@ function fileExtension(filename) {
   );
 }
 
+function isDarkTheme() {
+  return document.documentElement.getAttribute("data-theme") === "dark";
+}
+
 function colorByExtension(extension) {
+  const dark = isDarkTheme();
   if (extension == "py") {
-    return d3.schemePastel1[2];
+    return dark ? "#4f8a5e" : d3.schemePastel1[2];
   } else if (extension == "c" || extension == "cpp" || extension == "h") {
-    return d3.schemePastel1[5];
+    return dark ? "#9a8442" : d3.schemePastel1[5];
   } else {
-    return d3.schemePastel1[8];
+    return dark ? "#5a5f68" : d3.schemePastel1[8];
   }
 }
 
@@ -316,10 +321,25 @@ function memrayColorMapper(d, originalColor) {
   }
   // "builtin" / nodes that we don't want to highlight
   if (!d.data.name || !d.data.location) {
-    return "#EEE";
+    return isDarkTheme() ? "#2a2f36" : "#EEE";
   }
 
   return colorByExtension(fileExtension(d.data.location[1]));
+}
+
+// Re-apply fill colors on all existing flame graph rects without forcing a
+// full re-render. Called by the theme toggle so dark/light switches live.
+export function applyFlamegraphTheme() {
+  if (typeof d3 === "undefined") return;
+  d3.selectAll("#chart svg g").each(function () {
+    const sel = d3.select(this);
+    const d = sel.datum();
+    if (!d) return;
+    const rect = sel.select("rect");
+    if (!rect.empty()) {
+      rect.attr("fill", memrayColorMapper(d));
+    }
+  });
 }
 
 // Show the 'Threads' dropdown if we have thread data, and populate it
