@@ -357,3 +357,5 @@ You must use your real name (sorry, no pseudonyms, and no anonymous contribution
 - Follow the guidelines in the issue template presented to you.
 - Submit the Issue.
 - Submit a Pull Request and link it to the Issue by including "#<issue number>" in the Pull Request summary.
+
+Please read the [CONTRIBUTING.md](./CONTRIBUTING.md) for more info.
