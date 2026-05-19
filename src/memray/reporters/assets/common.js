@@ -1,5 +1,53 @@
 import _ from "lodash";
 
+// Build Plotly layout overrides for the current theme (light or dark).
+// `kind` selects the variant: "main" for the full chart, "small" for the
+// mini chart that sits inside the dark navbar.
+export function getPlotlyTheme(kind) {
+  const isDark =
+    document.documentElement.getAttribute("data-theme") === "dark";
+  if (isDark) {
+    const paper = "#15181d";
+    const plot = kind === "small" ? "#07090b" : "#111418";
+    const fg = "#e6e6e6";
+    const grid = "#2a2f36";
+    return {
+      paper_bgcolor: paper,
+      plot_bgcolor: plot,
+      font: { color: fg },
+      xaxis: { gridcolor: grid, zerolinecolor: grid, linecolor: grid },
+      yaxis: { gridcolor: grid, zerolinecolor: grid, linecolor: grid },
+      legend: { font: { color: fg } },
+    };
+  }
+  // Light theme: keep the original look. The mini chart inside the dark
+  // navbar uses #343a40 to blend with bg-dark.
+  return {
+    paper_bgcolor: "#ffffff",
+    plot_bgcolor: kind === "small" ? "#343a40" : "#ffffff",
+    font: { color: "#212529" },
+    xaxis: { gridcolor: "#e9ecef", zerolinecolor: "#e9ecef", linecolor: "#e9ecef" },
+    yaxis: { gridcolor: "#e9ecef", zerolinecolor: "#e9ecef", linecolor: "#e9ecef" },
+    legend: { font: { color: "#212529" } },
+  };
+}
+
+// Re-apply the theme to all currently rendered Plotly charts. Safe to call
+// even if a given chart hasn't been created yet.
+export function applyPlotlyTheme() {
+  const targets = [
+    { id: "memoryGraph", kind: "main" },
+    { id: "smallMemoryGraph", kind: "small" },
+    { id: "plot", kind: "main" },
+  ];
+  targets.forEach(({ id, kind }) => {
+    const el = document.getElementById(id);
+    if (el && el.data) {
+      Plotly.relayout(id, getPlotlyTheme(kind));
+    }
+  });
+}
+
 export function initMemoryGraph(memory_records) {
   const time = memory_records.map((a) => new Date(a[0]));
   const resident_size = memory_records.map((a) => a[1]);
@@ -22,7 +70,10 @@ export function initMemoryGraph(memory_records) {
 
   var data = [resident_size_plot, heap_size_plot];
 
-  var layout = {
+  const mainTheme = getPlotlyTheme("main");
+  const smallTheme = getPlotlyTheme("small");
+
+  var layout = _.merge({}, mainTheme, {
     xaxis: {
       title: {
         text: "Time",
@@ -36,9 +87,9 @@ export function initMemoryGraph(memory_records) {
       exponentformat: "B",
       ticksuffix: "B",
     },
-  };
+  });
 
-  var layout_small = {
+  var layout_small = _.merge({}, smallTheme, {
     height: 40,
     margin: {
       l: 0,
@@ -47,14 +98,13 @@ export function initMemoryGraph(memory_records) {
       t: 0,
       pad: 4,
     },
-    plot_bgcolor: "#343a40", // this matches the color of bg-dark in our navbar
     yaxis: {
       tickformat: ".4~s",
       exponentformat: "B",
       ticksuffix: "B",
     },
     showlegend: false,
-  };
+  });
   var config = {
     responsive: true,
     displayModeBar: true,

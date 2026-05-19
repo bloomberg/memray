@@ -406,6 +406,54 @@
     const inverted = {{ inverted|tojson }};
     const temporal = packed_data.intervals != null;
 
+    // Build Plotly layout overrides for the current theme.
+    // `kind` is "main" for the full chart or "small" for the mini chart
+    // that sits inside the dark navbar.
+    function memrayPlotlyTheme(kind) {
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        var plotBg = kind === 'small' ? '#07090b' : '#111418';
+        return {
+          'paper_bgcolor': '#15181d',
+          'plot_bgcolor': plotBg,
+          'font.color': '#e6e6e6',
+          'xaxis.gridcolor': '#2a2f36',
+          'xaxis.zerolinecolor': '#2a2f36',
+          'xaxis.linecolor': '#2a2f36',
+          'yaxis.gridcolor': '#2a2f36',
+          'yaxis.zerolinecolor': '#2a2f36',
+          'yaxis.linecolor': '#2a2f36',
+          'legend.font.color': '#e6e6e6',
+        };
+      }
+      return {
+        'paper_bgcolor': '#ffffff',
+        'plot_bgcolor': kind === 'small' ? '#343a40' : '#ffffff',
+        'font.color': '#212529',
+        'xaxis.gridcolor': '#e9ecef',
+        'xaxis.zerolinecolor': '#e9ecef',
+        'xaxis.linecolor': '#e9ecef',
+        'yaxis.gridcolor': '#e9ecef',
+        'yaxis.zerolinecolor': '#e9ecef',
+        'yaxis.linecolor': '#e9ecef',
+        'legend.font.color': '#212529',
+      };
+    }
+    // Re-apply theme to whichever Plotly charts exist on the page.
+    function applyPlotlyTheme() {
+      if (typeof Plotly === 'undefined') return;
+      [
+        { id: 'memoryGraph', kind: 'main' },
+        { id: 'smallMemoryGraph', kind: 'small' },
+        { id: 'plot', kind: 'main' },
+      ].forEach(function (t) {
+        var el = document.getElementById(t.id);
+        if (el && el.data) {
+          Plotly.relayout(t.id, memrayPlotlyTheme(t.kind));
+        }
+      });
+    }
+
     // Initialize the theme toggle button
     (function () {
       var btn = document.getElementById('themeToggle');
@@ -421,6 +469,7 @@
         document.documentElement.setAttribute('data-theme', next);
         try { localStorage.setItem('memray-theme', next); } catch (e) {}
         updateIcon();
+        applyPlotlyTheme();
       });
     })();
   </script>
