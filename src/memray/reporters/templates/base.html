@@ -7,12 +7,251 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>memray - {{ title }}</title>
 
+  <script>
+    // Prevent FOUC: set data-theme before first paint
+    (function () {
+      try {
+        var stored = localStorage.getItem('memray-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = stored || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   {%- block styles -%}
   {% if no_web %}
   <style>{% include "assets/vendor/bootstrap.min.css" %}</style>
   {% else %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
   {% endif %}
+  <style>
+    /* Theme CSS variables (light) */
+    :root {
+      --app-bg: #ffffff;
+      --app-fg: #212529;
+      --content-bg: #f8f9fa;
+      --navbar-bg: #343a40;
+      --navbar-fg: #ffffff;
+      --card-bg: #ffffff;
+      --card-fg: #212529;
+      --border: #dee2e6;
+      --muted: #6c757d;
+      --code-bg: #f1f3f5;
+      --code-fg: #c7254e;
+      --alert-warning-bg: #fff3cd;
+      --alert-warning-fg: #856404;
+      --alert-warning-border: #ffeeba;
+    }
+    /* Theme CSS variables (dark: black-based palette) */
+    [data-theme="dark"] {
+      --app-bg: #0b0d10;
+      --app-fg: #e6e6e6;
+      --content-bg: #111418;
+      --navbar-bg: #07090b;
+      --navbar-fg: #f1f3f5;
+      --card-bg: #15181d;
+      --card-fg: #e6e6e6;
+      --border: #2a2f36;
+      --muted: #8a8f98;
+      --accent: #7aa2ff;
+      --accent-fg: #0b0d10;
+      --input-bg: #15181d;
+      --input-fg: #e6e6e6;
+      --input-border: #2a2f36;
+      --code-bg: #1b1f25;
+      --code-fg: #ff8fa3;
+      --alert-warning-bg: #2a2410;
+      --alert-warning-fg: #ffd479;
+      --alert-warning-border: #5a4c1f;
+    }
+
+    html, body {
+      background-color: var(--app-bg);
+      color: var(--app-fg);
+    }
+    /* Override Bootstrap classes with theme variables */
+    .navbar.bg-dark,
+    [data-theme="dark"] .navbar.bg-dark {
+      background-color: var(--navbar-bg) !important;
+      border-bottom: 1px solid var(--border);
+    }
+    .col.bg-light {
+      background-color: var(--content-bg) !important;
+      color: var(--app-fg);
+    }
+    .modal-content {
+      background-color: var(--card-bg);
+      color: var(--card-fg);
+    }
+    .modal-header,
+    .modal-footer {
+      border-color: var(--border);
+    }
+    [data-theme="dark"] .modal-header .close,
+    [data-theme="dark"] .alert .close {
+      color: var(--card-fg);
+      text-shadow: none;
+    }
+    code {
+      background-color: var(--code-bg);
+      color: var(--code-fg);
+      padding: 0.1em 0.3em;
+      border-radius: 3px;
+    }
+    .alert-warning {
+      background-color: var(--alert-warning-bg);
+      color: var(--alert-warning-fg);
+      border-color: var(--alert-warning-border);
+    }
+    [data-theme="dark"] .badge-primary {
+      background-color: #2a4a8a;
+      color: #e6ecff;
+    }
+    [data-theme="dark"] .badge-success {
+      background-color: #1f5a32;
+      color: #e3f5e8;
+    }
+
+    /* Additional dark-mode overrides (links, forms, tables, dropdowns, etc.) */
+    [data-theme="dark"] a {
+      color: var(--accent);
+    }
+    [data-theme="dark"] a:hover {
+      color: #a8c1ff;
+    }
+    [data-theme="dark"] hr {
+      border-color: var(--border);
+    }
+    [data-theme="dark"] .text-muted {
+      color: var(--muted) !important;
+    }
+    [data-theme="dark"] .form-control {
+      background-color: var(--input-bg);
+      color: var(--input-fg);
+      border-color: var(--input-border);
+    }
+    [data-theme="dark"] .form-control:focus {
+      background-color: var(--input-bg);
+      color: var(--input-fg);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 0.2rem rgba(122, 162, 255, 0.25);
+    }
+    [data-theme="dark"] .form-control::placeholder {
+      color: var(--muted);
+    }
+    [data-theme="dark"] .btn-outline-light {
+      color: var(--app-fg);
+      border-color: var(--border);
+    }
+    [data-theme="dark"] .btn-outline-light:hover {
+      background-color: var(--card-bg);
+      color: var(--app-fg);
+      border-color: var(--accent);
+    }
+    [data-theme="dark"] .btn-primary {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-fg);
+    }
+    [data-theme="dark"] .btn-primary:hover,
+    [data-theme="dark"] .btn-primary:focus {
+      background-color: #6b91ec;
+      border-color: #6b91ec;
+      color: var(--accent-fg);
+    }
+    [data-theme="dark"] .table {
+      color: var(--app-fg);
+      background-color: var(--card-bg);
+    }
+    [data-theme="dark"] .table thead th,
+    [data-theme="dark"] .table td,
+    [data-theme="dark"] .table th {
+      border-color: var(--border);
+    }
+    [data-theme="dark"] .table-striped tbody tr:nth-of-type(odd) {
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+    [data-theme="dark"] .table-hover tbody tr:hover {
+      background-color: rgba(122, 162, 255, 0.08);
+      color: var(--app-fg);
+    }
+    [data-theme="dark"] .dropdown-menu {
+      background-color: var(--card-bg);
+      color: var(--card-fg);
+      border-color: var(--border);
+    }
+    [data-theme="dark"] .dropdown-item {
+      color: var(--card-fg);
+    }
+    [data-theme="dark"] .dropdown-item:hover,
+    [data-theme="dark"] .dropdown-item:focus {
+      background-color: rgba(122, 162, 255, 0.12);
+      color: var(--app-fg);
+    }
+    [data-theme="dark"] .tooltip-inner {
+      background-color: var(--card-bg);
+      color: var(--card-fg);
+      border: 1px solid var(--border);
+    }
+    /* Search input (type="search") and its native clear button */
+    [data-theme="dark"] input[type="search"] {
+      background-color: var(--input-bg);
+      color: var(--input-fg);
+      border-color: var(--input-border);
+    }
+    [data-theme="dark"] input[type="search"]::placeholder {
+      color: var(--muted);
+    }
+    [data-theme="dark"] input[type="search"]::-webkit-search-cancel-button {
+      filter: invert(1) brightness(0.85);
+    }
+
+    /* DataTables pagination (Previous / Next / page numbers) */
+    [data-theme="dark"] .dataTables_info,
+    [data-theme="dark"] .dataTables_paginate,
+    [data-theme="dark"] .dataTables_length,
+    [data-theme="dark"] .dataTables_filter {
+      color: var(--app-fg);
+    }
+    [data-theme="dark"] .page-link {
+      background-color: var(--card-bg);
+      color: var(--app-fg);
+      border-color: var(--border);
+    }
+    [data-theme="dark"] .page-link:hover {
+      background-color: rgba(122, 162, 255, 0.12);
+      color: var(--app-fg);
+      border-color: var(--border);
+    }
+    [data-theme="dark"] .page-item.active .page-link {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-fg);
+    }
+    [data-theme="dark"] .page-item.disabled .page-link {
+      background-color: var(--card-bg);
+      color: var(--muted);
+      border-color: var(--border);
+    }
+
+    [data-theme="dark"] ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    [data-theme="dark"] ::-webkit-scrollbar-track {
+      background: var(--app-bg);
+    }
+    [data-theme="dark"] ::-webkit-scrollbar-thumb {
+      background: #2a2f36;
+      border-radius: 5px;
+    }
+    [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+      background: #3a3f47;
+    }
+  </style>
   {%- endblock styles -%}
 </head>
 
@@ -44,6 +283,7 @@
       <div class="btn-toolbar">
         {% block topbar_buttons %}
         {% endblock topbar_buttons %}
+        <button type="button" id="themeToggle" class="btn btn-outline-light mr-3" aria-label="Toggle color theme" title="Toggle color theme">🌙</button>
         <button type="button" class="btn btn-outline-light mr-3" data-toggle="modal" data-target="#statsModal">Stats</button>
         <button type="button" class="btn btn-outline-light mr-3" data-toggle="modal" data-target="#helpModal">Help</button>
       </div>
@@ -165,6 +405,24 @@
     const memory_records = {{ memory_records|tojson }};
     const inverted = {{ inverted|tojson }};
     const temporal = packed_data.intervals != null;
+
+    // Initialize the theme toggle button
+    (function () {
+      var btn = document.getElementById('themeToggle');
+      if (!btn) return;
+      var updateIcon = function () {
+        var theme = document.documentElement.getAttribute('data-theme');
+        btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+      };
+      updateIcon();
+      btn.addEventListener('click', function () {
+        var current = document.documentElement.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('memray-theme', next); } catch (e) {}
+        updateIcon();
+      });
+    })();
   </script>
   {% endblock scripts %}
 </body>
