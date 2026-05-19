@@ -45,7 +45,7 @@ jobs:
     name: "Test in Alpine Linux"
     runs-on: ubuntu-latest
     container:
-      image: alpine:3.22
+      image: alpine:latest # zizmor: ignore[unpinned-images]
       options: --cap-add=SYS_PTRACE
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
