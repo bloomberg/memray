@@ -1,0 +1,1 @@
+Add per-module allocation statistics to ``memray stats``, showing the top allocating non-stdlib modules by size and by number of allocations.

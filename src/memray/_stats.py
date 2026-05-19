@@ -1,4 +1,7 @@
 from dataclasses import dataclass
+from dataclasses import field
+from typing import List
+from typing import Tuple
 
 from ._metadata import Metadata
 
@@ -13,3 +16,7 @@ class Stats:
     allocation_count_by_allocator: dict
     top_locations_by_size: list
     top_locations_by_count: list
+    top_allocations_by_module: List[Tuple[str, int, int]] = field(default_factory=list)
+    top_allocations_by_module_by_count: List[Tuple[str, int, int]] = field(
+        default_factory=list
+    )

@@ -1493,6 +1493,9 @@ def compute_statistics(
     report_progress=False,
     num_largest=5,
 ):
+    from memray.reporters.module_tools import get_module_for_stack
+    from memray.reporters.module_tools import get_python_path_info
+
     cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
         unique_ptr[FileSource](new FileSource(file_name))
     )
@@ -1512,15 +1515,27 @@ def compute_statistics(
         total=total,
         report_progress=report_progress,
     )
+
+    path_info = get_python_path_info()
+    module_stats = {}  # module -> [num_allocations, total_bytes]
+
     with progress_indicator:
         while True:
             PyErr_CheckSignals()
             ret = reader.nextRecord()
             if ret == RecordResult.RecordResultAllocationRecord:
+                allocation = reader.getLatestAllocation()
                 aggregator.addAllocation(
-                    reader.getLatestAllocation(),
-                    reader.getLatestPythonLocationId(reader.getLatestAllocation()),
+                    allocation,
+                    reader.getLatestPythonLocationId(allocation),
                 )
+
+                if allocation.frame_index != 0:
+                    stack = reader.Py_GetStackFrame(allocation.frame_index)
+                    module_name = get_module_for_stack(stack, path_info)
+                    entry = module_stats.setdefault(module_name, [0, 0])
+                    entry[0] += 1
+                    entry[1] += allocation.size
                 progress_indicator.update(1)
             elif ret == RecordResult.RecordResultMemoryRecord:
                 pass
@@ -1554,6 +1569,22 @@ def compute_statistics(
         for count_and_loc in aggregator.topLocationsByCount(num_largest)
     ]
 
+    top_modules_by_count = sorted(
+        module_stats.items(), key=lambda x: x[1][0], reverse=True
+    )[:num_largest]
+    top_allocations_by_module_by_count = [
+        (name, count, total_bytes)
+        for name, (count, total_bytes) in top_modules_by_count
+    ]
+
+    top_modules_by_size = sorted(
+        module_stats.items(), key=lambda x: x[1][1], reverse=True
+    )[:num_largest]
+    top_allocations_by_module = [
+        (name, count, total_bytes)
+        for name, (count, total_bytes) in top_modules_by_size
+    ]
+
     # And we're done!
     cdef uint64_t peak_memory = aggregator.peakBytesAllocated()
     return Stats(
@@ -1565,6 +1596,8 @@ def compute_statistics(
         allocation_count_by_allocator=allocation_count_by_allocator,
         top_locations_by_size=top_locations_by_size,
         top_locations_by_count=top_locations_by_count,
+        top_allocations_by_module=top_allocations_by_module,
+        top_allocations_by_module_by_count=top_allocations_by_module_by_count,
     )
 
 
