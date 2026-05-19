@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Get PR Commits
         id: "get-pr-commits"
-        uses: tim-actions/get-pr-commits@55b867b9b28954e6f5c1a0fe2f729dc926c306d0 # v1.1.0
+        uses: tim-actions/get-pr-commits@198af03565609bb4ed924d1260247b4881f09e7d # v1.3.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: DCO Check
