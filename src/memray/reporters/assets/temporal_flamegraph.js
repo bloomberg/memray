@@ -1,4 +1,5 @@
-import { debounced } from "./common";
+import _ from "lodash";
+import { debounced, getPlotlyTheme } from "./common";
 
 import {
   initThreadsDropdown,
@@ -12,7 +13,10 @@ import {
   onInvert,
   getFilteredChart,
   getFlamegraph,
+  applyFlamegraphTheme,
 } from "./flamegraph_common";
+
+window.memrayApplyFlamegraphTheme = applyFlamegraphTheme;
 
 var active_plot = null;
 var current_dimensions = null;
@@ -268,7 +272,7 @@ function initMemoryGraph(memory_records) {
     responsive: true,
     displayModeBar: false,
   };
-  var layout = {
+  var layout = _.merge({}, getPlotlyTheme("main"), {
     xaxis: {
       title: {
         text: "Time",
@@ -285,7 +289,7 @@ function initMemoryGraph(memory_records) {
       exponentformat: "B",
       ticksuffix: "B",
     },
-  };
+  });
 
   Plotly.newPlot("plot", plot_data, layout, config).then((plot) => {
     console.assert(active_plot === null);
