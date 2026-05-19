@@ -121,8 +121,53 @@ def fake_stats():
             (("fake_func2", "fake.py", 10), 3 * 2**10),
             (("__main__", "fake.py", 15), 4),
         ],
+        top_modules_by_allocation_size=[
+            ("fake", 20, sum(mem_allocation_list)),
+        ],
+        top_modules_by_allocation_count=[
+            ("fake", 20, sum(mem_allocation_list)),
+        ],
     )
     return s
+
+
+@pytest.fixture(scope="module")
+def empty_module_stats():
+    """Stats with no module attribution (top_modules_by_allocation_size is empty)."""
+    return Stats(
+        metadata=Metadata(
+            start_time=datetime(2023, 1, 1, 1),
+            end_time=datetime(2023, 1, 1, 2),
+            total_allocations=20,
+            total_frames=4,
+            peak_memory=2500000,
+            command_line="python -c 'import json; json.dumps(range(100))'",
+            pid=123456,
+            python_allocator="pymalloc",
+            has_native_traces=False,
+            trace_python_allocators=True,
+            file_format=FileFormat.ALL_ALLOCATIONS,
+            main_thread_id=0x1,
+        ),
+        total_num_allocations=20,
+        total_memory_allocated=3341500,
+        peak_memory_allocated=2500000,
+        allocation_count_by_size=Counter({256: 12, 512: 8}),
+        allocation_count_by_allocator={
+            AT.MALLOC.name: 15,
+            AT.REALLOC.name: 5,
+        },
+        top_locations_by_count=[
+            (("loads", "/usr/lib/python3.11/json/__init__.py", 346), 12),
+            (("decode", "/usr/lib/python3.11/json/decoder.py", 337), 8),
+        ],
+        top_locations_by_size=[
+            (("loads", "/usr/lib/python3.11/json/__init__.py", 346), 2500000),
+            (("decode", "/usr/lib/python3.11/json/decoder.py", 337), 841500),
+        ],
+        top_modules_by_allocation_size=[],
+        top_modules_by_allocation_count=[],
+    )
 
 
 # tests begin here
@@ -389,7 +434,13 @@ def test_stats_output(fake_stats):
         "🥇 [bold]Top 5 largest allocating locations (by number of allocations):[/]\n"
         "\t- fake_func:fake.py:5 -> 20\n"
         "\t- fake_func2:fake.py:10 -> 50\n"
-        "\t- __main__:fake.py:15 -> 1"
+        "\t- __main__:fake.py:15 -> 1\n"
+        "\n"
+        "🥇 [bold]Top 5 allocating modules (by size):[/]\n"
+        "\t- fake: 3.341MB total | 20 allocations\n"
+        "\n"
+        "🥇 [bold]Top 5 allocating modules (by number of allocations):[/]\n"
+        "\t- fake: 3.341MB total | 20 allocations"
     )
     printed = "\n".join(" ".join(x[0]) for x in mocked_print.call_args_list)
     assert expected == printed
@@ -430,6 +481,12 @@ def test_stats_output_json(fake_stats, tmp_path):
             {"location": "fake_func2:fake.py:10", "count": 50},
             {"location": "__main__:fake.py:15", "count": 1},
         ],
+        "top_modules_by_allocation_size": [
+            {"module": "fake", "num_allocations": 20, "total_bytes": 3341500},
+        ],
+        "top_modules_by_allocation_count": [
+            {"module": "fake", "num_allocations": 20, "total_bytes": 3341500},
+        ],
         "metadata": {
             "start_time": "2023-01-01 01:00:00",
             "end_time": "2023-01-01 02:00:00",
@@ -447,3 +504,21 @@ def test_stats_output_json(fake_stats, tmp_path):
     }
     actual = json.loads(output_file.read_text())
     assert expected == actual
+
+
+def test_stats_terminal_skips_empty_modules(empty_module_stats):
+    reporter = StatsReporter(empty_module_stats, 5)
+    with patch("builtins.print") as mocked_print:
+        with patch("rich.print", print):
+            reporter.render()
+    printed = "\n".join(" ".join(x[0]) for x in mocked_print.call_args_list)
+    assert "allocating modules" not in printed
+
+
+def test_stats_json_includes_empty_module_list(empty_module_stats, tmp_path):
+    output_file = tmp_path / "out.json"
+    reporter = StatsReporter(empty_module_stats, 5)
+    reporter.render(json_output_file=output_file)
+    data = json.loads(output_file.read_text())
+    assert data["top_modules_by_allocation_size"] == []
+    assert data["top_modules_by_allocation_count"] == []
