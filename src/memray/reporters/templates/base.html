@@ -470,6 +470,9 @@
         try { localStorage.setItem('memray-theme', next); } catch (e) {}
         updateIcon();
         applyPlotlyTheme();
+        if (typeof window.memrayApplyFlamegraphTheme === 'function') {
+          window.memrayApplyFlamegraphTheme();
+        }
       });
     })();
   </script>

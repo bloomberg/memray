@@ -11,9 +11,11 @@ import {
   onResize,
   onInvert,
   getFlamegraph,
+  applyFlamegraphTheme,
 } from "./flamegraph_common";
 
 window.resizeMemoryGraph = resizeMemoryGraph;
+window.memrayApplyFlamegraphTheme = applyFlamegraphTheme;
 
 function packedDataToTree(packedData) {
   const { strings, nodes, unique_threads } = packedData;

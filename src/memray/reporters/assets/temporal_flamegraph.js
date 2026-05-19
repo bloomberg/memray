@@ -13,7 +13,10 @@ import {
   onInvert,
   getFilteredChart,
   getFlamegraph,
+  applyFlamegraphTheme,
 } from "./flamegraph_common";
+
+window.memrayApplyFlamegraphTheme = applyFlamegraphTheme;
 
 var active_plot = null;
 var current_dimensions = null;
