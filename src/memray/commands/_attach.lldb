@@ -9,7 +9,10 @@ p ((void(*)(void*))PyMem_Free)
 
 p "MEMRAY: Process is Python 3.7+."
 
-# When adding new breakpoints, also update _attach.gdb
+# When adding new breakpoints, also update _attach.gdb - but note that
+# PyErr_CheckSignals and PyCallable_Check are intentionally excluded,
+# as for some reason including them caused lldb on Linux to stop at
+# breakpoints that had already been deleted.
 breakpoint set -b malloc -b calloc -b realloc -b free -b PyMem_Malloc -b PyMem_Calloc -b PyMem_Realloc -b PyMem_Free
 
 # Set commands to execute when breakpoint is reached
@@ -21,7 +24,8 @@ expr auto $dlerror = $dlsym($rtld_default, "dlerror")
 expr auto $dll = ((void*(*)(const char*, int))$dlopen)($libpath, $rtld_now)
 p ((char*(*)(void))$dlerror)()
 expr auto $spawn = $dlsym($dll, "memray_spawn_client")
-p ((int(*)(int))$spawn)($port)?"FAILURE":"SUCCESS"
+p ((char*(*)(void))$dlerror)()
+p (!$dll || !$spawn || ((int(*)(int))$spawn)($port)) ? "FAILURE" : "SUCCESS"
 DONE
 
 continue
