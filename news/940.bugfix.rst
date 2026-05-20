@@ -1,0 +1,1 @@
+Fix a bug that crashed target processes when ``memray attach`` fails. The underlying permissions issue is now accounted for and a troubleshooting message prints when it arises.

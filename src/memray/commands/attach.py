@@ -231,6 +231,13 @@ def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | 
         if "MEMRAY: Process is Python 3.7+." not in output:
             return "The process does not seem to be running Python 3.7 or newer."
 
+    if "cannot open shared object file" in output:
+        return (
+            "The target process couldn't open the memray shared library.\n"
+            "This can occur if the memray installation is owned by a different user "
+            "and is inaccessible to the target process."
+        )
+
     return "An unexpected error occurred. Run with --verbose to debug the failure."
 
 
