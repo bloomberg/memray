@@ -112,7 +112,7 @@ def set_log_level(int level):
     setLogThreshold(level)
 
 
-cpdef enum AllocatorType:
+cpdef enum class AllocatorType:
     PYMALLOC_FREE = 1
     PYMALLOC_MALLOC = 2
     PYMALLOC_CALLOC = 3
@@ -131,11 +131,11 @@ cpdef enum AllocatorType:
 
 # Note: enumerator values are negative because they must be unique
 #       from the enumerator values of the AllocatorType enum above
-cpdef enum ObjectTrackingEvent:
+cpdef enum class ObjectTrackingEvent:
     OBJECT_CREATED = -1
     OBJECT_DESTROYED = -2
 
-cpdef enum PythonAllocatorType:
+cpdef enum class PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC = 1
     PYTHON_ALLOCATOR_PYMALLOC_DEBUG = 2
     PYTHON_ALLOCATOR_MALLOC = 3
@@ -143,7 +143,7 @@ cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_MIMALLOC = 5
     PYTHON_ALLOCATOR_MIMALLOC_DEBUG = 6
 
-cpdef enum FileFormat:
+cpdef enum class FileFormat:
     ALL_ALLOCATIONS = _FileFormat.ALL_ALLOCATIONS
     AGGREGATED_ALLOCATIONS = _FileFormat.AGGREGATED_ALLOCATIONS
 
@@ -251,7 +251,7 @@ cdef hybrid_stack_trace(
         # Check for Python frame boundaries: traditional _PyEval_EvalFrameDefault
         # or Python 3.14 tail call interpreter LLVM-generated functions
         is_python_frame_boundary = "_PyEval_EvalFrameDefault" in symbol or (
-            symbol.startswith("_TAIL_CALL_") and ".llvm." in symbol
+            symbol.startswith("_TAIL_CALL_")
         )
         if pidx >= 0 and is_python_frame_boundary:
             while True:
@@ -1662,7 +1662,7 @@ cdef class SocketReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
-cpdef enum SymbolicSupport:
+cpdef enum class SymbolicSupport:
     NONE = 1
     FUNCTION_NAME_ONLY = 2
     TOTAL = 3
