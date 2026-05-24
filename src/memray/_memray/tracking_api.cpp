@@ -872,6 +872,8 @@ Tracker::Tracker(
 #endif
     });
 
+    hooks::ensureArrowHooksAreValid();
+
     d_writer->setMainTidAndSkippedFrames(thread_id(), computeMainTidSkip());
     if (!d_writer->writeHeader(false)) {
         throw IoError{"Failed to write output header: " + std::string(strerror(errno))};
@@ -1235,6 +1237,8 @@ Tracker::trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTra
 void
 Tracker::invalidate_module_cache_impl()
 {
+    // libarrow can be loaded after tracking starts.
+    hooks::ensureArrowHooksAreValid();
     d_patcher.overwrite_symbols();
     updateModuleCacheImpl();
 }

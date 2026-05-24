@@ -41,9 +41,17 @@ patch_symbol(
         const Hook& hook,
         typename Hook::signature_t intercept,
         const char* symname,
+        const SymbolTable& symbols,
         Addr addr,
         bool restore_original)
 {
+    const bool is_arrow_mimalloc_hook = strncmp(symname, "arrow_mi_", 9) == 0;
+    if (is_arrow_mimalloc_hook
+        && (!hook || symbols.getSymbolAddress(symname) != reinterpret_cast<Addr>(hook.d_original)))
+    {
+        return;
+    }
+
     // Make sure that we can read and write to the page where the address that we are trying to
     // patch;
     if (unprotect_page(addr) < 0) {
@@ -89,6 +97,7 @@ overwrite_elf_table(
                 MEMRAY_ORIG(hookname),                                                                  \
                 &intercept::hookname,                                                                   \
                 symname,                                                                                \
+                symbols,                                                                                \
                 symbol_addr,                                                                            \
                 restore_original);                                                                      \
         continue;                                                                                       \

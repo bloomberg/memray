@@ -36,6 +36,24 @@ free_sized(void*, size_t) MAYBE_MISSING;
 extern "C" void
 free_aligned_sized(void*, size_t, size_t) MAYBE_MISSING;
 
+#ifdef __linux__
+// Arrow defines these wrappers only when built with mimalloc.
+extern "C" {
+void*
+arrow_mi_malloc_aligned(size_t size, size_t alignment) MAYBE_MISSING;
+void*
+arrow_mi_realloc_aligned(void* ptr, size_t new_size, size_t alignment) MAYBE_MISSING;
+void
+arrow_mi_free(void* ptr) MAYBE_MISSING;
+}
+#    define MEMRAY_ARROW_HOOKED_FUNCTIONS                                                               \
+        FOR_EACH_HOOKED_FUNCTION(arrow_mi_malloc_aligned)                                               \
+        FOR_EACH_HOOKED_FUNCTION(arrow_mi_realloc_aligned)                                              \
+        FOR_EACH_HOOKED_FUNCTION(arrow_mi_free)
+#else
+#    define MEMRAY_ARROW_HOOKED_FUNCTIONS
+#endif
+
 #if defined(__APPLE__)
 #    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 #elif defined(__GLIBC__)
@@ -65,6 +83,7 @@ free_aligned_sized(void*, size_t, size_t) MAYBE_MISSING;
     FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)                                                         \
     FOR_EACH_HOOKED_FUNCTION(free_sized)                                                                \
     FOR_EACH_HOOKED_FUNCTION(free_aligned_sized)                                                        \
+    MEMRAY_ARROW_HOOKED_FUNCTIONS                                                                       \
     MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 
 namespace memray::hooks {
@@ -100,8 +119,8 @@ struct SymbolHook
         symbol_query query{0, d_symbol, nullptr};
         dl_iterate_phdr(&phdr_symfind_callback, (void*)&query);
         auto symbol_addr = reinterpret_cast<signature_t>(query.address);
-        if (symbol_addr != nullptr) {
-            if (symbol_addr != d_original) {
+        if (symbol_addr != nullptr && symbol_addr != d_original) {
+            if (d_original != nullptr) {
                 LOG(WARNING) << "Correcting symbol for " << d_symbol << " from " << std::hex
                              << reinterpret_cast<void*>(d_original) << " to "
                              << reinterpret_cast<void*>(symbol_addr);
@@ -127,6 +146,9 @@ struct SymbolHook
 
 void
 ensureAllHooksAreValid();
+
+void
+ensureArrowHooksAreValid();
 
 // Allocators are roughly ordered by the likelihood of any given allocation
 // record using them. The allocators assigned 1 to 7 have a more compact
@@ -192,6 +214,17 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept;
 
 void*
 aligned_alloc(size_t alignment, size_t size) noexcept;
+
+#ifdef __linux__
+void*
+arrow_mi_malloc_aligned(size_t size, size_t alignment) noexcept;
+
+void*
+arrow_mi_realloc_aligned(void* ptr, size_t new_size, size_t alignment) noexcept;
+
+void
+arrow_mi_free(void* ptr) noexcept;
+#endif
 
 void*
 memalign(size_t alignment, size_t size) noexcept;

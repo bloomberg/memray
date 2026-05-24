@@ -1,0 +1,1 @@
+Track individual allocations made by Apache Arrow 25.0 and newer when it uses mimalloc on Linux.
