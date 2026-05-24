@@ -418,6 +418,59 @@ aligned_alloc(size_t alignment, size_t size) noexcept
     return ret;
 }
 
+// Apache Arrow mimalloc wrapper hooks (apache/arrow#41128). These wrap
+// mimalloc allocations that are otherwise opaque to memray because mimalloc
+// is statically linked into libarrow and serves allocations out of mmap
+// arenas. Tracked under the existing aligned-alloc / realloc / free families.
+void*
+arrow_mi_malloc_aligned(size_t size, size_t alignment) noexcept
+{
+    assert(MEMRAY_ORIG(arrow_mi_malloc_aligned));
+
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = MEMRAY_ORIG(arrow_mi_malloc_aligned)(size, alignment);
+    }
+    if (ret) {
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
+    }
+    return ret;
+}
+
+void*
+arrow_mi_realloc_aligned(void* ptr, size_t new_size, size_t alignment) noexcept
+{
+    assert(MEMRAY_ORIG(arrow_mi_realloc_aligned));
+
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = MEMRAY_ORIG(arrow_mi_realloc_aligned)(ptr, new_size, alignment);
+    }
+    if (ret) {
+        if (ptr != nullptr) {
+            tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+        }
+        tracking_api::Tracker::trackAllocation(ret, new_size, hooks::Allocator::REALLOC);
+    }
+    return ret;
+}
+
+void
+arrow_mi_free(void* ptr) noexcept
+{
+    assert(MEMRAY_ORIG(arrow_mi_free));
+
+    if (ptr != nullptr) {
+        tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+    }
+    {
+        tracking_api::RecursionGuard guard;
+        MEMRAY_ORIG(arrow_mi_free)(ptr);
+    }
+}
+
 #if defined(__linux__)
 
 void*
