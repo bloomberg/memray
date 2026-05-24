@@ -102,6 +102,19 @@ ensureAllHooksAreValid()
 #undef FOR_EACH_HOOKED_FUNCTION
 }
 
+void
+ensureArrowHooksAreValid()
+{
+#if defined(__linux__)
+    MEMRAY_ORIG(arrow_mi_malloc_aligned).ensureValidOriginalSymbol();
+    if (!MEMRAY_ORIG(arrow_mi_malloc_aligned)) {
+        return;
+    }
+    MEMRAY_ORIG(arrow_mi_realloc_aligned).ensureValidOriginalSymbol();
+    MEMRAY_ORIG(arrow_mi_free).ensureValidOriginalSymbol();
+#endif
+}
+
 }  // namespace memray::hooks
 
 namespace memray::intercept {
@@ -431,6 +444,56 @@ aligned_alloc(size_t alignment, size_t size) noexcept
 }
 
 #if defined(__linux__)
+
+// Arrow's statically linked mimalloc is otherwise visible only as mmap arenas.
+void*
+arrow_mi_malloc_aligned(size_t size, size_t alignment) noexcept
+{
+    assert(MEMRAY_ORIG(arrow_mi_malloc_aligned));
+
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = MEMRAY_ORIG(arrow_mi_malloc_aligned)(size, alignment);
+    }
+    if (ret) {
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::ALIGNED_ALLOC);
+    }
+    return ret;
+}
+
+void*
+arrow_mi_realloc_aligned(void* ptr, size_t new_size, size_t alignment) noexcept
+{
+    assert(MEMRAY_ORIG(arrow_mi_realloc_aligned));
+
+    void* ret;
+    {
+        tracking_api::RecursionGuard guard;
+        ret = MEMRAY_ORIG(arrow_mi_realloc_aligned)(ptr, new_size, alignment);
+    }
+    if (ret) {
+        if (ptr != nullptr) {
+            tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+        }
+        tracking_api::Tracker::trackAllocation(ret, new_size, hooks::Allocator::REALLOC);
+    }
+    return ret;
+}
+
+void
+arrow_mi_free(void* ptr) noexcept
+{
+    assert(MEMRAY_ORIG(arrow_mi_free));
+
+    if (ptr != nullptr) {
+        tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+    }
+    {
+        tracking_api::RecursionGuard guard;
+        MEMRAY_ORIG(arrow_mi_free)(ptr);
+    }
+}
 
 void*
 memalign(size_t alignment, size_t size) noexcept
