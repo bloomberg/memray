@@ -35,16 +35,20 @@ class FileSink : public memray::io::Sink
     bool writeAll(const char* data, size_t length) override;
     bool seek(off_t offset, int whence) override;
     std::unique_ptr<Sink> cloneInChildProcess() override;
+    bool writeAllFallback(const char* data, size_t length);
+    bool writeAllStandard(const char*& data, size_t& length);
 
   private:
     void compress() noexcept;
     bool grow(size_t needed);
     bool slideWindow();
+    bool establishMmapWindow(off_t offset);
     size_t bytesBeyondBufferNeedle();
 
     std::string d_filename;
     std::string d_fileNameStem;
     bool d_compress{1};
+    bool d_useMmap{true};
     int d_fd{-1};
     size_t d_fileSize{0};
     const size_t BUFFER_SIZE{16 * 1024 * 1024};  // 16 MiB

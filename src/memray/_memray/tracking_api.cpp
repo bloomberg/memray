@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <system_error>
 #include <type_traits>
 #include <unistd.h>
 
@@ -1015,22 +1016,27 @@ Tracker::BackgroundThread::start()
         return;
     }
 
-    d_thread = std::thread([&]() {
-        RecursionGuard::setValue(true);
-        while (true) {
-            {
-                std::unique_lock<std::mutex> lock(d_mutex);
-                d_cv.wait_for(lock, d_memory_interval * 1ms, [this]() { return d_stop; });
-                if (d_stop) {
+    try {
+        d_thread = std::thread([&]() {
+            RecursionGuard::setValue(true);
+            while (true) {
+                {
+                    std::unique_lock<std::mutex> lock(d_mutex);
+                    d_cv.wait_for(lock, d_memory_interval * 1ms, [this]() { return d_stop; });
+                    if (d_stop) {
+                        return;
+                    }
+                }
+
+                if (!captureMemorySnapshot()) {
                     return;
                 }
             }
-
-            if (!captureMemorySnapshot()) {
-                return;
-            }
-        }
-    });
+        });
+    } catch (const std::system_error& exc) {
+        std::cerr << "WARNING: Failed to start background memory tracking thread: " << exc.what()
+                  << std::endl;
+    }
 }
 
 void

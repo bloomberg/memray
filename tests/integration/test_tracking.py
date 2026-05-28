@@ -288,7 +288,7 @@ def test_tracking_with_SIGKILL(tmpdir):
         for record in filter_relevant_allocations(records)
         if record.allocator == AllocatorType.VALLOC
     ]
-    (allocation, *rest) = vallocs
+    allocation, *rest = vallocs
     assert allocation.size == 1024
 
 
@@ -1797,3 +1797,133 @@ class TestMemorySnapshots:
         assert record.n_allocations == 1
         assert record.allocator == AllocatorType.MALLOC
         assert record.size == 2 << 10
+
+
+def test_tracking_with_no_mmap_env_var(tmp_path):
+    """MEMRAY_NO_MMAP=1 falls back to write() and produces a valid output file."""
+    output = tmp_path / "test.bin"
+    env = os.environ.copy()
+    env["MEMRAY_NO_MMAP"] = "1"
+
+    subprocess_code = textwrap.dedent(
+        f"""
+        from memray import Tracker
+        from memray._test import MemoryAllocator
+
+        allocator = MemoryAllocator()
+        with Tracker('{output}'):
+            allocator.malloc(1024)
+            allocator.free()
+        """
+    )
+
+    result = subprocess.run([sys.executable, "-c", subprocess_code], timeout=5, env=env)
+
+    assert result.returncode == 0
+    records = list(FileReader(output).get_allocation_records())
+    assert any(r.size == 1024 for r in records)
+
+
+def test_tracking_mmap_not_disabled_when_env_var_is_not_one(tmp_path):
+    """MEMRAY_NO_MMAP set to a value other than '1' leaves mmap enabled."""
+    output = tmp_path / "test.bin"
+    env = os.environ.copy()
+    env["MEMRAY_NO_MMAP"] = "0"
+
+    subprocess_code = textwrap.dedent(
+        f"""
+        from memray import Tracker
+        from memray._test import MemoryAllocator
+
+        allocator = MemoryAllocator()
+        with Tracker('{output}'):
+            allocator.malloc(2048)
+            allocator.free()
+        """
+    )
+
+    result = subprocess.run([sys.executable, "-c", subprocess_code], timeout=5, env=env)
+
+    assert result.returncode == 0
+    records = list(FileReader(output).get_allocation_records())
+    assert any(r.size == 2048 for r in records)
+
+
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="RLIMIT_FSIZE behavior is Linux-specific"
+)
+def test_fallocate_failure_falls_back_to_write(tmp_path):
+    output = tmp_path / "test.bin"
+    subprocess_code = textwrap.dedent(
+        f"""
+        import signal, resource
+        signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+        resource.setrlimit(resource.RLIMIT_FSIZE, (1024 * 1024, resource.RLIM_INFINITY))
+        from memray import Tracker
+        from memray._test import MemoryAllocator
+        allocator = MemoryAllocator()
+        with Tracker('{output}'):
+            allocator.malloc(1024)
+            allocator.free()
+        """
+    )
+    result = subprocess.run([sys.executable, "-c", subprocess_code], timeout=10)
+    assert result.returncode == 0
+    records = list(FileReader(output).get_allocation_records())
+    assert any(r.size == 1024 for r in records)
+
+
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="RLIMIT_FSIZE behavior is Linux-specific"
+)
+def test_fallback_write_failure_raises(tmp_path):
+    output = tmp_path / "test.bin"
+    env = os.environ.copy()
+    env["MEMRAY_NO_MMAP"] = "1"
+    subprocess_code = textwrap.dedent(
+        f"""
+        import signal, resource
+        signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+        resource.setrlimit(resource.RLIMIT_FSIZE, (0, resource.RLIM_INFINITY))
+        from memray import Tracker
+        from memray._test import MemoryAllocator
+        allocator = MemoryAllocator()
+        with Tracker('{output}'):
+            allocator.malloc(1024)
+            allocator.free()
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", subprocess_code], timeout=10, env=env
+    )
+    assert result.returncode != 0
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires /proc/self/status")
+def test_mmap_failure_in_seek_falls_back_to_write(tmp_path):
+    output = tmp_path / "test.bin"
+    subprocess_code = textwrap.dedent(
+        f"""
+        from memray import Tracker
+        from memray._test import MemoryAllocator
+        import resource
+        with open('/proc/self/status') as f:
+            for line in f:
+                if line.startswith('VmSize:'):
+                    vm_kb = int(line.split()[1])
+                    break
+        # Allow 14 MiB of headroom. This must be less than BUFFER_SIZE (16 MiB)
+        # so the first mmap() in seek() fails with ENOMEM and FileSink falls
+        # back to write().
+        limit = (vm_kb + 14 * 1024) * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (limit, resource.RLIM_INFINITY))
+        allocator = MemoryAllocator()
+        with Tracker('{output}'):
+            allocator.malloc(1024)
+            allocator.free()
+        """
+    )
+    result = subprocess.run([sys.executable, "-c", subprocess_code], timeout=10)
+    assert result.returncode == 0
+    records = list(FileReader(output).get_allocation_records())
+    assert any(r.size == 1024 for r in records)

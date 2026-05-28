@@ -3,6 +3,7 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <sstream>
 
 #include <arpa/inet.h>
@@ -60,7 +61,23 @@ removeSuffix(const std::string& s, const std::string& suffix)
 }  // unnamed namespace
 
 bool
-FileSink::writeAll(const char* data, size_t length)
+FileSink::writeAllFallback(const char* data, size_t length)
+{
+    while (length) {
+        ssize_t ret = ::write(d_fd, data, length);
+        if (ret < 0 && errno != EINTR) {
+            LOG(ERROR) << "Fallback write failed: " << strerror(errno);
+            return false;
+        } else if (ret > 0) {
+            data += ret;
+            length -= ret;
+        }
+    }
+    return true;
+}
+
+bool
+FileSink::writeAllStandard(const char*& data, size_t& length)
 {
     // If the file isn't big enough for all this data, grow it.
     size_t maxWritableWithoutGrowing = bytesBeyondBufferNeedle();
@@ -77,6 +94,12 @@ FileSink::writeAll(const char* data, size_t length)
             if (!seek(d_bufferOffset + (d_bufferEnd - d_buffer), SEEK_SET)) {
                 return false;
             }
+            if (!d_useMmap) {
+                // seek() downgraded to fallback mode partway through. d_fd is
+                // already positioned correctly for the remaining bytes; let
+                // writeAllFallback take over from here.
+                return false;
+            }
         }
 
         size_t available = d_bufferEnd - d_bufferNeedle;
@@ -87,6 +110,21 @@ FileSink::writeAll(const char* data, size_t length)
         length -= toCopy;
     }
     return true;
+}
+
+bool
+FileSink::writeAll(const char* data, size_t length)
+{
+    bool isWriteSuccess = false;
+    if (d_useMmap) {
+        isWriteSuccess = writeAllStandard(data, length);
+    }
+    // Even if d_useMmap is true writeAllStandard could fail mid write
+    if (!isWriteSuccess) {
+        isWriteSuccess = writeAllFallback(data, length);
+    }
+
+    return isWriteSuccess;
 }
 
 FileSink::FileSink(const std::string& file_name, bool overwrite, bool compress)
@@ -103,6 +141,12 @@ FileSink::FileSink(const std::string& file_name, bool overwrite, bool compress)
     } while (d_fd < 0 && errno == EINTR);
     if (d_fd < 0) {
         throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
+    }
+    const char* env_p = std::getenv("MEMRAY_NO_MMAP");
+    if (env_p != nullptr) {
+        if (std::string(env_p) == "1") {
+            d_useMmap = false;
+        }
     }
 }
 
@@ -127,8 +171,33 @@ FileSink::seek(off_t offset, int whence)
         return false;
     }
 
+    // d_fd's kernel file offset is the single source of truth for the current
+    // logical write position, so reposition it first. This is cheap and
+    // should never fail for a regular file.
+    if (lseek(d_fd, offset, SEEK_SET) < 0) {
+        LOG(ERROR) << "Failed to seek output file " << d_filename << " to offset " << offset << ": "
+                   << strerror(errno);
+        return false;
+    }
+
+    if (d_useMmap) {
+        // If this fails, it has already downgraded us to fallback mode
+        // (d_useMmap = false). Either way, the lseek above succeeded, so
+        // writeAllFallback can now write correctly from here.
+        establishMmapWindow(offset);
+    }
+
+    return true;
+}
+
+bool
+FileSink::establishMmapWindow(off_t offset)
+{
     // Free our existing buffer, if any
     if (d_buffer && 0 != munmap(d_buffer, BUFFER_SIZE)) {
+        LOG(ERROR) << "Failed to munmap output file " << d_filename << ": " << strerror(errno);
+        d_buffer = d_bufferNeedle = d_bufferEnd = nullptr;
+        d_useMmap = false;
         return false;
     }
 
@@ -144,7 +213,8 @@ FileSink::seek(off_t offset, int whence)
                    " try writing the capture file to a different location (e.g. /tmp).";
         }
         LOG(ERROR) << msg.str();
-        d_buffer = nullptr;
+        d_buffer = d_bufferNeedle = d_bufferEnd = nullptr;
+        d_useMmap = false;
         return false;
     }
     d_bufferNeedle = d_buffer;
@@ -187,6 +257,7 @@ FileSink::grow(size_t needed)
         }
         LOG(ERROR) << msg.str();
         errno = rc;
+        d_useMmap = false;
         return false;
     }
 
