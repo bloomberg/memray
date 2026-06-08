@@ -67,7 +67,8 @@ ignore = [
 exclude="tests/integration/(native_extension|multithreaded_extension)/"
 
 [tool.cibuildwheel]
-build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+build = ["cp3{9..15}{t,}-*"]
+enable = ["cpython-prerelease"]
 skip = "*musllinux*{i686,aarch64}*"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"
