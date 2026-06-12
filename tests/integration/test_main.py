@@ -596,8 +596,20 @@ class TestParseSubcommand:
             from memray._test import MemoryAllocator
             print("Allocating some memory!")
             allocator = MemoryAllocator()
-            allocator.valloc(1024)
-            allocator.free()
+
+            def foo():
+                allocator.valloc(1024)
+                allocator.free()
+
+            def bar():
+                allocator.valloc(2048)
+                allocator.free()
+
+            # Ensure we see multiple allocation locations to guarantee
+            # that there's at least one FRAME_POP record.
+            foo()
+            bar()
+
             # Give it time to generate some memory records
             time.sleep(0.1)
             """
