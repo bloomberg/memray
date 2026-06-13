@@ -1,4 +1,4 @@
-exclude: "^(src/memray/reporters/templates/assets|src/vendor|benchmarks|docs/_static/flamegraphs)/"
+exclude: "^(src/memray/reporters/templates/assets|src/vendor|src/memray/_vendor|benchmarks|docs/_static/flamegraphs)/"
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
@@ -11,7 +11,7 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        exclude: "^([.]bumpversion[.]cfg|.*/__snapshots__/)"
+        exclude: "^([.]bumpversion[.]cfg|.*/__snapshots__/|tools/vendoring/patches/.*\\.patch$)"
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
@@ -64,3 +64,12 @@ repos:
         files: ^news/
         types: [rst]
         additional_dependencies: ["sphinx"]
+
+  - repo: local
+    hooks:
+      - id: no-bare-textual-imports
+        name: Forbid bare textual imports
+        language: pygrep
+        entry: '^\s*(from textual\b|import textual\b)'
+        types: [python]
+        exclude: "^(src/memray/_vendor/|tests/conftest\\.py)"

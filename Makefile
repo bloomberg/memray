@@ -34,6 +34,10 @@ cpp_files := $(shell find src/memray/_memray -name \*.cpp -o -name \*.h)
 # Use this to inject arbitrary commands before the make targets (e.g. docker)
 ENV :=
 
+.PHONY: vendor-update
+vendor-update:  ## Update vendored dependencies (Textual)
+	$(PYTHON) -m vendoring sync .
+
 .PHONY: build
 build: build-js build-vendor build-ext  ## (default) Build package extensions, JS assets, and vendor assets in-place
 

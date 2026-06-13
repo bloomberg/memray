@@ -11,7 +11,7 @@ Supported Python versions
 
 Every Python version that hasn't reached end of life is supported.
 
-Currently that's Python 3.8 through 3.14.
+Currently that's Python 3.9 through 3.14.
 
 Supported operating systems
 ---------------------------
@@ -38,7 +38,7 @@ are available on PyPI.
 
 For macOS, we test on ``x86-64`` and ``arm64`` - so, both Intel and Apple
 Silicon Macs. Pre-built wheels are available for both architectures, though
-only for Python 3.8 and newer.
+only for Python 3.9 and newer.
 
 Supported runtime environments
 ------------------------------

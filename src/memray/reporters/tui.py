@@ -1,4 +1,6 @@
+import asyncio
 import contextlib
+import dataclasses
 import os
 import pathlib
 import sys
@@ -16,42 +18,48 @@ from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Set
-from typing import Tuple
 from typing import cast
 
 from rich.markup import escape
 from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
-from textual import events
-from textual import log
-from textual.app import App
-from textual.app import ComposeResult
-from textual.binding import Binding
-from textual.color import Color
-from textual.color import Gradient
-from textual.containers import Container
-from textual.containers import HorizontalScroll
-from textual.dom import DOMNode
-from textual.message import Message
-from textual.reactive import reactive
-from textual.screen import Screen
-from textual.strip import Strip
-from textual.widget import Widget
-from textual.widgets import DataTable
-from textual.widgets import Footer
-from textual.widgets import Label
-from textual.widgets import Static
-from textual.widgets.data_table import RowKey
 
 from memray import AllocationRecord
 from memray import SocketReader
 from memray._memray import size_fmt
-from memray.reporters._textual_hacks import Bindings
-from memray.reporters._textual_hacks import redraw_footer
-from memray.reporters._textual_hacks import update_key_description
+from memray._vendor.textual import events
+from memray._vendor.textual import log
+from memray._vendor.textual.app import App
+from memray._vendor.textual.app import ComposeResult
+from memray._vendor.textual.binding import ActiveBinding
+from memray._vendor.textual.binding import Binding
+from memray._vendor.textual.color import Color
+from memray._vendor.textual.color import Gradient
+from memray._vendor.textual.containers import Container
+from memray._vendor.textual.containers import HorizontalScroll
+from memray._vendor.textual.message import Message
+from memray._vendor.textual.reactive import reactive
+from memray._vendor.textual.screen import Screen
+from memray._vendor.textual.strip import Strip
+from memray._vendor.textual.widget import Widget
+from memray._vendor.textual.widgets import DataTable
+from memray._vendor.textual.widgets import Footer
+from memray._vendor.textual.widgets import Label
+from memray._vendor.textual.widgets import Static
+from memray._vendor.textual.widgets.data_table import RowKey
 
 MAX_MEMORY_RATIO = 0.95
+
+
+def _ensure_event_loop() -> None:
+    # Vendored Textual may create asyncio.Lock during app/widget init.
+    # TUIApp can be constructed before a current loop exists, so bootstrap
+    # one up front to avoid runtime failures.
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
 
 
 @dataclass(frozen=True)
@@ -585,7 +593,7 @@ class TUI(Screen[None]):
     def action_toggle_merge_threads(self) -> None:
         """An action to toggle showing allocations from all threads together."""
         self._merge_threads = not self._merge_threads
-        redraw_footer(self.app)
+        self.app.screen.query_one(Footer).refresh(recompose=True)
         self.app.screen.query_one(AllocationTable).merge_threads = self._merge_threads
         self._populate_header_thread_labels(self.thread_idx)
 
@@ -593,7 +601,7 @@ class TUI(Screen[None]):
         """Toggle pause on keypress"""
         if self.paused or not self.disconnected:
             self.paused = not self.paused
-            redraw_footer(self.app)
+            self.app.screen.query_one(Footer).refresh(recompose=True)
             if not self.paused:
                 self.display_snapshot()
 
@@ -613,7 +621,7 @@ class TUI(Screen[None]):
 
     def watch_disconnected(self) -> None:
         self.update_label()
-        redraw_footer(self.app)
+        self.app.screen.query_one(Footer).refresh(recompose=True)
 
     def watch_paused(self) -> None:
         self.update_label()
@@ -686,20 +694,26 @@ class TUI(Screen[None]):
         body = self.query_one(AllocationTable)
         body.sort_column_id = col_number
 
-    def rewrite_bindings(self, bindings: Bindings) -> None:
-        if "space" in bindings and bindings["space"][1].description == "Pause":
+    def rewrite_bindings(self, bindings: Dict[str, ActiveBinding]) -> None:
+        if "space" in bindings and bindings["space"].binding.description == "Pause":
             if self.paused:
-                update_key_description(bindings, "space", "Unpause")
+                ab = bindings["space"]
+                bindings["space"] = ab._replace(
+                    binding=dataclasses.replace(ab.binding, description="Unpause")
+                )
             elif self.disconnected:
                 del bindings["space"]
 
         if self._merge_threads:
-            bindings.pop("less_than_sign")
-            bindings.pop("greater_than_sign")
-            update_key_description(bindings, "m", "Unmerge Threads")
+            bindings.pop("less_than_sign", None)
+            bindings.pop("greater_than_sign", None)
+            ab = bindings["m"]
+            bindings["m"] = ab._replace(
+                binding=dataclasses.replace(ab.binding, description="Unmerge Threads")
+            )
 
     @property
-    def active_bindings(self) -> Dict[str, Any]:
+    def active_bindings(self) -> Dict[str, ActiveBinding]:
         bindings = super().active_bindings.copy()
         self.rewrite_bindings(bindings)
         return bindings
@@ -760,6 +774,7 @@ class TUIApp(App[None]):
         cmdline_override: Optional[str] = None,
         poll_interval: float = 1.0,
     ) -> None:
+        _ensure_event_loop()
         self._reader = reader
         self._poll_interval = poll_interval
         self._cmdline_override = cmdline_override
@@ -804,12 +819,3 @@ class TUIApp(App[None]):
 
     def on_resize(self, event: events.Resize) -> None:
         self.set_class(0 <= event.size.width < 81, "narrow")
-
-    if hasattr(App, "namespace_bindings"):
-        # Removed in Textual 0.61
-        @property
-        def namespace_bindings(self) -> Dict[str, Tuple[DOMNode, Binding]]:
-            bindings = super().namespace_bindings.copy()  # type: ignore[misc]
-            if self.tui:
-                self.tui.rewrite_bindings(bindings)
-            return bindings  # type: ignore[no-any-return]
