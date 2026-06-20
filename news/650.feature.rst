@@ -1,0 +1,1 @@
+Added a light/dark theme toggle to the flame graph and table HTML reports, which respects the system color scheme and remembers the user's choice.
