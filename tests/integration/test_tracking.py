@@ -128,15 +128,6 @@ def test_simple_cpp_allocation_tracking(tmp_path):
 def test_simple_pymalloc_allocation_tracking(
     allocator_func, allocator_type, domain, tmp_path
 ):
-    # TODO: Remove this entire check once we stop using 3.15.0b2
-    if (
-        sys.version_info >= (3, 15)
-        and sys.version_info <= (3, 15, 0, "beta", 2)
-        and domain == PymallocDomain.PYMALLOC_OBJECT
-        and allocator_func == "realloc"
-    ):
-        pytest.skip("Skipped for https://github.com/python/cpython/issues/151297")
-
     # GIVEN
     allocator = PymallocMemoryAllocator(domain)
     output = tmp_path / "test.bin"
