@@ -1,5 +1,5 @@
 import socket
-import sys
+from importlib import metadata  # Added in 3.8
 
 import pytest
 from packaging import version
@@ -20,12 +20,6 @@ def free_port():
 
 
 def _snapshot_skip_reason():
-    if sys.version_info < (3, 8):
-        # Every version available for 3.7 is too old
-        return f"snapshot tests require textual>={SNAPSHOT_MINIMUM_VERSIONS['textual']}"
-
-    from importlib import metadata  # Added in 3.8
-
     for lib, min_ver in SNAPSHOT_MINIMUM_VERSIONS.items():
         try:
             ver = version.parse(metadata.version(lib))
