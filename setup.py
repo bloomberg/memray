@@ -90,7 +90,6 @@ class BuildMemray(build_ext_orig):
 
 install_requires = [
     "jinja2 >= 2.9",
-    "typing_extensions; python_version < '3.8.0'",
     "rich >= 11.2.0",
     "textual >= 0.41.0",
 ]
@@ -113,7 +112,7 @@ lint_requires = [
 
 test_requires = [
     "Cython",
-    "greenlet; python_version < '3.14'",
+    "greenlet; python_version < '3.15'",
     "pytest",
     "pytest-cov",
     "ipython",
@@ -305,7 +304,7 @@ LONG_DESCRIPTION = (HERE / "README.md").read_text(encoding="utf-8")
 setup(
     name="memray",
     version=about["__version__"],
-    python_requires=">=3.7.0",
+    python_requires=">=3.9.0",
     description="A memory profiler for Python applications",
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
@@ -316,14 +315,13 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Programming Language :: Python :: Implementation :: CPython",
         "Topic :: Software Development :: Debuggers",
     ],

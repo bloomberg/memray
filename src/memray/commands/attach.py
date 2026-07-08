@@ -11,6 +11,7 @@ import signal
 import socket
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import textwrap
 import threading
@@ -133,7 +134,16 @@ elif {mode!r} == "FOR_DURATION":
 
 def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
     """Execute a file in a running Python process using a debugger."""
-    injecter = pathlib.Path(memray.__file__).parent / "_inject.abi3.so"
+    # The injecter is a limited-API extension, so its filename carries an ABI
+    # tag. That tag is normally "abi3", but free-threaded builds get their own
+    # stable ABI ("abi3t") starting in 3.15 (PEP 803). Earlier free-threaded
+    # builds (e.g. 3.14t) still use "abi3".
+    free_threaded = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
+    if free_threaded and sys.version_info >= (3, 15):
+        abi = "abi3t"
+    else:
+        abi = "abi3"
+    injecter = pathlib.Path(memray.__file__).parent / f"_inject.{abi}.so"
     assert injecter.exists()
 
     gdb_cmd = [

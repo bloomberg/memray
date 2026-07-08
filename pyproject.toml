@@ -10,7 +10,7 @@ requires = [
 build-backend = 'setuptools.build_meta'
 
 [dependency-groups]
-test=['Cython', 'coverage[toml]', "greenlet; python_version < '3.14'", 'pytest', 'pytest-cov', 'ipython', 'setuptools', 'pkgconfig', 'pytest-textual-snapshot', 'textual >= 0.43, != 0.65.2, != 0.66', 'packaging']
+test=['Cython', 'coverage[toml]', "greenlet; python_version < '3.15'", 'pytest', 'pytest-cov', 'ipython', 'setuptools', 'pkgconfig', 'pytest-textual-snapshot', 'textual >= 0.43, != 0.65.2, != 0.66', 'packaging']
 docs=['IPython', 'sphinx','sphinx-autobuild', 'sphinx-argparse', 'furo']
 extra=['mypy', 'bump2version','towncrier', 'prek', {include-group = "docs"}]
 
@@ -67,7 +67,8 @@ ignore = [
 exclude="tests/integration/(native_extension|multithreaded_extension)/"
 
 [tool.cibuildwheel]
-build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+build = ["cp3{9..15}{t,}-*"]
+enable = ["cpython-prerelease"]
 skip = "*musllinux*{i686,aarch64}*"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-i686-image = "manylinux2014"

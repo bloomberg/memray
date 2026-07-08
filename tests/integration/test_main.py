@@ -596,8 +596,20 @@ class TestParseSubcommand:
             from memray._test import MemoryAllocator
             print("Allocating some memory!")
             allocator = MemoryAllocator()
-            allocator.valloc(1024)
-            allocator.free()
+
+            def foo():
+                allocator.valloc(1024)
+                allocator.free()
+
+            def bar():
+                allocator.valloc(2048)
+                allocator.free()
+
+            # Ensure we see multiple allocation locations to guarantee
+            # that there's at least one FRAME_POP record.
+            foo()
+            bar()
+
             # Give it time to generate some memory records
             time.sleep(0.1)
             """
@@ -627,8 +639,10 @@ class TestParseSubcommand:
         for record in records:
             record_count_by_type[record.partition(" ")[0]] += 1
 
-        for count in record_count_by_type.values():
-            assert count > 0
+        for record_type, count in record_count_by_type.items():
+            assert (
+                count > 0
+            ), f"no {record_type} records found in {record_count_by_type}"
 
     def test_successful_parse_of_aggregated_capture_file(self, tmp_path):
         # GIVEN
@@ -687,8 +701,10 @@ class TestParseSubcommand:
         for record in records:
             record_count_by_type[record.partition(" ")[0]] += 1
 
-        for count in record_count_by_type.values():
-            assert count > 0
+        for record_type, count in record_count_by_type.items():
+            assert (
+                count > 0
+            ), f"no {record_type} records found in {record_count_by_type}"
 
     def test_error_when_stdout_is_a_tty(self, tmp_path, simple_test_file):
         # GIVEN

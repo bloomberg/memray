@@ -84,13 +84,13 @@ jobs:
         run: |
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
       - name: Build wheels
-        uses: pypa/cibuildwheel@54327ab9d35de03b359ac25c97de9417d94639c0 # v4.0.0rc1
+        uses: pypa/cibuildwheel@294735312765b09d24a2fbec22660ce817587d55 # v4.1.0
         env:
-          CIBW_BUILD: "cp3{7..15}{t,}-${{ matrix.wheel_type }}"
+          CIBW_BUILD: "cp3{9..15}{t,}-${{ matrix.wheel_type }}"
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux || 'auto' }}
-          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_ENABLE: cpython-prerelease
           CIBW_TEST_EXTRAS: test
-          CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
+          CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s --showlocals -vvv {package}/tests
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ matrix.wheel_type }}-wheels
@@ -133,13 +133,13 @@ jobs:
         run: |
           echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
       - name: Build wheels
-        uses: pypa/cibuildwheel@54327ab9d35de03b359ac25c97de9417d94639c0 # v4.0.0rc1
+        uses: pypa/cibuildwheel@294735312765b09d24a2fbec22660ce817587d55 # v4.1.0
         env:
-          CIBW_BUILD: "cp3{8..15}{t,}-*"
+          CIBW_BUILD: "cp3{9..15}{t,}-*"
           CIBW_ARCHS: "${{matrix.arch}}"
-          CIBW_PRERELEASE_PYTHONS: True
+          CIBW_ENABLE: cpython-prerelease
           CIBW_TEST_EXTRAS: test
-          CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s -vvv {package}/tests
+          CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s --showlocals -vvv {package}/tests
           CIBW_BUILD_VERBOSITY: 1
           CPPFLAGS: "${{env.CPPFLAGS}} -I${{env.LZ4_INSTALL_DIR}}/include"
           LDFLAGS: "-L${{env.LZ4_INSTALL_DIR}}/lib -Wl,-rpath,${{env.LZ4_INSTALL_DIR}}/lib"
