@@ -18,7 +18,7 @@ jobs:
     name: Check for news entry
     steps:
       - name: "Check for news entry"
-        uses: brettcannon/check-for-changed-files@871d7b8b5917a4f6f06662e2262e8ffc51dff6d1 # v1
+        uses: brettcannon/check-for-changed-files@871d7b8b5917a4f6f06662e2262e8ffc51dff6d1 # v1.2.1
         with:
           file-pattern: |
             news/*.rst
