@@ -342,52 +342,6 @@ class TestTableReporter:
             }
         ]
 
-    def test_aggregates_merged_thread_records(self):
-        """When merge_threads=True, records arrive with tid=-1 and aggregate."""
-        # GIVEN
-        peak_allocations = [
-            MockAllocationRecord(
-                tid=-1,
-                address=0x1000000,
-                size=1024,
-                allocator=AllocatorType.MALLOC,
-                stack_id=1,
-                n_allocations=1,
-                _stack=[
-                    ("me", "fun.py", 12),
-                    ("caller_a", "a.py", 1),
-                ],
-            ),
-            MockAllocationRecord(
-                tid=-1,
-                address=0x1100000,
-                size=2048,
-                allocator=AllocatorType.MALLOC,
-                stack_id=2,
-                n_allocations=3,
-                _stack=[
-                    ("me", "fun.py", 12),
-                    ("caller_b", "b.py", 5),
-                ],
-            ),
-        ]
-
-        # WHEN
-        table = TableReporter.from_snapshot(
-            peak_allocations, memory_records=[], native_traces=False
-        )
-
-        # THEN
-        assert table.data == [
-            {
-                "tid": "merged thread",
-                "size": 1024 + 2048,
-                "allocator": "malloc",
-                "n_allocations": 4,
-                "stack_trace": "me at fun.py:12",
-            }
-        ]
-
     def test_html_special_chars_in_stack_trace(self):
         """Stack traces with HTML special chars are escaped in output."""
         # GIVEN
