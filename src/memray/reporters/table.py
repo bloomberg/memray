@@ -32,6 +32,7 @@ class TableReporter:
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
+        merge_threads: bool = True,
         **kwargs: Any,
     ) -> "TableReporter":
         # Aggregate records that share the same displayed fields, since the
@@ -51,7 +52,10 @@ class TableReporter:
 
             allocator = AllocatorType(record.allocator)
             tid = format_thread_name(record)
-            key = (tid, allocator.name.lower(), stack)
+            # Note: When threads are merged the thread ID column must be left
+            # out of the key, because the C++ aggregation currently leaves in
+            # place the TID of one of the merged allocations.
+            key = ("" if merge_threads else tid, allocator.name.lower(), stack)
             if key in aggregated:
                 aggregated[key]["size"] += record.size
                 aggregated[key]["n_allocations"] += record.n_allocations

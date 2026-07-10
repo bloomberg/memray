@@ -353,6 +353,7 @@ class FlameGraphReporter:
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
+        merge_threads: bool = True,
         inverted: Optional[bool] = None,
     ) -> "FlameGraphReporter":
         return cls._from_any_snapshot(

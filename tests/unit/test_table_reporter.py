@@ -209,8 +209,8 @@ class TestTableReporter:
         assert table.data[0]["allocator"] == "malloc"
         assert table.data[1]["allocator"] == "calloc"
 
-    def test_does_not_aggregate_different_threads(self):
-        """Records from different threads with same top frame stay separate."""
+    def test_does_not_aggregate_different_threads_when_split(self):
+        """With --split-threads, records from different threads stay separate."""
         # GIVEN
         peak_allocations = [
             MockAllocationRecord(
@@ -239,13 +239,62 @@ class TestTableReporter:
 
         # WHEN
         table = TableReporter.from_snapshot(
-            peak_allocations, memory_records=[], native_traces=False
+            peak_allocations,
+            memory_records=[],
+            native_traces=False,
+            merge_threads=False,
         )
 
         # THEN
         assert len(table.data) == 2
         assert table.data[0]["tid"] == "0x1"
         assert table.data[1]["tid"] == "0x2"
+
+    def test_aggregates_different_threads_when_merged(self):
+        """With merged threads (the default), records with the same displayed
+        fields are combined even if they come from different threads, since the
+        thread ID column is hidden."""
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("me", "fun.py", 12),
+                ],
+            ),
+            MockAllocationRecord(
+                tid=2,
+                address=0x1100000,
+                size=2048,
+                allocator=AllocatorType.MALLOC,
+                stack_id=2,
+                n_allocations=3,
+                _stack=[
+                    ("me", "fun.py", 12),
+                ],
+            ),
+        ]
+
+        # WHEN
+        table = TableReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+
+        # THEN
+        assert table.data == [
+            {
+                "tid": "0x1",
+                "size": 1024 + 2048,
+                "allocator": "malloc",
+                "n_allocations": 4,
+                "stack_trace": "me at fun.py:12",
+            }
+        ]
 
     def test_aggregates_native_records_with_same_top_frame(self):
         """Native trace records with same top frame should also be aggregated."""
