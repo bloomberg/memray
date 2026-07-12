@@ -209,4 +209,10 @@ target_include_directories(_inject PRIVATE
 )
 
 # Install targets
-install(TARGETS _memray _test_utils _inject LIBRARY DESTINATION memray)
+install(TARGETS _memray _test_utils _inject
+    LIBRARY DESTINATION memray
+    PERMISSIONS
+        OWNER_READ OWNER_WRITE OWNER_EXECUTE
+        GROUP_READ GROUP_EXECUTE
+        WORLD_READ WORLD_EXECUTE
+)
