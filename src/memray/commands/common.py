@@ -34,6 +34,7 @@ class ReporterFactory(Protocol):
         *,
         memory_records: Iterable[MemorySnapshot],
         native_traces: bool,
+        merge_threads: bool,
         inverted: bool,
     ) -> BaseReporter:
         ...
@@ -205,6 +206,7 @@ class HighWatermarkCommand:
                     snapshot,
                     memory_records=tuple(reader.get_memory_snapshots()),
                     native_traces=reader.metadata.has_native_traces,
+                    merge_threads=merge_threads,
                     inverted=inverted,
                 )
         except OSError as e:

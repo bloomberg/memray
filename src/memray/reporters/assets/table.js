@@ -36,10 +36,16 @@ function main() {
     },
   ];
 
+  if (merge_threads) {
+    // No TID column if we've merged allocations from different threads.
+    columns.shift();
+  }
+
+  const sizeColumn = columns.findIndex((column) => column.data === "size");
   var table = $("#the_table").DataTable({
     data: data,
     columns: columns,
-    order: [[2, "desc"]],
+    order: [[sizeColumn, "desc"]],
     pageLength: 100,
     dom: "<t>ip",
   });
