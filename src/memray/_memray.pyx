@@ -1536,7 +1536,7 @@ def compute_statistics(
                     reader.getLatestPythonLocationId(allocation),
                 )
 
-                if allocation.frame_index != 0:
+                if not isDeallocator(allocation.allocator):
                     stack_entry = &stats_by_stack[allocation.frame_index]
                     stack_entry.first += 1
                     stack_entry.second += allocation.size
