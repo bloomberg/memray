@@ -1837,7 +1837,10 @@ def test_module_stats_attributes_to_non_stdlib(tmp_path):
     stats = compute_statistics(str(output), num_largest=5)
     module_names = [name for name, _, _ in stats.top_modules_by_allocation_size]
     assert len(module_names) > 0
-    assert "stdlib" not in module_names
+    # The allocations are driven by tracking_function in this test module, so
+    # they must be attributed to this module's top-level package (the nearest
+    # non-stdlib frame) rather than to the stdlib frames doing the actual work.
+    assert __name__.split(".")[0] in module_names
     for module_name, count, total_bytes in stats.top_modules_by_allocation_size:
         assert isinstance(module_name, str)
         assert count > 0
