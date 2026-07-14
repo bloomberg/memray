@@ -176,7 +176,8 @@ FileSink::seek(off_t offset, int whence)
             << " at offset " << offset << ": " << strerror(errno);
         if (offset == 0) {
             msg << ". The destination filesystem may not support shared writable mmap;"
-                   " try writing the capture file to a different location (e.g. /tmp).";
+                   " try writing the capture file to a different location (e.g. /tmp)"
+                   " or run memray with the --buffered-file-io argument if you can't.";
         }
         LOG(ERROR) << msg.str();
         d_buffer = nullptr;
@@ -211,14 +212,15 @@ FileSink::grow(size_t needed)
         std::ostringstream msg;
         msg << "Failed to grow output file " << d_filename << " by " << delta
             << " bytes: " << strerror(rc);
-        if (d_fileSize == 0) {
 #ifdef __APPLE__
-            msg << ". The destination filesystem may not support F_PREALLOCATE;"
-                   " try writing the capture file to a different location (e.g. /tmp).";
+        const char what[] = "F_PREALLOCATE";
 #else
-            msg << ". The destination filesystem may not support posix_fallocate;"
-                   " try writing the capture file to a different location (e.g. /tmp).";
+        const char what[] = "posix_fallocate";
 #endif
+        if (d_fileSize == 0) {
+            msg << ". The destination filesystem may not support " << what
+                << "; try writing the capture file to a different location (e.g. /tmp)"
+                   " or run memray with the --buffered-file-io argument if you can't.";
         }
         LOG(ERROR) << msg.str();
         errno = rc;
@@ -418,6 +420,75 @@ SocketSink::open()
     }
 
     d_socket_open = true;
+}
+
+BufferedFileSink::BufferedFileSink(const std::string& file_name, bool overwrite, bool compress)
+: BufferedSink(FILE_BUFFER_SIZE)
+, d_filename(file_name)
+, d_fileNameStem(removeSuffix(file_name, "." + std::to_string(::getpid())))
+, d_compress(compress)
+{
+    int flags = O_CREAT | O_RDWR | O_TRUNC | O_CLOEXEC;
+    if (!overwrite) {
+        flags |= O_EXCL;
+    }
+    do {
+        d_fd = ::open(file_name.c_str(), flags, 0644);
+    } while (d_fd < 0 && errno == EINTR);
+    if (d_fd < 0) {
+        throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
+    }
+}
+
+bool
+BufferedFileSink::writeBufferedData(const char* data, size_t length)
+{
+    while (length) {
+        ssize_t ret = ::write(d_fd, data, length);
+        if (ret < 0 && errno != EINTR) {
+            return false;
+        } else if (ret >= 0) {
+            data += ret;
+            length -= ret;
+        }
+    }
+    return true;
+}
+
+bool
+BufferedFileSink::seek(off_t offset, int whence)
+{
+    if (whence != SEEK_SET && whence != SEEK_END) {
+        errno = EINVAL;
+        return false;
+    }
+
+    // Any buffered data belongs at the current file offset; drain it before we
+    // move the offset out from under it.
+    if (!flush()) {
+        return false;
+    }
+
+    return ::lseek(d_fd, offset, whence) >= 0;
+}
+
+std::unique_ptr<Sink>
+BufferedFileSink::cloneInChildProcess()
+{
+    std::string file_name = d_fileNameStem + "." + std::to_string(::getpid());
+    return std::make_unique<BufferedFileSink>(file_name, true, d_compress);
+}
+
+BufferedFileSink::~BufferedFileSink()
+{
+    if (d_fd != -1) {
+        flush();
+        ::close(d_fd);
+    }
+
+    if (d_compress) {
+        compressFile(d_filename);
+    }
 }
 
 NullSink::~NullSink()

@@ -188,7 +188,10 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
     ).strip()
 
     destination = FileDestination(
-        path=filename, overwrite=args.force, compress_on_exit=args.compress_on_exit
+        path=filename,
+        overwrite=args.force,
+        compress_on_exit=args.compress_on_exit,
+        buffered=args.buffered_file_io,
     )
     try:
         _run_tracker(
@@ -271,6 +274,13 @@ class RunCommand:
             action="store_true",
             default=False,
         )
+        parser.add_argument(
+            "--buffered-file-io",
+            help="Buffer captured records in memory instead of using memory mapped IO",
+            action="store_true",
+            dest="buffered_file_io",
+            default=False,
+        )
         compression = parser.add_mutually_exclusive_group()
         compression.add_argument(
             "--compress-on-exit",
@@ -333,6 +343,8 @@ class RunCommand:
             parser.error("--follow-fork cannot be used with the live TUI")
         if args.aggregate and (args.live_mode or args.live_remote_mode):
             parser.error("--aggregate cannot be used with the live TUI")
+        if args.buffered_file_io and (args.live_mode or args.live_remote_mode):
+            parser.error("--buffered-file-io cannot be used with --live/--live-remote")
         with contextlib.suppress(OSError):
             if args.run_as_cmd and pathlib.Path(args.script).exists():
                 parser.error("remove the option -c to run a file")

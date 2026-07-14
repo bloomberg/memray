@@ -1,0 +1,1 @@
+Add a ``--buffered-file-io`` option to ``memray run`` (and a ``buffered=True`` argument to ``memray.FileDestination``) that writes the capture file using buffered ``write`` calls instead of the default memory-mapped file IO. This is useful on filesystems that don't support shared writable ``mmap``, though it's slower and less robust to crashes.

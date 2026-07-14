@@ -10,6 +10,9 @@ cdef extern from "sink.h" namespace "memray::io":
     cdef cppclass FileSink(Sink):
         FileSink(const string& file_name, bool overwrite, bool compress) except +IOError
 
+    cdef cppclass BufferedFileSink(Sink):
+        BufferedFileSink(const string& file_name, bool overwrite, bool compress) except +IOError
+
     cdef cppclass SocketSink(Sink):
         SocketSink(string host, unsigned int port) except +IOError
 

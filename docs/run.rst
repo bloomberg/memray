@@ -274,6 +274,29 @@ it is not.
 If you can live with these limitations, then using ``--aggregate`` results in
 much smaller capture files that can be used seamlessly with most reporters.
 
+.. _buffered file io:
+
+Buffered file I/O
+-----------------
+
+By default, Memray maps its capture file into memory, letting it write to the
+file as if it were a normal memory buffer. This makes Memray faster and more
+resilient to process crashes (including death to the OOM killer), but some
+filesystems don't support shared writable ``mmap`` (or the ``posix_fallocate``
+function Memray uses to grow the file). If you see an error about ``mmap`` or
+``posix_fallocate`` when writing a capture file, and you can't move the capture
+file to a more standard file system, you can pass the ``--buffered-file-io``
+argument to ``memray run`` instead:
+
+.. code-block:: shell
+
+  memray run --buffered-file-io example.py
+
+With this option, Memray buffers captured allocations in memory and writes them
+out with ordinary ``write`` calls, flushing whenever the buffer fills. This
+works on more filesystems, but is slower and less resilient to crashes and
+other unclean exits.
+
 CLI Reference
 -------------
 

@@ -104,6 +104,36 @@ class TestRunSubCommand:
             native_traces=False,
         )
 
+    def test_run_buffered_file_io(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
+        assert 0 == main(
+            ["run", "-o", "my_output", "--buffered-file-io", "-m", "foobar"]
+        )
+        runpy_mock.run_module.assert_called_with(
+            "foobar", run_name="__main__", alter_sys=True
+        )
+        tracker_mock.assert_called_with(
+            destination=FileDestination("my_output", overwrite=False, buffered=True),
+            native_traces=False,
+        )
+
+    def test_run_buffered_file_io_rejected_with_live(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
+    ):
+        with pytest.raises(SystemExit):
+            main(["run", "--buffered-file-io", "--live", "-m", "foobar"])
+        captured = capsys.readouterr()
+        assert "--buffered-file-io cannot be used with --live" in captured.err
+
+    def test_run_buffered_file_io_rejected_with_live_remote(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
+    ):
+        with pytest.raises(SystemExit):
+            main(["run", "--buffered-file-io", "--live-remote", "-m", "foobar"])
+        captured = capsys.readouterr()
+        assert "--buffered-file-io cannot be used with --live" in captured.err
+
     def test_run_module(self, getpid_mock, runpy_mock, tracker_mock, validate_mock):
         assert 0 == main(["run", "-m", "foobar"])
         runpy_mock.run_module.assert_called_with(

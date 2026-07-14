@@ -17,11 +17,19 @@ class FileDestination(Destination):
         overwrite: By default, if a file already exists at that path an
             exception will be raised. If you provide ``overwrite=True``, then
             the existing file will be overwritten instead.
+        compress_on_exit: By default, the output file is compressed with LZ4
+            after tracking completes. Set this to ``False`` to skip compression.
+        buffered: By default, captured allocations are written to the output
+            file using a shared writable ``mmap``. Some filesystems don't
+            support that; if you provide ``buffered=True``, allocations are
+            instead buffered in memory and written out with ordinary ``write``
+            calls, flushing when the buffer fills.
     """
 
     path: typing.Union[pathlib.Path, str]
     overwrite: bool = False
     compress_on_exit: bool = True
+    buffered: bool = False
 
 
 @dataclass(frozen=True)
