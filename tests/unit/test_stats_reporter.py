@@ -121,10 +121,10 @@ def fake_stats():
             (("fake_func2", "fake.py", 10), 3 * 2**10),
             (("__main__", "fake.py", 15), 4),
         ],
-        top_allocations_by_module=[
+        top_modules_by_allocation_size=[
             ("fake", 20, sum(mem_allocation_list)),
         ],
-        top_allocations_by_module_by_count=[
+        top_modules_by_allocation_count=[
             ("fake", 20, sum(mem_allocation_list)),
         ],
     )
@@ -133,7 +133,7 @@ def fake_stats():
 
 @pytest.fixture(scope="module")
 def empty_module_stats():
-    """Stats with no module attribution (top_allocations_by_module is empty)."""
+    """Stats with no module attribution (top_modules_by_allocation_size is empty)."""
     return Stats(
         metadata=Metadata(
             start_time=datetime(2023, 1, 1, 1),
@@ -165,7 +165,8 @@ def empty_module_stats():
             (("loads", "/usr/lib/python3.11/json/__init__.py", 346), 2500000),
             (("decode", "/usr/lib/python3.11/json/decoder.py", 337), 841500),
         ],
-        top_allocations_by_module=[],
+        top_modules_by_allocation_size=[],
+        top_modules_by_allocation_count=[],
     )
 
 
@@ -480,10 +481,10 @@ def test_stats_output_json(fake_stats, tmp_path):
             {"location": "fake_func2:fake.py:10", "count": 50},
             {"location": "__main__:fake.py:15", "count": 1},
         ],
-        "top_allocations_by_module": [
+        "top_modules_by_allocation_size": [
             {"module": "fake", "num_allocations": 20, "total_bytes": 3341500},
         ],
-        "top_allocations_by_module_by_count": [
+        "top_modules_by_allocation_count": [
             {"module": "fake", "num_allocations": 20, "total_bytes": 3341500},
         ],
         "metadata": {
@@ -519,5 +520,5 @@ def test_stats_json_includes_empty_module_list(empty_module_stats, tmp_path):
     reporter = StatsReporter(empty_module_stats, 5)
     reporter.render(json_output_file=output_file)
     data = json.loads(output_file.read_text())
-    assert data["top_allocations_by_module"] == []
-    assert data["top_allocations_by_module_by_count"] == []
+    assert data["top_modules_by_allocation_size"] == []
+    assert data["top_modules_by_allocation_count"] == []

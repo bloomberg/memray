@@ -1572,7 +1572,7 @@ def compute_statistics(
     top_modules_by_count = sorted(
         module_stats.items(), key=lambda x: x[1][0], reverse=True
     )[:num_largest]
-    top_allocations_by_module_by_count = [
+    top_modules_by_allocation_count = [
         (name, count, total_bytes)
         for name, (count, total_bytes) in top_modules_by_count
     ]
@@ -1580,7 +1580,7 @@ def compute_statistics(
     top_modules_by_size = sorted(
         module_stats.items(), key=lambda x: x[1][1], reverse=True
     )[:num_largest]
-    top_allocations_by_module = [
+    top_modules_by_allocation_size = [
         (name, count, total_bytes)
         for name, (count, total_bytes) in top_modules_by_size
     ]
@@ -1596,8 +1596,8 @@ def compute_statistics(
         allocation_count_by_allocator=allocation_count_by_allocator,
         top_locations_by_size=top_locations_by_size,
         top_locations_by_count=top_locations_by_count,
-        top_allocations_by_module=top_allocations_by_module,
-        top_allocations_by_module_by_count=top_allocations_by_module_by_count,
+        top_modules_by_allocation_size=top_modules_by_allocation_size,
+        top_modules_by_allocation_count=top_modules_by_allocation_count,
     )
 
 

@@ -1816,7 +1816,9 @@ def test_module_stats_only_counts_allocations(allocator_func, allocator_type, tm
 
     # THEN
     stats = compute_statistics(str(output), num_largest=5)
-    total_module_allocs = sum(count for _, count, _ in stats.top_allocations_by_module)
+    total_module_allocs = sum(
+        count for _, count, _ in stats.top_modules_by_allocation_size
+    )
     assert total_module_allocs <= stats.total_num_allocations
 
 
@@ -1833,10 +1835,10 @@ def test_module_stats_attributes_to_non_stdlib(tmp_path):
 
     # THEN
     stats = compute_statistics(str(output), num_largest=5)
-    module_names = [name for name, _, _ in stats.top_allocations_by_module]
+    module_names = [name for name, _, _ in stats.top_modules_by_allocation_size]
     assert len(module_names) > 0
     assert "stdlib" not in module_names
-    for module_name, count, total_bytes in stats.top_allocations_by_module:
+    for module_name, count, total_bytes in stats.top_modules_by_allocation_size:
         assert isinstance(module_name, str)
         assert count > 0
         assert total_bytes > 0

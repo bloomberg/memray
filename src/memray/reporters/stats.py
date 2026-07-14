@@ -163,9 +163,9 @@ class StatsReporter:
             print(f"\t- {self._format_location(location)} -> {count}")
 
         for modules, sort_label in [
-            (self._stats.top_allocations_by_module, "by size"),
+            (self._stats.top_modules_by_allocation_size, "by size"),
             (
-                self._stats.top_allocations_by_module_by_count,
+                self._stats.top_modules_by_allocation_count,
                 "by number of allocations",
             ),
         ]:
@@ -208,24 +208,24 @@ class StatsReporter:
                 {"location": self._format_location(location), "count": count}
                 for location, count in self._get_top_allocations_by_count()
             ],
-            "top_allocations_by_module": [
+            "top_modules_by_allocation_size": [
                 {
                     "module": module_name,
                     "num_allocations": num_allocs,
                     "total_bytes": total_bytes,
                 }
                 for module_name, num_allocs, total_bytes in (
-                    self._stats.top_allocations_by_module
+                    self._stats.top_modules_by_allocation_size
                 )
             ],
-            "top_allocations_by_module_by_count": [
+            "top_modules_by_allocation_count": [
                 {
                     "module": module_name,
                     "num_allocations": num_allocs,
                     "total_bytes": total_bytes,
                 }
                 for module_name, num_allocs, total_bytes in (
-                    self._stats.top_allocations_by_module_by_count
+                    self._stats.top_modules_by_allocation_count
                 )
             ],
             "metadata": metadata,

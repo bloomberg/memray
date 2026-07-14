@@ -13,5 +13,5 @@ class Stats:
     allocation_count_by_allocator: dict[str, int]
     top_locations_by_size: list[tuple[PythonStackElement, int]]
     top_locations_by_count: list[tuple[PythonStackElement, int]]
-    top_allocations_by_module: list[tuple[str, int, int]]
-    top_allocations_by_module_by_count: list[tuple[str, int, int]]
+    top_modules_by_allocation_size: list[tuple[str, int, int]]
+    top_modules_by_allocation_count: list[tuple[str, int, int]]
