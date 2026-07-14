@@ -76,6 +76,31 @@ class FileSink : public memray::io::Sink
     char* d_bufferNeedle{nullptr};
 };
 
+class BufferedFileSink : public BufferedSink
+{
+  public:
+    BufferedFileSink(const std::string& file_name, bool overwrite, bool compress);
+    ~BufferedFileSink() override;
+    BufferedFileSink(BufferedFileSink&) = delete;
+    BufferedFileSink(BufferedFileSink&&) = delete;
+    void operator=(const BufferedFileSink&) = delete;
+    void operator=(const BufferedFileSink&&) = delete;
+
+    bool seek(off_t offset, int whence) override;
+    std::unique_ptr<Sink> cloneInChildProcess() override;
+
+  protected:
+    bool writeBufferedData(const char* data, size_t length) override;
+
+  private:
+    static const size_t FILE_BUFFER_SIZE{1 * 1024 * 1024};  // 1 MiB
+
+    std::string d_filename;
+    std::string d_fileNameStem;
+    bool d_compress{1};
+    int d_fd{-1};
+};
+
 class SocketSink : public BufferedSink
 {
   public:

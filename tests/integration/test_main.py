@@ -226,6 +226,43 @@ class TestRunSubcommand:
         assert 0 < out_file.stat().st_size < 4 * 1024 * 1024
         assert out_file.read_bytes()[:4] != b"oops"
 
+    @pytest.mark.parametrize("compress", [True, False])
+    def test_run_buffered_file_io(self, tmp_path, simple_test_file, compress):
+        # GIVEN
+        from memray import FileReader
+
+        out_file = tmp_path / "result.bin"
+        args = [
+            sys.executable,
+            "-m",
+            "memray",
+            "run",
+            "--buffered-file-io",
+            "--output",
+            str(out_file),
+        ]
+        if not compress:
+            args.append("--no-compress")
+        args.append(str(simple_test_file))
+
+        # WHEN
+        proc = subprocess.run(
+            args,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert "Allocating some memory!" in proc.stdout
+        assert proc.returncode == 0
+        assert out_file.exists()
+
+        # The capture file written through the buffered sink (including the
+        # header rewritten via seek at shutdown) must be readable.
+        records = list(FileReader(str(out_file)).get_allocation_records())
+        assert any(record.size == 1024 for record in records)
+
     def test_run_file_with_args(self, tmp_path):
         """Execute a Python script and make sure the arguments in the script
         are correctly forwarded."""

@@ -38,6 +38,7 @@ from _memray.records cimport FileFormat as _FileFormat
 from _memray.records cimport MemoryRecord
 from _memray.records cimport MemorySnapshot as _MemorySnapshot
 from _memray.records cimport TrackedObject
+from _memray.sink cimport BufferedFileSink
 from _memray.sink cimport FileSink
 from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
@@ -770,6 +771,10 @@ cdef class Tracker:
 
             if is_dev_null:
                 return unique_ptr[Sink](new NullSink())
+            if getattr(destination, "buffered", False):
+                return unique_ptr[Sink](new BufferedFileSink(os.fsencode(destination.path),
+                                                             destination.overwrite,
+                                                             destination.compress_on_exit))
             return unique_ptr[Sink](new FileSink(os.fsencode(destination.path),
                                                  destination.overwrite,
                                                  destination.compress_on_exit))
