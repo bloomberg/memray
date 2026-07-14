@@ -99,11 +99,11 @@ def get_module_for_stack(
     """Find the top-level module of the closest non-stdlib frame in a stack.
 
     Walks frames from leaf to root, returning the first non-stdlib module's
-    top-level package name. Returns "__main__" if every frame is stdlib
+    top-level package name. Returns "<root>" if every frame is stdlib
     or the stack is empty.
     """
     for frame in stack:
         module_name, module_type = extract_module_name_and_type(frame[1], path_info)
         if module_type != "stdlib":
             return module_name.split(".")[0]
-    return "__main__"
+    return "<root>"

@@ -150,8 +150,8 @@ def test_all_stdlib_returns_main(path_info):
     ]
 
     # THEN
-    assert get_module_for_stack(stack, path_info) == "__main__"
+    assert get_module_for_stack(stack, path_info) == "<root>"
 
 
 def test_empty_stack_returns_main(path_info):
-    assert get_module_for_stack([], path_info) == "__main__"
+    assert get_module_for_stack([], path_info) == "<root>"
