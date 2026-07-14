@@ -1517,7 +1517,13 @@ def compute_statistics(
     )
 
     path_info = get_python_path_info()
-    module_stats = {}  # module -> [num_allocations, total_bytes]
+
+    # Aggregate allocation counts and bytes per distinct call stack using a C++
+    # integer map keyed by frame_index. Many allocations share the same stack,
+    # so this keeps the hot loop free of any Python-object churn; the (far
+    # fewer) distinct stacks are resolved to module names once, after the loop.
+    cdef unordered_map[size_t, pair[size_t, size_t]] stats_by_stack
+    cdef pair[size_t, size_t]* stack_entry
 
     with progress_indicator:
         while True:
@@ -1531,11 +1537,9 @@ def compute_statistics(
                 )
 
                 if allocation.frame_index != 0:
-                    stack = reader.Py_GetStackFrame(allocation.frame_index)
-                    module_name = get_module_for_stack(stack, path_info)
-                    entry = module_stats.setdefault(module_name, [0, 0])
-                    entry[0] += 1
-                    entry[1] += allocation.size
+                    stack_entry = &stats_by_stack[allocation.frame_index]
+                    stack_entry.first += 1
+                    stack_entry.second += allocation.size
                 progress_indicator.update(1)
             elif ret == RecordResult.RecordResultMemoryRecord:
                 pass
@@ -1568,6 +1572,17 @@ def compute_statistics(
         ((reader.Py_GetLocation(count_and_loc.second) or unknown), count_and_loc.first)
         for count_and_loc in aggregator.topLocationsByCount(num_largest)
     ]
+
+    # Resolve each distinct call stack to a module name exactly once and fold
+    # its aggregated counts into the per-module totals.
+    module_stats = {}  # module -> [num_allocations, total_bytes]
+    cdef pair[size_t, pair[size_t, size_t]] stack_stats
+    for stack_stats in stats_by_stack:
+        stack = reader.Py_GetStackFrame(stack_stats.first)
+        module_name = get_module_for_stack(stack, path_info)
+        entry = module_stats.setdefault(module_name, [0, 0])
+        entry[0] += stack_stats.second.first
+        entry[1] += stack_stats.second.second
 
     top_modules_by_count = sorted(
         module_stats.items(), key=lambda x: x[1][0], reverse=True
