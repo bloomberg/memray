@@ -129,8 +129,7 @@ class AggregatingRecordWriter : public RecordWriter
             const std::string& command_line,
             bool native_traces,
             bool trace_python_allocators,
-            bool track_object_lifetimes,
-            bool has_allocation_timestamps);
+            bool track_object_lifetimes);
 
     AggregatingRecordWriter(StreamingRecordWriter& other) = delete;
     AggregatingRecordWriter(StreamingRecordWriter&& other) = delete;
@@ -186,7 +185,6 @@ createRecordWriter(
         bool track_object_lifetimes,
         bool has_allocation_timestamps)
 {
-    has_allocation_timestamps = file_format == FileFormat::ALL_ALLOCATIONS && has_allocation_timestamps;
     switch (file_format) {
         case FileFormat::ALL_ALLOCATIONS:
             return std::make_unique<StreamingRecordWriter>(
@@ -202,8 +200,7 @@ createRecordWriter(
                     command_line,
                     native_traces,
                     trace_python_allocators,
-                    track_object_lifetimes,
-                    has_allocation_timestamps);
+                    track_object_lifetimes);
         default:
             throw std::runtime_error("Invalid file format enumerator");
     }
@@ -546,8 +543,7 @@ AggregatingRecordWriter::AggregatingRecordWriter(
         const std::string& command_line,
         bool native_traces,
         bool trace_python_allocators,
-        bool track_object_lifetimes,
-        bool has_allocation_timestamps)
+        bool track_object_lifetimes)
 : RecordWriter(std::move(sink))
 {
     memcpy(d_header.magic, MAGIC, sizeof(d_header.magic));
@@ -560,7 +556,7 @@ AggregatingRecordWriter::AggregatingRecordWriter(
     d_header.python_allocator = getPythonAllocator();
     d_header.trace_python_allocators = trace_python_allocators;
     d_header.track_object_lifetimes = track_object_lifetimes;
-    d_header.has_allocation_timestamps = has_allocation_timestamps;
+    d_header.has_allocation_timestamps = false;
 
     d_stats.start_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
@@ -698,8 +694,7 @@ AggregatingRecordWriter::cloneInChildProcess()
             d_header.command_line,
             d_header.native_traces,
             d_header.trace_python_allocators,
-            d_header.track_object_lifetimes,
-            d_header.has_allocation_timestamps);
+            d_header.track_object_lifetimes);
 }
 
 bool
