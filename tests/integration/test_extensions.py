@@ -327,6 +327,48 @@ def test_valloc_at_thread_exit_in_subprocess(tmpdir, monkeypatch):
     assert len(vallocs) == 1
 
 
+def test_free_sized_extension(tmpdir, monkeypatch):
+    """Test tracking of C23 free_sized() and free_aligned_sized()."""
+    output = Path(tmpdir) / "test.bin"
+    extension_name = "multithreaded_extension"
+    extension_path = tmpdir / extension_name
+    shutil.copytree(TEST_MULTITHREADED_EXTENSION, extension_path)
+    subprocess.run(
+        [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
+        check=True,
+        cwd=extension_path,
+        capture_output=True,
+    )
+
+    with monkeypatch.context() as ctx:
+        ctx.setattr(sys, "path", [*sys.path, str(extension_path)])
+        from testext import has_free_sized  # type: ignore
+        from testext import run_free_sized  # type: ignore
+
+        if not has_free_sized():
+            pytest.skip(
+                "libc lacks free_sized / free_aligned_sized (needs glibc 2.42+)"
+            )
+
+        with Tracker(output):
+            plain_addr, aligned_addr = run_free_sized()
+
+    records = list(FileReader(output).get_allocation_records())
+
+    plain_frees = [
+        r
+        for r in records
+        if r.address == plain_addr and r.allocator == AllocatorType.FREE
+    ]
+    aligned_frees = [
+        r
+        for r in records
+        if r.address == aligned_addr and r.allocator == AllocatorType.FREE
+    ]
+    assert len(plain_frees) == 1, "expected one FREE record from free_sized"
+    assert len(aligned_frees) == 1, "expected one FREE record from free_aligned_sized"
+
+
 @pytest.mark.parametrize("py_finalize", [True, False])
 def test_hard_exit(tmpdir, py_finalize):
     """Test a program that exits directly under the context manager"""

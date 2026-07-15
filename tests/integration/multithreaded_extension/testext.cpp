@@ -3,9 +3,21 @@
 
 #include <assert.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #ifdef __linux__
+#include <features.h>
 #include <malloc.h>
+#endif
+
+// Weak forward declarations so the test extension builds against pre-C23
+// libc headers but can still call free_sized / free_aligned_sized when the
+// running process is linked against a newer libc.
+#if defined(__linux__) && (!defined(__GLIBC__) || !__GLIBC_PREREQ(2, 42))
+extern "C" {
+void free_sized(void* ptr, size_t size) __attribute__((weak));
+void free_aligned_sized(void* ptr, size_t alignment, size_t size) __attribute__((weak));
+}
 #endif
 
 namespace {  // unnamed
@@ -92,6 +104,43 @@ run_valloc_at_exit(PyObject*, PyObject*)
     Py_RETURN_NONE;
 }
 
+PyObject*
+has_free_sized(PyObject*, PyObject*)
+{
+#if defined(__linux__)
+    if (&free_sized != nullptr && &free_aligned_sized != nullptr) {
+        Py_RETURN_TRUE;
+    }
+#endif
+    Py_RETURN_FALSE;
+}
+
+PyObject*
+run_free_sized(PyObject*, PyObject*)
+{
+#if defined(__linux__)
+    if (&free_sized == nullptr || &free_aligned_sized == nullptr) {
+        PyErr_SetString(PyExc_RuntimeError, "libc lacks free_sized / free_aligned_sized");
+        return NULL;
+    }
+    const size_t plain_size = 128;
+    void* p = malloc(plain_size);
+    if (!p) return PyErr_NoMemory();
+    free_sized(p, plain_size);
+
+    const size_t alignment = 64;
+    const size_t aligned_size = 256;
+    void* q = aligned_alloc(alignment, aligned_size);
+    if (!q) return PyErr_NoMemory();
+    free_aligned_sized(q, alignment, aligned_size);
+
+    return Py_BuildValue("(KK)", (unsigned long long)p, (unsigned long long)q);
+#else
+    PyErr_SetString(PyExc_RuntimeError, "free_sized only tested on Linux");
+    return NULL;
+#endif
+}
+
 #pragma GCC pop_options
 
 }  // unnamed namespace
@@ -99,6 +148,8 @@ run_valloc_at_exit(PyObject*, PyObject*)
 static PyMethodDef methods[] = {
         {"run", run, METH_NOARGS, "Run a bunch of threads"},
         {"run_valloc_at_exit", run_valloc_at_exit, METH_NOARGS, "Run valloc while exiting a thread"},
+        {"has_free_sized", has_free_sized, METH_NOARGS, "Whether libc provides C23 sized deallocators"},
+        {"run_free_sized", run_free_sized, METH_NOARGS, "Allocate and free using C23 sized deallocators"},
         {NULL, NULL, 0, NULL},
 };
 

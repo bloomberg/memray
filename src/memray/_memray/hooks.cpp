@@ -196,6 +196,44 @@ free(void* ptr) noexcept
     }
 }
 
+#if defined(__GLIBC__)
+void
+free_sized(void* ptr, size_t size) noexcept
+{
+    if (ptr != nullptr) {
+        tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+    }
+
+    {
+        tracking_api::RecursionGuard guard;
+        if (MEMRAY_ORIG(free_sized)) {
+            MEMRAY_ORIG(free_sized)(ptr, size);
+        } else {
+            // libc lacks free_sized: fall back to plain free, which is a
+            // valid implementation per the C23 specification.
+            MEMRAY_ORIG(free)(ptr);
+        }
+    }
+}
+
+void
+free_aligned_sized(void* ptr, size_t alignment, size_t size) noexcept
+{
+    if (ptr != nullptr) {
+        tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+    }
+
+    {
+        tracking_api::RecursionGuard guard;
+        if (MEMRAY_ORIG(free_aligned_sized)) {
+            MEMRAY_ORIG(free_aligned_sized)(ptr, alignment, size);
+        } else {
+            MEMRAY_ORIG(free)(ptr);
+        }
+    }
+}
+#endif
+
 void*
 realloc(void* ptr, size_t size) noexcept
 {
