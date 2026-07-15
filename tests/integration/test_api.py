@@ -1,5 +1,7 @@
 """Tests for exercising the public API."""
 
+import time
+
 import pytest
 
 from memray import FileDestination
@@ -112,7 +114,9 @@ def test_allocation_timestamps_are_exposed_in_records(tmp_path):
     result_file = tmp_path / "test.bin"
 
     with Tracker(result_file, allocation_timestamps=True):
+        time.sleep(0.001)
         allocator.valloc(1234)
+        time.sleep(0.001)
         allocator.free()
 
     with FileReader(result_file) as reader:
@@ -121,7 +125,7 @@ def test_allocation_timestamps_are_exposed_in_records(tmp_path):
 
     assert len(records) == 2
     assert records[0].timestamp_us > 0
-    assert records[1].timestamp_us >= records[0].timestamp_us
+    assert records[1].timestamp_us > records[0].timestamp_us
 
 
 def test_allocation_timestamps_require_all_allocations(tmp_path):
