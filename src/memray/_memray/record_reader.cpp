@@ -683,15 +683,15 @@ RecordReader::extractRecordTypeAndFlags(
     if (record_type_and_flags & static_cast<unsigned char>(RecordType::ALLOCATION)) {
         *record_type = RecordType::ALLOCATION;
         flags_mask = static_cast<unsigned char>(RecordType::ALLOCATION) - 1;
-    } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::FRAME_PUSH)) {
-        *record_type = RecordType::FRAME_PUSH;
-        flags_mask = static_cast<unsigned char>(RecordType::FRAME_PUSH) - 1;
     } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::OBJECT_RECORD)) {
         *record_type = RecordType::OBJECT_RECORD;
         flags_mask = static_cast<unsigned char>(RecordType::OBJECT_RECORD) - 1;
     } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::FRAME_POP)) {
         *record_type = RecordType::FRAME_POP;
         flags_mask = static_cast<unsigned char>(RecordType::FRAME_POP) - 1;
+    } else if ((record_type_and_flags & ~1u) == static_cast<unsigned char>(RecordType::FRAME_PUSH)) {
+        *record_type = RecordType::FRAME_PUSH;
+        flags_mask = 1;
     } else {
         *record_type = static_cast<RecordType>(record_type_and_flags);
         flags_mask = 0;

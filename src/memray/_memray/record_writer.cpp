@@ -365,9 +365,7 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const FramePus
         return false;
     }
 
-    // FRAME_PUSH ENCODING: 0b01uuuuue, `u` are unused bits, `e` is is-entry-frame.
-    // In the future we can use `u` to pack more information into the token,
-    // like whether the code object id has been recently seen.
+    // FRAME_PUSH ENCODING: 0b0000001e, `e` is is-entry-frame.
     // This is followed by the varint encoded code object id and instruction offset.
     auto token = static_cast<unsigned char>(RecordType::FRAME_PUSH);
     token |= record.frame.is_entry_frame;
