@@ -40,7 +40,7 @@ using code_object_id_t = size_t;
 enum class RecordType : unsigned char {
     FILLER = 0,
     TRAILER = 1,
-    MEMORY_RECORD = 2,
+    MEMORY_RECORD = 4,
     NATIVE_TRACE_INDEX = 5,
     MEMORY_MAP_START = 6,
     SEGMENT_HEADER = 7,
