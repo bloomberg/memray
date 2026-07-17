@@ -29,6 +29,9 @@ using code_object_id_t = size_t;
 // it's an ALLOCATION record with 7 bits available for flags (see
 // "ALLOCATION ENCODING" in record_writer.cpp for details).
 //
+// Otherwise, if the 64 bit is set, it's a CLOCK_ADVANCED record with 6 bits
+// available for flags (see "CLOCK_ADVANCED ENCODING" in record_writer.cpp).
+//
 // Otherwise, if the 16 bit is set, it's a FRAME_POP record with 4 bits
 // available for flags (see "FRAME_POP ENCODING" in record_writer.cpp).
 //
@@ -52,6 +55,7 @@ enum class RecordType : unsigned char {
     FRAME_PUSH = 2,  // 2 through 3
     FRAME_POP = 16,  // 16 through 31
     OBJECT_RECORD = 32,  // 32 through 63
+    CLOCK_ADVANCED = 64,  // 64 through 127
     ALLOCATION = 128,  // 128 through 255
 };
 

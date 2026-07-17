@@ -205,11 +205,14 @@ def test_write_basic_records_with_allocation_timestamps(tmp_path):
         allocation_timestamps=True,
     )
 
+    # The two clock advances are 63 (packed into the flag bits) and 64 (the
+    # first value that must use the sentinel + trailing varint), exercising both
+    # CLOCK_ADVANCED encodings.
     assert writer.write_allocation_record(
-        1, 0x1000, 1024, AllocatorType.MALLOC, timestamp_us=11
+        1, 0x1000, 1024, AllocatorType.MALLOC, timestamp_us=63
     )
     assert writer.write_allocation_record(
-        1, 0x1000, 0, AllocatorType.FREE, timestamp_us=29
+        1, 0x1000, 0, AllocatorType.FREE, timestamp_us=127
     )
     assert writer.write_trailer()
 
@@ -218,13 +221,15 @@ def test_write_basic_records_with_allocation_timestamps(tmp_path):
     assert dict(header_fields)["has_allocation_timestamps"] == "true"
     assert records == [
         "CONTEXT_SWITCH tid=1",
+        "CLOCK_ADVANCED us=63",
         (
             "ALLOCATION address=0x1000 size=1024 allocator=malloc "
-            "native_frame_id=0 timestamp_us=11"
+            "native_frame_id=0 timestamp_us=63"
         ),
+        "CLOCK_ADVANCED us=64",
         (
             "ALLOCATION address=0x1000 size=0 allocator=free "
-            "native_frame_id=0 timestamp_us=29"
+            "native_frame_id=0 timestamp_us=127"
         ),
         "TRAILER",
     ]

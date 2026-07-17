@@ -321,16 +321,11 @@ RecordReader::parseAllocationRecord(AllocationRecord* record, unsigned int flags
         return false;
     }
 
-    if (d_header.has_allocation_timestamps) {
-        uint64_t delta_us = 0;
-        if (!readVarint(&delta_us)) {
-            return false;
-        }
-        d_last.allocation_timestamp_us += delta_us;
-        record->timestamp_us = d_last.allocation_timestamp_us;
-    } else {
-        record->timestamp_us = 0;
-    }
+    // The timestamp is not stored on the allocation record itself; it is carried
+    // by the CLOCK_ADVANCED records that precede it. Stamp this allocation with
+    // the current value of the running clock (0 when timestamps are disabled,
+    // since no CLOCK_ADVANCED records are ever emitted in that case).
+    record->timestamp_us = d_last.allocation_timestamp_us;
 
     return true;
 }
@@ -683,6 +678,9 @@ RecordReader::extractRecordTypeAndFlags(
     if (record_type_and_flags & static_cast<unsigned char>(RecordType::ALLOCATION)) {
         *record_type = RecordType::ALLOCATION;
         flags_mask = static_cast<unsigned char>(RecordType::ALLOCATION) - 1;
+    } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::CLOCK_ADVANCED)) {
+        *record_type = RecordType::CLOCK_ADVANCED;
+        flags_mask = static_cast<unsigned char>(RecordType::CLOCK_ADVANCED) - 1;
     } else if (record_type_and_flags & static_cast<unsigned char>(RecordType::OBJECT_RECORD)) {
         *record_type = RecordType::OBJECT_RECORD;
         flags_mask = static_cast<unsigned char>(RecordType::OBJECT_RECORD) - 1;
@@ -726,6 +724,14 @@ RecordReader::nextRecordFromAllAllocationsFile()
                     return RecordResult::ERROR;
                 }
                 return RecordResult::ALLOCATION_RECORD;
+            } break;
+            case RecordType::CLOCK_ADVANCED: {
+                uint64_t delta_us = flags;
+                if (delta_us == 0 && !readVarint(&delta_us)) {
+                    if (d_input->is_open()) LOG(ERROR) << "Failed to process clock advance record";
+                    return RecordResult::ERROR;
+                }
+                d_last.allocation_timestamp_us += delta_us;
             } break;
             case RecordType::MEMORY_RECORD: {
                 MemoryRecord record;
@@ -1253,6 +1259,14 @@ RecordReader::dumpAllRecordsFromAllAllocationsFile()
                            allocator,
                            record.native_frame_id);
                 }
+            } break;
+            case RecordType::CLOCK_ADVANCED: {
+                uint64_t delta_us = flags;
+                if (delta_us == 0 && !readVarint(&delta_us)) {
+                    Py_RETURN_NONE;
+                }
+                d_last.allocation_timestamp_us += delta_us;
+                printf("CLOCK_ADVANCED us=%" PRIu64 "\n", delta_us);
             } break;
             case RecordType::FRAME_PUSH: {
                 printf("FRAME_PUSH ");

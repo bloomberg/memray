@@ -380,6 +380,35 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
         return false;
     }
 
+    // CLOCK_ADVANCED ENCODING: 0b01dddddd
+    //
+    // Rather than storing a timestamp on every allocation, we emit a separate
+    // CLOCK_ADVANCED record whenever this allocation's timestamp is higher than
+    // the last one we emitted. The reader accumulates these advances into a
+    // running clock and stamps each subsequent allocation with its current value.
+    //
+    // The 6 flag bits `dddddd` hold the advance in microseconds:
+    //   1-63: the advance itself, encoded directly in the flag bits (no extra bytes)
+    //      0: sentinel meaning the advance follows as an unsigned varint
+    if (d_header.has_allocation_timestamps && record.timestamp_us > d_last.allocation_timestamp_us) {
+        uint64_t delta_us = record.timestamp_us - d_last.allocation_timestamp_us;
+        d_last.allocation_timestamp_us = record.timestamp_us;
+
+        auto clock_token = static_cast<unsigned char>(RecordType::CLOCK_ADVANCED);
+        if (delta_us < 64) {
+            // Small advance (1-63): pack it into the flag bits.
+            clock_token |= static_cast<unsigned char>(delta_us);
+            if (!writeSimpleType(clock_token)) {
+                return false;
+            }
+        } else {
+            // Larger advance: flag bits are 0 and a full varint follows.
+            if (!writeSimpleType(clock_token) || !writeVarint(delta_us)) {
+                return false;
+            }
+        }
+    }
+
     // ALLOCATION ENCODING: 0b1ppppaaa
     //
     // Bit layout of the first byte:
@@ -401,8 +430,6 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
     // [native_id]   - Delta-encoded native_frame_id (only if native traces enabled
     //                 AND not a simple deallocator)
     // [size]        - Varint-encoded size (only if not a simple deallocator)
-    // [timestamp]   - Delta-encoded timestamp in microseconds since tracker start
-    //                 (only if allocation timestamps are enabled)
     //
     // Example sequences:
     // - Cached malloc(256):        [0b10011110] [size:256]
@@ -420,24 +447,15 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
     int pointer_cache_index = pointerCacheIndex(record.address);
     token |= (pointer_cache_index & 0x0f) << 3;
 
-    if (!writeSimpleType(token)
-        || (pointer_cache_index == -1 && !writeIntegralDelta(&d_last.data_pointer, record.address >> 3))
-        || (allocator_id >= 8 && !writeSimpleType(record.allocator))
-        || (d_header.native_traces
-            && hooks::allocatorKind(record.allocator) != hooks::AllocatorKind::SIMPLE_DEALLOCATOR
-            && !writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
-        || (hooks::allocatorKind(record.allocator) != hooks::AllocatorKind::SIMPLE_DEALLOCATOR
-            && !writeVarint(record.size)))
-    {
-        return false;
-    }
-    if (d_header.has_allocation_timestamps) {
-        if (!writeVarint(record.timestamp_us - d_last.allocation_timestamp_us)) {
-            return false;
-        }
-        d_last.allocation_timestamp_us = record.timestamp_us;
-    }
-    return true;
+    return writeSimpleType(token)
+           && (pointer_cache_index != -1
+               || writeIntegralDelta(&d_last.data_pointer, record.address >> 3))
+           && (allocator_id < 8 || writeSimpleType(record.allocator))
+           && (!d_header.native_traces
+               || hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
+               || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
+           && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
+               || writeVarint(record.size));
 }
 
 bool
