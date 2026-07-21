@@ -1,0 +1,1 @@
+Fix a potential deadlock in the gdb backend for ``memray attach``.

@@ -15,7 +15,6 @@ p PyMem_Realloc
 p PyMem_Free
 
 p "MEMRAY: Process is Python 3.7+."
-set scheduler-locking on
 call (int)Py_AddPendingCall(&PyCallable_Check, (void*)0)
 
 p "Checking if we can access the library"
@@ -47,5 +46,4 @@ commands 1-10
     eval "sharedlibrary %s", $libpath
     p (int)memray_spawn_client($port) ? "FAILURE" : "SUCCESS"
 end
-set scheduler-locking off
 continue
