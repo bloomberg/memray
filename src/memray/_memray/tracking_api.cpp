@@ -998,8 +998,10 @@ Tracker::BackgroundThread::captureMemorySnapshot()
 
     std::lock_guard<std::mutex> lock(*s_mutex);
     if (!d_writer->writeRecord(MemoryRecord{now, rss})) {
-        std::cerr << "Failed to write output, deactivating tracking" << std::endl;
-        Tracker::deactivate();
+        if (Tracker::isActive()) {
+            std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+            Tracker::deactivate();
+        }
         return false;
     }
 
