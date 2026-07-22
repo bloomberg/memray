@@ -1,0 +1,31 @@
+name: Droid Issue to PR
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions: {}
+
+jobs:
+  droid-issue-to-pr:
+    if: |
+      (github.event.action == 'labeled' && github.event.label.name == 'droid-implement') ||
+      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'droid-implement'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+      - name: Run Droid Issue to PR
+        uses: Factory-AI/droid-action@49188f4035f23e609bbeee36ec5b22e72212a8e5 # main
+        with:
+          factory_api_key: ${{ secrets.FACTORY_API_KEY }}
+          label_trigger: droid-implement
+          track_progress: true
