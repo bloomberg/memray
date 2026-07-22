@@ -2,15 +2,15 @@ name: Droid Issue to PR
 
 on:
   issues:
-    types: [opened, labeled]
+    types: [opened]
 
 permissions: {}
 
 jobs:
   droid-issue-to-pr:
     if: |
-      (github.event.action == 'labeled' && github.event.label.name == 'droid-implement') ||
-      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'droid-implement'))
+      contains(github.event.issue.body, '@droid') ||
+      contains(github.event.issue.title, '@droid')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -27,5 +27,4 @@ jobs:
         uses: Factory-AI/droid-action@49188f4035f23e609bbeee36ec5b22e72212a8e5 # main
         with:
           factory_api_key: ${{ secrets.FACTORY_API_KEY }}
-          label_trigger: droid-implement
           track_progress: true
