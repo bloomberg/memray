@@ -1,0 +1,38 @@
+name: Droid Tag
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  droid:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@droid')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@droid')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@droid')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@droid') || contains(github.event.issue.title, '@droid'))) ||
+      (github.event_name == 'pull_request' && (contains(github.event.pull_request.body, '@droid') || contains(github.event.pull_request.title, '@droid')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+      - name: Run Droid Exec
+        uses: Factory-AI/droid-action@49188f4035f23e609bbeee36ec5b22e72212a8e5 # main
+        with:
+          factory_api_key: ${{ secrets.FACTORY_API_KEY }}
