@@ -24,6 +24,16 @@
 #include "compat.h"
 #include "logging.h"
 
+// Apache Arrow mimalloc wrapper symbols (apache/arrow#41128). Declared weak
+// so memray links even when the host binary doesn't depend on libarrow.
+// At runtime memray's phdr scanner resolves the real address from libarrow.so.
+extern "C" {
+__attribute__((weak)) void* arrow_mi_malloc_aligned(size_t size, size_t alignment);
+__attribute__((weak)) void* arrow_mi_realloc_aligned(void* ptr, size_t new_size,
+                                                    size_t alignment);
+__attribute__((weak)) void arrow_mi_free(void* ptr);
+}
+
 #if defined(__APPLE__)
 #    define MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 #elif defined(__GLIBC__)
@@ -51,6 +61,9 @@
     FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
     FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)                                                         \
+    FOR_EACH_HOOKED_FUNCTION(arrow_mi_malloc_aligned)                                                   \
+    FOR_EACH_HOOKED_FUNCTION(arrow_mi_realloc_aligned)                                                  \
+    FOR_EACH_HOOKED_FUNCTION(arrow_mi_free)                                                             \
     MEMRAY_PLATFORM_HOOKED_FUNCTIONS
 
 namespace memray::hooks {
@@ -178,6 +191,15 @@ posix_memalign(void** memptr, size_t alignment, size_t size) noexcept;
 
 void*
 aligned_alloc(size_t alignment, size_t size) noexcept;
+
+void*
+arrow_mi_malloc_aligned(size_t size, size_t alignment) noexcept;
+
+void*
+arrow_mi_realloc_aligned(void* ptr, size_t new_size, size_t alignment) noexcept;
+
+void
+arrow_mi_free(void* ptr) noexcept;
 
 void*
 memalign(size_t alignment, size_t size) noexcept;

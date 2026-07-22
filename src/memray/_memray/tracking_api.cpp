@@ -898,6 +898,11 @@ Tracker::~Tracker()
 {
     RecursionGuard guard;
     tracking_api::Tracker::deactivate();
+#ifdef MEMRAY_HAS_GHOST_STACK
+    if (d_fast_unwind) {
+        ghost_stack_dump_stats();
+    }
+#endif
 
     PythonStackTracker::s_native_tracking_enabled = false;
     d_background_thread->stop();
@@ -1235,6 +1240,12 @@ Tracker::trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTra
 void
 Tracker::invalidate_module_cache_impl()
 {
+    // Re-resolve hook originals before patching: hooked symbols defined in
+    // libraries loaded at runtime (e.g. libarrow.so's arrow_mi_*) are not
+    // present when ensureAllHooksAreValid() runs at tracker init; without
+    // this call, the patcher would rewrite GOT entries to point at our
+    // intercepts, which would then call a null d_original and crash.
+    hooks::ensureAllHooksAreValid();
     d_patcher.overwrite_symbols();
     updateModuleCacheImpl();
 }
