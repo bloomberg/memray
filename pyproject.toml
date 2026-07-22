@@ -179,7 +179,7 @@ exclude = "tests/integration/(native_extension|multithreaded_extension)/"
 build = ["cp3{9..15}{t,}-*"]
 enable = ["cpython-prerelease"]
 skip = "*musllinux*{i686,aarch64}*"
-manylinux-x86_64-image = "manylinux2014"
+manylinux-x86_64-image = "manylinux_2_28"
 manylinux-i686-image = "manylinux2014"
 musllinux-x86_64-image = "musllinux_1_2"
 
