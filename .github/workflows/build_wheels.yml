@@ -44,6 +44,8 @@ jobs:
     steps:
       - id: manylinux_x86_64
         run: echo "wheel_types=manylinux_x86_64" >> $GITHUB_OUTPUT
+      - id: manylinux2014_x86_64
+        run: echo "wheel_types=manylinux2014_x86_64" >> $GITHUB_OUTPUT
       - id: musllinux_x86_64
         run: echo "wheel_types=musllinux_x86_64" >> $GITHUB_OUTPUT
       - id: manylinux_i686
@@ -63,11 +65,22 @@ jobs:
         wheel_type: ${{ fromJSON(needs.choose_linux_wheel_types.outputs.wheel_types) }}
         include:
           - os: ubuntu-latest
+          - wheel_type: manylinux_x86_64
+            cibw_platform: manylinux_x86_64
+          - wheel_type: musllinux_x86_64
+            cibw_platform: musllinux_x86_64
           - wheel_type: manylinux_aarch64
+            cibw_platform: manylinux_aarch64
             os: ubuntu-24.04-arm
           - wheel_type: manylinux_i686
+            cibw_platform: manylinux_i686
             os: ubuntu-latest
             cibw_archs_linux: auto32
+          - wheel_type: manylinux2014_x86_64
+            cibw_platform: manylinux_x86_64
+            os: ubuntu-latest
+            manylinux_image: manylinux2014
+            cibw_archs_linux: auto64
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -86,8 +99,9 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@294735312765b09d24a2fbec22660ce817587d55 # v4.1.0
         env:
-          CIBW_BUILD: "cp3{9..15}{t,}-${{ matrix.wheel_type }}"
+          CIBW_BUILD: "cp3{9..15}{t,}-${{ matrix.cibw_platform }}"
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux || 'auto' }}
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_ENABLE: cpython-prerelease
           CIBW_TEST_EXTRAS: test
           CIBW_TEST_COMMAND: python -um pytest --log-cli-level=DEBUG -s --showlocals -vvv {package}/tests
