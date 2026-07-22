@@ -156,7 +156,7 @@ def _run_with_socket_output(args: argparse.Namespace) -> None:
         raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     if not args.quiet:
-        memray_cli = f"memray{sys.version_info.major}.{sys.version_info.minor}"
+        memray_cli = f"{sys.executable} -m memray"
         print(f"Run '{memray_cli} live {port}' in another shell to see live results")
     with suppress(KeyboardInterrupt):
         _run_tracker(destination=SocketDestination(server_port=port), args=args)
