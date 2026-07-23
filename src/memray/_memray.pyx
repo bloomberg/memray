@@ -1498,6 +1498,9 @@ def compute_statistics(
     report_progress=False,
     num_largest=5,
 ):
+    from memray.reporters.module_tools import get_module_for_stack
+    from memray.reporters.module_tools import get_python_path_info
+
     cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
         unique_ptr[FileSource](new FileSource(file_name))
     )
@@ -1517,15 +1520,31 @@ def compute_statistics(
         total=total,
         report_progress=report_progress,
     )
+
+    path_info = get_python_path_info()
+
+    # Aggregate allocation counts and bytes per distinct call stack using a C++
+    # integer map keyed by frame_index. Many allocations share the same stack,
+    # so this keeps the hot loop free of any Python-object churn; the (far
+    # fewer) distinct stacks are resolved to module names once, after the loop.
+    cdef unordered_map[size_t, pair[size_t, size_t]] stats_by_stack
+    cdef pair[size_t, size_t]* stack_entry
+
     with progress_indicator:
         while True:
             PyErr_CheckSignals()
             ret = reader.nextRecord()
             if ret == RecordResult.RecordResultAllocationRecord:
+                allocation = reader.getLatestAllocation()
                 aggregator.addAllocation(
-                    reader.getLatestAllocation(),
-                    reader.getLatestPythonLocationId(reader.getLatestAllocation()),
+                    allocation,
+                    reader.getLatestPythonLocationId(allocation),
                 )
+
+                if not isDeallocator(allocation.allocator):
+                    stack_entry = &stats_by_stack[allocation.frame_index]
+                    stack_entry.first += 1
+                    stack_entry.second += allocation.size
                 progress_indicator.update(1)
             elif ret == RecordResult.RecordResultMemoryRecord:
                 pass
@@ -1559,6 +1578,33 @@ def compute_statistics(
         for count_and_loc in aggregator.topLocationsByCount(num_largest)
     ]
 
+    # Resolve each distinct call stack to a module name exactly once and fold
+    # its aggregated counts into the per-module totals.
+    module_stats = {}  # module -> [num_allocations, total_bytes]
+    cdef pair[size_t, pair[size_t, size_t]] stack_stats
+    for stack_stats in stats_by_stack:
+        stack = reader.Py_GetStackFrame(stack_stats.first)
+        module_name = get_module_for_stack(stack, path_info)
+        entry = module_stats.setdefault(module_name, [0, 0])
+        entry[0] += stack_stats.second.first
+        entry[1] += stack_stats.second.second
+
+    top_modules_by_count = sorted(
+        module_stats.items(), key=lambda x: x[1][0], reverse=True
+    )[:num_largest]
+    top_modules_by_allocation_count = [
+        (name, count, total_bytes)
+        for name, (count, total_bytes) in top_modules_by_count
+    ]
+
+    top_modules_by_size = sorted(
+        module_stats.items(), key=lambda x: x[1][1], reverse=True
+    )[:num_largest]
+    top_modules_by_allocation_size = [
+        (name, count, total_bytes)
+        for name, (count, total_bytes) in top_modules_by_size
+    ]
+
     # And we're done!
     cdef uint64_t peak_memory = aggregator.peakBytesAllocated()
     return Stats(
@@ -1570,6 +1616,8 @@ def compute_statistics(
         allocation_count_by_allocator=allocation_count_by_allocator,
         top_locations_by_size=top_locations_by_size,
         top_locations_by_count=top_locations_by_count,
+        top_modules_by_allocation_size=top_modules_by_allocation_size,
+        top_modules_by_allocation_count=top_modules_by_allocation_count,
     )
 
 

@@ -1815,3 +1815,51 @@ class TestMemorySnapshots:
         assert record.n_allocations == 1
         assert record.allocator == AllocatorType.MALLOC
         assert record.size == 2 << 10
+
+
+@pytest.mark.parametrize(["allocator_func", "allocator_type"], ALLOCATORS)
+def test_module_stats_only_counts_allocations(allocator_func, allocator_type, tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+
+    # WHEN
+    with Tracker(output):
+        res = getattr(allocator, allocator_func)(1234)
+        if res:
+            allocator.free()
+
+    if not res:
+        pytest.skip(f"Allocator {allocator_func} not supported on this platform")
+
+    # THEN
+    stats = compute_statistics(str(output), num_largest=5)
+    total_module_allocs = sum(
+        count for _, count, _ in stats.top_modules_by_allocation_size
+    )
+    assert total_module_allocs <= stats.total_num_allocations
+
+
+def test_module_stats_attributes_to_non_stdlib(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+
+    def tracking_function():
+        return [{str(k): k for k in range(50)} for _ in range(1000)]
+
+    # WHEN
+    with Tracker(output, trace_python_allocators=True):
+        tracking_function()
+
+    # THEN
+    stats = compute_statistics(str(output), num_largest=5)
+    module_names = [name for name, _, _ in stats.top_modules_by_allocation_size]
+    assert len(module_names) > 0
+    # The allocations are driven by tracking_function in this test module, so
+    # they must be attributed to this module's top-level package (the nearest
+    # non-stdlib frame) rather than to the stdlib frames doing the actual work.
+    assert __name__.split(".")[0] in module_names
+    for module_name, count, total_bytes in stats.top_modules_by_allocation_size:
+        assert isinstance(module_name, str)
+        assert count > 0
+        assert total_bytes > 0

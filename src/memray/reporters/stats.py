@@ -162,6 +162,25 @@ class StatsReporter:
         for location, count in self._get_top_allocations_by_count():
             print(f"\t- {self._format_location(location)} -> {count}")
 
+        for modules, sort_label in [
+            (self._stats.top_modules_by_allocation_size, "by size"),
+            (
+                self._stats.top_modules_by_allocation_count,
+                "by number of allocations",
+            ),
+        ]:
+            if not modules:
+                continue
+            print()
+            rich.print(
+                f"🥇 [bold]Top {self.num_largest} allocating modules ({sort_label}):[/]"
+            )
+            for module_name, num_allocs, total_bytes in modules:
+                print(
+                    f"\t- {module_name}: {size_fmt(total_bytes)} total"
+                    f" | {num_allocs} allocations"
+                )
+
     def _render_to_json(self, histogram_params: Dict[str, int], out_path: Path) -> None:
         alloc_size_hist = describe_histogram_databins(
             get_histogram_databins(
@@ -188,6 +207,26 @@ class StatsReporter:
             "top_allocations_by_count": [
                 {"location": self._format_location(location), "count": count}
                 for location, count in self._get_top_allocations_by_count()
+            ],
+            "top_modules_by_allocation_size": [
+                {
+                    "module": module_name,
+                    "num_allocations": num_allocs,
+                    "total_bytes": total_bytes,
+                }
+                for module_name, num_allocs, total_bytes in (
+                    self._stats.top_modules_by_allocation_size
+                )
+            ],
+            "top_modules_by_allocation_count": [
+                {
+                    "module": module_name,
+                    "num_allocations": num_allocs,
+                    "total_bytes": total_bytes,
+                }
+                for module_name, num_allocs, total_bytes in (
+                    self._stats.top_modules_by_allocation_count
+                )
             ],
             "metadata": metadata,
         }
