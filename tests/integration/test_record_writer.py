@@ -89,6 +89,9 @@ def test_write_basic_records(tmp_path):
         file_format=FileFormat.ALL_ALLOCATIONS,
         main_tid=10,
         skipped_frames=15,
+        libdest='/some/path with spaces and a ":" too',
+        site_packages=["/some/path", '/"another"/path too'],
+        sys_path=["/some/path", '/"another"/path too'],
     )
 
     assert writer.write_memory_record(1757101101880, 1024)
@@ -142,7 +145,7 @@ def test_write_basic_records(tmp_path):
 
     assert header_fields == [
         ("magic", "memray"),
-        ("version", "12"),
+        ("version", "13"),
         ("python_version", f"{sys.hexversion:08x}"),
         ("native_traces", "true"),
         ("file_format", "ALL_ALLOCATIONS"),
@@ -157,6 +160,9 @@ def test_write_basic_records(tmp_path):
         ("python_allocator", allocator),
         ("trace_python_allocators", "true"),
         ("track_object_lifetimes", "false"),
+        ("libdest", '/some/path with spaces and a ":" too'),
+        ("site_packages", '[/some/path, /"another"/path too]'),
+        ("sys.path", '[/some/path, /"another"/path too]'),
     ]
 
     expected_parse_output = """
@@ -260,7 +266,7 @@ def test_write_aggregated_records(tmp_path):
 
     assert header_fields == [
         ("magic", "memray"),
-        ("version", "12"),
+        ("version", "13"),
         ("python_version", f"{sys.hexversion:08x}"),
         ("native_traces", "false"),
         ("file_format", "AGGREGATED_ALLOCATIONS"),
@@ -275,6 +281,9 @@ def test_write_aggregated_records(tmp_path):
         ("python_allocator", allocator),
         ("trace_python_allocators", "false"),
         ("track_object_lifetimes", "false"),
+        ("libdest", ""),
+        ("site_packages", "[]"),
+        ("sys.path", "[]"),
     ]
 
     records = sort_runs_of_same_record_type(records)

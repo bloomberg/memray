@@ -55,4 +55,7 @@ cdef extern from "record_writer.h" namespace "memray::tracking_api":
         FileFormat file_format,
         bool trace_python_allocators,
         bool track_object_lifetimes,
+        string libdest,
+        vector[string] site_packages,
+        vector[string] sys_path,
     ) except+

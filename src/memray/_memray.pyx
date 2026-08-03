@@ -800,6 +800,15 @@ cdef class Tracker:
             )
 
         cdef cppstring command_line = " ".join(sys.argv)
+
+        # Record the traced process's search paths. Reporters will use them for
+        # classifying filenames to module names.
+        from memray.reporters.module_tools import get_python_path_info
+        path_info = get_python_path_info()
+        py_libdest = os.path.abspath(path_info["stdlib"]) if path_info["stdlib"] else ""
+        py_site_packages = [os.path.abspath(p) for p in path_info["site_packages"]]
+        py_sys_path = [os.path.abspath(p) for p in path_info["sys_path"]]
+
         self._native_traces = native_traces
         self._track_object_lifetimes = track_object_lifetimes
         self._memory_interval_ms = memory_interval_ms
@@ -824,6 +833,9 @@ cdef class Tracker:
                 file_format,
                 trace_python_allocators,
                 track_object_lifetimes,
+                py_libdest,
+                py_site_packages,
+                py_sys_path,
             )
         )
 
@@ -1576,7 +1588,13 @@ def compute_statistics(
 
     # Resolve each distinct call stack to a module name, adding its aggregated
     # counts into the per-module totals.
-    module_resolver = ModuleResolver()
+    module_resolver = ModuleResolver(
+        {
+            "stdlib": pathlib.Path(header["libdest"]) if header["libdest"] else None,
+            "site_packages": [pathlib.Path(p) for p in header["site_packages"]],
+            "sys_path": [pathlib.Path(p) for p in header["sys_path"]],
+        }
+    )
     module_stats = {}  # module -> [num_allocations, total_bytes]
     cdef pair[size_t, pair[size_t, size_t]] stack_stats
     for stack_stats in stats_by_stack:
@@ -1877,6 +1895,9 @@ cdef class RecordWriterTestHarness:
         records.thread_id_t main_tid=1,
         size_t skipped_frames=0,
         str command_line="memray test harness",
+        str libdest="",
+        list site_packages=[],
+        list sys_path=[],
     ):
         """Initialize a new RecordWriterTestHarness.
 
@@ -1894,6 +1915,9 @@ cdef class RecordWriterTestHarness:
             file_format,
             trace_python_allocators,
             track_object_lifetimes,
+            libdest,
+            site_packages,
+            sys_path,
         )
         self._writer.get().setMainTidAndSkippedFrames(main_tid, skipped_frames)
         self.write_header(False)
