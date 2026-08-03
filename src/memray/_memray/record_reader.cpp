@@ -102,6 +102,25 @@ RecordReader::readHeader(HeaderRecord& header)
     {
         throw std::ios_base::failure("Failed to read input file header.");
     }
+
+    // The traced process's module search paths. libdest is a single string;
+    // each vector is a run of null-terminated strings ended by an empty string.
+    // This works because vector entries are absolute paths and can't be empty.
+    if (!d_input->getline(header.libdest, '\0')) {
+        throw std::ios_base::failure("Failed to read input file header.");
+    }
+    for (std::vector<std::string>* paths : {&header.site_packages, &header.sys_path}) {
+        while (true) {
+            std::string entry;
+            if (!d_input->getline(entry, '\0')) {
+                throw std::ios_base::failure("Failed to read input file header.");
+            }
+            if (entry.empty()) {
+                break;
+            }
+            paths->push_back(std::move(entry));
+        }
+    }
 }
 
 bool
@@ -1147,11 +1166,32 @@ RecordReader::dumpAllRecords()
             file_format = "<unknown enum value " + std::to_string((int)d_header.file_format) + ">";
         } break;
     }
+
+    std::ostringstream site_packages;
+    site_packages << "[";
+    for (size_t i = 0; i < d_header.site_packages.size(); ++i) {
+        if (i >= 1) {
+            site_packages << ", ";
+        }
+        site_packages << d_header.site_packages[i];
+    }
+    site_packages << "]";
+
+    std::ostringstream sys_path;
+    sys_path << "[";
+    for (size_t i = 0; i < d_header.sys_path.size(); ++i) {
+        if (i >= 1) {
+            sys_path << ", ";
+        }
+        sys_path << d_header.sys_path[i];
+    }
+    sys_path << "]";
+
     printf("HEADER magic=%.*s version=%d python_version=%08x native_traces=%s file_format=%s"
            " n_allocations=%zd n_frames=%zd start_time=%lld end_time=%lld"
            " pid=%d main_tid=%lu skipped_frames_on_main_tid=%zd"
            " command_line=%s python_allocator=%s trace_python_allocators=%s"
-           " track_object_lifetimes=%s\n",
+           " track_object_lifetimes=%s libdest=%s site_packages=%s sys.path=%s\n",
            (int)sizeof(d_header.magic),
            d_header.magic,
            d_header.version,
@@ -1168,7 +1208,10 @@ RecordReader::dumpAllRecords()
            d_header.command_line.c_str(),
            python_allocator.c_str(),
            d_header.trace_python_allocators ? "true" : "false",
-           d_header.track_object_lifetimes ? "true" : "false");
+           d_header.track_object_lifetimes ? "true" : "false",
+           d_header.libdest.c_str(),
+           site_packages.str().c_str(),
+           sys_path.str().c_str());
 
     switch (d_header.file_format) {
         case FileFormat::ALL_ALLOCATIONS:

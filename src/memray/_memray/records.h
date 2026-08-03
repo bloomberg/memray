@@ -18,7 +18,7 @@
 namespace memray::tracking_api {
 
 extern const char MAGIC[7];  // Value assigned in records.cpp
-const int CURRENT_HEADER_VERSION = 12;
+const int CURRENT_HEADER_VERSION = 13;
 
 using frame_id_t = size_t;
 using thread_id_t = unsigned long;
@@ -113,6 +113,12 @@ struct HeaderRecord
     PythonAllocatorType python_allocator{};
     bool trace_python_allocators{};
     bool track_object_lifetimes{false};
+    // The traced process's module search paths, captured once when tracking
+    // starts and used by reporters to map filenames to modules. Like
+    // command_line, these must not be mutated while the tracker is running.
+    std::string libdest;
+    std::vector<std::string> site_packages;
+    std::vector<std::string> sys_path;
 };
 
 struct MemoryRecord

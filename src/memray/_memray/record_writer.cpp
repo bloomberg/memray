@@ -65,7 +65,10 @@ class StreamingRecordWriter : public RecordWriter
             const std::string& command_line,
             bool native_traces,
             bool trace_python_allocators,
-            bool track_object_lifetimes);
+            bool track_object_lifetimes,
+            const std::string& libdest,
+            const std::vector<std::string>& site_packages,
+            const std::vector<std::string>& sys_path);
 
     StreamingRecordWriter(StreamingRecordWriter& other) = delete;
     StreamingRecordWriter(StreamingRecordWriter&& other) = delete;
@@ -128,7 +131,10 @@ class AggregatingRecordWriter : public RecordWriter
             const std::string& command_line,
             bool native_traces,
             bool trace_python_allocators,
-            bool track_object_lifetimes);
+            bool track_object_lifetimes,
+            const std::string& libdest,
+            const std::vector<std::string>& site_packages,
+            const std::vector<std::string>& sys_path);
 
     AggregatingRecordWriter(StreamingRecordWriter& other) = delete;
     AggregatingRecordWriter(StreamingRecordWriter&& other) = delete;
@@ -181,7 +187,10 @@ createRecordWriter(
         bool native_traces,
         FileFormat file_format,
         bool trace_python_allocators,
-        bool track_object_lifetimes)
+        bool track_object_lifetimes,
+        const std::string& libdest,
+        const std::vector<std::string>& site_packages,
+        const std::vector<std::string>& sys_path)
 {
     switch (file_format) {
         case FileFormat::ALL_ALLOCATIONS:
@@ -190,14 +199,20 @@ createRecordWriter(
                     command_line,
                     native_traces,
                     trace_python_allocators,
-                    track_object_lifetimes);
+                    track_object_lifetimes,
+                    libdest,
+                    site_packages,
+                    sys_path);
         case FileFormat::AGGREGATED_ALLOCATIONS:
             return std::make_unique<AggregatingRecordWriter>(
                     std::move(sink),
                     command_line,
                     native_traces,
                     trace_python_allocators,
-                    track_object_lifetimes);
+                    track_object_lifetimes,
+                    libdest,
+                    site_packages,
+                    sys_path);
         default:
             throw std::runtime_error("Invalid file format enumerator");
     }
@@ -208,7 +223,10 @@ StreamingRecordWriter::StreamingRecordWriter(
         const std::string& command_line,
         bool native_traces,
         bool trace_python_allocators,
-        bool track_object_lifetimes)
+        bool track_object_lifetimes,
+        const std::string& libdest,
+        const std::vector<std::string>& site_packages,
+        const std::vector<std::string>& sys_path)
 : RecordWriter(std::move(sink))
 , d_stats({0, 0, duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()})
 {
@@ -225,7 +243,10 @@ StreamingRecordWriter::StreamingRecordWriter(
             0,
             getPythonAllocator(),
             trace_python_allocators,
-            track_object_lifetimes};
+            track_object_lifetimes,
+            libdest,
+            site_packages,
+            sys_path};
     strncpy(d_header.magic, MAGIC, sizeof(d_header.magic));
 }
 
@@ -493,6 +514,23 @@ RecordWriter::writeHeaderCommon(const HeaderRecord& header)
     {
         return false;
     }
+
+    // The traced process's module search paths. Each vector is written as a
+    // sequence of null-terminated strings followed by an empty-string sentinel;
+    // since these hold absolute paths, an empty string can only mean "end".
+    if (!writeString(header.libdest.c_str())) {
+        return false;
+    }
+    for (const auto& paths : {header.site_packages, header.sys_path}) {
+        for (const auto& path : paths) {
+            if (!writeString(path.c_str())) {
+                return false;
+            }
+        }
+        if (!writeString("")) {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -517,7 +555,10 @@ StreamingRecordWriter::cloneInChildProcess()
             d_header.command_line,
             d_header.native_traces,
             d_header.trace_python_allocators,
-            d_header.track_object_lifetimes);
+            d_header.track_object_lifetimes,
+            d_header.libdest,
+            d_header.site_packages,
+            d_header.sys_path);
 }
 
 AggregatingRecordWriter::AggregatingRecordWriter(
@@ -525,7 +566,10 @@ AggregatingRecordWriter::AggregatingRecordWriter(
         const std::string& command_line,
         bool native_traces,
         bool trace_python_allocators,
-        bool track_object_lifetimes)
+        bool track_object_lifetimes,
+        const std::string& libdest,
+        const std::vector<std::string>& site_packages,
+        const std::vector<std::string>& sys_path)
 : RecordWriter(std::move(sink))
 {
     memcpy(d_header.magic, MAGIC, sizeof(d_header.magic));
@@ -538,6 +582,9 @@ AggregatingRecordWriter::AggregatingRecordWriter(
     d_header.python_allocator = getPythonAllocator();
     d_header.trace_python_allocators = trace_python_allocators;
     d_header.track_object_lifetimes = track_object_lifetimes;
+    d_header.libdest = libdest;
+    d_header.site_packages = site_packages;
+    d_header.sys_path = sys_path;
 
     d_stats.start_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
@@ -675,7 +722,10 @@ AggregatingRecordWriter::cloneInChildProcess()
             d_header.command_line,
             d_header.native_traces,
             d_header.trace_python_allocators,
-            d_header.track_object_lifetimes);
+            d_header.track_object_lifetimes,
+            d_header.libdest,
+            d_header.site_packages,
+            d_header.sys_path);
 }
 
 bool

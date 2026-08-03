@@ -64,7 +64,10 @@ createRecordWriter(
         bool native_traces,
         FileFormat file_format,
         bool trace_python_allocators,
-        bool track_object_lifetimes);
+        bool track_object_lifetimes,
+        const std::string& libdest,
+        const std::vector<std::string>& site_packages,
+        const std::vector<std::string>& sys_path);
 
 template<typename T>
 bool inline RecordWriter::writeSimpleType(const T& item)

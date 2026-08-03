@@ -89,6 +89,9 @@ cdef extern from "records.h" namespace "memray::tracking_api":
        int python_allocator
        bool trace_python_allocators
        bool track_object_lifetimes
+       string libdest
+       vector[string] site_packages
+       vector[string] sys_path
 
    cdef cppclass Allocation:
        thread_id_t tid
