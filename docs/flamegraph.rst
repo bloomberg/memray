@@ -236,6 +236,47 @@ checkbox:
 Note that allocations in these frames will still be accounted for
 in parent frames, even if they're hidden.
 
+.. _confidential source lines:
+
+Confidential source lines
+-------------------------
+
+To make flame graphs easier to interpret, Memray embeds the text of the source
+line associated with each frame directly into the report. This means that the
+source code of your application (and its dependencies) can be included in the
+generated HTML file.
+
+.. warning::
+
+    A flame graph may contain the text of source lines from the files that were
+    executing when memory was allocated. If you share a flame graph with
+    someone, you may be sharing source code with them. Don't share a Memray
+    flame graph with anyone you wouldn't share the underlying source code with.
+    Note that a malicious capture file could be crafted to include lines from
+    arbitrary files on your system!
+
+You can control which source lines, if any, are embedded in the report using
+the ``--confidential-files`` option:
+
+- ``--confidential-files=default`` (the default) uses heuristics to guess
+  whether each file is likely to contain secrets. Memray includes source lines
+  from ``.py`` files and from any file that is world-readable or executable,
+  and omits source lines from other files (embedding only the function name,
+  file name, and line number for those frames).
+
+- ``--confidential-files=all`` treats every file as confidential, so no source
+  lines are included in the report.
+
+- ``--confidential-files=none`` treats no file as confidential, so source lines
+  from any file may be included in the report.
+
+.. warning::
+
+    These heuristics are best-effort and may be wrong in either direction.
+    A Python file can still contain hardcoded credentials, and a world-readable
+    file can still contain secrets. Even with ``--confidential-files=all``,
+    file names, function names, and line numbers are always included.
+
 .. _memory-leaks-view:
 
 Memory Leaks View

@@ -1,7 +1,6 @@
 import collections
 import html
 import itertools
-import linecache
 import sys
 from typing import Any
 from typing import Dict
@@ -31,6 +30,7 @@ from memray.reporters.frame_tools import StackFrame
 from memray.reporters.frame_tools import is_cpython_internal
 from memray.reporters.frame_tools import is_frame_from_import_system
 from memray.reporters.frame_tools import is_frame_interesting
+from memray.reporters.frame_tools import source_line_from_frame
 from memray.reporters.templates import render_report
 
 PythonStackElement = Tuple[str, str, int]
@@ -74,15 +74,10 @@ def create_framegraph_node_from_stack_frame(
     stack_frame: StackFrame,
     thread_id: str,
     import_system: bool = False,
+    confidential_files: str = "default",
 ) -> FrameNodeDict:
     function, filename, lineno = stack_frame
-
-    name = (
-        # Use the source file line.
-        linecache.getline(filename, lineno)
-        # Or just describe where it is from
-        or f"{function} at {filename}:{lineno}"
-    )
+    name = source_line_from_frame(stack_frame, confidential_files)
     return {
         "name": name,
         "location": (html.escape(function), html.escape(filename), lineno),
@@ -152,6 +147,7 @@ class FlameGraphReporter:
         record: RecordData,
         inverted: bool,
         interval_list: List[Tuple[int, Optional[int], int, int, int]],
+        confidential_files: str = "default",
     ) -> None:
         current_frame_id = 0
         current_frame = frames[0]
@@ -182,6 +178,7 @@ class FlameGraphReporter:
                         stack_frame,
                         import_system=is_import_system,
                         thread_id=record["thread_name"],
+                        confidential_files=confidential_files,
                     )
                 )
             current_frame_id = node_index_by_key[node_key]
@@ -246,6 +243,7 @@ class FlameGraphReporter:
         native_traces: bool,
         temporal: bool,
         inverted: Optional[bool] = None,
+        confidential_files: str = "default",
     ) -> "FlameGraphReporter":
         inverted = False if inverted is None else inverted
 
@@ -299,6 +297,7 @@ class FlameGraphReporter:
                     record=record_data,
                     inverted=inverted,
                     interval_list=interval_list,
+                    confidential_files=confidential_files,
                 )
             else:
                 # inverted flamegraph tree with all nodes
@@ -309,6 +308,7 @@ class FlameGraphReporter:
                     record=record_data,
                     inverted=inverted,
                     interval_list=interval_list,
+                    confidential_files=confidential_files,
                 )
 
                 # inverted flamegraph tree without import system nodes
@@ -319,6 +319,7 @@ class FlameGraphReporter:
                     record=record_data,
                     inverted=inverted,
                     interval_list=no_imports_interval_list,
+                    confidential_files=confidential_files,
                 )
 
         all_strings = StringRegistry()
@@ -355,6 +356,7 @@ class FlameGraphReporter:
         native_traces: bool,
         merge_threads: bool = True,
         inverted: Optional[bool] = None,
+        confidential_files: str = "default",
     ) -> "FlameGraphReporter":
         return cls._from_any_snapshot(
             allocations,
@@ -362,6 +364,7 @@ class FlameGraphReporter:
             native_traces=native_traces,
             temporal=False,
             inverted=inverted,
+            confidential_files=confidential_files,
         )
 
     @classmethod
@@ -373,6 +376,7 @@ class FlameGraphReporter:
         native_traces: bool,
         high_water_mark_by_snapshot: Optional[List[int]],
         inverted: Optional[bool] = None,
+        confidential_files: str = "default",
     ) -> "FlameGraphReporter":
         ret = cls._from_any_snapshot(
             allocations,
@@ -380,6 +384,7 @@ class FlameGraphReporter:
             native_traces=native_traces,
             temporal=True,
             inverted=inverted,
+            confidential_files=confidential_files,
         )
         ret.data["high_water_mark_by_snapshot"] = high_water_mark_by_snapshot
         return ret
