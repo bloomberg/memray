@@ -1,5 +1,9 @@
 """Tools for processing and filtering stack frames."""
+
+import contextlib
 import functools
+import linecache
+import os
 import re
 from typing import Tuple
 
@@ -80,3 +84,46 @@ def is_frame_from_import_system(frame: StackFrame) -> bool:
     ):
         return True
     return False
+
+
+@functools.cache
+def is_confidential_file(file: str) -> bool:
+    """Attempt to guess whether the file is likely to contain secrets.
+
+    We don't want to include secrets in flame graphs, since flame graphs may be
+    shared with other people.
+
+    We assume that Python source files won't contain keys, certificates, or
+    other tokens, but other files might. We assume that a file with a `.py`
+    extension is a Python source file, and that an executable file is likely to
+    be a Python source file too. We assume that any world-readable file will
+    not contain secrets.
+
+    These heuristics may not always be correct, and flame graphs may wind up
+    having secrets embedded in them. Don't share a Memray flame graph with
+    someone unless you trust them.
+    """
+    if file.endswith(".py"):
+        return False
+    with contextlib.suppress(OSError):
+        st = os.stat(file)
+        if st.st_mode & 0o111 or st.st_mode & 0o004:
+            return False
+    return True
+
+
+def source_line_from_frame(
+    frame: StackFrame, confidential_files: str = "default"
+) -> str:
+    function, filename, lineno = frame
+
+    if confidential_files == "all":
+        is_confidential = True
+    elif confidential_files == "none":
+        is_confidential = False
+    else:
+        is_confidential = is_confidential_file(filename)
+
+    if is_confidential:
+        return f"{function} at {filename}:{lineno}"
+    return linecache.getline(filename, lineno) or f"{function} at {filename}:{lineno}"

@@ -43,3 +43,21 @@ class FlamegraphCommand(HighWatermarkCommand):
             action="store_true",
             default=False,
         )
+
+        parser.add_argument(
+            "--confidential-files",
+            help=(
+                "Control what source code is included in the flame graph."
+                " If set to 'all', all files are treated as confidential and"
+                " no source code is included in the report (only function"
+                " names, file names, and line numbers). If set to 'none',"
+                " no files are treated as confidential and lines from any file"
+                " may be included in the report. If set to 'default' (the"
+                " default) Memray uses heuristics to guess whether each file"
+                " is likely to contain secrets. It includes source lines from"
+                " .py files and from any file that is world-readable or"
+                " executable, and excludes lines from other files."
+            ),
+            choices=["all", "none", "default"],
+            default="default",
+        )

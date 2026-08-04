@@ -4,6 +4,7 @@ import pathlib
 import sys
 from pathlib import Path
 from textwrap import dedent
+from typing import Any
 from typing import Iterable
 from typing import List
 from typing import Optional
@@ -36,6 +37,7 @@ class ReporterFactory(Protocol):
         native_traces: bool,
         merge_threads: bool,
         inverted: bool,
+        confidential_files: str = "default",
     ) -> BaseReporter:
         ...
 
@@ -49,6 +51,7 @@ class TemporalReporterFactory(Protocol):
         native_traces: bool,
         high_water_mark_by_snapshot: Optional[List[int]],
         inverted: bool,
+        confidential_files: str = "default",
     ) -> BaseReporter:
         ...
 
@@ -149,6 +152,7 @@ class HighWatermarkCommand:
         temporal: bool = False,
         max_memory_records: Optional[int] = None,
         no_web: bool = False,
+        confidential_files: str = "default",
     ) -> None:
         try:
             kwargs = {}
@@ -176,6 +180,7 @@ class HighWatermarkCommand:
                         native_traces=reader.metadata.has_native_traces,
                         high_water_mark_by_snapshot=None,
                         inverted=inverted,
+                        confidential_files=confidential_files,
                     )
                 else:
                     recs, hwms = reader.get_temporal_high_water_mark_allocation_records(
@@ -187,6 +192,7 @@ class HighWatermarkCommand:
                         native_traces=reader.metadata.has_native_traces,
                         high_water_mark_by_snapshot=hwms,
                         inverted=inverted,
+                        confidential_files=confidential_files,
                     )
             else:
                 if show_memory_leaks:
@@ -208,6 +214,7 @@ class HighWatermarkCommand:
                     native_traces=reader.metadata.has_native_traces,
                     merge_threads=merge_threads,
                     inverted=inverted,
+                    confidential_files=confidential_files,
                 )
         except OSError as e:
             raise MemrayCommandError(
@@ -295,7 +302,7 @@ class HighWatermarkCommand:
             overwrite=args.force,
         )
         self.output_file = output_file
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         if hasattr(args, "split_threads"):
             kwargs["merge_threads"] = not args.split_threads
 
@@ -307,6 +314,9 @@ class HighWatermarkCommand:
 
         if hasattr(args, "no_web"):
             kwargs["no_web"] = args.no_web
+
+        if hasattr(args, "confidential_files"):
+            kwargs["confidential_files"] = args.confidential_files
 
         self.write_report(
             result_path,

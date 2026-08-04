@@ -1,3 +1,4 @@
+import os
 import sys
 
 from memray import AllocatorType
@@ -3312,3 +3313,250 @@ class TestFlameGraphReporter:
             "unique_threads": ["0x1"],
             "children": [],
         } == inverted_import_system_tree
+
+    def test_source_lines_are_only_rendered_for_non_confidential_files(self, tmp_path):
+        # GIVEN
+        # A file's contents are only rendered into the flame graph when the
+        # file is not "confidential". A file is considered non-confidential
+        # (and so its source is rendered) if it is a Python source file, an
+        # executable file, or a world-readable file. Any other existing file
+        # is treated as confidential.
+
+        # Non-confidential files: their contents should be rendered.
+        # A .py file is non-confidential even with restrictive permissions.
+        py_file = tmp_path / "module.py"
+        py_file.write_text("py_source_line\nsecond line\n")
+        os.chmod(py_file, 0o600)
+
+        # A non-.py file that is executable (but not world-readable).
+        executable_file = tmp_path / "script.sh"
+        executable_file.write_text("executable_source_line\nsecond\n")
+        os.chmod(executable_file, 0o700)
+
+        # A non-.py file that is world-readable (but not executable).
+        world_readable_file = tmp_path / "data.txt"
+        world_readable_file.write_text("world_readable_source_line\nx\n")
+        os.chmod(world_readable_file, 0o644)
+
+        # Confidential files: their contents should NOT be rendered.
+        # An existing non-.py file that is neither executable nor world-readable.
+        confidential_file = tmp_path / "secret.pem"
+        confidential_file.write_text("PRIVATE KEY MATERIAL DO NOT LEAK\nsecond\n")
+        os.chmod(confidential_file, 0o600)
+
+        # A non-.py file that doesn't exist (os.stat raises, so it's confidential).
+        missing_secret = str(tmp_path / "missing.pem")
+
+        # A .py file that doesn't exist: is_confidential_file returns False, but
+        # there is no source line to read, so only location info is rendered.
+        missing_python_file = str(tmp_path / "missing.py")
+
+        stack = [
+            ("apple", str(py_file), 1),
+            ("banana", str(executable_file), 1),
+            ("cherry", str(world_readable_file), 1),
+            ("date", str(confidential_file), 1),
+            ("elderberry", missing_secret, 1),
+            ("fig", missing_python_file, 1),
+        ]
+
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=stack,
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+        tree, _ = get_packed_trees(reporter.data)
+
+        # Collect the rendered `name` for each frame, keyed by its file name.
+        read_lines = {}
+        pending = [tree]
+        while pending:
+            node = pending.pop()
+            read_lines[node["location"][1]] = node["name"]
+            pending.extend(node["children"])
+
+        # THEN
+        # Non-confidential files have their source line rendered verbatim.
+        assert read_lines[str(py_file)] == "py_source_line\n"
+        assert read_lines[str(executable_file)] == "executable_source_line\n"
+        assert read_lines[str(world_readable_file)] == "world_readable_source_line\n"
+
+        # Confidential and missing files just render the location.
+        assert read_lines[str(confidential_file)] == f"date at {confidential_file}:1"
+        assert read_lines[missing_secret] == f"elderberry at {missing_secret}:1"
+        assert read_lines[missing_python_file] == f"fig at {missing_python_file}:1"
+
+    def test_confidential_files_all_never_renders_source(self, tmp_path):
+        # GIVEN
+        # With confidential_files="all", is_confidential_file is never called and
+        # every file is treated as confidential, so no source line is ever
+        # rendered - not even for files that the default heuristic would deem
+        # safe (Python source files, executable files, world-readable files).
+
+        # A .py file, which the default heuristic would deem non-confidential.
+        py_file = tmp_path / "module.py"
+        py_file.write_text("py_source_line\nsecond line\n")
+        os.chmod(py_file, 0o600)
+
+        # An executable non-.py file, non-confidential by default.
+        executable_file = tmp_path / "script.sh"
+        executable_file.write_text("executable_source_line\nsecond\n")
+        os.chmod(executable_file, 0o700)
+
+        # A world-readable non-.py file, non-confidential by default.
+        world_readable_file = tmp_path / "data.txt"
+        world_readable_file.write_text("world_readable_source_line\nx\n")
+        os.chmod(world_readable_file, 0o644)
+
+        # A non-.py file that is neither executable nor world-readable.
+        confidential_file = tmp_path / "secret.pem"
+        confidential_file.write_text("PRIVATE KEY MATERIAL DO NOT LEAK\nsecond\n")
+        os.chmod(confidential_file, 0o600)
+
+        # Files that don't exist.
+        missing_secret = str(tmp_path / "missing.pem")
+        missing_python_file = str(tmp_path / "missing.py")
+
+        stack = [
+            ("apple", str(py_file), 1),
+            ("banana", str(executable_file), 1),
+            ("cherry", str(world_readable_file), 1),
+            ("date", str(confidential_file), 1),
+            ("elderberry", missing_secret, 1),
+            ("fig", missing_python_file, 1),
+        ]
+
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=stack,
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations,
+            memory_records=[],
+            native_traces=False,
+            confidential_files="all",
+        )
+        tree, _ = get_packed_trees(reporter.data)
+
+        # Collect the rendered `name` for each frame, keyed by its file name.
+        read_lines = {}
+        pending = [tree]
+        while pending:
+            node = pending.pop()
+            read_lines[node["location"][1]] = node["name"]
+            pending.extend(node["children"])
+
+        # THEN
+        # No file has its contents rendered; only the location is shown.
+        assert read_lines[str(py_file)] == f"apple at {py_file}:1"
+        assert read_lines[str(executable_file)] == f"banana at {executable_file}:1"
+        assert (
+            read_lines[str(world_readable_file)] == f"cherry at {world_readable_file}:1"
+        )
+        assert read_lines[str(confidential_file)] == f"date at {confidential_file}:1"
+        assert read_lines[missing_secret] == f"elderberry at {missing_secret}:1"
+        assert read_lines[missing_python_file] == f"fig at {missing_python_file}:1"
+
+    def test_confidential_files_none_always_renders_source(self, tmp_path):
+        # GIVEN
+        # With confidential_files="none", is_confidential_file is never called and
+        # no file is treated as confidential, so source lines are rendered for
+        # every file that exists - even for files the default heuristic would
+        # deem confidential. Files that don't exist have no source to render, so
+        # only their location is shown.
+
+        # A .py file, non-confidential by default too.
+        py_file = tmp_path / "module.py"
+        py_file.write_text("py_source_line\nsecond line\n")
+        os.chmod(py_file, 0o600)
+
+        # An executable non-.py file.
+        executable_file = tmp_path / "script.sh"
+        executable_file.write_text("executable_source_line\nsecond\n")
+        os.chmod(executable_file, 0o700)
+
+        # A world-readable non-.py file.
+        world_readable_file = tmp_path / "data.txt"
+        world_readable_file.write_text("world_readable_source_line\nx\n")
+        os.chmod(world_readable_file, 0o644)
+
+        # A non-.py file that the default heuristic would deem confidential.
+        confidential_file = tmp_path / "secret.pem"
+        confidential_file.write_text("PRIVATE KEY MATERIAL DO NOT LEAK\nsecond\n")
+        os.chmod(confidential_file, 0o600)
+
+        # Files that don't exist.
+        missing_secret = str(tmp_path / "missing.pem")
+        missing_python_file = str(tmp_path / "missing.py")
+
+        stack = [
+            ("apple", str(py_file), 1),
+            ("banana", str(executable_file), 1),
+            ("cherry", str(world_readable_file), 1),
+            ("date", str(confidential_file), 1),
+            ("elderberry", missing_secret, 1),
+            ("fig", missing_python_file, 1),
+        ]
+
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=stack,
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations,
+            memory_records=[],
+            native_traces=False,
+            confidential_files="none",
+        )
+        tree, _ = get_packed_trees(reporter.data)
+
+        # Collect the rendered `name` for each frame, keyed by its file name.
+        read_lines = {}
+        pending = [tree]
+        while pending:
+            node = pending.pop()
+            read_lines[node["location"][1]] = node["name"]
+            pending.extend(node["children"])
+
+        # THEN
+        # Every existing file has its source line rendered verbatim, including
+        # the file the default heuristic would have treated as confidential.
+        assert read_lines[str(py_file)] == "py_source_line\n"
+        assert read_lines[str(executable_file)] == "executable_source_line\n"
+        assert read_lines[str(world_readable_file)] == "world_readable_source_line\n"
+        assert (
+            read_lines[str(confidential_file)] == "PRIVATE KEY MATERIAL DO NOT LEAK\n"
+        )
+
+        # Missing files still render only their location.
+        assert read_lines[missing_secret] == f"elderberry at {missing_secret}:1"
+        assert read_lines[missing_python_file] == f"fig at {missing_python_file}:1"
