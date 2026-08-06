@@ -196,6 +196,18 @@ free(void* ptr) noexcept
     }
 }
 
+void
+free_sized(void* ptr, size_t size) noexcept
+{
+    memray::intercept::free(ptr);
+}
+
+void
+free_aligned_sized(void* ptr, size_t alignment, size_t size) noexcept
+{
+    memray::intercept::free(ptr);
+}
+
 void*
 realloc(void* ptr, size_t size) noexcept
 {

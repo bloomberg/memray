@@ -123,6 +123,71 @@ def test_simple_cpp_allocation_tracking(tmp_path):
     assert len(frees) >= 1
 
 
+def test_intercepting_free_sized(tmp_path):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        res = allocator.valloc(ALLOC_SIZE)
+        assert res
+        res = allocator.free_sized(ALLOC_SIZE)
+
+    if not res:
+        pytest.skip("Deallocator free_sized is not supported by this platform")
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+    allocs = [
+        event
+        for event in allocations
+        if event.size == ALLOC_SIZE and event.allocator == AllocatorType.VALLOC
+    ]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == alloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) >= 1
+
+
+def test_intercepting_free_aligned_sized(tmp_path):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        res = allocator.aligned_alloc(ALLOC_SIZE)
+        if not res:
+            pytest.skip("Allocator aligned_alloc is not supported by this platform")
+        res = allocator.free_aligned_sized(ALLOC_SIZE)
+
+    if not res:
+        pytest.skip("Deallocator free_aligned_sized is not supported by this platform")
+
+    # THEN
+    allocations = list(FileReader(output).get_allocation_records())
+    allocs = [
+        event
+        for event in allocations
+        if event.size == ALLOC_SIZE and event.allocator == AllocatorType.ALIGNED_ALLOC
+    ]
+    assert len(allocs) == 1
+    (alloc,) = allocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == alloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) >= 1
+
+
 @pytest.mark.parametrize("domain", PYMALLOC_DOMAINS)
 @pytest.mark.parametrize(["allocator_func", "allocator_type"], PYMALLOC_ALLOCATORS)
 def test_simple_pymalloc_allocation_tracking(
