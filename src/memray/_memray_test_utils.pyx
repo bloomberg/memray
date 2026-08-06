@@ -67,6 +67,11 @@ cdef extern from *:
     int set_thread_name_impl(const char* new_name)
 
 
+cdef extern from "hooks.h":
+    void free_sized(void*, size_t)
+    void free_aligned_sized(void*, size_t, size_t)
+
+
 def set_thread_name(new_name):
     return set_thread_name_impl(new_name)
 
@@ -82,6 +87,24 @@ cdef class MemoryAllocator:
             raise RuntimeError("Pointer cannot be NULL")
         free(self.ptr)
         self.ptr = NULL
+
+    def free_sized(self, size_t size):
+        if self.ptr == NULL:
+            raise RuntimeError("Pointer cannot be NULL")
+        if &free_sized == NULL:
+            return False
+        free_sized(self.ptr, size)
+        self.ptr = NULL
+        return True
+
+    def free_aligned_sized(self, size_t size):
+        if self.ptr == NULL:
+            raise RuntimeError("Pointer cannot be NULL")
+        if &free_aligned_sized == NULL:
+            return False
+        free_aligned_sized(self.ptr, sizeof(void*), size)
+        self.ptr = NULL
+        return True
 
     def malloc(self, size_t size):
         self.ptr = malloc(size)

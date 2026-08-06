@@ -22,6 +22,12 @@ class MemoryAllocator:
     def free(self) -> None:
         return self.allocator.free()
 
+    def free_sized(self, size: int) -> bool:
+        return self.allocator.free_sized(size)
+
+    def free_aligned_sized(self, size: int) -> bool:
+        return self.allocator.free_aligned_sized(size)
+
     def malloc(self, size: int) -> bool:
         return self.allocator.malloc(size)
 
