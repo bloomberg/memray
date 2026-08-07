@@ -83,7 +83,8 @@ class StatsCommand:
 
             if not args.force and json_output_file.exists():
                 raise MemrayCommandError(
-                    f"File already exists, will not overwrite: {json_output_file}",
+                    f"File already exists, will not overwrite without --force:"
+                    f" {json_output_file}",
                     exit_code=1,
                 )
 

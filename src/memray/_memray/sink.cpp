@@ -137,6 +137,12 @@ FileSink::FileSink(const std::string& file_name, bool overwrite, bool compress)
         d_fd = ::open(file_name.c_str(), flags, 0644);
     } while (d_fd < 0 && errno == EINTR);
     if (d_fd < 0) {
+        if (errno == EEXIST) {
+            throw IoError{
+                    "Output file " + file_name
+                    + " already exists. Memray can overwrite it with the"
+                      " --force CLI argument or the overwrite=True API argument."};
+        }
         throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
     }
 }
@@ -436,6 +442,12 @@ BufferedFileSink::BufferedFileSink(const std::string& file_name, bool overwrite,
         d_fd = ::open(file_name.c_str(), flags, 0644);
     } while (d_fd < 0 && errno == EINTR);
     if (d_fd < 0) {
+        if (errno == EEXIST) {
+            throw IoError{
+                    "Output file " + file_name
+                    + " already exists. Memray can overwrite it with the"
+                      " --force CLI argument or the overwrite=True API argument."};
+        }
         throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
     }
 }

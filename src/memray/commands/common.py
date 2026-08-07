@@ -136,7 +136,8 @@ class HighWatermarkCommand:
         )
         if not overwrite and output_file.exists():
             raise MemrayCommandError(
-                f"File already exists, will not overwrite: {output_file}",
+                f"File already exists, will not overwrite without --force:"
+                f" {output_file}",
                 exit_code=1,
             )
         return result_path, output_file

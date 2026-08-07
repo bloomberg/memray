@@ -529,19 +529,21 @@ class TestRunSubcommand:
         )
 
     @patch("memray.commands.run.os.getpid")
-    def test_run_file_exists(self, getpid, tmp_path, monkeypatch, capsys):
+    @pytest.mark.parametrize("flag", [None, "--buffered-file-io"])
+    def test_run_file_exists(self, getpid, tmp_path, monkeypatch, capsys, flag):
         # GIVEN / WHEN
         getpid.return_value = 0
         (tmp_path / "memray-json.tool.0.bin").touch()
         monkeypatch.chdir(tmp_path)
 
         # THEN
-        assert main(["run", "-m", "json.tool", "-h"]) == 1
+        assert main(["run", *([flag] if flag else ()), "-m", "json.tool", "-h"]) == 1
         captured = capsys.readouterr()
-        assert (
-            captured.err.strip()
-            == "Could not create output file memray-json.tool.0.bin: File exists"
+        expected_error = (
+            "Output file memray-json.tool.0.bin already exists. Memray can overwrite it"
+            " with the --force CLI argument or the overwrite=True API argument."
         )
+        assert captured.err.strip() == expected_error
 
     def test_run_output_file_directory_does_not_exist(self, capsys):
         # GIVEN / WHEN / THEN
