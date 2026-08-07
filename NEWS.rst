@@ -8,6 +8,55 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.20.0 (2026-08-07)
+--------------------------
+
+Features
+~~~~~~~~
+
+- Add a light/dark theme toggle to the flame graph and table HTML reports, which respects the system color scheme and remembers the user's choice. (#650)
+- Recognize deallocations performed with the ``free_sized`` and ``free_aligned_sized`` functions introduced in C23. (#725)
+- Improve error reporting after a failure to record a memory capture by logging the reported error string and including it in the exception message. (#747)
+- Add a ``--buffered-file-io`` option to ``memray run`` (and a ``buffered=True`` argument to ``memray.FileDestination``) that writes the capture file using buffered ``write`` calls instead of the default memory-mapped file IO. This is useful on filesystems that don't support shared writable ``mmap``, though it's slower and less robust to crashes. (#748)
+- Add per-module allocation statistics to ``memray stats``, showing the top allocating non-stdlib modules by size and by number of allocations. (#765)
+- When ``memray attach -o`` is used with ``--duration``, print a message clarifying that tracking continues in the target process after the command exits, and how to stop it early with ``memray detach``. (#831)
+- Add a ``speedscope`` output format for ``memray transform``. (#899)
+- Python 3.15 is now supported. (#920)
+- Added a ``--confidential-files`` option to ``memray flamegraph`` to control whether source code lines are embedded in the generated report. By default, Memray uses heuristics to guess whether each file is likely to contain secrets, and omits source lines from files that might. You can use ``--confidential-files=all`` to omit all source lines, or ``--confidential-files=none`` to include source lines from every file. See the docs on :ref:`confidential source lines` for more information. (#983)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Memray no longer provides an entry point named ``memray3.N`` (where "3.N" is the Python version that Memray was installed for). You can use ``python3.N -m memray`` instead. (#673)
+- Drop integration with 0.x versions of the ``greenlet`` module (which are from 2020 or earlier). (#908)
+- Drop support for Python 3.7, which reached end-of-life in June 2023. (#946)
+- Drop support for Python 3.8, which reached end-of-life in October 2024. (#946)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Fix an ``AttributeError`` crash on shutdown when tracking a script that calls ``gevent.monkey.patch_all()`` (or otherwise replaces ``threading.Thread`` while tracking). The ``Tracker`` now records the ``threading.Thread`` subclass it patched on entry and removes its instrumentation from that same class on exit, instead of looking up ``threading.Thread`` again. (#856)
+- Deduplicate rows in the table reporter that had identical displayed fields but
+  different underlying call stacks. Also add a ``--split-threads`` option to the
+  table reporter, matching the flamegraph reporter's existing option, and change
+  the table reporter to no longer split allocations by thread by default. (#857)
+- Fix the ``%%memray_flamegraph`` :ref:`Jupyter magic <Jupyter integration>` to correctly embed a flame graph for Python 3.12 and higher. Previously it was giving a 404 error due to ``tempfile.mkdtemp`` changing to return absolute paths. (#896)
+- Fix integration with the ``greenlet`` package when greenlet 3.4.0 is installed
+  and when tracing is started before the greenlet module is imported. (#908)
+- Fix a bug that crashed target processes when ``memray attach`` failed to ``dlopen`` our library. The underlying permissions issue is now accounted for and a troubleshooting message prints when it arises. (#940)
+- Fix a potential deadlock in the gdb backend for ``memray attach``. (#966)
+- Fix the ``%%memray_flamegraph`` :ref:`Jupyter magic <Jupyter integration>` to correctly embed a flame graph when used with IPython 9.16.0 (a regression in that version broke our integration; it was fixed in IPython 9.16.1). (#981)
+
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+- Memray is now built using ``scikit-build-core`` and CMake instead of ``setuptools``. This should have little to no impact on end users, but redistributors like distro package maintainers will need to ensure that these tools are available when building Memray. (#673)
+- Memray now provides manylinux_2_28 wheels for x86-64 as well as manylinux2014 ones (#967).
+
+
 memray 1.19.3 (2026-04-07)
 --------------------------
 

@@ -1,1 +1,0 @@
-Improve error reporting after a failure to record a memory capture by logging the reported error string and including it in the exception message.

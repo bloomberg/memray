@@ -1,1 +1,0 @@
-Recognize deallocations performed with the ``free_sized`` and ``free_aligned_sized`` functions introduced in C23.

@@ -1,1 +1,0 @@
-Fix the ``%%memray_flamegraph`` :ref:`Jupyter magic <Jupyter integration>` to correctly embed a flame graph when used with IPython 9.16.0 (a regression in that version broke our integration; it was fixed in IPython 9.16.1).
