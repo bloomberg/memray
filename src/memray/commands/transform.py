@@ -3,8 +3,6 @@ import importlib.util
 import shutil
 import sys
 
-from rich import print as pprint
-
 from memray._errors import MemrayCommandError
 
 from ..reporters.transform import TransformReporter
@@ -47,6 +45,8 @@ class TransformCommand(HighWatermarkCommand):
             post_run_callable()
 
     def post_run_gprof2dot(self) -> None:
+        from rich import print as pprint
+
         assert self.output_file is not None
         command = ""
         if shutil.which("gprof2dot") is not None:
