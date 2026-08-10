@@ -19,7 +19,6 @@ import threading
 import memray
 from memray._errors import MemrayCommandError
 
-from .live import LiveCommand
 from .run import _get_free_port
 
 try:
@@ -581,6 +580,12 @@ class AttachCommand(_DebuggerCommand):
         # already exited. If so we must ignore the extra KeyboardInterrupt.
         error_reader = ErrorReaderThread(client)
         error_reader.start()
+
+        # Imported lazily so that `memray attach -o <file>` (which never shows
+        # the live TUI) doesn't import the TUI, and therefore doesn't import
+        # textual/rich.
+        from .live import LiveCommand
+
         live = LiveCommand()
 
         with contextlib.suppress(KeyboardInterrupt):

@@ -21,7 +21,6 @@ from memray import FileFormat
 from memray import SocketDestination
 from memray import Tracker
 from memray._errors import MemrayCommandError
-from memray.commands.live import LiveCommand
 
 
 def _get_free_port() -> int:
@@ -111,6 +110,11 @@ def _child_process(
 
 
 def _run_child_process_and_attach(args: argparse.Namespace) -> None:
+    # Imported lazily so that the common `memray run` paths (and the tracked
+    # child process, which imports this module) never pull in the live TUI,
+    # and therefore never import textual/rich.
+    from memray.commands.live import LiveCommand
+
     port = args.live_port
     if port is None:
         port = _get_free_port()
