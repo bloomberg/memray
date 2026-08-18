@@ -1,0 +1,1 @@
+Use the public ``PyEval_SetProfileAllThreads`` API on Python 3.12, rather than walking the interpreter's thread list ourselves and calling a private CPython function for each thread state.

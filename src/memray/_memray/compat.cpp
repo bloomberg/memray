@@ -6,7 +6,7 @@ void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg)
 {
     assert(PyGILState_Check());
-#if PY_VERSION_HEX >= 0x030D0000
+#if PY_VERSION_HEX >= 0x030C00F0
     PyEval_SetProfileAllThreads(func, arg);
 #else
     PyThreadState* this_tstate = PyThreadState_Get();
