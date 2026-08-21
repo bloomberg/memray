@@ -197,6 +197,10 @@ class PythonStackTracker
         // Has this frame been emitted already?
         bool isEmitted() const;
 
+        void ignoreProfileCall();
+        bool consumeIgnoredProfileReturn(PyFrameObject* frame);
+        bool isCurrentFrame(PyFrameObject* frame) const;
+
         // Update the instruction offset from the frame, if possible.
         // If the offset changes, mark the frame as not emitted.
         void updateInstructionOffset();
@@ -217,6 +221,9 @@ class PythonStackTracker
 
       private:
         bool d_emitted{false};
+
+        // Cython can emit nested call/return pairs for the current Python frame.
+        uint32_t d_ignored_profile_calls{};
 
         // Threads' initial stacks can have calls to sys.settrace tracing
         // functions which our profile function won't see get popped. We can't
@@ -256,7 +263,7 @@ class PythonStackTracker
     static PythonStackTracker& get();
     void emitPendingPushesAndPops();
     void populateShadowStack();
-    void handleTraceEvent(int what, PyFrameObject* frame);
+    void handleProfileEvent(int what, PyFrameObject* frame);
 
     void installGreenletTraceFunctionIfNeeded();
     void handleGreenletSwitch(PyObject* from, PyObject* to);
@@ -269,11 +276,14 @@ class PythonStackTracker
     pythonFrameToStack(PyFrameObject* current_frame, Tracker& tracker);
 
     void reloadStackIfTrackerChanged();
+    bool replaceFrozenStackIfNeeded();
     void clear();
 
     void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
 
     int pushPythonFrame(PyFrameObject* frame);
+    void handlePush(PyFrameObject* frame);
+    void handlePop();
     void popPythonFrame();
 
     static std::mutex s_mutex;
@@ -442,29 +452,54 @@ PythonStackTracker::populateShadowStack()
 }
 
 void
-PythonStackTracker::handleTraceEvent(int what, PyFrameObject* frame)
+PythonStackTracker::handleProfileEvent(int what, PyFrameObject* frame)
+{
+    if (what == PyTrace_CALL) {
+        if (d_stack && !d_stack->empty() && d_stack->back().isCurrentFrame(frame)) {
+            d_stack->back().ignoreProfileCall();
+            return;
+        }
+        handlePush(frame);
+    } else if (what == PyTrace_RETURN) {
+        if (d_stack && !d_stack->empty() && d_stack->back().consumeIgnoredProfileReturn(frame)) {
+            return;
+        }
+        handlePop();
+    } else {
+        replaceFrozenStackIfNeeded();
+    }
+}
+
+bool
+PythonStackTracker::replaceFrozenStackIfNeeded()
 {
     installGreenletTraceFunctionIfNeeded();
-
     if (d_stack && !d_stack->empty() && d_stack->back().isFrozen()) {
         // This stack was set by reloadStackIfTrackerChanged and may have calls
         // to sys.settrace tracing functions on it. Drop it now, replacing it
         // with a stack fetched from PyEval_GetFrame which we know can't have
         // trace function frames on it, and which we can track properly.
         populateShadowStack();
-
-        if (what == PyTrace_CALL) {
-            // The stack we just populated includes the frame for this call.
-            // Return early to avoid duplicating it.
-            return;
-        }
+        return true;
     }
+    return false;
+}
 
-    if (what == PyTrace_CALL) {
-        pushPythonFrame(frame);
-    } else if (what == PyTrace_RETURN) {
-        popPythonFrame();
+void
+PythonStackTracker::handlePush(PyFrameObject* frame)
+{
+    if (replaceFrozenStackIfNeeded()) {
+        // The replacement stack includes the frame for this call.
+        return;
     }
+    pushPythonFrame(frame);
+}
+
+void
+PythonStackTracker::handlePop()
+{
+    replaceFrozenStackIfNeeded();
+    popPythonFrame();
 }
 
 int
@@ -654,6 +689,29 @@ bool
 PythonStackTracker::LazilyEmittedFrame::isEmitted() const
 {
     return d_emitted;
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::consumeIgnoredProfileReturn(PyFrameObject* frame)
+{
+    if (!isCurrentFrame(frame) || !d_ignored_profile_calls) {
+        return false;
+    }
+    --d_ignored_profile_calls;
+    return true;
+}
+
+void
+PythonStackTracker::LazilyEmittedFrame::ignoreProfileCall()
+{
+    ++d_ignored_profile_calls;
+    assert(d_ignored_profile_calls != 0);
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::isCurrentFrame(PyFrameObject* frame) const
+{
+    return d_frame == frame;
 }
 
 void
@@ -1582,7 +1640,7 @@ PyTraceFunction(
         return 0;
     }
 
-    PythonStackTracker::get().handleTraceEvent(what, frame);
+    PythonStackTracker::get().handleProfileEvent(what, frame);
     return 0;
 }
 
