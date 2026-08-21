@@ -163,6 +163,27 @@ def test_cython_traceback(tmpdir):
         free.stack_trace()
 
 
+def test_profiled_cython_frame_is_balanced(tmp_path):
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    with Tracker(output):
+        _cython_nested_allocation(allocator.valloc, 1234)
+        allocator.free()
+        allocator.valloc(4321)
+    allocator.free()
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()] == [
+        "valloc",
+        "test_profiled_cython_frame_is_balanced",
+    ]
+
+
 def test_large_number_of_frame_pops_between_subsequent_allocations(tmpdir):
     # GIVEN
     output = Path(tmpdir) / "test.bin"
