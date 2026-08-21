@@ -200,6 +200,9 @@ class PythonStackTracker
         void ignoreProfileCall();
         bool consumeIgnoredProfileReturn(PyFrameObject* frame);
         bool isCurrentFrame(PyFrameObject* frame) const;
+        bool isCallerOf(PyFrameObject* frame) const;
+        bool isCurrentOrCaller() const;
+        bool isCurrentCode(PyCodeObject* code) const;
 
         // Update the instruction offset from the frame, if possible.
         // If the offset changes, mark the frame as not emitted.
@@ -221,8 +224,6 @@ class PythonStackTracker
 
       private:
         bool d_emitted{false};
-
-        // Cython can emit nested call/return pairs for the current Python frame.
         uint32_t d_ignored_profile_calls{};
 
         // Threads' initial stacks can have calls to sys.settrace tracing
@@ -237,6 +238,10 @@ class PythonStackTracker
         // has been assigned. For initial frames, we assign that ID while the
         // world is stopped, before the reference could become invalid.
         PyCodeObject* d_code{};
+
+        // Borrowed identity token used to match monitoring return events after
+        // d_code has been resolved. It is cleared with d_frame.
+        PyCodeObject* d_live_code{};
 
         // Information extracted from PyCodeObject while the GIL is held,
         // and later used while the GIL may not be held.
@@ -264,6 +269,8 @@ class PythonStackTracker
     void emitPendingPushesAndPops();
     void populateShadowStack();
     void handleProfileEvent(int what, PyFrameObject* frame);
+    void handlePush(PyFrameObject* frame);
+    void handlePop(PyCodeObject* expected_code = nullptr);
 
     void installGreenletTraceFunctionIfNeeded();
     void handleGreenletSwitch(PyObject* from, PyObject* to);
@@ -276,15 +283,13 @@ class PythonStackTracker
     pythonFrameToStack(PyFrameObject* current_frame, Tracker& tracker);
 
     void reloadStackIfTrackerChanged();
-    bool replaceFrozenStackIfNeeded();
-    void clear();
+    bool rebuildStackIfNeeded();
 
     void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
 
     int pushPythonFrame(PyFrameObject* frame);
-    void handlePush(PyFrameObject* frame);
-    void handlePop();
     void popPythonFrame();
+    void clear();
 
     static std::mutex s_mutex;
     static std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> s_initial_stack_by_thread;
@@ -294,10 +299,44 @@ class PythonStackTracker
     uint32_t d_tracker_generation{};
     std::vector<LazilyEmittedFrame>* d_stack{};
     bool d_greenlet_hooks_installed{};
+    bool d_monitoring_stack_invalidated{};
 };
 
 bool PythonStackTracker::s_greenlet_tracking_enabled{false};
 bool PythonStackTracker::s_native_tracking_enabled{false};
+
+class MonitoringState
+{
+  public:
+    bool enabled() const
+    {
+        return d_tool_name != nullptr;
+    }
+
+    bool active() const
+    {
+        return enabled() && compat::isMonitoringToolActive(d_tool_id, d_tool_name, d_callbacks);
+    }
+
+    void configure(int tool_id, PyObject* tool_name, PyObject* callbacks)
+    {
+        assert((tool_name == nullptr) == (callbacks == nullptr));
+        Py_XINCREF(tool_name);
+        Py_XINCREF(callbacks);
+        Py_XDECREF(d_tool_name);
+        Py_XDECREF(d_callbacks);
+        d_tool_id = tool_id;
+        d_tool_name = tool_name;
+        d_callbacks = callbacks;
+    }
+
+  private:
+    int d_tool_id{-1};
+    PyObject* d_tool_name{};
+    PyObject* d_callbacks{};
+};
+
+static MonitoringState s_monitoring;
 
 std::mutex PythonStackTracker::s_mutex;
 std::unordered_map<PyThreadState*, std::vector<PythonStackTracker::LazilyEmittedFrame>>
@@ -328,20 +367,34 @@ PythonStackTracker::emitPendingPushesAndPops()
         return;
     }
 
-    if (!d_stack->empty()) {
-        PyThreadState* ts = PyGILState_GetThisThreadState();
-        if (!ts || ts->c_profilefunc != PyTraceFunction) {
-            // Note: clear() will call back into emitPendingPushesAndPops() to
-            //       emit the pops, but we won't call back into clear() because
-            //       the stack has already been emptied.
-            clear();
-            return;
-        }
-    }
-
 #ifdef Py_GIL_DISABLED
     PyGILState_STATE gstate = PyGILState_Ensure();
 #endif
+
+    if (s_monitoring.enabled() && !d_stack->empty()
+        && ((!d_stack->back().isFrozen() && !d_stack->back().isCurrentOrCaller())
+            || !s_monitoring.active()))
+    {
+        // clear() re-enters this method with an empty stack.
+        d_monitoring_stack_invalidated = true;
+        clear();
+#ifdef Py_GIL_DISABLED
+        PyGILState_Release(gstate);
+#endif
+        return;
+    }
+
+    if (!s_monitoring.enabled() && !d_stack->empty()) {
+        PyThreadState* ts = PyGILState_GetThisThreadState();
+        if (!ts || ts->c_profilefunc != PyTraceFunction) {
+            // clear() re-enters this method with an empty stack.
+            clear();
+#ifdef Py_GIL_DISABLED
+            PyGILState_Release(gstate);
+#endif
+            return;
+        }
+    }
 
     // At any time, the stack contains (from beginning to end) any number of
     // emitted frames followed by any number of not yet emitted frames.
@@ -413,6 +466,7 @@ PythonStackTracker::reloadStackIfTrackerChanged()
         d_stack->clear();
     }
     d_num_pending_pops = 0;
+    d_monitoring_stack_invalidated = false;
 
     std::vector<LazilyEmittedFrame> correct_stack;
 
@@ -466,19 +520,20 @@ PythonStackTracker::handleProfileEvent(int what, PyFrameObject* frame)
         }
         handlePop();
     } else {
-        replaceFrozenStackIfNeeded();
+        rebuildStackIfNeeded();
     }
 }
 
 bool
-PythonStackTracker::replaceFrozenStackIfNeeded()
+PythonStackTracker::rebuildStackIfNeeded()
 {
     installGreenletTraceFunctionIfNeeded();
-    if (d_stack && !d_stack->empty() && d_stack->back().isFrozen()) {
-        // This stack was set by reloadStackIfTrackerChanged and may have calls
-        // to sys.settrace tracing functions on it. Drop it now, replacing it
-        // with a stack fetched from PyEval_GetFrame which we know can't have
-        // trace function frames on it, and which we can track properly.
+    const bool monitoring_stack_invalidated = d_monitoring_stack_invalidated;
+    d_monitoring_stack_invalidated = false;
+    if (monitoring_stack_invalidated || (d_stack && !d_stack->empty() && d_stack->back().isFrozen())) {
+        // Frozen initial stacks may contain trace-function frames, while an
+        // invalidated monitoring stack has been cleared. Rebuild either one
+        // from the interpreter's current stack.
         populateShadowStack();
         return true;
     }
@@ -488,7 +543,12 @@ PythonStackTracker::replaceFrozenStackIfNeeded()
 void
 PythonStackTracker::handlePush(PyFrameObject* frame)
 {
-    if (replaceFrozenStackIfNeeded()) {
+    if (s_monitoring.enabled() && d_stack && !d_stack->empty() && !d_stack->back().isFrozen()
+        && !d_stack->back().isCallerOf(frame))
+    {
+        d_monitoring_stack_invalidated = true;
+    }
+    if (rebuildStackIfNeeded()) {
         // The replacement stack includes the frame for this call.
         return;
     }
@@ -496,10 +556,14 @@ PythonStackTracker::handlePush(PyFrameObject* frame)
 }
 
 void
-PythonStackTracker::handlePop()
+PythonStackTracker::handlePop(PyCodeObject* expected_code)
 {
-    replaceFrozenStackIfNeeded();
-    popPythonFrame();
+    rebuildStackIfNeeded();
+
+    if (!expected_code || (d_stack && !d_stack->empty() && d_stack->back().isCurrentCode(expected_code)))
+    {
+        popPythonFrame();
+    }
 }
 
 int
@@ -618,6 +682,12 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 {
     RecursionGuard guard;
 
+    if (s_monitoring.enabled() && !s_monitoring.active()) {
+        d_monitoring_stack_invalidated = true;
+        clear();
+        return;
+    }
+
     // Clear any old TLS stack, emitting pops for frames that had been pushed.
     this->clear();
 
@@ -654,6 +724,7 @@ PythonStackTracker::LazilyEmittedFrame::LazilyEmittedFrame(PyFrameObject* frame)
 
     d_frame = frame;
     d_code = compat::frameGetCode(frame);
+    d_live_code = d_code;
 #if PY_VERSION_HEX < 0x030C0000
     if (s_extra_index != -1) {
         void* extra;
@@ -714,6 +785,24 @@ PythonStackTracker::LazilyEmittedFrame::isCurrentFrame(PyFrameObject* frame) con
     return d_frame == frame;
 }
 
+bool
+PythonStackTracker::LazilyEmittedFrame::isCallerOf(PyFrameObject* frame) const
+{
+    return compat::isParentFrame(d_frame, frame);
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::isCurrentOrCaller() const
+{
+    return compat::isCurrentOrCallerFrame(d_frame);
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::isCurrentCode(PyCodeObject* code) const
+{
+    return d_live_code == code;
+}
+
 void
 PythonStackTracker::LazilyEmittedFrame::updateInstructionOffset()
 {
@@ -731,6 +820,7 @@ void
 PythonStackTracker::LazilyEmittedFrame::freezeInstructionOffset()
 {
     d_frame = nullptr;
+    d_live_code = nullptr;
 }
 
 bool
@@ -840,6 +930,11 @@ PythonStackTracker::recordAllStacks(Tracker& tracker)
 void
 PythonStackTracker::installProfileHooks()
 {
+    if (s_monitoring.enabled()) {
+        compat::setprofileAllThreads(nullptr, nullptr);
+        return;
+    }
+
     // Install our profile function in all existing threads. Note that the
     // profile function may begin executing before recordAllStacks is called.
     compat::setprofileAllThreads(PyTraceFunction, nullptr);
@@ -1654,11 +1749,11 @@ Tracker::beginTrackingGreenlets()
 void
 Tracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 {
-    // We must stop tracking the stack once our trace function is uninstalled.
-    // Otherwise, we'd keep referencing frames after they're destroyed.
-    PyThreadState* ts = PyThreadState_Get();
-    if (ts->c_profilefunc != PyTraceFunction) {
-        return;
+    if (!s_monitoring.enabled()) {
+        PyThreadState* ts = PyThreadState_Get();
+        if (ts->c_profilefunc != PyTraceFunction) {
+            return;
+        }
     }
 
     // Grab the Tracker lock, as this may need to write pushes/pops.
@@ -1684,6 +1779,10 @@ void
 install_trace_function()
 {
     assert(PyGILState_Check());
+    if (s_monitoring.enabled()) {
+        return;
+    }
+
     RecursionGuard guard;
     // Don't clear the python stack if we have already registered the tracking
     // function with the current thread. This happens when PyGILState_Ensure is
@@ -1695,6 +1794,39 @@ install_trace_function()
 
     PyEval_SetProfile(PyTraceFunction, nullptr);
     PythonStackTracker::get().populateShadowStack();
+}
+
+void
+set_monitoring_tool(int tool_id, PyObject* tool_name, PyObject* callbacks)
+{
+    assert(!Tracker::isActive());
+    s_monitoring.configure(tool_id, tool_name, callbacks);
+}
+
+void
+monitoring_trace_function(PyCodeObject* code, bool is_push)
+{
+    RecursionGuard guard;
+    if (!Tracker::isActive()) {
+        return;
+    }
+
+    PyFrameObject* frame = nullptr;
+    if (is_push) {
+        frame = PyEval_GetFrame();
+        while (frame && compat::frameGetCode(frame) != code) {
+            frame = compat::frameGetBack(frame);
+        }
+        if (!frame) {
+            return;
+        }
+    }
+
+    if (is_push) {
+        PythonStackTracker::get().handlePush(frame);
+    } else {
+        PythonStackTracker::get().handlePop(code);
+    }
 }
 
 }  // namespace memray::tracking_api

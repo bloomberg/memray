@@ -124,6 +124,7 @@ add_custom_command(
 )
 python_add_library(_memray MODULE WITH_SOABI
     src/memray/_memray/compat.cpp
+    src/memray/_memray/compat_internal.c
     src/memray/_memray/hooks.cpp
     src/memray/_memray/tracking_api.cpp
     src/memray/_memray/${BINARY_FORMAT}_shenanigans.cpp
