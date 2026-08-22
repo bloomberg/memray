@@ -10,10 +10,12 @@
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
 
+static const size_t TEST_ALLOCATION_SIZE = 1234;
+
 // Regular call chain
 //
 __attribute__((noinline)) static void baz() {
-    void* p = valloc(1234);
+    void* p = valloc(TEST_ALLOCATION_SIZE);
     free(p);
 }
 
@@ -33,7 +35,7 @@ run_simple(PyObject* mod , PyObject* arg)
 }
 
 __attribute__((noinline)) static void baz_other() {
-    void* p = valloc(1234);
+    void* p = valloc(TEST_ALLOCATION_SIZE);
     free(p);
 }
 
@@ -62,13 +64,15 @@ run_alternating(PyObject* mod, PyObject* count_object)
 #if defined(__linux__) && defined(__x86_64__)
 
 __attribute__((noinline)) void cfa16_leaf() {
-    void* p = valloc(1234);
+    void* p = valloc(TEST_ALLOCATION_SIZE);
     free(p);
 }
 
 void cfa16_caller_a(void);
 void cfa16_caller_b(void);
 
+// Store the real return address at CFA - 16 and a decoy at CFA - 8.
+// The cache must use libunwind's save location instead of guessing an offset.
 __asm__(
         ".text\n"
         ".type cfa16_frame, @function\n"
@@ -117,17 +121,23 @@ __asm__(
         ".cfi_endproc\n"
         ".size cfa16_caller_b, .-cfa16_caller_b\n");
 
-__attribute__((noinline)) static void invoke_cfa16_callers() {
-    for (long i = 0; i < 10; ++i) {
-        void (*caller)(void) = i < 5 ? cfa16_caller_a : cfa16_caller_b;
-        caller();
+__attribute__((noinline)) static void invoke_cfa16_callers(long repetitions) {
+    for (long i = 0; i < repetitions; ++i) {
+        cfa16_caller_a();
+    }
+    for (long i = 0; i < repetitions; ++i) {
+        cfa16_caller_b();
     }
 }
 
 PyObject*
 run_cfa16(PyObject* mod, PyObject* arg)
 {
-    invoke_cfa16_callers();
+    long repetitions = PyLong_AsLong(arg);
+    if (repetitions == -1 && PyErr_Occurred()) {
+        return NULL;
+    }
+    invoke_cfa16_callers(repetitions);
     Py_RETURN_NONE;
 }
 
@@ -136,7 +146,7 @@ run_cfa16(PyObject* mod, PyObject* arg)
 // Inlined call chain
 
 __attribute__((always_inline)) static inline void baz_inline() {
-    void *p = valloc(1234);
+    void *p = valloc(TEST_ALLOCATION_SIZE);
     free(p);
 }
 
@@ -210,7 +220,7 @@ static PyMethodDef methods[] = {
         {"run_simple", run_simple, METH_NOARGS, "Execute a chain of native functions"},
         {"run_alternating", run_alternating, METH_O, "Alternate between two native call chains"},
 #if defined(__linux__) && defined(__x86_64__)
-        {"run_cfa16", run_cfa16, METH_NOARGS, "Use a frame whose return address is at CFA - 16"},
+        {"run_cfa16", run_cfa16, METH_O, "Use a frame whose return address is at CFA - 16"},
 #endif
         {"run_inline", run_inline, METH_NOARGS, "Execute a chain of native inlined_functions"},
         {"run_in_thread", run_in_thread, METH_NOARGS, "Like run_simple, but in a bg thread"},

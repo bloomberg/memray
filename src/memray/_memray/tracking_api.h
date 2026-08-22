@@ -160,27 +160,27 @@ class NativeTrace
     {
         return d_data[d_skip + d_size - 1 - i];
     }
-    int size() const
+    size_t size() const
     {
         return d_size;
     }
     __attribute__((always_inline)) inline bool fill(size_t skip, bool use_cache = false)
     {
-        size_t size;
-        size_t internal_frames = 0;
+        size_t size{};
+        size_t capture_frames_to_skip{};
         while (true) {
 #ifdef __linux__
 #    if defined(MEMRAY_USE_NATIVE_TRACE_CACHE)
             if (use_cache) {
                 size = captureNativeTrace(d_data);
-                internal_frames = NATIVE_TRACE_CACHE_INTERNAL_FRAMES;
+                capture_frames_to_skip = NATIVE_TRACE_CACHE_INTERNAL_FRAMES;
             } else
 #    endif
             {
-                size = unw_backtrace((void**)d_data.data(), d_data.size());
+                size = unw_backtrace(reinterpret_cast<void**>(d_data.data()), d_data.size());
             }
 #elif defined(__APPLE__)
-            size = ::backtrace((void**)d_data.data(), d_data.size());
+            size = ::backtrace(reinterpret_cast<void**>(d_data.data()), d_data.size());
 #else
             return 0;
 #endif
@@ -190,7 +190,7 @@ class NativeTrace
 
             d_data.resize(d_data.size() * 2);
         }
-        d_skip = skip + internal_frames;
+        d_skip = skip + capture_frames_to_skip;
         d_size = size > d_skip ? size - d_skip : 0;
         return d_size > 0;
     }
@@ -280,7 +280,7 @@ class Tracker
                 return;
             }
             // Skip the internal frames so we don't need to filter them later.
-            trace.value().fill(1, Tracker::isNativeTraceCacheEnabled());
+            trace.value().fill(TRACKER_INTERNAL_FRAMES, Tracker::isNativeTraceCacheEnabled());
         }
 
         std::unique_lock<std::mutex> lock(*s_mutex);
@@ -304,7 +304,7 @@ class Tracker
                 return;
             }
             // Skip the internal frames so we don't need to filter them later.
-            trace.value().fill(1, Tracker::isNativeTraceCacheEnabled());
+            trace.value().fill(TRACKER_INTERNAL_FRAMES, Tracker::isNativeTraceCacheEnabled());
         }
 
         std::unique_lock<std::mutex> lock(*s_mutex);
@@ -452,6 +452,7 @@ class Tracker
     };
 
     // Data members
+    static constexpr size_t TRACKER_INTERNAL_FRAMES = 1;
     static std::unique_ptr<std::mutex> s_mutex;
     static pthread_key_t s_native_unwind_vector_key;
     static std::unique_ptr<Tracker> s_instance_owner;

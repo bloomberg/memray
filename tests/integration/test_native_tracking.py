@@ -19,6 +19,17 @@ from tests.utils import filter_relevant_allocations
 HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_NATIVE_EXTENSION = HERE / "native_extension"
+NATIVE_TRACKING_PROGRAM = """
+    import sys
+
+    import native_ext
+    from memray import Tracker
+
+    function = getattr(native_ext, sys.argv[2])
+    arguments = (int(argument) for argument in sys.argv[3:])
+    with Tracker(sys.argv[1], native_traces=True, native_trace_cache=True):
+        function(*arguments)
+"""
 
 
 def test_native_trace_cache_requires_native_traces(tmp_path):
@@ -26,9 +37,9 @@ def test_native_trace_cache_requires_native_traces(tmp_path):
         Tracker(tmp_path / "test.bin", native_trace_cache=True)
 
 
-def run_native_tracking_program(tmpdir, program):
-    output = Path(tmpdir) / "test.bin"
-    extension_path = Path(tmpdir) / "native_extension"
+def run_native_tracking_program(tmp_path, function_name, *arguments):
+    output = tmp_path / "test.bin"
+    extension_path = tmp_path / "native_extension"
     shutil.copytree(TEST_NATIVE_EXTENSION, extension_path)
     subprocess.run(
         [sys.executable, str(extension_path / "setup.py"), "build_ext", "--inplace"],
@@ -39,7 +50,14 @@ def run_native_tracking_program(tmpdir, program):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(extension_path)
     subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(program), str(output)],
+        [
+            sys.executable,
+            "-c",
+            textwrap.dedent(NATIVE_TRACKING_PROGRAM),
+            str(output),
+            function_name,
+            *(str(argument) for argument in arguments),
+        ],
         check=True,
         cwd=extension_path,
         env=env,
@@ -149,25 +167,18 @@ def test_simple_call_chain_with_native_tracking(tmpdir, monkeypatch):
     assert expected_symbols == [stack[0] for stack in valloc.native_stack_trace()[:3]]
 
 
-def test_alternating_native_call_chains_are_not_confused(tmpdir):
+def test_alternating_native_call_chains_are_not_confused(tmp_path):
     # GIVEN
-    program = """
-        import sys
-        from memray import Tracker
-        from native_ext import run_alternating
-
-        with Tracker(sys.argv[1], native_traces=True, native_trace_cache=True):
-            run_alternating(5)
-        """
+    repetitions = 5
 
     # WHEN
-    vallocs = run_native_tracking_program(tmpdir, program)
+    vallocs = run_native_tracking_program(tmp_path, "run_alternating", repetitions)
 
     # THEN
     expected = [
         ["baz", "bar", "foo"],
         ["baz_other", "bar_other", "foo_other"],
-    ] * 5
+    ] * repetitions
     assert expected == [
         [frame[0] for frame in record.native_stack_trace()[:3]] for record in vallocs
     ]
@@ -178,24 +189,21 @@ def test_alternating_native_call_chains_are_not_confused(tmpdir):
     reason="this exercises x86-64 DWARF unwind metadata",
 )
 def test_native_trace_with_return_address_at_cfa16_is_stable(
-    tmpdir,
+    tmp_path,
 ):
     # GIVEN
-    program = """
-        import sys
-        from memray import Tracker
-        from native_ext import run_cfa16
-
-        with Tracker(sys.argv[1], native_traces=True, native_trace_cache=True):
-            run_cfa16()
-        """
+    repetitions = 5
 
     # WHEN
-    vallocs = run_native_tracking_program(tmpdir, program)
+    vallocs = run_native_tracking_program(tmp_path, "run_cfa16", repetitions)
 
     # THEN
-    expected_callers = ["cfa16_caller_a"] * 5 + ["cfa16_caller_b"] * 5
-    assert expected_callers == [record.native_stack_trace()[2][0] for record in vallocs]
+    expected = [["cfa16_leaf", "cfa16_frame", "cfa16_caller_a"]] * repetitions + [
+        ["cfa16_leaf", "cfa16_frame", "cfa16_caller_b"]
+    ] * repetitions
+    assert expected == [
+        [frame[0] for frame in record.native_stack_trace()[:3]] for record in vallocs
+    ]
 
 
 @pytest.mark.skipif(

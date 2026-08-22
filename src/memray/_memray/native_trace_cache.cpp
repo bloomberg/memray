@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <libunwind.h>
+#include <limits>
+#include <optional>
 #include <pthread.h>
 #include <stdexcept>
 #include <utility>
@@ -13,6 +15,10 @@
 
 namespace memray::tracking_api {
 namespace {
+
+constexpr size_t NATIVE_TRACE_CACHE_CAPACITY = 8;
+constexpr uint64_t FNV1A_OFFSET_BASIS = 14695981039346656037ULL;
+constexpr uint64_t FNV1A_PRIME = 1099511628211ULL;
 
 enum class CacheEntryState {
     EMPTY,
@@ -23,22 +29,33 @@ enum class CacheEntryState {
 
 struct NativeTraceCacheEntry
 {
-    std::vector<frame_id_t> trace;
-    std::vector<const frame_id_t*> return_slots;
+    CacheEntryState state{CacheEntryState::EMPTY};
     uintptr_t stack_pointer{};
     uint64_t fingerprint{};
     size_t trace_size{};
-    CacheEntryState state{};
+    std::vector<frame_id_t> trace;
+    std::vector<const frame_id_t*> return_slots;
+};
+
+struct StackBounds
+{
+    uintptr_t low{};
+    uintptr_t high{};
+
+    bool contains(uintptr_t address) const
+    {
+        return high >= low && high - low >= sizeof(frame_id_t) && address >= low
+               && address <= high - sizeof(frame_id_t) && address % alignof(frame_id_t) == 0;
+    }
 };
 
 struct NativeTraceCache
 {
-    std::array<NativeTraceCacheEntry, 8> entries;
+    std::array<NativeTraceCacheEntry, NATIVE_TRACE_CACHE_CAPACITY> entries;
     NativeTraceCacheEntry probation;
     size_t next_entry{};
-    size_t last_hit{entries.size()};
-    uintptr_t stack_low{};
-    uintptr_t stack_high{};
+    std::optional<size_t> last_hit;
+    StackBounds stack_bounds;
     bool stack_bounds_initialized{};
     bool stack_bounds_available{};
 };
@@ -47,63 +64,58 @@ pthread_key_t s_native_trace_cache_key;
 MEMRAY_FAST_TLS thread_local NativeTraceCache* s_native_trace_cache;
 
 __attribute__((noinline)) bool
-captureValidationTrace(
-        NativeTraceCacheEntry& candidate,
+captureReturnSlots(
+        std::vector<const frame_id_t*>& return_slots,
         const std::vector<frame_id_t>& expected,
         size_t expected_size,
-        uintptr_t stack_low,
-        uintptr_t stack_high)
+        const StackBounds& stack_bounds)
 {
     unw_context_t context;
     unw_cursor_t cursor;
-    if (unw_getcontext(&context) < 0 || unw_init_local(&cursor, &context) < 0) {
+    if (expected_size <= NATIVE_TRACE_CACHE_INTERNAL_FRAMES || unw_getcontext(&context) < 0
+        || unw_init_local(&cursor, &context) < 0)
+    {
         return false;
     }
 
-    candidate.return_slots.clear();
-    candidate.return_slots.reserve(
-            expected_size > NATIVE_TRACE_CACHE_INTERNAL_FRAMES
-                    ? expected_size - NATIVE_TRACE_CACHE_INTERNAL_FRAMES
-                    : 0);
-    for (size_t index = 0; index <= expected_size; ++index) {
+    return_slots.clear();
+    return_slots.reserve(expected_size - NATIVE_TRACE_CACHE_INTERNAL_FRAMES);
+
+    // This helper adds one frame. Advance past it and the cached capture frame
+    // to the first caller that is present in both traces.
+    for (size_t index = 0; index <= NATIVE_TRACE_CACHE_INTERNAL_FRAMES; ++index) {
+        if (unw_step(&cursor) <= 0) {
+            return false;
+        }
+    }
+
+    for (size_t index = NATIVE_TRACE_CACHE_INTERNAL_FRAMES; index < expected_size; ++index) {
         unw_word_t ip;
         if (unw_get_reg(&cursor, UNW_REG_IP, &ip) < 0) {
             return false;
         }
-
-        // expected[0] is captureNativeTrace, but its IP differs depending on
-        // whether it called this helper or unw_backtrace.
-        if (index > NATIVE_TRACE_CACHE_INTERNAL_FRAMES) {
-            if (ip != expected[index - NATIVE_TRACE_CACHE_INTERNAL_FRAMES]) {
-                return false;
-            }
-            unw_save_loc_t location;
-            if (unw_is_signal_frame(&cursor) != 0 || unw_get_save_loc(&cursor, UNW_REG_IP, &location) < 0
-                || location.type != UNW_SLT_MEMORY)
-            {
-                return false;
-            }
-
-            const uintptr_t address = location.u.addr;
-            if (address % alignof(frame_id_t) != 0 || address < stack_low || stack_high < stack_low
-                || stack_high - stack_low < sizeof(frame_id_t)
-                || address > stack_high - sizeof(frame_id_t))
-            {
-                return false;
-            }
-
-            const auto* return_slot = reinterpret_cast<const frame_id_t*>(address);
-            if (__atomic_load_n(return_slot, __ATOMIC_RELAXED) != ip) {
-                return false;
-            }
-            candidate.return_slots.push_back(return_slot);
+        if (ip != expected[index]) {
+            return false;
         }
+
+        unw_save_loc_t location{};
+        if (unw_is_signal_frame(&cursor) != 0 || unw_get_save_loc(&cursor, UNW_REG_IP, &location) < 0
+            || location.type != UNW_SLT_MEMORY || !stack_bounds.contains(location.u.addr))
+        {
+            return false;
+        }
+
+        const auto* return_slot = reinterpret_cast<const frame_id_t*>(location.u.addr);
+        if (__atomic_load_n(return_slot, __ATOMIC_RELAXED) != ip) {
+            return false;
+        }
+        return_slots.push_back(return_slot);
 
         const int step_result = unw_step(&cursor);
-        if (step_result == 0) {
-            return index == expected_size;
+        if (index + 1 == expected_size) {
+            return step_result == 0;
         }
-        if (step_result < 0) {
+        if (step_result <= 0) {
             return false;
         }
     }
@@ -139,32 +151,38 @@ initializeStackBounds(NativeTraceCache& cache)
         return false;
     }
 
-    cache.stack_low = reinterpret_cast<uintptr_t>(stack_address);
-    cache.stack_high = cache.stack_low + stack_size;
+    const uintptr_t stack_low = reinterpret_cast<uintptr_t>(stack_address);
+    if (stack_size > std::numeric_limits<uintptr_t>::max() - stack_low) {
+        return false;
+    }
+    cache.stack_bounds = {stack_low, stack_low + stack_size};
     cache.stack_bounds_available = true;
     return true;
 }
 
-NativeTraceCacheEntry*
-findTrainingEntry(
-        NativeTraceCache& cache,
+bool
+matchesTraceIdentity(
+        const NativeTraceCacheEntry& entry,
         uintptr_t stack_pointer,
         uint64_t fingerprint,
         size_t trace_size)
 {
+    const bool has_identity =
+            entry.state == CacheEntryState::CANDIDATE || entry.state == CacheEntryState::REJECTED;
+    return has_identity && entry.stack_pointer == stack_pointer && entry.fingerprint == fingerprint
+           && entry.trace_size == trace_size;
+}
+
+NativeTraceCacheEntry*
+findTraceEntry(NativeTraceCache& cache, uintptr_t stack_pointer, uint64_t fingerprint, size_t trace_size)
+{
     for (NativeTraceCacheEntry& entry : cache.entries) {
-        if ((entry.state == CacheEntryState::CANDIDATE || entry.state == CacheEntryState::REJECTED)
-            && entry.stack_pointer == stack_pointer && entry.fingerprint == fingerprint
-            && entry.trace_size == trace_size)
-        {
+        if (matchesTraceIdentity(entry, stack_pointer, fingerprint, trace_size)) {
             return &entry;
         }
     }
     NativeTraceCacheEntry& probation = cache.probation;
-    if ((probation.state == CacheEntryState::CANDIDATE || probation.state == CacheEntryState::REJECTED)
-        && probation.stack_pointer == stack_pointer && probation.fingerprint == fingerprint
-        && probation.trace_size == trace_size)
-    {
+    if (matchesTraceIdentity(probation, stack_pointer, fingerprint, trace_size)) {
         return &probation;
     }
     return nullptr;
@@ -201,13 +219,11 @@ matchesCachedTrace(const NativeTraceCacheEntry& entry, uintptr_t stack_pointer)
 const NativeTraceCacheEntry*
 findCachedTrace(NativeTraceCache& cache, uintptr_t stack_pointer)
 {
-    if (cache.last_hit < cache.entries.size()
-        && matchesCachedTrace(cache.entries[cache.last_hit], stack_pointer))
-    {
-        return &cache.entries[cache.last_hit];
+    if (cache.last_hit && matchesCachedTrace(cache.entries[*cache.last_hit], stack_pointer)) {
+        return &cache.entries[*cache.last_hit];
     }
     for (size_t index = 0; index < cache.entries.size(); ++index) {
-        if (index != cache.last_hit && matchesCachedTrace(cache.entries[index], stack_pointer)) {
+        if (cache.last_hit != index && matchesCachedTrace(cache.entries[index], stack_pointer)) {
             cache.last_hit = index;
             return &cache.entries[index];
         }
@@ -237,10 +253,10 @@ nativeTraceCache()
 uint64_t
 traceFingerprint(const frame_id_t* trace, size_t size)
 {
-    uint64_t fingerprint = 1469598103934665603ULL;
+    uint64_t fingerprint = FNV1A_OFFSET_BASIS;
     for (size_t index = NATIVE_TRACE_CACHE_INTERNAL_FRAMES; index < size; ++index) {
         fingerprint ^= trace[index];
-        fingerprint *= 1099511628211ULL;
+        fingerprint *= FNV1A_PRIME;
     }
     return fingerprint;
 }
@@ -253,7 +269,7 @@ captureNativeTrace(std::vector<frame_id_t>& frames)
     const uintptr_t stack_pointer = currentStackPointer();
     NativeTraceCache* cache_ptr = nativeTraceCache();
     if (!cache_ptr) {
-        return unw_backtrace((void**)frames.data(), frames.size());
+        return unw_backtrace(reinterpret_cast<void**>(frames.data()), frames.size());
     }
     NativeTraceCache& cache = *cache_ptr;
 
@@ -263,14 +279,14 @@ captureNativeTrace(std::vector<frame_id_t>& frames)
         return cached->trace.size();
     }
 
-    const size_t size = unw_backtrace((void**)frames.data(), frames.size());
+    const size_t size = unw_backtrace(reinterpret_cast<void**>(frames.data()), frames.size());
     if (size >= frames.size()) {
         return size;
     }
     const uint64_t fingerprint = traceFingerprint(frames.data(), size);
     // Finding saved-register locations costs another unwind, so wait for a trace
     // to repeat before training it.
-    NativeTraceCacheEntry* candidate = findTrainingEntry(cache, stack_pointer, fingerprint, size);
+    NativeTraceCacheEntry* candidate = findTraceEntry(cache, stack_pointer, fingerprint, size);
     if (candidate && candidate->state == CacheEntryState::REJECTED) {
         return size;
     }
@@ -278,14 +294,14 @@ captureNativeTrace(std::vector<frame_id_t>& frames)
         candidate->state = CacheEntryState::REJECTED;
         if (initializeStackBounds(cache)) {
             const bool cacheable =
-                    captureValidationTrace(*candidate, frames, size, cache.stack_low, cache.stack_high);
+                    captureReturnSlots(candidate->return_slots, frames, size, cache.stack_bounds);
             if (cacheable && size
                 && candidate->return_slots.size() + NATIVE_TRACE_CACHE_INTERNAL_FRAMES == size)
             {
                 candidate->trace.assign(frames.begin(), frames.begin() + size);
                 if (candidate == &cache.probation) {
                     size_t victim_index = cache.next_entry;
-                    if (victim_index == cache.last_hit) {
+                    if (cache.last_hit && victim_index == *cache.last_hit) {
                         victim_index = (victim_index + 1) % cache.entries.size();
                     }
                     cache.next_entry = (victim_index + 1) % cache.entries.size();
@@ -330,7 +346,7 @@ flushNativeTraceCache()
         entry.state = CacheEntryState::EMPTY;
     }
     s_native_trace_cache->probation.state = CacheEntryState::EMPTY;
-    s_native_trace_cache->last_hit = s_native_trace_cache->entries.size();
+    s_native_trace_cache->last_hit.reset();
 }
 
 }  // namespace memray::tracking_api
