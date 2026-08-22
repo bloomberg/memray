@@ -164,18 +164,21 @@ class NativeTrace
     {
         return d_size;
     }
-    __attribute__((always_inline)) inline bool fill(size_t skip)
+    __attribute__((always_inline)) inline bool fill(size_t skip, bool use_cache = false)
     {
         size_t size;
         size_t internal_frames = 0;
         while (true) {
 #ifdef __linux__
 #    if defined(MEMRAY_USE_NATIVE_TRACE_CACHE)
-            size = captureNativeTrace(d_data);
-            internal_frames = NATIVE_TRACE_CACHE_INTERNAL_FRAMES;
-#    else
-            size = unw_backtrace((void**)d_data.data(), d_data.size());
+            if (use_cache) {
+                size = captureNativeTrace(d_data);
+                internal_frames = NATIVE_TRACE_CACHE_INTERNAL_FRAMES;
+            } else
 #    endif
+            {
+                size = unw_backtrace((void**)d_data.data(), d_data.size());
+            }
 #elif defined(__APPLE__)
             size = ::backtrace((void**)d_data.data(), d_data.size());
 #else
@@ -254,6 +257,7 @@ class Tracker
     static PyObject* createTracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
+            bool native_trace_cache,
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators,
@@ -276,7 +280,7 @@ class Tracker
                 return;
             }
             // Skip the internal frames so we don't need to filter them later.
-            trace.value().fill(1);
+            trace.value().fill(1, Tracker::isNativeTraceCacheEnabled());
         }
 
         std::unique_lock<std::mutex> lock(*s_mutex);
@@ -300,7 +304,7 @@ class Tracker
                 return;
             }
             // Skip the internal frames so we don't need to filter them later.
-            trace.value().fill(1);
+            trace.value().fill(1, Tracker::isNativeTraceCacheEnabled());
         }
 
         std::unique_lock<std::mutex> lock(*s_mutex);
@@ -452,10 +456,12 @@ class Tracker
     static pthread_key_t s_native_unwind_vector_key;
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
+    static bool s_native_trace_cache_enabled;
 
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     const bool d_unwind_native_frames;
+    const bool d_native_trace_cache;
     const unsigned int d_memory_interval;
     const bool d_follow_fork;
     const bool d_trace_python_allocators;
@@ -491,12 +497,14 @@ class Tracker
     explicit Tracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
+            bool native_trace_cache,
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators,
             bool reference_tracking);
 
     static bool areNativeTracesEnabled();
+    static bool isNativeTraceCacheEnabled();
 };
 
 }  // namespace memray::tracking_api
