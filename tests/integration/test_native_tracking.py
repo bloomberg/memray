@@ -21,6 +21,11 @@ TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_NATIVE_EXTENSION = HERE / "native_extension"
 
 
+def test_native_trace_cache_requires_native_traces(tmp_path):
+    with pytest.raises(ValueError, match="native_trace_cache requires native_traces"):
+        Tracker(tmp_path / "test.bin", native_trace_cache=True)
+
+
 def run_native_tracking_program(tmpdir, program):
     output = Path(tmpdir) / "test.bin"
     extension_path = Path(tmpdir) / "native_extension"
@@ -151,7 +156,7 @@ def test_alternating_native_call_chains_are_not_confused(tmpdir):
         from memray import Tracker
         from native_ext import run_alternating
 
-        with Tracker(sys.argv[1], native_traces=True):
+        with Tracker(sys.argv[1], native_traces=True, native_trace_cache=True):
             run_alternating(5)
         """
 
@@ -181,7 +186,7 @@ def test_native_trace_with_return_address_at_cfa16_is_stable(
         from memray import Tracker
         from native_ext import run_cfa16
 
-        with Tracker(sys.argv[1], native_traces=True):
+        with Tracker(sys.argv[1], native_traces=True, native_trace_cache=True):
             run_cfa16()
         """
 

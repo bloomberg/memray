@@ -7,6 +7,14 @@ from memray.commands import main
 
 @patch("memray.commands.attach.debugger_available")
 class TestAttachSubCommand:
+    def test_native_trace_cache_requires_native_tracking(
+        self, is_debugger_available_mock, capsys
+    ):
+        with pytest.raises(SystemExit):
+            main(["attach", "--native-trace-cache", "1234"])
+
+        assert "--native-trace-cache requires --native" in capsys.readouterr().err
+
     def test_memray_attach_aggregated_without_output_file(
         self, is_debugger_available_mock, capsys
     ):
