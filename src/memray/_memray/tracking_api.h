@@ -10,6 +10,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <pthread.h>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -29,6 +30,7 @@
 #include "frame_tree.h"
 #include "hooks.h"
 #include "linker_shenanigans.h"
+#include "native_trace_cache.h"
 #include "record_writer.h"
 #include "records.h"
 
@@ -165,9 +167,15 @@ class NativeTrace
     __attribute__((always_inline)) inline bool fill(size_t skip)
     {
         size_t size;
+        size_t internal_frames = 0;
         while (true) {
 #ifdef __linux__
+#    if defined(MEMRAY_USE_NATIVE_TRACE_CACHE)
+            size = captureNativeTrace(d_data);
+            internal_frames = NATIVE_TRACE_CACHE_INTERNAL_FRAMES;
+#    else
             size = unw_backtrace((void**)d_data.data(), d_data.size());
+#    endif
 #elif defined(__APPLE__)
             size = ::backtrace((void**)d_data.data(), d_data.size());
 #else
@@ -179,8 +187,8 @@ class NativeTrace
 
             d_data.resize(d_data.size() * 2);
         }
-        d_size = size > skip ? size - skip : 0;
-        d_skip = skip;
+        d_skip = skip + internal_frames;
+        d_size = size > d_skip ? size - d_skip : 0;
         return d_size > 0;
     }
 
@@ -196,6 +204,9 @@ class NativeTrace
             fprintf(stderr, "WARNING: Failed to set libunwind cache size.\n");
         }
 #    endif
+#    if defined(MEMRAY_USE_NATIVE_TRACE_CACHE)
+        setupNativeTraceCache();
+#    endif
 #else
         return;
 #endif
@@ -204,6 +215,9 @@ class NativeTrace
     static inline void flushCache()
     {
 #ifdef __linux__
+#    if defined(MEMRAY_USE_NATIVE_TRACE_CACHE)
+        flushNativeTraceCache();
+#    endif
         unw_flush_cache(unw_local_addr_space, 0, 0);
 #else
         return;
