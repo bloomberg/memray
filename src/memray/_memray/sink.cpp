@@ -3,12 +3,14 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <sstream>
 
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <utility>
@@ -57,11 +59,30 @@ removeSuffix(const std::string& s, const std::string& suffix)
     return s.substr(0, s.size() - suffix.size());
 }
 
+std::string
+parentDirectory(const std::string& path)
+{
+    size_t pos = path.find_last_of('/');
+    if (pos == std::string::npos) {
+        return ".";
+    }
+    if (pos == 0) {
+        return "/";
+    }
+    return path.substr(0, pos);
+}
+
 void
 compressFile(const std::string& filename) noexcept
 {
+    std::string tmp_dir = parentDirectory(filename) + "/memray-XXXXXX";
+    if (nullptr == ::mkdtemp(tmp_dir.data())) {
+        std::perror("Failed to create a temporary directory to compress into");
+        return;
+    }
+
+    std::string tmp_filename = tmp_dir + "/out.lz4";
     std::ifstream in_file(filename);
-    std::string tmp_filename = filename + ".lz4.tmp";
     std::ofstream out_file(tmp_filename);
     bool success = true;
     constexpr size_t bufsize = 4 * 1024;
@@ -85,11 +106,22 @@ compressFile(const std::string& filename) noexcept
 
     if (!success) {
         std::cerr << "Failed to compress input file" << std::endl;
-        ::unlink(tmp_filename.c_str());
-    } else if (0 != std::rename(tmp_filename.c_str(), filename.c_str())) {
-        std::perror("Error moving compressed file back to original name");
-        ::unlink(tmp_filename.c_str());
+    } else {
+        mode_t mode = 0644;
+        struct stat statbuf;
+        if (0 == ::stat(filename.c_str(), &statbuf)) {
+            mode = statbuf.st_mode & 0777;
+        }
+
+        if (0 != ::chmod(tmp_filename.c_str(), mode)) {
+            std::perror("Failed to set the compressed file's permissions");
+        } else if (0 != std::rename(tmp_filename.c_str(), filename.c_str())) {
+            std::perror("Failed to rename the compressed file to the orignal filename");
+        }
     }
+
+    ::unlink(tmp_filename.c_str());
+    ::rmdir(tmp_dir.c_str());
 }
 
 }  // unnamed namespace
