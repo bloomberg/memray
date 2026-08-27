@@ -1,0 +1,1 @@
+Ensure Memray never writes over a file that already exists while compressing, instead writing to a temp file and atomically renaming it to the target file name once compression is complete. This prevents data loss in case of interruptions during the compression process, and ensures we don't overwrite arbitrary files if the target file is a symlink.
