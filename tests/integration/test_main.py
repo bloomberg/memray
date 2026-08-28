@@ -1,4 +1,5 @@
 import contextlib
+import csv
 import json
 import os
 import platform
@@ -15,8 +16,10 @@ from unittest.mock import patch
 
 import pytest
 
+from memray import AllocatorType
 from memray import FileFormat
 from memray import Tracker
+from memray._memray import RecordWriterTestHarness
 from memray._test import MemoryAllocator
 from memray._test import set_thread_name
 from memray.commands import main
@@ -1925,3 +1928,47 @@ class TestTransformSubCommands:
             "sampled",
         ]
         assert output_data["shared"]["frames"]
+
+    def test_csv_does_not_merge_worker_threads(self, tmp_path):
+        # GIVEN
+        capture_file = tmp_path / "result.bin"
+        writer = RecordWriterTestHarness(str(capture_file))
+        assert writer.write_code_object(1, "worker", "worker.py", b"", 1)
+        for tid in (1, 2, 3):
+            assert writer.write_thread_record(tid, f"worker-{tid}")
+            assert writer.write_frame_push(tid, 1, 0, True)
+            assert writer.write_allocation_record(
+                tid, 0x1000 * tid, 1024 * tid, AllocatorType.VALLOC
+            )
+        assert writer.write_trailer()
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                "csv",
+                "-f",
+                str(capture_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
+        output_file = tmp_path / "memray-csv-result.csv"
+        assert output_file.exists()
+        rows = list(csv.reader(output_file.read_text().splitlines()))
+
+        # THEN
+        header, *other_rows = rows
+
+        expected_header = "allocator,num_allocations,size,tid,thread_name,stack_trace"
+        assert ",".join(header) == expected_header
+
+        assert other_rows == [
+            ["VALLOC", "1", "1024", "1", "0x1 (worker-1)", "worker;worker.py;0"],
+            ["VALLOC", "1", "2048", "2", "0x2 (worker-2)", "worker;worker.py;0"],
+            ["VALLOC", "1", "3072", "3", "0x3 (worker-3)", "worker;worker.py;0"],
+        ]
