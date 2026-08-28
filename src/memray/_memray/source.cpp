@@ -42,30 +42,69 @@ FileSource::FileSource(const std::string& file_name)
 }
 
 bool
-FileSource::read(char* stream, ssize_t length)
+FileSource::refillBuffer()
 {
-    if (d_stream->read(stream, length).fail()) {
+    if (d_buffer_pos != d_buffer_end) {
+        return true;
+    }
+
+    std::streamsize bytes_to_read = d_buffer.size();
+    if (d_readable_size) {
+        if (d_bytes_read >= d_readable_size) {
+            return false;
+        }
+        bytes_to_read =
+                std::min(bytes_to_read, static_cast<std::streamsize>(d_readable_size - d_bytes_read));
+    }
+
+    auto bytes_read = d_stream->rdbuf()->sgetn(d_buffer.data(), bytes_to_read);
+    if (bytes_read <= 0) {
         return false;
     }
-    d_bytes_read += length;
-    if (d_readable_size && d_bytes_read > d_readable_size) {
-        return false;
+
+    d_buffer_pos = 0;
+    d_buffer_end = bytes_read;
+    d_bytes_read += bytes_read;
+    return true;
+}
+
+bool
+FileSource::read(char* destination, ssize_t length)
+{
+    while (length > 0) {
+        if (!refillBuffer()) {
+            return false;
+        }
+
+        auto available = d_buffer_end - d_buffer_pos;
+        auto bytes_to_copy = std::min(available, static_cast<size_t>(length));
+        std::memcpy(destination, d_buffer.data() + d_buffer_pos, bytes_to_copy);
+        destination += bytes_to_copy;
+        d_buffer_pos += bytes_to_copy;
+        length -= bytes_to_copy;
     }
+
     return true;
 }
 
 bool
 FileSource::getline(std::string& result, char delimiter)
 {
-    std::getline(*d_stream, result, delimiter);
-    if (!d_stream) {
-        return false;
+    result.clear();
+    while (refillBuffer()) {
+        const char* begin = d_buffer.data() + d_buffer_pos;
+        const auto available = d_buffer_end - d_buffer_pos;
+        const char* end = static_cast<const char*>(std::memchr(begin, delimiter, available));
+        if (end != nullptr) {
+            result.append(begin, end);
+            d_buffer_pos += end - begin + 1;
+            return true;
+        }
+
+        result.append(begin, available);
+        d_buffer_pos = d_buffer_end;
     }
-    d_bytes_read += result.size() + 1;
-    if (d_readable_size && d_bytes_read > d_readable_size) {
-        return false;
-    }
-    return true;
+    return false;
 }
 
 void

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <fstream>
@@ -38,11 +39,16 @@ class FileSource : public Source
     bool getline(std::string& result, char delimiter) override;
 
   private:
+    bool refillBuffer();
     void _close();
     void findReadableSize();
+    static constexpr size_t BUFFER_SIZE = 64 * 1024;
     const std::string& d_file_name;
     std::shared_ptr<std::ifstream> d_raw_stream;
     std::shared_ptr<std::istream> d_stream;
+    std::array<char, BUFFER_SIZE> d_buffer;
+    size_t d_buffer_pos{};
+    size_t d_buffer_end{};
     std::streamoff d_readable_size{};
     std::streamoff d_bytes_read{};
 };
