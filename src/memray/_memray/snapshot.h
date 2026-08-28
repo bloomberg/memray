@@ -206,7 +206,8 @@ class TemporaryAllocationsAggregator : public AbstractAggregator
     size_t d_max_items;
     size_t d_index{0};
     std::unordered_map<thread_id_t, std::deque<SnapshotAllocation>> d_current_allocations{};
-    std::vector<SnapshotAllocation> d_temporary_allocations{};
+    reduced_snapshot_map_t d_temporary_allocations{};
+    std::vector<LocationKey> d_temporary_allocation_order{};
 
   public:
     TemporaryAllocationsAggregator(size_t max_items);

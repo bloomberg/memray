@@ -1502,6 +1502,9 @@ class TestTemporaryAllocations:
             if record.allocator == AllocatorType.POSIX_MEMALIGN
         ]
         assert len(all_allocations) == 4
+        first_allocation_by_stack = {}
+        for allocation in all_allocations:
+            first_allocation_by_stack.setdefault(allocation.stack_id, allocation)
 
         temporary_allocation_records = (
             record
@@ -1516,6 +1519,19 @@ class TestTemporaryAllocations:
         # Each thread should have 4096 bytes total allocations
         for allocations in records.values():
             assert sum(allocation.size for allocation in allocations) == 4096
+
+        merged_allocations = [
+            record
+            for record in reader.get_temporary_allocation_records()
+            if record.allocator == AllocatorType.POSIX_MEMALIGN
+        ]
+        assert len(merged_allocations) == 2
+        assert sum(allocation.size for allocation in merged_allocations) == 8192
+        assert all(allocation.n_allocations == 2 for allocation in merged_allocations)
+        for allocation in merged_allocations:
+            first_allocation = first_allocation_by_stack[allocation.stack_id]
+            assert allocation.tid == first_allocation.tid
+            assert allocation.address == first_allocation.address
 
     def test_intertwined_temporary_allocations_in_threads(self, tmpdir):
         """This test checks that temporary allocations are correctly detected

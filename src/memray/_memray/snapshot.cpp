@@ -224,7 +224,17 @@ TemporaryAllocationsAggregator::addAllocation(const Allocation& allocation)
                     });
 
             if (alloc_it != it->second.end()) {
-                d_temporary_allocations.push_back(*alloc_it);
+                const Allocation& record = alloc_it->allocation;
+                auto loc_key = LocationKey{record.frame_index, record.native_frame_id, record.tid};
+                auto [temporary_it, inserted] = d_temporary_allocations.emplace(loc_key, *alloc_it);
+                if (inserted) {
+                    d_temporary_allocation_order.push_back(loc_key);
+                } else {
+                    temporary_it->second.allocation.size += record.size;
+                    temporary_it->second.allocation.n_allocations += record.n_allocations;
+                    temporary_it->second.sequence_number =
+                            std::min(temporary_it->second.sequence_number, alloc_it->sequence_number);
+                }
             }
             break;
         }
@@ -235,18 +245,25 @@ TemporaryAllocationsAggregator::addAllocation(const Allocation& allocation)
 reduced_snapshot_map_t
 TemporaryAllocationsAggregator::getSnapshotAllocations(bool merge_threads)
 {
+    if (!merge_threads) {
+        return d_temporary_allocations;
+    }
+
     reduced_snapshot_map_t stack_to_allocation{};
 
-    for (const auto& snapshot_allocation : d_temporary_allocations) {
+    // Once merging drops the TID from the key, the first per-thread entry supplies the
+    // representative Allocation (including its address, allocator, and TID), while later entries
+    // update only its aggregate fields. Preserve capture order to match the old implementation.
+    for (const auto& key : d_temporary_allocation_order) {
+        const auto& snapshot_allocation = d_temporary_allocations.at(key);
         const Allocation& record = snapshot_allocation.allocation;
-        const thread_id_t thread_id = merge_threads ? NO_THREAD_INFO : record.tid;
-        auto loc_key = LocationKey{record.frame_index, record.native_frame_id, thread_id};
+        auto loc_key = LocationKey{record.frame_index, record.native_frame_id, NO_THREAD_INFO};
         auto alloc_it = stack_to_allocation.find(loc_key);
         if (alloc_it == stack_to_allocation.end()) {
             stack_to_allocation.insert(alloc_it, std::pair(loc_key, snapshot_allocation));
         } else {
             alloc_it->second.allocation.size += record.size;
-            alloc_it->second.allocation.n_allocations += 1;
+            alloc_it->second.allocation.n_allocations += record.n_allocations;
             alloc_it->second.sequence_number =
                     std::min(alloc_it->second.sequence_number, snapshot_allocation.sequence_number);
         }
