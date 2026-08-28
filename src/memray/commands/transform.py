@@ -38,6 +38,12 @@ class TransformCommand(HighWatermarkCommand):
                 f"Format not supported: {args.format}", exit_code=1
             )
 
+        # The csv format exists to be machine-parsed, and it has dedicated tid
+        # and thread_name columns, so we keep each thread's allocations on their
+        # own row instead of merging them across threads. Every other format is
+        # meant for human consumption and always merges threads.
+        args.split_threads = the_format == "csv"
+
         self.suffix = suffix
         self.reporter_name = the_format
         super().run(args, parser)
