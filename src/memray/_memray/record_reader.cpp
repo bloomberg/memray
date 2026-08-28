@@ -231,13 +231,13 @@ RecordReader::processFramePop(const FramePop& record)
     if (!d_track_stacks) {
         return true;
     }
-    if (!d_curr_thread_stack) {
-        throw std::runtime_error("invalid capture file: FRAME_POP with no previous CONTEXT_SWITCH");
+
+    auto count = record.count;
+    if (!d_curr_thread_stack || count > d_curr_thread_stack->size()) {
+        throw std::runtime_error("invalid capture file: FRAME_POP count exceeds FRAME_PUSH count");
     }
 
     auto& stack = *d_curr_thread_stack;
-    assert(!stack.empty());
-    auto count = record.count;
     while (count) {
         --count;
         stack.pop_back();
