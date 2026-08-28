@@ -21,6 +21,7 @@ class Source
     virtual bool is_open() = 0;
     virtual bool read(char* result, ssize_t length) = 0;
     virtual bool getline(std::string& result, char delimiter) = 0;
+    virtual bool readVarint(uint64_t* result);
 };
 
 class FileSource : public Source
@@ -37,6 +38,7 @@ class FileSource : public Source
     bool is_open() override;
     bool read(char* result, ssize_t length) override;
     bool getline(std::string& result, char delimiter) override;
+    bool readVarint(uint64_t* result) override;
 
   private:
     bool refillBuffer();

@@ -126,25 +126,7 @@ RecordReader::readHeader(HeaderRecord& header)
 bool
 RecordReader::readVarint(uint64_t* val)
 {
-    *val = 0;
-    int shift = 0;
-
-    while (true) {
-        unsigned char next;
-        if (!d_input->read(reinterpret_cast<char*>(&next), sizeof(next))) {
-            return false;
-        }
-
-        *val |= (static_cast<uint64_t>(next & 0x7f) << shift);
-        if (0 == (next & 0x80)) {
-            return true;
-        }
-
-        shift += 7;
-        if (shift >= 64) {
-            return false;
-        }
-    }
+    return d_input->readVarint(val);
 }
 
 bool

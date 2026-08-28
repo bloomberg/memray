@@ -21,6 +21,43 @@ using namespace memray::exception;
 
 namespace memray::io {
 
+namespace {
+
+template<typename ReadByte>
+bool
+readVarint(uint64_t* result, ReadByte&& read_byte)
+{
+    *result = 0;
+    int shift = 0;
+
+    while (true) {
+        unsigned char next;
+        if (!read_byte(&next)) {
+            return false;
+        }
+
+        *result |= (static_cast<uint64_t>(next & 0x7f) << shift);
+        if ((next & 0x80) == 0) {
+            return true;
+        }
+
+        shift += 7;
+        if (shift >= 64) {
+            return false;
+        }
+    }
+}
+
+}  // unnamed namespace
+
+bool
+Source::readVarint(uint64_t* result)
+{
+    return memray::io::readVarint(result, [this](unsigned char* next) {
+        return read(reinterpret_cast<char*>(next), sizeof(*next));
+    });
+}
+
 FileSource::FileSource(const std::string& file_name)
 : d_file_name(file_name)
 {
@@ -85,6 +122,18 @@ FileSource::read(char* destination, ssize_t length)
     }
 
     return true;
+}
+
+bool
+FileSource::readVarint(uint64_t* result)
+{
+    return memray::io::readVarint(result, [this](unsigned char* next) {
+        if (!refillBuffer()) {
+            return false;
+        }
+        *next = static_cast<unsigned char>(d_buffer[d_buffer_pos++]);
+        return true;
+    });
 }
 
 bool
