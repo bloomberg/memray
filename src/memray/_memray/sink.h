@@ -71,6 +71,7 @@ class FileSink : public memray::io::Sink
     size_t d_fileSize{0};
     const size_t BUFFER_SIZE{16 * 1024 * 1024};  // 16 MiB
     size_t d_bufferOffset{0};
+    size_t d_maxWrittenPos{0};
     char* d_buffer{nullptr};
     char* d_bufferEnd{nullptr};  // exclusive
     char* d_bufferNeedle{nullptr};

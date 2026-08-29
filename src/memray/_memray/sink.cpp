@@ -120,6 +120,7 @@ FileSink::writeAll(const char* data, size_t length)
         d_bufferNeedle += toCopy;
         data += toCopy;
         length -= toCopy;
+        d_maxWrittenPos = std::max(d_maxWrittenPos, d_bufferOffset + (d_bufferNeedle - d_buffer));
     }
     return true;
 }
@@ -266,6 +267,16 @@ FileSink::~FileSink()
         if (0 != munmap(d_buffer, BUFFER_SIZE)) {
             LOG(ERROR) << "Failed to unmap output file: " << strerror(errno);
         }
+
+        int rc;
+        do {
+            rc = ::ftruncate(d_fd, d_maxWrittenPos);
+        } while (rc < 0 && errno == EINTR);
+        if (rc < 0) {
+            LOG(WARNING) << "Failed to truncate output file (reading it will be slower): "
+                         << strerror(errno);
+        }
+
         d_buffer = d_bufferNeedle = d_bufferEnd = nullptr;
     }
     if (d_fd != -1) {
