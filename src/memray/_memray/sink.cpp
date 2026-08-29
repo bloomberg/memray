@@ -202,13 +202,24 @@ FileSink::seek(off_t offset, int whence)
 bool
 FileSink::grow(size_t needed)
 {
-    static size_t pagesize = sysconf(_SC_PAGESIZE);
-    // Grow to next multiple of the page size that is strictly > 110% of current size + needed
-    size_t new_size = (d_fileSize + needed) * 1.1;
-    new_size = (new_size / pagesize + 1) * pagesize;
-    assert(new_size > d_fileSize);  // check for overflow
+    // Grow to some multiple of maxSurplus, overallocating by up to maxSurplus.
+    // The maximum surplus is 4KiB until we reach 4MiB, then 4MiB afterwards.
+    const size_t fourKiB = 4 * 1024;
+    const size_t fourMiB = 4 * 1024 * 1024;
+    size_t newSize = d_fileSize + needed;
+    const size_t maxSurplus = (newSize < fourMiB) ? fourKiB : fourMiB;
+    newSize = (newSize / maxSurplus + 1) * maxSurplus;
 
-    off_t delta = new_size - d_fileSize;
+    // Ensure we're ending on a page boundary.
+    static size_t pageSize = sysconf(_SC_PAGESIZE);
+    newSize = (newSize + pageSize - 1) / pageSize * pageSize;
+
+    if (newSize < d_fileSize) {
+        LOG(ERROR) << "Integer overflow while growing output file.";
+        return false;
+    }
+
+    off_t delta = newSize - d_fileSize;
     int rc;
     do {
         // posix_fallocate returns an error number instead of setting errno
@@ -234,7 +245,7 @@ FileSink::grow(size_t needed)
         return false;
     }
 
-    d_fileSize = new_size;
+    d_fileSize = newSize;
     assert(static_cast<off_t>(d_fileSize) == lseek(d_fd, 0, SEEK_END));
 
     return true;
