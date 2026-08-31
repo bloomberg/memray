@@ -1,0 +1,1 @@
+Fix ``memray attach`` when Memray is built from source for the latest release candidates of Python 3.15.

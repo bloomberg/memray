@@ -143,8 +143,25 @@ def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | 
         abi = "abi3t"
     else:
         abi = "abi3"
-    injecter = pathlib.Path(memray._memray.__file__).parent / f"_inject.{abi}.so"
-    assert injecter.exists()
+
+    parent_dir = pathlib.Path(memray._memray.__file__).parent
+    possible_injecters = []
+
+    soabi_platform = sysconfig.get_config_var("SOABI_PLATFORM")
+    if soabi_platform is not None:
+        # abi3 extension filenames may contain multiarch tuples in 3.15+
+        possible_injecters.append(parent_dir / f"_inject.{abi}-{soabi_platform}.so")
+
+    possible_injecters.append(parent_dir / f"_inject.{abi}.so")
+
+    for injecter in possible_injecters:
+        if injecter.exists():
+            break
+    else:
+        raise RuntimeError(
+            "Can't find the _inject extension for this Python version. "
+            f" Tried: {[str(x) for x in possible_injecters]}"
+        )
 
     gdb_cmd = [
         "gdb",
