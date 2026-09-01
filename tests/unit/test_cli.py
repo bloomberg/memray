@@ -66,6 +66,24 @@ class TestRunSubCommand:
             native_traces=True,
         )
 
+    def test_run_with_native_trace_cache(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock
+    ):
+        getpid_mock.return_value = 0
+        assert 0 == main(["run", "--native", "--native-trace-cache", "-m", "foobar"])
+        tracker_mock.assert_called_with(
+            destination=FileDestination("memray-foobar.0.bin", overwrite=False),
+            native_traces=True,
+            native_trace_cache=True,
+        )
+
+    def test_native_trace_cache_requires_native_tracking(
+        self, getpid_mock, runpy_mock, tracker_mock, validate_mock, capsys
+    ):
+        with pytest.raises(SystemExit):
+            main(["run", "--native-trace-cache", "-m", "foobar"])
+        assert "--native-trace-cache requires --native" in capsys.readouterr().err
+
     def test_run_with_pymalloc_tracing(
         self, getpid_mock, runpy_mock, tracker_mock, validate_mock
     ):
@@ -198,7 +216,7 @@ class TestRunSubCommand:
                 sys.executable,
                 "-c",
                 "from memray.commands.run import _child_process;"
-                "_child_process(1234,False,False,False,False,False,"
+                "_child_process(1234,False,False,False,False,False,False,"
                 "'./directory/foobar.py',['arg1', 'arg2'])",
             ],
             stderr=-1,
@@ -239,7 +257,7 @@ class TestRunSubCommand:
                 sys.executable,
                 "-c",
                 "from memray.commands.run import _child_process;"
-                "_child_process(1234,False,True,False,False,False,"
+                "_child_process(1234,False,False,True,False,False,False,"
                 "'./directory/foobar.py',['arg1', 'arg2'])",
             ],
             stderr=-1,

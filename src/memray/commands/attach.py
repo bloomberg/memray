@@ -493,6 +493,12 @@ class AttachCommand(_DebuggerCommand):
             default=False,
         )
         parser.add_argument(
+            "--native-trace-cache",
+            help="Cache repeated native stack traces (requires --native)",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
             "--follow-fork",
             action="store_true",
             help="Record allocations in child processes forked from the tracked script",
@@ -525,6 +531,9 @@ class AttachCommand(_DebuggerCommand):
         super().prepare_parser(parser)
 
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+        if args.native_trace_cache and not args.native:
+            parser.error("--native-trace-cache requires --native")
+
         verbose = args.verbose
         mode: TrackingMode = "ACTIVATE"
         duration = None
@@ -559,6 +568,7 @@ class AttachCommand(_DebuggerCommand):
         tracker_call = (
             f"memray.Tracker(destination=memray.{destination!r},"
             f" native_traces={args.native},"
+            f" native_trace_cache={args.native_trace_cache},"
             f" follow_fork={args.follow_fork},"
             f" trace_python_allocators={args.trace_python_allocators},"
             f"{file_format})"

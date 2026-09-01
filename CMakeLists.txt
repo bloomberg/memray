@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+option(
+    MEMRAY_USE_NATIVE_TRACE_CACHE
+    "Cache repeated native traces on Linux x86-64"
+    ON
+)
+
 # Find Python
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
 
@@ -140,6 +146,22 @@ python_add_library(_memray MODULE WITH_SOABI
     ${CMAKE_CURRENT_BINARY_DIR}/_memray.cpp
 )
 
+if(
+    MEMRAY_USE_NATIVE_TRACE_CACHE
+    AND CMAKE_SYSTEM_NAME STREQUAL "Linux"
+    AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64"
+)
+    target_compile_definitions(_memray PRIVATE MEMRAY_USE_NATIVE_TRACE_CACHE=1)
+    target_sources(_memray PRIVATE src/memray/_memray/native_trace_cache.cpp)
+    find_library(UNWIND_X86_64_LIBRARY unwind-x86_64 REQUIRED)
+    # Loading libunwind before libgcc can redirect C++ exceptions to libunwind's
+    # _Unwind implementation. Keep the exception runtime chosen by the compiler.
+    if("gcc_s" IN_LIST CMAKE_CXX_IMPLICIT_LINK_LIBRARIES)
+        target_link_libraries(_memray PRIVATE gcc_s)
+    endif()
+    target_link_libraries(_memray PRIVATE ${UNWIND_X86_64_LIBRARY})
+endif()
+
 target_include_directories(_memray PRIVATE
     ${CMAKE_SOURCE_DIR}/src/memray/_memray
     ${LIBBACKTRACE_INCLUDE_DIR}
@@ -160,9 +182,9 @@ target_link_directories(_memray PRIVATE
     ${DEBUGINFOD_LIBRARY_DIRS}
 )
 target_link_options(_memray PRIVATE
-    ${LZ4_LDFLAGS}
-    ${UNWIND_LDFLAGS}
-    ${DEBUGINFOD_LDFLAGS}
+    ${LZ4_LDFLAGS_OTHER}
+    ${UNWIND_LDFLAGS_OTHER}
+    ${DEBUGINFOD_LDFLAGS_OTHER}
 )
 target_compile_options(_memray PRIVATE
     ${LZ4_CFLAGS}

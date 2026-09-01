@@ -10,6 +10,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <pthread.h>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -29,6 +30,7 @@
 #include "frame_tree.h"
 #include "hooks.h"
 #include "linker_shenanigans.h"
+#include "native_trace_cache.h"
 #include "record_writer.h"
 #include "records.h"
 
@@ -158,18 +160,27 @@ class NativeTrace
     {
         return d_data[d_skip + d_size - 1 - i];
     }
-    int size() const
+    size_t size() const
     {
         return d_size;
     }
-    __attribute__((always_inline)) inline bool fill(size_t skip)
+    __attribute__((always_inline)) inline bool fill(size_t skip, bool use_cache = false)
     {
-        size_t size;
+        size_t size{};
+        size_t capture_frames_to_skip{};
         while (true) {
 #ifdef __linux__
-            size = unw_backtrace((void**)d_data.data(), d_data.size());
+#    if defined(MEMRAY_USE_NATIVE_TRACE_CACHE)
+            if (use_cache) {
+                size = captureNativeTrace(d_data);
+                capture_frames_to_skip = NATIVE_TRACE_CACHE_INTERNAL_FRAMES;
+            } else
+#    endif
+            {
+                size = unw_backtrace(reinterpret_cast<void**>(d_data.data()), d_data.size());
+            }
 #elif defined(__APPLE__)
-            size = ::backtrace((void**)d_data.data(), d_data.size());
+            size = ::backtrace(reinterpret_cast<void**>(d_data.data()), d_data.size());
 #else
             return 0;
 #endif
@@ -179,8 +190,8 @@ class NativeTrace
 
             d_data.resize(d_data.size() * 2);
         }
-        d_size = size > skip ? size - skip : 0;
-        d_skip = skip;
+        d_skip = skip + capture_frames_to_skip;
+        d_size = size > d_skip ? size - d_skip : 0;
         return d_size > 0;
     }
 
@@ -196,6 +207,9 @@ class NativeTrace
             fprintf(stderr, "WARNING: Failed to set libunwind cache size.\n");
         }
 #    endif
+#    if defined(MEMRAY_USE_NATIVE_TRACE_CACHE)
+        setupNativeTraceCache();
+#    endif
 #else
         return;
 #endif
@@ -204,6 +218,9 @@ class NativeTrace
     static inline void flushCache()
     {
 #ifdef __linux__
+#    if defined(MEMRAY_USE_NATIVE_TRACE_CACHE)
+        flushNativeTraceCache();
+#    endif
         unw_flush_cache(unw_local_addr_space, 0, 0);
 #else
         return;
@@ -240,6 +257,7 @@ class Tracker
     static PyObject* createTracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
+            bool native_trace_cache,
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators,
@@ -262,7 +280,7 @@ class Tracker
                 return;
             }
             // Skip the internal frames so we don't need to filter them later.
-            trace.value().fill(1);
+            trace.value().fill(TRACKER_INTERNAL_FRAMES, Tracker::isNativeTraceCacheEnabled());
         }
 
         std::unique_lock<std::mutex> lock(*s_mutex);
@@ -286,7 +304,7 @@ class Tracker
                 return;
             }
             // Skip the internal frames so we don't need to filter them later.
-            trace.value().fill(1);
+            trace.value().fill(TRACKER_INTERNAL_FRAMES, Tracker::isNativeTraceCacheEnabled());
         }
 
         std::unique_lock<std::mutex> lock(*s_mutex);
@@ -434,14 +452,17 @@ class Tracker
     };
 
     // Data members
+    static constexpr size_t TRACKER_INTERNAL_FRAMES = 1;
     static std::unique_ptr<std::mutex> s_mutex;
     static pthread_key_t s_native_unwind_vector_key;
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
+    static bool s_native_trace_cache_enabled;
 
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
     const bool d_unwind_native_frames;
+    const bool d_native_trace_cache;
     const unsigned int d_memory_interval;
     const bool d_follow_fork;
     const bool d_trace_python_allocators;
@@ -477,12 +498,14 @@ class Tracker
     explicit Tracker(
             std::unique_ptr<RecordWriter> record_writer,
             bool native_traces,
+            bool native_trace_cache,
             unsigned int memory_interval,
             bool follow_fork,
             bool trace_python_allocators,
             bool reference_tracking);
 
     static bool areNativeTracesEnabled();
+    static bool isNativeTraceCacheEnabled();
 };
 
 }  // namespace memray::tracking_api

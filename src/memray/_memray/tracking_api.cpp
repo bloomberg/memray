@@ -612,6 +612,7 @@ std::unique_ptr<std::mutex> Tracker::s_mutex(new std::mutex);
 pthread_key_t Tracker::s_native_unwind_vector_key;
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
+bool Tracker::s_native_trace_cache_enabled{false};
 
 PythonStackTracker::LazilyEmittedFrame::LazilyEmittedFrame(PyFrameObject* frame)
 {
@@ -812,12 +813,14 @@ PythonStackTracker::clear()
 Tracker::Tracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
+        bool native_trace_cache,
         unsigned int memory_interval,
         bool follow_fork,
         bool trace_python_allocators,
         bool reference_tracking)
 : d_writer(std::move(record_writer))
 , d_unwind_native_frames(native_traces)
+, d_native_trace_cache(native_trace_cache)
 , d_memory_interval(memory_interval)
 , d_follow_fork(follow_fork)
 , d_trace_python_allocators(trace_python_allocators)
@@ -883,6 +886,7 @@ Tracker::Tracker(
     updateModuleCacheImpl();
 
     PythonStackTracker::s_native_tracking_enabled = native_traces;
+    s_native_trace_cache_enabled = native_trace_cache;
     PythonStackTracker::installProfileHooks();
     if (d_reference_tracking) {
         registerReferenceTrackingHooks();
@@ -902,6 +906,7 @@ Tracker::~Tracker()
     tracking_api::Tracker::deactivate();
 
     PythonStackTracker::s_native_tracking_enabled = false;
+    s_native_trace_cache_enabled = false;
     d_background_thread->stop();
 
     {
@@ -1109,6 +1114,7 @@ Tracker::childFork()
     s_instance_owner.reset(new Tracker(
             std::move(new_writer),
             old_tracker->d_unwind_native_frames,
+            old_tracker->d_native_trace_cache,
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators,
@@ -1145,6 +1151,12 @@ bool
 Tracker::areNativeTracesEnabled()
 {
     return PythonStackTracker::s_native_tracking_enabled;
+}
+
+bool
+Tracker::isNativeTraceCacheEnabled()
+{
+    return s_native_trace_cache_enabled;
 }
 
 void
@@ -1485,6 +1497,7 @@ PyObject*
 Tracker::createTracker(
         std::unique_ptr<RecordWriter> record_writer,
         bool native_traces,
+        bool native_trace_cache,
         unsigned int memory_interval,
         bool follow_fork,
         bool trace_python_allocators,
@@ -1493,6 +1506,7 @@ Tracker::createTracker(
     s_instance_owner.reset(new Tracker(
             std::move(record_writer),
             native_traces,
+            native_trace_cache,
             memory_interval,
             follow_fork,
             trace_python_allocators,
