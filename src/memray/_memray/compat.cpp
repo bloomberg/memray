@@ -1,6 +1,25 @@
 #include "compat.h"
+#include "compat_internal.h"
 
 namespace memray::compat {
+
+bool
+isCurrentOrCallerFrame(PyFrameObject* frame)
+{
+    return memray_compat_is_current_or_caller_frame(frame);
+}
+
+bool
+isParentFrame(PyFrameObject* parent, PyFrameObject* frame)
+{
+    return memray_compat_is_parent_frame(parent, frame);
+}
+
+bool
+isMonitoringToolActive(int tool_id, PyObject* tool_name, PyObject* callbacks)
+{
+    return memray_compat_is_monitoring_tool_active(tool_id, tool_name, callbacks);
+}
 
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg)

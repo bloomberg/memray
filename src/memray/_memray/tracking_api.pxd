@@ -1,3 +1,4 @@
+from _memray.record_writer cimport PyCodeObject
 from _memray.record_writer cimport RecordWriter
 from cpython cimport PyObject
 from libc.stddef cimport size_t
@@ -13,6 +14,10 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
 
     void set_up_pthread_fork_handlers() except+
     void install_trace_function() except*
+    void set_monitoring_tool(
+        int tool_id, PyObject* tool_name, PyObject* callbacks
+    ) except*
+    void monitoring_trace_function(PyCodeObject* code, bool is_push) except*
 
     cdef cppclass RecursionGuard:
         RecursionGuard()

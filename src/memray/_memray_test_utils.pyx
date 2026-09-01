@@ -14,6 +14,7 @@ from posix.mman cimport munmap
 from posix.unistd cimport read
 from posix.unistd cimport write
 
+cimport cython
 from _memray.alloc cimport PyMem_Calloc
 from _memray.alloc cimport PyMem_Free
 from _memray.alloc cimport PyMem_Malloc
@@ -214,6 +215,7 @@ cdef class PymallocMemoryAllocator:
 cdef do_not_optimize_ptr(void* ptr):
     return ptr == <void*>(1)
 
+@cython.profile(True)
 def _cython_nested_allocation(allocator_fn, size):
     allocator_fn(size)
     cdef void* p = valloc(size);
