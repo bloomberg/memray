@@ -543,7 +543,7 @@ PythonStackTracker::rebuildStackIfNeeded()
 void
 PythonStackTracker::handlePush(PyFrameObject* frame)
 {
-    if (s_monitoring.enabled() && d_stack && !d_stack->empty() && !d_stack->back().isFrozen()
+    if (d_stack && !d_stack->empty() && !d_stack->back().isFrozen()
         && !d_stack->back().isCallerOf(frame))
     {
         d_monitoring_stack_invalidated = true;

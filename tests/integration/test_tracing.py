@@ -1378,3 +1378,48 @@ class TestMmap:
         assert munmap_record is not None
         with pytest.raises(NotImplementedError):
             munmap_record.stack_trace()
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="requires Python 3.14")
+def test_profile_fallback_repairs_stack_after_preexisting_cython_call(tmp_path):
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+    ready_read, ready_write = os.pipe()
+    proceed_read, proceed_write = os.pipe()
+
+    def blocker(size):
+        os.write(ready_write, b"x")
+        os.read(proceed_read, 1)
+
+    def thread_body():
+        _cython_nested_allocation(blocker, 1234)
+        allocator.valloc(4321)
+        allocator.free()
+
+    monitoring = sys.monitoring
+    tool_id = monitoring.PROFILER_ID
+    monitoring.use_tool_id(tool_id, "test")
+    previous_thread_profile = threading.getprofile()
+    threading.setprofile(lambda *args: None)
+
+    try:
+        thread = threading.Thread(target=thread_body)
+        thread.start()
+        os.read(ready_read, 1)
+
+        with Tracker(output):
+            os.write(proceed_write, b"x")
+            thread.join()
+    finally:
+        threading.setprofile(previous_thread_profile)
+        monitoring.free_tool_id(tool_id)
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()][:2] == [
+        "valloc",
+        "thread_body",
+    ]
