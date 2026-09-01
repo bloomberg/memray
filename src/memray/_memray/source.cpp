@@ -94,9 +94,12 @@ FileSource::findReadableSize()
     d_raw_stream->clear();
     d_raw_stream->seekg(0, d_raw_stream->end);
     std::streamoff scan_end = d_raw_stream->tellg();
+
+    // Normally the file wasn't truncated and its last byte is a TRAILER.
+    std::streamoff max_bytes_to_scan = 1;
+
     while (scan_end > 0) {
-        size_t bytes_to_scan =
-                static_cast<size_t>(std::min(scan_end, static_cast<std::streamoff>(buffer.size())));
+        size_t bytes_to_scan = static_cast<size_t>(std::min(scan_end, max_bytes_to_scan));
         std::streamoff scan_start = scan_end - static_cast<std::streamoff>(bytes_to_scan);
         d_raw_stream->seekg(scan_start, d_raw_stream->beg);
         d_raw_stream->read(buffer.data(), bytes_to_scan);
@@ -114,6 +117,7 @@ FileSource::findReadableSize()
             break;
         }
         scan_end = scan_start;
+        max_bytes_to_scan = buffer.size();  // Fill the buffer on subsequent iterations
     }
 
     d_raw_stream->clear();
