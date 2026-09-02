@@ -1,16 +1,12 @@
 #pragma once
 
+#include <array>
 #include <atomic>
-#include <cstdint>
 #include <fstream>
 #include <memory>
 #include <string>
 
-#include "lz4_stream.h"
-
 namespace memray::io {
-
-const int MAX_BUF_SIZE = 4096;
 
 class Source
 {
@@ -18,8 +14,7 @@ class Source
     virtual ~Source(){};
     virtual void close() = 0;
     virtual bool is_open() = 0;
-    virtual bool read(char* result, ssize_t length) = 0;
-    virtual bool getline(std::string& result, char delimiter) = 0;
+    virtual ssize_t read(char* result, ssize_t length) = 0;
 };
 
 class FileSource : public Source
@@ -34,8 +29,7 @@ class FileSource : public Source
     ~FileSource() override;
     void close() override;
     bool is_open() override;
-    bool read(char* result, ssize_t length) override;
-    bool getline(std::string& result, char delimiter) override;
+    ssize_t read(char* result, ssize_t length) override;
 
   private:
     void _close();
@@ -43,22 +37,8 @@ class FileSource : public Source
     const std::string& d_file_name;
     std::shared_ptr<std::ifstream> d_raw_stream;
     std::shared_ptr<std::istream> d_stream;
-    std::streamoff d_readable_size{};
+    std::streamoff d_readable_size{-1};
     std::streamoff d_bytes_read{};
-};
-
-class SocketBuf : public std::streambuf
-{
-  public:
-    explicit SocketBuf(int socket_fd);
-    void close();
-
-  private:
-    int underflow() override;
-    std::streamsize xsgetn(char_type* s, std::streamsize n) override;
-    int d_sockfd{-1};
-    char d_buf[MAX_BUF_SIZE];
-    std::atomic<bool> d_open{true};
 };
 
 class SocketSource : public Source
@@ -73,14 +53,32 @@ class SocketSource : public Source
     ~SocketSource() override;
     void close() override;
     bool is_open() override;
-    bool read(char* result, ssize_t length) override;
-    bool getline(std::string& result, char delimiter) override;
+    ssize_t read(char* result, ssize_t length) override;
 
   private:
     void _close();
     int d_sockfd{-1};
     std::atomic<bool> d_is_open{false};
-    std::unique_ptr<SocketBuf> d_socket_buf;
+};
+
+class BufferedSource
+{
+  public:
+    explicit BufferedSource(std::unique_ptr<Source> unbuffered_source);
+    ~BufferedSource();
+    void close();
+    bool is_open() const;
+    bool read(char* destination, size_t length);
+    bool getline(std::string& result, char delimiter);
+
+  private:
+    size_t refillBuffer();
+    static constexpr size_t BUFFER_SIZE = 64 * 1024;
+    std::unique_ptr<Source> d_unbuffered_source;
+    std::array<char, BUFFER_SIZE> d_buffer;
+    std::atomic<bool> d_is_open{false};
+    size_t d_buffer_pos{};
+    size_t d_buffer_end{};
 };
 
 }  // namespace memray::io
