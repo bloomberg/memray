@@ -211,8 +211,11 @@ class TransformReporter:
         inverted: bool,
         no_web: bool = False,
     ) -> None:
-        if not merge_threads:
-            raise NotImplementedError("TransformReporter only supports merged threads.")
+        if not merge_threads and self.format != "csv":
+            raise NotImplementedError(
+                "TransformReporter does not support split threads for the"
+                f" {self.format!r} format."
+            )
         if inverted:
             raise NotImplementedError(
                 "TransformReporter does not support inverted argument."
