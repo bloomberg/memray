@@ -171,6 +171,43 @@ class TestRunSubcommand:
         out_file = re.search("Writing profile results into (.*)", proc.stdout).group(1)
         assert (tmp_path / out_file).exists()
 
+    def test_run_does_not_import_reporting_libraries(self, tmp_path):
+        # The tracked process must not import the reporters' heavy third party
+        # dependencies (rich/textual/jinja2), both to keep startup fast and to
+        # avoid interfering with the copies the tracked application depends on.
+        # GIVEN
+        code_file = tmp_path / "code.py"
+        code_file.write_text(
+            textwrap.dedent(
+                """
+                import sys
+
+                assert "jinja2" not in sys.modules
+                assert "rich" not in sys.modules
+                assert "textual" not in sys.modules
+                """
+            )
+        )
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "run",
+                "--output",
+                str(tmp_path / "result.bin"),
+                str(code_file),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 0
+
     def test_run_override_output(self, tmp_path, simple_test_file):
         # GIVEN
         out_file = tmp_path / "result.bin"

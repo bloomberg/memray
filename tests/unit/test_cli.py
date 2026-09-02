@@ -179,7 +179,7 @@ class TestRunSubCommand:
         )
 
     @patch("memray.commands.run.subprocess.Popen")
-    @patch("memray.commands.run.LiveCommand")
+    @patch("memray.commands.live.LiveCommand")
     def test_run_with_live(
         self,
         live_command_mock,
@@ -211,7 +211,7 @@ class TestRunSubCommand:
         )
 
     @patch("memray.commands.run.subprocess.Popen")
-    @patch("memray.commands.run.LiveCommand")
+    @patch("memray.commands.live.LiveCommand")
     def test_run_with_live_and_trace_python_allocators(
         self,
         live_command_mock,

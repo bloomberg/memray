@@ -15,8 +15,6 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Protocol
 
-from rich import print as pprint
-
 from memray import AllocationRecord
 from memray import FileReader
 from memray import MemorySnapshot
@@ -57,6 +55,8 @@ class TemporalReporterFactory(Protocol):
 
 
 def warn_if_not_enough_symbols() -> None:
+    from rich import print as pprint
+
     support = get_symbolic_support()
     if support == SymbolicSupport.NONE:
         pprint(
@@ -85,6 +85,8 @@ def warn_if_not_enough_symbols() -> None:
 def warn_if_file_is_not_aggregated_and_is_too_big(
     reader: FileReader, result_path: Path
 ) -> None:
+    from rich import print as pprint
+
     FILE_SIZE_LIMIT = 10 * 1000 * 1000
     if (
         reader.metadata.file_format == FileFormat.ALL_ALLOCATIONS

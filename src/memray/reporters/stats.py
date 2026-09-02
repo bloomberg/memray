@@ -11,8 +11,6 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-import rich
-
 from memray._memray import size_fmt
 from memray._stats import Stats
 
@@ -121,6 +119,8 @@ class StatsReporter:
             self._render_to_terminal(histogram_params)
 
     def _render_to_terminal(self, histogram_params: Dict[str, int]) -> None:
+        import rich
+
         rich.print("📏 [bold]Total allocations:[/]")
         print(f"\t{self._stats.total_num_allocations}")
 

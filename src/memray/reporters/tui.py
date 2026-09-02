@@ -3,19 +3,15 @@ import os
 import pathlib
 import sys
 import threading
-from collections import defaultdict
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from functools import total_ordering
 from math import ceil
 from typing import Any
-from typing import DefaultDict
 from typing import Dict
-from typing import Iterable
 from typing import List
 from typing import Optional
-from typing import Set
 from typing import Tuple
 from typing import cast
 
@@ -50,22 +46,11 @@ from memray._memray import size_fmt
 from memray.reporters._textual_hacks import Bindings
 from memray.reporters._textual_hacks import redraw_footer
 from memray.reporters._textual_hacks import update_key_description
+from memray.reporters.common import AllocationEntry
+from memray.reporters.common import Location
+from memray.reporters.common import aggregate_allocations
 
 MAX_MEMORY_RATIO = 0.95
-
-
-@dataclass(frozen=True)
-class Location:
-    function: str
-    file: str
-
-
-@dataclass
-class AllocationEntry:
-    own_memory: int
-    total_memory: int
-    n_allocations: int
-    thread_ids: Set[int]
 
 
 @dataclass(frozen=True, eq=False)
@@ -192,56 +177,6 @@ class SortableText(Text):
         if type(other) != SortableText:
             return NotImplemented
         return cast(bool, self.value == other.value)
-
-
-def aggregate_allocations(
-    allocations: Iterable[AllocationRecord],
-    memory_threshold: float = float("inf"),
-    native_traces: Optional[bool] = False,
-) -> Dict[Location, AllocationEntry]:
-    """Take allocation records and for each frame contained, record "own"
-    allocations which happened on the frame, and sum up allocations on
-    all of the child frames to calculate "total" allocations."""
-
-    processed_allocations: DefaultDict[Location, AllocationEntry] = defaultdict(
-        lambda: AllocationEntry(
-            own_memory=0, total_memory=0, n_allocations=0, thread_ids=set()
-        )
-    )
-
-    current_total = 0
-    for allocation in allocations:
-        if current_total >= memory_threshold:
-            break
-        current_total += allocation.size
-
-        stack_trace = list(
-            allocation.hybrid_stack_trace()
-            if native_traces
-            else allocation.stack_trace()
-        )
-        if not stack_trace:
-            frame = processed_allocations[Location(function="???", file="???")]
-            frame.total_memory += allocation.size
-            frame.own_memory += allocation.size
-            frame.n_allocations += allocation.n_allocations
-            frame.thread_ids.add(allocation.tid)
-            continue
-
-        # Walk upwards and sum totals
-        visited = set()
-        for i, (function, file_name, _) in enumerate(stack_trace):
-            location = Location(function=function, file=file_name)
-            frame = processed_allocations[location]
-            if location in visited:
-                continue
-            visited.add(location)
-            if i == 0:
-                frame.own_memory += allocation.size
-            frame.total_memory += allocation.size
-            frame.n_allocations += allocation.n_allocations
-            frame.thread_ids.add(allocation.tid)
-    return processed_allocations
 
 
 class TimeDisplay(Static):
