@@ -67,18 +67,52 @@ parseLinetable311(uintptr_t addrq, const std::string& linetable, int firstlineno
         while (read & 64) {
             read = read_byte();
             shift += 6;
+            unsigned int chunk = read & 63;
             if (shift >= std::numeric_limits<unsigned int>::digits) {
                 // Shifting this much would be UB, so the table is malformed.
                 throw InvalidLinetable{};
             }
-            val |= (read & 63) << shift;
+            if (chunk > (std::numeric_limits<unsigned int>::max() >> shift)) {
+                // This chunk would provide bits beyond the accumulator's width
+                throw InvalidLinetable{};
+            }
+            val |= chunk << shift;
         }
         return val;
     };
 
+    auto checked_add = [](int lhs, int rhs) {
+        long long result = static_cast<long long>(lhs) + static_cast<long long>(rhs);
+        if (result < std::numeric_limits<int>::min() || result > std::numeric_limits<int>::max()) {
+            throw InvalidLinetable{};
+        }
+        return static_cast<int>(result);
+    };
+
+    auto checked_add_unsigned = [&](int lhs, unsigned int rhs) {
+        if (rhs > static_cast<unsigned int>(std::numeric_limits<int>::max())) {
+            throw InvalidLinetable{};
+        }
+        return checked_add(lhs, static_cast<int>(rhs));
+    };
+
+    auto checked_decrement_unsigned = [](unsigned int value) {
+        if (value == 0) {
+            return -1;
+        }
+        if (value - 1 > static_cast<unsigned int>(std::numeric_limits<int>::max())) {
+            throw InvalidLinetable{};
+        }
+        return static_cast<int>(value - 1);
+    };
+
     auto scan_signed_varint = [&]() {
         unsigned int uval = scan_varint();
-        int sval = uval >> 1;
+        unsigned int magnitude = uval >> 1;
+        if (magnitude > static_cast<unsigned int>(std::numeric_limits<int>::max())) {
+            throw InvalidLinetable{};
+        }
+        int sval = static_cast<int>(magnitude);
         int sign = (uval & 1) ? -1 : 1;
         return sign * sval;
     };
@@ -95,15 +129,15 @@ parseLinetable311(uintptr_t addrq, const std::string& linetable, int firstlineno
                 }
                 case PY_CODE_LOCATION_INFO_LONG: {
                     int line_delta = scan_signed_varint();
-                    info->lineno += line_delta;
-                    info->end_lineno = info->lineno + scan_varint();
-                    info->column = scan_varint() - 1;
-                    info->end_column = scan_varint() - 1;
+                    info->lineno = checked_add(info->lineno, line_delta);
+                    info->end_lineno = checked_add_unsigned(info->lineno, scan_varint());
+                    info->column = checked_decrement_unsigned(scan_varint());
+                    info->end_column = checked_decrement_unsigned(scan_varint());
                     break;
                 }
                 case PY_CODE_LOCATION_INFO_NO_COLUMNS: {
                     int line_delta = scan_signed_varint();
-                    info->lineno += line_delta;
+                    info->lineno = checked_add(info->lineno, line_delta);
                     info->column = info->end_column = -1;
                     break;
                 }
@@ -111,7 +145,7 @@ parseLinetable311(uintptr_t addrq, const std::string& linetable, int firstlineno
                 case PY_CODE_LOCATION_INFO_ONE_LINE1:
                 case PY_CODE_LOCATION_INFO_ONE_LINE2: {
                     int line_delta = code - 10;
-                    info->lineno += line_delta;
+                    info->lineno = checked_add(info->lineno, line_delta);
                     info->end_lineno = info->lineno;
                     info->column = read_byte();
                     info->end_column = read_byte();
