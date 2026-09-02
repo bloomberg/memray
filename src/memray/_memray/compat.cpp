@@ -146,6 +146,10 @@ parseLinetable310(
         int firstlineno,
         LocationInfo* info)
 {
+    if (linetable.size() % 2 != 0) {
+        return false;  // A valid linetable has 2 bytes per entry
+    }
+
     int code_lineno = firstlineno;
 
     // Word-code is two bytes, so the actual limit in the table is 2 * the instruction index
@@ -176,6 +180,10 @@ parseLinetable39(
         int firstlineno,
         LocationInfo* info)
 {
+    if (linetable.size() % 2 != 0) {
+        return false;  // A valid linetable has 2 bytes per entry
+    }
+
     int code_lineno = firstlineno;
 
     for (std::string::size_type i = 0, bc = 0; i + 1 < linetable.size();
