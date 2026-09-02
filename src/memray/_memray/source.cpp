@@ -5,7 +5,6 @@
 #include <cstring>
 #include <iostream>
 #include <netdb.h>
-#include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -15,6 +14,8 @@
 #include "exceptions.h"
 #include "logging.h"
 #include "source.h"
+
+#include "lz4_stream.h"
 
 using namespace memray::exception;
 
@@ -40,31 +41,22 @@ FileSource::FileSource(const std::string& file_name)
     }
 }
 
-bool
-FileSource::read(char* stream, ssize_t length)
+ssize_t
+FileSource::read(char* destination, ssize_t length)
 {
-    if (d_stream->read(stream, length).fail()) {
-        return false;
+    if (d_stream->fail() || d_bytes_read == d_readable_size) {
+        return -1;
     }
-    d_bytes_read += length;
-    if (d_readable_size && d_bytes_read > d_readable_size) {
-        return false;
-    }
-    return true;
-}
 
-bool
-FileSource::getline(std::string& result, char delimiter)
-{
-    std::getline(*d_stream, result, delimiter);
-    if (!d_stream) {
-        return false;
+    auto to_read = static_cast<std::streamsize>(length);
+    if (d_readable_size != -1) {
+        to_read = std::min(to_read, static_cast<std::streamsize>(d_readable_size - d_bytes_read));
     }
-    d_bytes_read += result.size() + 1;
-    if (d_readable_size && d_bytes_read > d_readable_size) {
-        return false;
-    }
-    return true;
+
+    d_stream->read(destination, to_read);
+    const auto bytes_read = d_stream->gcount();
+    d_bytes_read += bytes_read;
+    return bytes_read;
 }
 
 void
@@ -115,68 +107,6 @@ FileSource::is_open()
 FileSource::~FileSource()
 {
     _close();
-}
-
-SocketBuf::SocketBuf(int socket_fd)
-: d_sockfd(socket_fd)
-{
-    setg(d_buf, d_buf, d_buf);
-}
-
-void
-SocketBuf::close()
-{
-    d_open = false;
-}
-
-int
-SocketBuf::underflow()
-{
-    if (gptr() < egptr()) {
-        return traits_type::to_int_type(*gptr());
-    }
-
-    ssize_t bytes_read;
-    do {
-        bytes_read = ::recv(d_sockfd, d_buf, MAX_BUF_SIZE, 0);
-    } while (bytes_read < 0 && errno == EINTR);
-
-    if (bytes_read < 0) {
-        if (d_open) {
-            LOG(ERROR) << "Encountered error in 'recv' call: " << strerror(errno);
-        }
-        return traits_type::eof();
-    }
-
-    if (bytes_read == 0) {
-        return traits_type::eof();
-    }
-
-    setg(d_buf, d_buf, d_buf + bytes_read);
-    return traits_type::to_int_type(*gptr());
-}
-
-std::streamsize
-SocketBuf::xsgetn(char* destination, std::streamsize length)
-{
-    std::streamsize needed = length;
-    while (needed > 0) {
-        if (gptr() == egptr()) {
-            // Buffer empty. Get some new data, and throw if we can't.
-            if (underflow() == traits_type::eof()) {
-                return traits_type::eof();
-            }
-        }
-
-        std::streamsize available = egptr() - gptr();
-        std::streamsize to_copy = std::min(available, needed);
-
-        ::memcpy(destination, gptr(), to_copy);
-        gbump(static_cast<int>(to_copy));
-        destination += to_copy;
-        needed -= to_copy;
-    }
-    return length;
 }
 
 SocketSource::SocketSource(int port)
@@ -234,16 +164,25 @@ SocketSource::SocketSource(int port)
 
     freeaddrinfo(all_addresses);
     d_is_open = true;
-    d_socket_buf = std::make_unique<SocketBuf>(d_sockfd);
 }
 
-bool
+ssize_t
 SocketSource::read(char* result, ssize_t length)
 {
     if (!d_is_open) {
-        return false;
+        return -1;
     }
-    return d_socket_buf->sgetn(result, length) != SocketBuf::traits_type::eof();
+
+    ssize_t bytes_read;
+    do {
+        bytes_read = ::recv(d_sockfd, result, length, 0);
+    } while (bytes_read < 0 && errno == EINTR);
+
+    if (bytes_read < 0 && d_is_open) {
+        LOG(ERROR) << "Encountered error in 'recv' call: " << strerror(errno);
+    }
+
+    return bytes_read;
 }
 
 void
@@ -253,7 +192,6 @@ SocketSource::_close()
         return;
     }
     d_is_open = false;
-    d_socket_buf->close();
     ::shutdown(d_sockfd, SHUT_RDWR);
     ::close(d_sockfd);
 }
@@ -270,26 +208,99 @@ SocketSource::is_open()
     return d_is_open;
 }
 
-bool
-SocketSource::getline(std::string& result, char delimiter)
-{
-    int buf;
-    while (true) {
-        buf = d_socket_buf->sbumpc();
-        if (buf == static_cast<int>(delimiter) || buf == SocketBuf::traits_type::eof()) {
-            if (!d_is_open) {
-                return false;
-            }
-            break;
-        }
-        result.push_back(static_cast<char>(buf));
-    }
-    return true;
-}
-
 SocketSource::~SocketSource()
 {
     _close();
+}
+
+BufferedSource::BufferedSource(std::unique_ptr<Source> unbuffered_source)
+: d_unbuffered_source(std::move(unbuffered_source))
+, d_is_open(d_unbuffered_source->is_open())
+{
+}
+
+BufferedSource::~BufferedSource()
+{
+    close();
+}
+
+void
+BufferedSource::close()
+{
+    if (d_is_open.exchange(false)) {
+        d_unbuffered_source->close();
+    }
+}
+
+bool
+BufferedSource::is_open() const
+{
+    return d_is_open;
+}
+
+bool
+BufferedSource::read(char* destination, size_t length)
+{
+    auto available = refillBuffer();
+
+    // Fast path if the data we need is all in the buffer.
+    // This makes a surprisingly large performance difference.
+    if (length <= available) {
+        std::memcpy(destination, d_buffer.data() + d_buffer_pos, length);
+        d_buffer_pos += length;
+        return true;
+    }
+
+    do {
+        available = refillBuffer();
+        if (!available) {
+            return false;
+        }
+        auto bytes_to_copy = std::min(available, static_cast<size_t>(length));
+        std::memcpy(destination, d_buffer.data() + d_buffer_pos, bytes_to_copy);
+        destination += bytes_to_copy;
+        d_buffer_pos += bytes_to_copy;
+        length -= bytes_to_copy;
+    } while (length > 0);
+    return true;
+}
+
+bool
+BufferedSource::getline(std::string& result, char delimiter)
+{
+    result.clear();
+    while (refillBuffer()) {
+        const char* begin = d_buffer.data() + d_buffer_pos;
+        const auto available = d_buffer_end - d_buffer_pos;
+        const char* end = static_cast<const char*>(std::memchr(begin, delimiter, available));
+        if (end != nullptr) {
+            result.append(begin, end);
+            d_buffer_pos += end - begin + 1;
+            return true;
+        }
+
+        result.append(begin, available);
+        d_buffer_pos = d_buffer_end;
+    }
+    return false;
+}
+
+size_t
+BufferedSource::refillBuffer()
+{
+    size_t available = d_buffer_end - d_buffer_pos;
+    if (available) {
+        return available;
+    }
+
+    auto bytes_read = d_unbuffered_source->read(d_buffer.data(), d_buffer.size());
+    if (bytes_read <= 0) {
+        return 0;
+    }
+
+    d_buffer_pos = 0;
+    d_buffer_end = bytes_read;
+    return bytes_read;
 }
 
 }  // namespace memray::io
