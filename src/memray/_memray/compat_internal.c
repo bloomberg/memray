@@ -50,23 +50,13 @@ memray_compat_is_current_or_caller_frame(PyFrameObject* frame)
 }
 
 int
-memray_compat_is_parent_frame(PyFrameObject* parent, PyFrameObject* frame)
-{
-#if PY_VERSION_HEX >= 0x030C0000
-    _PyInterpreterFrame* previous = frame->f_frame->previous;
-    previous = _PyFrame_GetFirstComplete(previous);
-    return previous && previous->frame_obj == parent;
-#else
-    (void)parent;
-    (void)frame;
-#endif
-    return 0;
-}
-
-int
 memray_compat_is_monitoring_tool_active(int tool_id, PyObject* tool_name, PyObject* callbacks)
 {
 #if PY_VERSION_HEX >= 0x030C0000
+    // Allocation hooks call this with no guarantee that the GIL is held.
+    // Calling sys.monitoring.get_tool() here could allocate or execute Python
+    // while an allocation is already being recorded. It would also miss
+    // disabled events or replaced callbacks on a slot we still own.
     static const int events[] = {
             PY_MONITORING_EVENT_PY_START,
             PY_MONITORING_EVENT_PY_RESUME,

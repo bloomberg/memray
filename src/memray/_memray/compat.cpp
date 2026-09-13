@@ -10,12 +10,6 @@ isCurrentOrCallerFrame(PyFrameObject* frame)
 }
 
 bool
-isParentFrame(PyFrameObject* parent, PyFrameObject* frame)
-{
-    return memray_compat_is_parent_frame(parent, frame);
-}
-
-bool
 isMonitoringToolActive(int tool_id, PyObject* tool_name, PyObject* callbacks)
 {
     return memray_compat_is_monitoring_tool_active(tool_id, tool_name, callbacks);

@@ -200,7 +200,6 @@ class PythonStackTracker
         void ignoreProfileCall();
         bool consumeIgnoredProfileReturn(PyFrameObject* frame);
         bool isCurrentFrame(PyFrameObject* frame) const;
-        bool isCallerOf(PyFrameObject* frame) const;
         bool isCurrentOrCaller() const;
         bool isCurrentCode(PyCodeObject* code) const;
 
@@ -579,7 +578,7 @@ void
 PythonStackTracker::handlePush(PyFrameObject* frame)
 {
     if (d_stack && !d_stack->empty() && !d_stack->back().isFrozen()
-        && !d_stack->back().isCallerOf(frame))
+        && !d_stack->back().isCurrentFrame(compat::frameGetBack(frame)))
     {
         d_monitoring_stack_invalidated = true;
     }
@@ -818,12 +817,6 @@ bool
 PythonStackTracker::LazilyEmittedFrame::isCurrentFrame(PyFrameObject* frame) const
 {
     return d_frame == frame;
-}
-
-bool
-PythonStackTracker::LazilyEmittedFrame::isCallerOf(PyFrameObject* frame) const
-{
-    return compat::isParentFrame(d_frame, frame);
 }
 
 bool
