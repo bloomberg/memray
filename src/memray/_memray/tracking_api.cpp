@@ -257,6 +257,14 @@ class PythonStackTracker
         int d_instruction_offset{};
     };
 
+    struct InitialStack
+    {
+        std::vector<LazilyEmittedFrame> stack;
+        // Keep the original frame chain alive until the first profile event,
+        // so a newly allocated frame cannot reuse an initial frame's address.
+        std::shared_ptr<PyFrameObject> frame;
+    };
+
   public:
     static bool s_greenlet_tracking_enabled;
     static bool s_native_tracking_enabled;
@@ -292,7 +300,7 @@ class PythonStackTracker
     void clear();
 
     static std::mutex s_mutex;
-    static std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> s_initial_stack_by_thread;
+    static std::unordered_map<PyThreadState*, InitialStack> s_initial_stack_by_thread;
     static std::atomic<unsigned int> s_tracker_generation;
 
     uint32_t d_num_pending_pops{};
@@ -339,7 +347,7 @@ class MonitoringState
 static MonitoringState s_monitoring;
 
 std::mutex PythonStackTracker::s_mutex;
-std::unordered_map<PyThreadState*, std::vector<PythonStackTracker::LazilyEmittedFrame>>
+std::unordered_map<PyThreadState*, PythonStackTracker::InitialStack>
         PythonStackTracker::s_initial_stack_by_thread;
 std::atomic<unsigned int> PythonStackTracker::s_tracker_generation;
 
@@ -476,8 +484,12 @@ PythonStackTracker::reloadStackIfTrackerChanged()
 
         auto it = s_initial_stack_by_thread.find(PyGILState_GetThisThreadState());
         if (it != s_initial_stack_by_thread.end()) {
-            it->second.swap(correct_stack);
-            s_initial_stack_by_thread.erase(it);
+            it->second.stack.swap(correct_stack);
+            // The profile callback releases frame references with the GIL.
+            // This method can also run from an allocation without the GIL.
+            if (!it->second.frame) {
+                s_initial_stack_by_thread.erase(it);
+            }
         }
     }
 
@@ -508,7 +520,30 @@ PythonStackTracker::populateShadowStack()
 void
 PythonStackTracker::handleProfileEvent(int what, PyFrameObject* frame)
 {
+    std::shared_ptr<PyFrameObject> initial_frame;
+    if (d_stack && !d_stack->empty() && d_stack->back().isFrozen()) {
+        std::unique_lock<std::mutex> lock(s_mutex);
+        auto it = s_initial_stack_by_thread.find(PyThreadState_Get());
+        if (it != s_initial_stack_by_thread.end()) {
+            initial_frame = std::move(it->second.frame);
+            s_initial_stack_by_thread.erase(it);
+        }
+    }
+
     if (what == PyTrace_CALL) {
+        bool was_running = false;
+        for (auto* initial = initial_frame.get(); initial; initial = compat::frameGetBack(initial)) {
+            if (initial == frame) {
+                was_running = true;
+                break;
+            }
+        }
+        // A real first CALL is already included in the rebuilt stack. A
+        // Cython duplicate CALL refers to a frame that was running before
+        // tracking started, and its matching RETURN must still be ignored.
+        if (rebuildStackIfNeeded() && !was_running) {
+            return;
+        }
         if (d_stack && !d_stack->empty() && d_stack->back().isCurrentFrame(frame)) {
             d_stack->back().ignoreProfileCall();
             return;
@@ -891,7 +926,7 @@ PythonStackTracker::recordAllStacks(Tracker& tracker)
     PyThreadState* current_thread = PyThreadState_Get();
 
     // Record the current Python stack of every thread
-    std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> stack_by_thread;
+    std::unordered_map<PyThreadState*, InitialStack> stack_by_thread;
     for (PyThreadState* tstate =
                  PyInterpreterState_ThreadHead(compat::threadStateGetInterpreter(current_thread));
          tstate != nullptr;
@@ -907,7 +942,16 @@ PythonStackTracker::recordAllStacks(Tracker& tracker)
             continue;
         }
 
-        stack_by_thread[tstate] = pythonFrameToStack(frame, tracker);
+        auto& initial = stack_by_thread[tstate];
+        initial.stack = pythonFrameToStack(frame, tracker);
+        if (!s_monitoring.enabled()) {
+            Py_INCREF(frame);
+            initial.frame = std::shared_ptr<PyFrameObject>(frame, [](PyFrameObject* frame) {
+                if (Py_IsInitialized() && !compat::isPythonFinalizing()) {
+                    Py_DECREF(frame);
+                }
+            });
+        }
         if (PyErr_Occurred()) {
             throw std::runtime_error("Failed to capture a thread's Python stack");
         }
@@ -945,8 +989,12 @@ PythonStackTracker::removeProfileHooks()
 {
     assert(PyGILState_Check());
     compat::setprofileAllThreads(nullptr, nullptr);
-    std::unique_lock<std::mutex> lock(s_mutex);
-    s_initial_stack_by_thread.clear();
+    // Release Python references after unlocking, since decrefs can run Python.
+    std::unordered_map<PyThreadState*, InitialStack> initial_stacks;
+    {
+        std::unique_lock<std::mutex> lock(s_mutex);
+        initial_stacks.swap(s_initial_stack_by_thread);
+    }
 }
 
 void

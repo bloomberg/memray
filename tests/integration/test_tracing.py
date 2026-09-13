@@ -1423,3 +1423,92 @@ def test_profile_fallback_repairs_stack_after_preexisting_cython_call(tmp_path):
         "valloc",
         "thread_body",
     ]
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 13), reason="requires Cython monitoring events"
+)
+@pytest.mark.parametrize("cython_call", [False, True])
+@pytest.mark.parametrize("release_gil", [False, True])
+@pytest.mark.parametrize("native_traces", [False, True])
+def test_profile_fallback_first_call_in_preexisting_thread(
+    tmp_path, cython_call, release_gil, native_traces
+):
+    from memray._test_utils import allocate_after_nested_call
+    from memray._test_utils import profiled_cython_noop
+
+    output = tmp_path / "test.bin"
+    ready_read, ready_write = os.pipe()
+    proceed_read, proceed_write = os.pipe()
+
+    def python_noop():
+        pass
+
+    callback = profiled_cython_noop if cython_call else python_noop
+
+    def thread_body():
+        allocate_after_nested_call(ready_write, proceed_read, callback, release_gil)
+
+    monitoring = sys.monitoring
+    tool_id = monitoring.PROFILER_ID
+    monitoring.use_tool_id(tool_id, "test")
+    thread = threading.Thread(target=thread_body)
+    try:
+        thread.start()
+        os.read(ready_read, 1)
+        with Tracker(output, native_traces=native_traces):
+            os.write(proceed_write, b"x")
+            thread.join()
+    finally:
+        monitoring.free_tool_id(tool_id)
+        for fd in (ready_read, ready_write, proceed_read, proceed_write):
+            os.close(fd)
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()] == [
+        "thread_body",
+        "run",
+        "_bootstrap_inner",
+        "_bootstrap",
+    ]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="requires sys.monitoring")
+def test_profile_fallback_does_not_confuse_reused_frames(tmp_path):
+    from memray._test_utils import MemoryAllocator as NativeMemoryAllocator
+
+    allocator = NativeMemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # Identical frame sizes let CPython reuse the first frame for the second.
+    def first():
+        allocator.valloc(1234)
+        allocator.free()
+
+    def second():
+        allocator.valloc(4321)
+        allocator.free()
+
+    tool_id = sys.monitoring.PROFILER_ID
+    sys.monitoring.use_tool_id(tool_id, "test")
+    try:
+        with Tracker(output):
+            for _ in range(10):
+                first()
+                second()
+    finally:
+        sys.monitoring.free_tool_id(tool_id)
+
+    allocations = [
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC
+    ]
+    assert len(allocations) == 20
+    for record in allocations:
+        expected = "first" if record.size == 1234 else "second"
+        assert record.stack_trace()[0][0] == expected
