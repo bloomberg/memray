@@ -1,7 +1,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <array>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
@@ -9,6 +8,7 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <vector>
 
 #include <chrono>
 #include <thread>
@@ -89,17 +89,15 @@ FileSource::findReadableSize()
     // the zeroed bytes at the end of the file, and make calls to read() and
     // getline() fail if they read into those bytes.
     constexpr size_t buffer_size = 64 * 1024;
-    std::array<char, buffer_size> buffer;
+    std::vector<char> buffer(1);
 
     d_raw_stream->clear();
     d_raw_stream->seekg(0, d_raw_stream->end);
     std::streamoff scan_end = d_raw_stream->tellg();
 
-    // Normally the file wasn't truncated and its last byte is a TRAILER.
-    std::streamoff max_bytes_to_scan = 1;
-
     while (scan_end > 0) {
-        size_t bytes_to_scan = static_cast<size_t>(std::min(scan_end, max_bytes_to_scan));
+        size_t bytes_to_scan =
+                static_cast<size_t>(std::min(scan_end, static_cast<std::streamoff>(buffer.size())));
         std::streamoff scan_start = scan_end - static_cast<std::streamoff>(bytes_to_scan);
         d_raw_stream->seekg(scan_start, d_raw_stream->beg);
         d_raw_stream->read(buffer.data(), bytes_to_scan);
@@ -117,7 +115,8 @@ FileSource::findReadableSize()
             break;
         }
         scan_end = scan_start;
-        max_bytes_to_scan = buffer.size();  // Fill the buffer on subsequent iterations
+        // Only allocate the full buffer if the last byte wasn't a TRAILER.
+        buffer.resize(buffer_size);
     }
 
     d_raw_stream->clear();
