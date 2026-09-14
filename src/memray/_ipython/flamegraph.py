@@ -14,7 +14,6 @@ from IPython.core.magic import cell_magic
 from IPython.core.magic import magics_class
 from IPython.display import IFrame
 from IPython.display import display
-from rich import print as pprint
 
 from memray import FileReader
 from memray.commands.common import warn_if_not_enough_symbols
@@ -141,6 +140,8 @@ class FlamegraphMagics(Magics):
     @_typed_cell_magic
     def memray_flamegraph(self, line: str, cell: str) -> None:
         """Memory profile the code in the cell and display a flame graph."""
+        from rich import print as pprint
+
         if self.shell is None:
             raise UsageError("Cannot profile code when not in a shell")
 

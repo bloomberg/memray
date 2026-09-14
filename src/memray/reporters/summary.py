@@ -10,7 +10,7 @@ from rich.table import Table
 
 from memray import AllocationRecord
 from memray._memray import size_fmt
-from memray.reporters.tui import aggregate_allocations
+from memray.reporters.common import aggregate_allocations
 
 MAX_MEMORY_RATIO = 0.95
 DEFAULT_TERMINAL_LINES = 24

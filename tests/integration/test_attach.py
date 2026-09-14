@@ -64,6 +64,9 @@ alloc_thread.join()
 io_thread.join()
 
 foo()
+assert "jinja2" not in sys.modules
+assert "textual" not in sys.modules
+assert "rich" not in sys.modules
 """
 
 
