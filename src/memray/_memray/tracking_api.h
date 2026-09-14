@@ -281,7 +281,8 @@ class Tracker
         RecursionGuard guard;
 
         std::optional<NativeTrace> trace{std::nullopt};
-        if (Tracker::areNativeTracesEnabled()) {
+        // Only creation events store native stacks.
+        if (event == 0 && Tracker::areNativeTracesEnabled()) {
             if (!prepareNativeTrace(trace)) {
                 return;
             }

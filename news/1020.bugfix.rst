@@ -1,0 +1,1 @@
+Avoid unnecessary native stack unwinding for object destruction events when tracking object lifetimes.
