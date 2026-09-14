@@ -44,6 +44,8 @@ def _run_tracker(
 ) -> None:
     try:
         kwargs: Dict[str, Any] = {}
+        if args.native_trace_cache:
+            kwargs["native_trace_cache"] = True
         if args.follow_fork:
             kwargs["follow_fork"] = True
         if args.trace_python_allocators:
@@ -89,6 +91,7 @@ def _run_tracker(
 def _child_process(
     port: int,
     native: bool,
+    native_trace_cache: bool,
     trace_python_allocators: bool,
     run_as_module: bool,
     run_as_cmd: bool,
@@ -98,6 +101,7 @@ def _child_process(
 ) -> None:
     args = argparse.Namespace(
         native=native,
+        native_trace_cache=native_trace_cache,
         trace_python_allocators=trace_python_allocators,
         follow_fork=False,
         aggregate=False,
@@ -118,7 +122,7 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
         raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     arguments = (
-        f"{port},{args.native},{args.trace_python_allocators},"
+        f"{port},{args.native},{args.native_trace_cache},{args.trace_python_allocators},"
         f"{args.run_as_module},{args.run_as_cmd},{args.quiet},"
         f"{args.script!r},{args.script_args}"
     )
@@ -250,6 +254,12 @@ class RunCommand:
             default=False,
         )
         parser.add_argument(
+            "--native-trace-cache",
+            help="Cache repeated native stack traces (requires --native)",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
             "--follow-fork",
             action="store_true",
             help="Record allocations in child processes forked from the tracked script",
@@ -337,6 +347,8 @@ class RunCommand:
         if args.no_compress:
             args.compress_on_exit = False
 
+        if args.native_trace_cache and not args.native:
+            parser.error("--native-trace-cache requires --native")
         if args.live_port is not None and not args.live_remote_mode:
             parser.error("The --live-port argument requires --live-remote")
         if args.follow_fork is True and (args.live_mode or args.live_remote_mode):

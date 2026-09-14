@@ -727,6 +727,8 @@ cdef class Tracker:
         native_traces (bool): Whether or not to capture native stack frames, in
             addition to Python stack frames (see :ref:`Native Tracking`).
             Defaults to False.
+        native_trace_cache (bool): Whether to cache repeated native stack
+            traces. Requires *native_traces*. Defaults to False.
         trace_python_allocators (bool): Whether or not to trace Python allocators
             as independent allocations. (see :ref:`Python allocators`).
             Defaults to False.
@@ -750,6 +752,7 @@ cdef class Tracker:
             of supported file formats and their limitations.
     """
     cdef bool _native_traces
+    cdef bool _native_trace_cache
     cdef bool _track_object_lifetimes
     cdef unsigned int _memory_interval_ms
     cdef bool _follow_fork
@@ -785,12 +788,15 @@ cdef class Tracker:
             raise TypeError("destination must be a SocketDestination or FileDestination")
 
     def __cinit__(self, object file_name=None, *, object destination=None,
-                  bool native_traces=False, unsigned int memory_interval_ms = 10,
+                  bool native_traces=False, bool native_trace_cache=False,
+                  unsigned int memory_interval_ms = 10,
                   bool follow_fork=False, bool trace_python_allocators=False,
                   bool track_object_lifetimes=False,
                   FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
+        if native_trace_cache and not native_traces:
+            raise ValueError("native_trace_cache requires native_traces=True")
 
         # Check Python version if reference tracking is enabled
         if track_object_lifetimes and sys.version_info < (3, 13, 3):
@@ -810,6 +816,7 @@ cdef class Tracker:
         py_sys_path = [os.path.abspath(p) for p in path_info["sys_path"]]
 
         self._native_traces = native_traces
+        self._native_trace_cache = native_trace_cache
         self._track_object_lifetimes = track_object_lifetimes
         self._memory_interval_ms = memory_interval_ms
         self._follow_fork = follow_fork
@@ -877,6 +884,7 @@ cdef class Tracker:
             NativeTracker.createTracker(
                 move(writer),
                 self._native_traces,
+                self._native_trace_cache,
                 self._memory_interval_ms,
                 self._follow_fork,
                 self._trace_python_allocators,
