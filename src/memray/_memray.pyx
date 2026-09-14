@@ -737,6 +737,8 @@ cdef class Tracker:
             reference tracer, exiting the tracker raises RuntimeError. Object
             lifetime records in that capture are incomplete, and surviving
             objects are unavailable.
+            On free-threaded Python, cleanup leaves an inactive reference
+            tracer installed until another tool replaces or removes it.
         follow_fork (bool): Whether or not to continue tracking in a subprocess
             that is forked from the tracked process (see :ref:`Tracking across
             Forks`). Defaults to False.

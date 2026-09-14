@@ -276,14 +276,20 @@ class Tracker
     __attribute__((always_inline)) inline static void
     trackObject(PyObject* obj, compat::RefTracerEvent event, void* data)
     {
+        // Free-threaded cleanup leaves a retired callback installed. Its data
+        // is only an opaque identity: never dereference it after retirement.
+        if (!data || data != s_reference_tracking_owner.load()) {
+            return;
+        }
+
         switch (event) {
             case compat::RefTracer_CREATE:
             case compat::RefTracer_DESTROY:
                 break;
 #if PY_VERSION_HEX >= 0x030F0000
             case compat::RefTracer_TRACKER_REMOVED: {
-                // This also runs during our own cleanup, with the recursion
-                // guard active. Do not lock or touch obj:
+                // Removal notifications can arrive with the recursion guard
+                // active. Do not lock or touch obj:
                 // CPython supplies nullptr for this notification.
                 Tracker* tracker = getTracker();
                 if (tracker && tracker == data) {
@@ -312,7 +318,9 @@ class Tracker
 
         std::unique_lock<std::mutex> lock(*s_mutex);
         Tracker* tracker = getTracker();
-        if (tracker && !tracker->d_reference_tracking_lost.load()) {
+        if (tracker && tracker == data && tracker == s_reference_tracking_owner.load()
+            && !tracker->d_reference_tracking_lost.load())
+        {
             tracker->trackObjectImpl(obj, event, trace);
         }
     }
@@ -459,6 +467,7 @@ class Tracker
     static pthread_key_t s_native_unwind_vector_key;
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
+    static std::atomic<Tracker*> s_reference_tracking_owner;
 
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;

@@ -612,6 +612,7 @@ std::unique_ptr<std::mutex> Tracker::s_mutex(new std::mutex);
 pthread_key_t Tracker::s_native_unwind_vector_key;
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
+std::atomic<Tracker*> Tracker::s_reference_tracking_owner = nullptr;
 
 PythonStackTracker::LazilyEmittedFrame::LazilyEmittedFrame(PyFrameObject* frame)
 {
@@ -1367,15 +1368,26 @@ Tracker::ownsReferenceTrackingHooks() const noexcept
 void
 Tracker::registerReferenceTrackingHooks() noexcept
 {
+    s_reference_tracking_owner.store(this);
     compat::refTracerSetTracer(intercept::pyreftracer, this);
 }
 
 void
 Tracker::unregisterReferenceTrackingHooks() const noexcept
 {
+    s_reference_tracking_owner.store(nullptr);
+#ifndef Py_GIL_DISABLED
     if (ownsReferenceTrackingHooks()) {
         compat::refTracerSetTracer(nullptr, nullptr);
     }
+#else
+    // SetTracer stops the world, potentially detaching this thread while it
+    // waits for another setter. Ownership checked before that wait can be
+    // obsolete by the time it installs nullptr. Nor can we call SetTracer
+    // inside a stop-the-world guard: those locks are not recursive.
+    // Leave our callback retired instead. It reads only the atomic owner
+    // above, retains no Tracker or Python objects, and can safely be replaced.
+#endif
 }
 
 std::unordered_set<PyObject*>
@@ -1419,9 +1431,9 @@ Tracker::getSurvivingObjects()
         d_tracked_objects.clear();
     }
 
-    // SetTracer stops the world itself, so it must run outside our guard.
-    // The surviving objects now have strong references and are safe to use
-    // even if another thread replaces our tracer before we unregister it.
+    // The surviving objects now have strong references. Retire or unregister
+    // our callback before returning them to Python; another thread replacing
+    // the tracer at this point cannot invalidate these references.
     if (d_reference_tracking) {
         unregisterReferenceTrackingHooks();
     }
