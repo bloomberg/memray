@@ -1,0 +1,1 @@
+``memray transform csv`` now keeps allocations separated by thread instead of merging them across threads, so the ``tid`` and ``thread_name`` columns always identify the thread that performed each allocation. This makes the CSV output easier to group and filter by thread. Other ``memray transform`` formats are unaffected and continue to merge allocations across threads.

@@ -1,4 +1,5 @@
 import contextlib
+import csv
 import json
 import os
 import platform
@@ -33,6 +34,44 @@ def simple_test_file(tmp_path):
         print("Allocating some memory!")
         allocator = MemoryAllocator()
         allocator.valloc(1024)
+        """
+    )
+    code_file.write_text(program)
+    yield code_file
+
+
+@pytest.fixture
+def multithreaded_test_file(tmp_path):
+    """A program where several threads perform an allocation at the same call
+    stack and keep it alive simultaneously, so the allocation is part of the
+    high water mark on every thread."""
+    code_file = tmp_path / "code.py"
+    program = textwrap.dedent(
+        """\
+        import threading
+
+        from memray._test import MemoryAllocator
+
+        NTHREADS = 3
+        barrier = threading.Barrier(NTHREADS + 1)
+        allocators = []
+
+        def worker():
+            allocator = MemoryAllocator()
+            allocator.valloc(8 * 1024 * 1024)
+            allocators.append(allocator)
+            barrier.wait()  # all workers have allocated -> we are at the peak
+            barrier.wait()  # keep the allocations alive until the main thread frees
+
+        threads = [threading.Thread(target=worker) for _ in range(NTHREADS)]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        barrier.wait()
+        for allocator in allocators:
+            allocator.free()
+        for thread in threads:
+            thread.join()
         """
     )
     code_file.write_text(program)
@@ -1782,6 +1821,37 @@ class TestLiveSubcommand:
 
 
 class TestTransformSubCommands:
+    CSV_HEADER = [
+        "allocator",
+        "num_allocations",
+        "size",
+        "tid",
+        "thread_name",
+        "stack_trace",
+    ]
+
+    def _run_transform_csv(self, tmp_path, results_file, *extra_args):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                "csv",
+                "-f",
+                *extra_args,
+                str(results_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
+        output_file = tmp_path / "memray-csv-result.csv"
+        assert output_file.exists()
+        header, *rows = list(csv.reader(output_file.read_text().splitlines()))
+        assert header == self.CSV_HEADER
+        return rows
+
     def test_report_detects_missing_input(self):
         # GIVEN / WHEN
         proc = subprocess.run(
@@ -1888,3 +1958,51 @@ class TestTransformSubCommands:
             "sampled",
         ]
         assert output_data["shared"]["frames"]
+
+    def test_csv_does_not_merge_worker_threads(self, tmp_path, multithreaded_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, multithreaded_test_file, native=False
+        )
+
+        # WHEN
+        rows = self._run_transform_csv(tmp_path, results_file)
+
+        # THEN: the identical allocation made on each worker thread stays on its
+        # own row, carrying that thread's own real thread id.
+        worker_vallocs = [
+            row for row in rows if row[0] == "VALLOC" and "|worker;" in row[5]
+        ]
+        assert len(worker_vallocs) == 3
+        assert all(row[1] == "1" for row in worker_vallocs)
+        tids = {row[3] for row in worker_vallocs}
+        assert len(tids) == 3
+        assert "-1" not in tids
+
+    @pytest.mark.parametrize("fmt", ["csv", "gprof2dot", "speedscope"])
+    def test_split_threads_option_is_not_accepted(
+        self, tmp_path, simple_test_file, fmt
+    ):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, native=False
+        )
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                fmt,
+                "--split-threads",
+                str(results_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 2
+        assert "unrecognized arguments: --split-threads" in proc.stderr
