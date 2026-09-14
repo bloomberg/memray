@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Memray: the endgame memory profiler</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href=" _static/css/custom.css" rel="stylesheet">
+
+    <style>
+        .m-intro:before {
+            background-image: url("_static/images/circle_inner_opt.png");
+        }
+
+        .m-intro:after {
+            background-image: url("_static/images/circle_outer_opt.png");
+        }
+    </style>
+    <link rel="icon" href="_static/favicon.ico">
+
+</head>
+
+<body>
+
+    <header>
+        <nav class="navbar navbar-expand-md fixed-top">
+            <div class="navbar-brand">
+                <img src=" _static/images/logo.png " style="height: 2rem;" alt="Memray logo">
+            </div>
+
+            <div class="navbar-light bg-light">
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
+                    aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+
+            <div class="collapse navbar-collapse" id="navbarNavDropdown">
+                <ul class="navbar-nav mr-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="overview.html">Documentation</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="getting_started.html">Getting Started</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink3" data-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
+                            Try for yourself
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink3">
+                            <a class="dropdown-item" href="tutorials/index.html">Tutorials</a>
+                            <a class="dropdown-item" href="examples/README.html">Examples</a>
+                        </div>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/bloomberg/pytest-memray">Pytest plugin</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink2" data-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
+                            Community
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink2">
+                            <a class="dropdown-item" href="https://github.com/bloomberg/memray">Github</a>
+                            <a class="dropdown-item" href="https://pypi.org/project/memray/">PyPI</a>
+                            <a class="dropdown-item"
+                                href="https://github.com/bloomberg/memray/discussions">Discussions</a>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main role="main">
+
+        <section class="splash text-center">
+            <div class="m-intro">
+                <div class="splash-container" style="z-index: 2;">
+                    <img class="splash-image" src=" _static/images/logo.png " alt="<Memray logo">
+                    <div class="typewriter_container">
+                        <h1 class="lead typewriter"><b>The endgame Python memory profiler</b></h1>
+                    </div>
+                    <p class="lead text-muted">
+                        Memray tracks and reports memory allocations, both in Python code and in compiled
+                        extension modules.
+                    </p>
+                    <p>
+                        <a href=" getting_started.html "
+                            class="btn btn-primary filled-memray btn-lg">Documentation</a>
+                        <a href="https://github.com/bloomberg/memray/discussions"
+                            class="btn btn-secondary btn-lg">Community</a>
+                    </p>
+                    <div class="mouse"> <span></span> </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Marketing messaging and featurettes
+      ================================================== -->
+        <!-- Wrap the rest of the page in another container to center all the content. -->
+
+        <div class="container marketing">
+
+            <hr class="featurette-divider">
+
+            <!-- Three columns of text below the carousel -->
+            <div class="row">
+                <div class="col-lg-4">
+                    <img class="rounded-circle rounded-header-image"
+                        src="_static/images/mandelbrot_operation_native.png"
+                        alt="Flame graph screenshot" width="140" height="140">
+                    <h2>See where it happens</h2>
+                    <p>
+                        Memray knows the stack trace of every single allocation that happens in your code, no
+                        matter how small it is. This lets you see exactly where your memory is being
+                        allocated and gives you insights on how to optimize your code.
+                    </p>
+                    <p><a class="btn btn-secondary filled-memray" href="flamegraph.html" role="button">View
+                            details &raquo;</a></p>
+                </div><!-- /.col-lg-4 -->
+                <div class="col-lg-4">
+                    <img class="rounded-circle rounded-header-image"
+                        src="_static/images/summary_example.png" alt="Summary reporter screenshot"
+                        width="140" height="140">
+                    <h2>More than just a profiler</h2>
+                    <p>
+                        Memray does much more than just telling you where your application is spending
+                        memory and which memory is being leaked. For instance, it can help you find wasteful
+                        temporary allocations that you can avoid to speed up your program.
+                    </p>
+                    <p><a class="btn btn-secondary filled-memray" href=" temporary_allocations.html "
+                            role="button">See how &raquo;</a></p>
+                </div><!-- /.col-lg-4 -->
+                <div class="col-lg-4">
+                    <img class="rounded-circle rounded-header-image"
+                        src="https://docs.pytest.org/en/7.2.x/_static/pytest_logo_curves.svg" alt="pytest logo"
+                        width="140" height="140">
+                    <h2>Prevent regressions</h2>
+                    <p>
+                        You can easily integrate Memray into your pytest test suite. Learn where each test is
+                        spending its memory with per-test allocation summaries with useful statistics, or set
+                        limits on how much memory each test is allowed to use to prevent memory regressions!
+                    </p>
+                    <p><a class="btn btn-secondary filled-memray" href="https://pytest-memray.readthedocs.io/en/latest/"
+                            role="button">Discover the plugin &raquo;</a></p>
+                </div><!-- /.col-lg-4 -->
+            </div><!-- /.row -->
+
+            <!-- START THE FEATURETTES -->
+            <hr class="featurette-divider">
+
+            <div class="row featurette">
+                <div class="col-md-7">
+                    <h2 class="featurette-heading">Native allocation tracking. <span class="text-muted">No more leaks
+                            in C extensions.</span></h2>
+                    <p class="lead">
+                        Memray sees allocations made by C/C++/Rust libraries.
+                        This means that when you use Memray to profile your
+                        Python code, you'll be able to see the entire call
+                        stack, including any calls to C/C++/Rust functions. This can
+                        be incredibly useful for tracking down memory issues, as
+                        it allows you to see exactly where and how memory is
+                        being allocated. Whether you're working
+                        on a complex project with many layers of code, or simply
+                        trying to optimize your Python scripts for better
+                        performance, Memray is an invaluable tool that can help
+                        you understand and improve your code's memory usage.
+                    </p>
+                </div>
+                <div class="col-md-5">
+                    <img class="featurette-image img-fluid mx-auto reveal_l"
+                        src="_static/images/native_mode_debug.png" alt="Native mode tracking">
+                </div>
+            </div>
+
+            <hr class="featurette-divider">
+
+            <div class="row featurette">
+                <div class="col-md-7 order-md-2">
+                    <h2 class="featurette-heading">Catch it as it happens! <span class="text-muted">Live memory
+                            profiling.</span></h2>
+                    <p class="lead">
+                        One of the standout features of Memray is its ability to
+                        provide a live, real-time view of memory allocation.
+                        With the live mode, you can see exactly how memory is
+                        being used as your Python code is executing. This can be
+                        particularly useful for debugging and optimizing your
+                        code, as you can see in real-time how different parts of
+                        your code are impacting memory usage.
+                    </p>
+                </div>
+                <div class="col-md-5 order-md-1">
+                    <img class="featurette-image img-fluid mx-auto reveal_r"
+                        src="_static/images/live_animated.webp" alt="Live mode">
+                </div>
+            </div>
+
+            <hr class="featurette-divider">
+
+            <div class="row featurette">
+                <div class="col-md-7">
+                    <h2 class="featurette-heading">One log, many analyses. <span class="text-muted">
+                            There's a reporter for everyone!</span></h2>
+                    <p class="lead">
+                        One of the great things about Memray is its flexibility
+                        and customizability. After running a memory profiling
+                        session, you can use a wide range of reporters to view
+                        the data in different ways. For example, you can use the
+                        flamegraph reporter to see a visual representation of
+                        the call stack and how memory is being used at each
+                        level. Or, you can use the statistical reporter to see
+                        summary statistics and trends in your memory usage.
+                        And these are just a few of the many reporters available
+                        in Memray - there are many more to choose from, allowing
+                        you to view your data in the way that makes the most
+                        sense for your specific needs.
+                    </p>
+                </div>
+                <div class="col-md-5">
+                    <img class="featurette-image img-fluid mx-auto reveal_l"
+                        src="_static/images/stats_example.png" alt="Many reporters">
+                </div>
+            </div>
+
+            <div class="row featurette">
+                <h2 class="featurette-heading">Memray in the media</h2>
+                <div class="row">
+                    <br>
+                    <div class="card-container">
+                        <div class="card-columns">
+                            <a href="https://news.ycombinator.com/item?id=31102089" class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Memray: a memory profiler for Python</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Hacker News - 2022-04-20</h6>
+                                </div>
+                            </a>
+                            <a href="https://pythonbytes.fm/episodes/show/282/dont-embarrass-me-in-front-of-the-wizards"
+                                class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">#282: Don't Embarrass Me in Front of The Wizards</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">PythonBytes (podcast) - 2022-05-03</h6>
+                                </div>
+                            </a>
+                            <a href="https://sdtimes.com/softwaredev/sd-times-open-source-project-of-the-week-memray/"
+                                class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">SD Times Open-Source Project of the Week: Memray</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">SD Times - 2022-05-06</h6>
+                                </div>
+                            </a>
+                            <a href="https://devclass.com/2022/05/12/core-dev-memray-memory-profiler/" class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">New Memray memory profiler tracks both Python and native code
+                                    </h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">DevClass - 2022-05-12</h6>
+                                </div>
+                            </a>
+                            <a href="https://blog.opensource.org/memray-project-showcases-why-bloomberg-is-an-open-source-first-company/"
+                                class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Memray project showcases why Bloomberg is an ‘open source
+                                        first’ company</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Voice of Open Source - 2022-05-17</h6>
+                                </div>
+                            </a>
+                            <a href="https://www.datanami.com/2022/05/18/memray-shines-a-light-on-python-c-c-memory-problems/"
+                                class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Memray Shines a Light on Python-C/C++ Memory Problems</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Datanimi - 2022-05-18</h6>
+                                </div>
+                            </a>
+                            <a href="https://console.substack.com/p/console-107?s=r" class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">#107 -- Interview With Pablo of Bloomberg about Memray</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Console - 2022-05-29</h6>
+                                </div>
+                            </a>
+                            <a href="https://realpython.com/podcasts/rpp/128/" class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Episode 128: Using a Memory Profiler in Python & What It Can
+                                        Teach You</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">The Real Python Podcast - 2022-010-7</h6>
+                                </div>
+                            </a>
+                            <a href="https://tryolabs.com/blog/2022/12/26/top-python-libraries-2022" class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Top Python libraries of 2022</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Tyro Labs - 2022-012-26</h6>
+                                </div>
+                            </a>
+                            <a href="https://www.dice.com/career-advice/developer-qa-pablo-galindo-talks-pythons-speedy-future"
+                                class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Developer Q&A: Pablo Galindo Salgado Talks Python's Speedy
+                                        Future</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Dice - 2022-01-05</h6>
+                                </div>
+                            </a>
+                            <a href="https://www.reddit.com/r/Python/comments/u84tjr/bloomberg_just_open_sourced_memray_a_memory/"
+                                class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Bloomberg just Open sourced Memray a memory profiler for
+                                        Python</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Reddit - 2022-04-20</h6>
+                                </div>
+                            </a>
+                            <a href="https://newsletter.researchcomputingteams.org/archive/research-computing-teams-119-23-apr-2022/"
+                                class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Research Computing Teams #119, 23 Apr 2022</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Research Computing Teams - 2022-04-23</h6>
+                                </div>
+                            </a>
+                            <a href="https://console.substack.com/p/console-102?s=r" class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Console #102 -- Snapdrop, Memray, and Headless Recorder </h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Console - 2022-04-24</h6>
+                                </div>
+                            </a>
+                            <a href="https://www.infoq.com/news/2022/04/bloomberg-memray-python-profiler/" class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Bloomberg Open-Sources Python Memory Profiler Memray</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">InfoQ - 2022-04-26</h6>
+                                </div>
+                            </a>
+                            <a href="https://thestack.technology/memray-python-memory-profiler-bloomberg/" class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Check your Memray: Bloomberg open sources tool for Python
+                                        apps</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">The Stack - 2022-04-29</h6>
+                                </div>
+                            </a>
+                            <a href="https://www.marktechpost.com/2022/04/30/bloomberg-open-sources-memray-a-memory-profiler-that-can-track-memory-allocations-in-python-code-in-native-extension-modules-and-python-interpreter/"
+                                class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Bloomberg Open-Sources Memray</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">Market Tech - 4/30/22</h6>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div><!-- /.row -->
+            </div>
+            <!-- /END THE FEATURETTES -->
+
+        </div><!-- /.container -->
+
+        <!-- FOOTER -->
+        <footer class="container">
+            <p class="float-right"><a href="#">Back to top</a></p>
+            <p> <a href="https://github.com/bloomberg/memray">GitHub Page</a> &middot; <a
+                    href="https://github.com/bloomberg/memray/blob/main/LICENSE">License</a></p>
+        </footer>
+    </main>
+
+    <!-- Bootstrap core JavaScript
+      ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+        integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+        crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
+    <!-- Custom JS -->
+    <script src="_static/js/custom.js"></script>
+
+</html>
