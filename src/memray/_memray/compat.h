@@ -176,6 +176,11 @@ parseLinetable(
 #if PY_VERSION_HEX >= 0x030D0000
 using RefTracer = PyRefTracer;
 using RefTracerEvent = PyRefTracerEvent;
+constexpr auto RefTracer_CREATE = PyRefTracer_CREATE;
+constexpr auto RefTracer_DESTROY = PyRefTracer_DESTROY;
+#    if PY_VERSION_HEX >= 0x030F0000
+constexpr auto RefTracer_TRACKER_REMOVED = PyRefTracer_TRACKER_REMOVED;
+#    endif
 #else
 typedef enum { RefTracer_CREATE = 0, RefTracer_DESTROY = 1 } RefTracerEvent;
 using RefTracer = int (*)(PyObject*, RefTracerEvent event, void* data);
@@ -188,6 +193,17 @@ refTracerSetTracer(RefTracer tracer, void* data)
     return PyRefTracer_SetTracer(tracer, data);
 #else
     return 0;
+#endif
+}
+
+inline RefTracer
+refTracerGetTracer(void** data)
+{
+#if PY_VERSION_HEX >= 0x030D0000
+    return PyRefTracer_GetTracer(data);
+#else
+    *data = nullptr;
+    return nullptr;
 #endif
 }
 

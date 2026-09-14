@@ -22,19 +22,27 @@ permissions: {}
 
 jobs:
   coverage:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     env:
-      PYTHON: python3.13
+      PYTHON: ${{ matrix.python }}
       MEMRAY_MINIMIZE_INLINING: 1
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - name: coverage
+            python: python3.13
+            free_threaded: false
+          - name: coverage (Python 3.15 free-threaded)
+            python: python
+            free_threaded: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Set up dependencies
         run: |
-          sudo add-apt-repository ppa:deadsnakes/ppa
           sudo apt-get update
           sudo apt-get install -qy \
             pkg-config \
@@ -44,21 +52,48 @@ jobs:
             gdb \
             lcov \
             libdw-dev \
-            libelf-dev \
-            ${PYTHON}-dev \
-            ${PYTHON}-dbg \
-            ${PYTHON}-venv
+            libelf-dev
+      - name: Install Python 3.13
+        if: ${{ !matrix.free_threaded }}
+        run: |
+          sudo add-apt-repository ppa:deadsnakes/ppa
+          sudo apt-get update
+          sudo apt-get install -qy python3.13-dev python3.13-dbg python3.13-venv
       - name: Create a virtualenv
+        if: ${{ !matrix.free_threaded }}
         run: |
           ${PYTHON} -m venv /tmp/coverage-venv
+      - name: Install uv
+        if: ${{ matrix.free_threaded }}
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+      - name: Create a free-threaded virtualenv
+        if: ${{ matrix.free_threaded }}
+        run: |
+          uv venv --python 3.15t --seed /tmp/coverage-venv
+          echo "PYTHON_GIL=0" >>"$GITHUB_ENV"
       - name: Set up PATH
         run: |
           echo /tmp/coverage-venv/bin >>"$GITHUB_PATH"
           echo /home/runner/node_modules/.bin >>"$GITHUB_PATH"
       - name: Install Python dependencies
         run: |
-          ${PYTHON} -m pip install --upgrade pip scikit-build-core cython pkgconfig "pyarrow>=25.0"
+          ${PYTHON} -m pip install --upgrade pip scikit-build-core cython pkgconfig "pyarrow>=25.0; python_version < '3.15'"
           make test-install
+      - name: Verify free-threaded coverage support
+        if: ${{ matrix.free_threaded }}
+        run: |
+          ${PYTHON} - <<'PY'
+          import sys
+          import coverage
+          import memray
+          cov = coverage.Coverage(config_file="pyproject.toml")
+          cov.start()
+          assert not sys._is_gil_enabled(), "Coverage must exercise the disabled-GIL build"
+          assert cov.get_option("run:core") == "ctrace"
+          cov.stop()
+          PY
       - name: Disable ptrace security restrictions
         run: |
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
@@ -73,10 +108,12 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: cppcoverage.lcov
+          disable_search: true
           flags: cpp
       - name: Upload {P,C}ython report to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: pycoverage.lcov
+          disable_search: true
           flags: python_and_cython
