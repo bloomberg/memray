@@ -34,6 +34,7 @@ input = "src/memray/_version.py"
 [project.optional-dependencies]
 test = [
   "Cython",
+  "coverage[toml]>=7.10.6",
   "greenlet; python_version < '3.15'",
   "pytest",
   "pytest-cov",
@@ -56,6 +57,7 @@ lint = ["black", "flake8", "isort", "mypy", "check-manifest"]
 benchmark = ["asv"]
 dev = [
   "Cython",
+  "coverage[toml]>=7.10.6",
   "greenlet; python_version < '3.15'",
   "pytest",
   "pytest-cov",
@@ -117,7 +119,7 @@ wheel.packages = ["src/memray"]
 wheel.exclude = ["memray/_memray/**"]
 
 [dependency-groups]
-test=['Cython', 'coverage[toml]', "greenlet; python_version < '3.15'", 'pytest', 'pytest-cov', 'ipython', 'scikit-build-core', 'setuptools', 'pkgconfig', 'pytest-textual-snapshot', 'textual >= 0.43, != 0.65.2, != 0.66', 'packaging']
+test=['Cython', 'coverage[toml]>=7.10.6', "greenlet; python_version < '3.15'", 'pytest', 'pytest-cov', 'ipython', 'scikit-build-core', 'setuptools', 'pkgconfig', 'pytest-textual-snapshot', 'textual >= 0.43, != 0.65.2, != 0.66', 'packaging']
 docs=['IPython', 'sphinx','sphinx-autobuild', 'sphinx-argparse', 'furo']
 extra=['mypy', 'bump2version','towncrier', 'prek', {include-group = "docs"}]
 
@@ -233,6 +235,9 @@ before-test = [
 
 [tool.coverage.run]
 plugins = ["Cython.Coverage"]
+# The sysmon core does not support the Cython file-tracer plugin.
+core = "ctrace"
+patch = ["subprocess"]
 source = ["src/memray", "tests/"]
 branch = true
 parallel = true
