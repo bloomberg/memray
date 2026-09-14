@@ -273,8 +273,29 @@ class Tracker
     }
 
     // Object tracking interface
-    __attribute__((always_inline)) inline static void trackObject(PyObject* obj, int event)
+    __attribute__((always_inline)) inline static void
+    trackObject(PyObject* obj, compat::RefTracerEvent event, void* data)
     {
+        switch (event) {
+            case compat::RefTracer_CREATE:
+            case compat::RefTracer_DESTROY:
+                break;
+#if PY_VERSION_HEX >= 0x030F0000
+            case compat::RefTracer_TRACKER_REMOVED: {
+                // This also runs during our own cleanup, with the recursion
+                // guard active. Do not lock or touch obj:
+                // CPython supplies nullptr for this notification.
+                Tracker* tracker = getTracker();
+                if (tracker && tracker == data) {
+                    tracker->d_reference_tracking_lost.store(true);
+                }
+                return;
+            }
+#endif
+            default:
+                return;
+        }
+
         if (RecursionGuard::isActive() || !Tracker::isActive()) {
             return;
         }
@@ -291,7 +312,7 @@ class Tracker
 
         std::unique_lock<std::mutex> lock(*s_mutex);
         Tracker* tracker = getTracker();
-        if (tracker) {
+        if (tracker && !tracker->d_reference_tracking_lost.load()) {
             tracker->trackObjectImpl(obj, event, trace);
         }
     }
@@ -446,6 +467,7 @@ class Tracker
     const bool d_follow_fork;
     const bool d_trace_python_allocators;
     const bool d_reference_tracking;
+    std::atomic<bool> d_reference_tracking_lost{false};
     linker::SymbolPatcher d_patcher;
     std::unique_ptr<BackgroundThread> d_background_thread;
 
@@ -463,7 +485,10 @@ class Tracker
             hooks::Allocator func,
             const std::optional<NativeTrace>& trace);
     void trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func);
-    void trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTrace>& trace);
+    void trackObjectImpl(
+            PyObject* obj,
+            compat::RefTracerEvent event,
+            const std::optional<NativeTrace>& trace);
     void invalidate_module_cache_impl();
     void updateModuleCacheImpl();
     void registerThreadNameImpl(const char* name);
@@ -471,7 +496,8 @@ class Tracker
     void dropCachedThreadName();
     void registerPymallocHooks() const noexcept;
     void unregisterPymallocHooks() const noexcept;
-    void registerReferenceTrackingHooks() const noexcept;
+    bool ownsReferenceTrackingHooks() const noexcept;
+    void registerReferenceTrackingHooks() noexcept;
     void unregisterReferenceTrackingHooks() const noexcept;
 
     explicit Tracker(

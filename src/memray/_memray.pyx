@@ -733,7 +733,10 @@ cdef class Tracker:
         track_object_lifetimes (bool): Whether or not to track which objects are
             created during the tracking session and still alive at the end (or
             in other words, what objects are leaked by the code being tracked).
-            Defaults to False.
+            Defaults to False. If another tool replaces or removes the Python
+            reference tracer, exiting the tracker raises RuntimeError. Object
+            lifetime records in that capture are incomplete, and surviving
+            objects are unavailable.
         follow_fork (bool): Whether or not to continue tracking in a subprocess
             that is forked from the tracked process (see :ref:`Tracking across
             Forks`). Defaults to False.
@@ -886,19 +889,21 @@ cdef class Tracker:
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        if self._track_object_lifetimes:
-            self._populate_surviving_objects()
-        with tracker_creation_lock:
-            NativeTracker.destroyTracker()
-            sys.setprofile(self._previous_profile_func)
-            threading.setprofile(self._previous_thread_profile_func)
+        try:
+            if self._track_object_lifetimes:
+                self._populate_surviving_objects()
+        finally:
+            with tracker_creation_lock:
+                NativeTracker.destroyTracker()
+                sys.setprofile(self._previous_profile_func)
+                threading.setprofile(self._previous_thread_profile_func)
 
-            for attr in ("_name", "_ident"):
-                try:
-                    delattr(self._patched_thread_class, attr)
-                except AttributeError:
-                    pass
-            self._patched_thread_class = None
+                for attr in ("_name", "_ident"):
+                    try:
+                        delattr(self._patched_thread_class, attr)
+                    except AttributeError:
+                        pass
+                self._patched_thread_class = None
 
     cdef void _populate_surviving_objects(self):
         cdef NativeTracker *tracker = NativeTracker.getTracker()
