@@ -130,6 +130,12 @@ PyTraceFunction(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
 void
 install_trace_function();
 
+void
+set_monitoring_tool(int tool_id, PyObject* tool_name, PyObject* callbacks);
+
+void
+monitoring_trace_function(PyCodeObject* code, bool is_push);
+
 /**
  * Install our pthread fork handlers.
  */

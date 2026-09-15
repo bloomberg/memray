@@ -14,6 +14,7 @@ from posix.mman cimport munmap
 from posix.unistd cimport read
 from posix.unistd cimport write
 
+cimport cython
 from _memray.alloc cimport PyMem_Calloc
 from _memray.alloc cimport PyMem_Free
 from _memray.alloc cimport PyMem_Malloc
@@ -214,6 +215,7 @@ cdef class PymallocMemoryAllocator:
 cdef do_not_optimize_ptr(void* ptr):
     return ptr == <void*>(1)
 
+@cython.profile(True)
 def _cython_nested_allocation(allocator_fn, size):
     allocator_fn(size)
     cdef void* p = valloc(size);
@@ -308,3 +310,25 @@ cdef class PrimeCaches:
         return self
     def __exit__(self, *args):
         sys.setprofile(self.old_profile)
+
+
+@cython.profile(False)
+def allocate_after_nested_call(int ready_fd, int proceed_fd, callback, bint release_gil):
+    cdef char buf = 0
+    with nogil:
+        write(ready_fd, &buf, 1)
+        read(proceed_fd, &buf, 1)
+    callback()
+    cdef void* p
+    if release_gil:
+        with nogil:
+            p = valloc(4321)
+    else:
+        p = valloc(4321)
+    do_not_optimize_ptr(p)
+    free(p)
+
+
+@cython.profile(True)
+def profiled_cython_noop():
+    pass

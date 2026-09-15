@@ -9,6 +9,12 @@
 
 namespace memray::compat {
 
+bool
+isCurrentOrCallerFrame(PyFrameObject* frame);
+
+bool
+isMonitoringToolActive(int tool_id, PyObject* tool_name, PyObject* callbacks);
+
 inline int
 isPythonFinalizing()
 {

@@ -11,6 +11,14 @@ import pytest
 
 from memray import AllocatorType
 
+MONITORING_BACKEND_SUPPORTED = (
+    sys.version_info >= (3, 12) and getattr(sys, "_is_gil_enabled", lambda: True)()
+)
+requires_monitoring_backend = pytest.mark.skipif(
+    not MONITORING_BACKEND_SUPPORTED,
+    reason="requires the sys.monitoring backend",
+)
+
 
 def filter_relevant_allocations(records, ranged=False):
     addresses = set()

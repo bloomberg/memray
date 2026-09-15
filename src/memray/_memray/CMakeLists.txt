@@ -19,6 +19,7 @@ add_library(
   ${MEMRAY_LINKER_FILE}
   inject.cpp
   compat.cpp
+  compat_internal.c
   hooks.cpp
   logging.cpp
   native_resolver.cpp
