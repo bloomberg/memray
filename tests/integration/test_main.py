@@ -51,19 +51,23 @@ def multithreaded_test_file(tmp_path):
         import threading
 
         from memray._test import MemoryAllocator
+        from memray._test import set_thread_name
 
         NTHREADS = 3
         barrier = threading.Barrier(NTHREADS + 1)
         allocators = []
 
-        def worker():
+        def worker(index):
+            set_thread_name(f"worker-{index}")
             allocator = MemoryAllocator()
             allocator.valloc(8 * 1024 * 1024)
             allocators.append(allocator)
             barrier.wait()  # all workers have allocated -> we are at the peak
             barrier.wait()  # keep the allocations alive until the main thread frees
 
-        threads = [threading.Thread(target=worker) for _ in range(NTHREADS)]
+        threads = [
+            threading.Thread(target=worker, args=(i,)) for i in range(NTHREADS)
+        ]
         for thread in threads:
             thread.start()
         barrier.wait()
@@ -1969,15 +1973,26 @@ class TestTransformSubCommands:
         rows = self._run_transform_csv(tmp_path, results_file)
 
         # THEN: the identical allocation made on each worker thread stays on its
-        # own row, carrying that thread's own real thread id.
+        # own row, carrying that thread's own real thread id, size, and name.
         worker_vallocs = [
             row for row in rows if row[0] == "VALLOC" and "|worker;" in row[5]
         ]
         assert len(worker_vallocs) == 3
         assert all(row[1] == "1" for row in worker_vallocs)
+        assert all(row[2] == str(8 * 1024 * 1024) for row in worker_vallocs)
         tids = {row[3] for row in worker_vallocs}
         assert len(tids) == 3
         assert "-1" not in tids
+
+        if "linux" in sys.platform:
+            # Thread naming is only supported on Linux (see set_thread_name),
+            # so only check the exported names there. Each worker's row
+            # carries its own explicit name, e.g. "0x7f... (worker-1)".
+            thread_names = {
+                re.match(r"^0x[0-9a-f]+ \((.+)\)$", row[4]).group(1)
+                for row in worker_vallocs
+            }
+            assert thread_names == {"worker-0", "worker-1", "worker-2"}
 
     @pytest.mark.parametrize("fmt", ["csv", "gprof2dot", "speedscope"])
     def test_split_threads_option_is_not_accepted(
