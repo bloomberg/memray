@@ -612,6 +612,7 @@ std::unique_ptr<std::mutex> Tracker::s_mutex(new std::mutex);
 pthread_key_t Tracker::s_native_unwind_vector_key;
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
+std::atomic<Tracker*> Tracker::s_reference_tracking_owner = nullptr;
 
 PythonStackTracker::LazilyEmittedFrame::LazilyEmittedFrame(PyFrameObject* frame)
 {
@@ -884,9 +885,6 @@ Tracker::Tracker(
 
     PythonStackTracker::s_native_tracking_enabled = native_traces;
     PythonStackTracker::installProfileHooks();
-    if (d_reference_tracking) {
-        registerReferenceTrackingHooks();
-    }
     if (d_trace_python_allocators) {
         registerPymallocHooks();
     }
@@ -894,6 +892,12 @@ Tracker::Tracker(
     d_background_thread->start();
 
     d_patcher.overwrite_symbols();
+
+    // Install this last: the callback data must not outlive a constructor
+    // that fails before ownership of the tracker has been established.
+    if (d_reference_tracking) {
+        registerReferenceTrackingHooks();
+    }
 }
 
 Tracker::~Tracker()
@@ -914,7 +918,6 @@ Tracker::~Tracker()
         gstate = PyGILState_Ensure();
 
         if (d_reference_tracking) {
-            std::scoped_lock<std::mutex> lock(*s_mutex);
             unregisterReferenceTrackingHooks();
         }
 
@@ -1193,12 +1196,15 @@ Tracker::trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func)
 }
 
 void
-Tracker::trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTrace>& trace)
+Tracker::trackObjectImpl(
+        PyObject* obj,
+        compat::RefTracerEvent event,
+        const std::optional<NativeTrace>& trace)
 {
     registerCachedThreadName();
     PythonStackTracker::get().emitPendingPushesAndPops();
 
-    if (event == 0) {  // Creation event
+    if (event == compat::RefTracer_CREATE) {
         d_tracked_objects.emplace(obj);
 
         if (d_unwind_native_frames) {
@@ -1224,7 +1230,7 @@ Tracker::trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTra
                 deactivate();
             }
         }
-    } else {  // Destruction event
+    } else if (event == compat::RefTracer_DESTROY) {
         d_tracked_objects.erase(obj);
         ObjectRecord record{reinterpret_cast<uintptr_t>(obj), false};
         if (!d_writer->writeThreadSpecificRecord(thread_id(), record)) {
@@ -1352,49 +1358,75 @@ Tracker::dropCachedThreadName()
     d_cached_thread_names.erase((uint64_t)(pthread_self()));
 }
 
-void
-Tracker::registerReferenceTrackingHooks() const noexcept
+bool
+Tracker::ownsReferenceTrackingHooks() const noexcept
 {
-    compat::refTracerSetTracer(intercept::pyreftracer, nullptr);
+    void* data = nullptr;
+    return compat::refTracerGetTracer(&data) == intercept::pyreftracer && data == this;
+}
+
+void
+Tracker::registerReferenceTrackingHooks() noexcept
+{
+    s_reference_tracking_owner.store(this);
+    compat::refTracerSetTracer(intercept::pyreftracer, this);
 }
 
 void
 Tracker::unregisterReferenceTrackingHooks() const noexcept
 {
-    compat::refTracerSetTracer(nullptr, nullptr);
+    s_reference_tracking_owner.store(nullptr);
+    // Only remove the tracer if it is still ours: another tool may have
+    // replaced it. This check-then-set is race-free under the GIL. On
+    // free-threaded builds, a tracer that another thread installs between the
+    // check and the set is overwritten, because CPython offers no atomic way
+    // to remove only our own tracer.
+    if (ownsReferenceTrackingHooks()) {
+        compat::refTracerSetTracer(nullptr, nullptr);
+    }
 }
 
 std::unordered_set<PyObject*>
 Tracker::getSurvivingObjects()
 {
-    std::scoped_lock<std::mutex> lock(*s_mutex);
     RecursionGuard guard;
-
     std::unordered_set<PyObject*> surviving_objects;
-    // remove everything with 0 refcount
-    for (auto obj : d_tracked_objects) {
-#ifndef Py_GIL_DISABLED
-        // CPython used to have some bugs where deallocation of objects
-        // wasn't triggering the tracking hooks and that was causing us
-        // to see deleted objects at this stage. This check is left here
-        // as a precaution to know if CPython is still missing some cases
-        // still. The check is not done in free-threaded builds because
-        // the semantics of Py_REFCNT are more complicated and this may not
-        // do what we want.
-        if (Py_REFCNT(obj) == 0) {
-            Py_UNREACHABLE();
+    {
+        // Replacing the tracer can leave stale pointers in d_tracked_objects.
+        // Keep other threads stopped (a no-op before 3.14) between checking
+        // that the tracer is still ours and taking strong references to the
+        // surviving objects. Same lock order as createTracker.
+        StopTheWorldGuard stop_the_world;
+        std::scoped_lock<std::mutex> lock(*s_mutex);
+        if (d_reference_tracking_lost.load() || !ownsReferenceTrackingHooks()) {
+            d_tracked_objects.clear();
+            throw std::runtime_error(
+                    "Object lifetime tracking was interrupted because the reference tracer was "
+                    "replaced or removed");
         }
-#endif
-        Py_INCREF(obj);
-        surviving_objects.insert(obj);
-    }
-    d_tracked_objects.clear();
 
-    // While we hold s_mutex and our reference tracking hooks are installed,
-    // other threads can't destroy any objects. As soon as we uninstall the
-    // tracking hooks, objects can be destroyed by background threads without
-    // us finding out. This means we can't uninstall the hooks until after
-    // we've incremented the reference count of all the surviving objects.
+        for (auto obj : d_tracked_objects) {
+#ifndef Py_GIL_DISABLED
+            // CPython used to have some bugs where deallocation of objects
+            // wasn't triggering the tracking hooks and that was causing us
+            // to see deleted objects at this stage. This check is left here
+            // as a precaution to know if CPython is still missing some cases
+            // still. The check is not done in free-threaded builds because
+            // the semantics of Py_REFCNT are more complicated and this may not
+            // do what we want.
+            if (Py_REFCNT(obj) == 0) {
+                Py_UNREACHABLE();
+            }
+#endif
+            Py_INCREF(obj);
+            surviving_objects.insert(obj);
+        }
+        d_tracked_objects.clear();
+    }
+
+    // The surviving objects now hold strong references, so unregistering the
+    // tracer here cannot invalidate them. This must happen outside the guard
+    // above: PyRefTracer_SetTracer stops the world itself on newer versions.
     if (d_reference_tracking) {
         unregisterReferenceTrackingHooks();
     }

@@ -562,7 +562,7 @@ PyGILState_Ensure() noexcept
 int
 pyreftracer(PyObject* obj, compat::RefTracerEvent event, void* data) noexcept
 {
-    tracking_api::Tracker::trackObject(obj, event);
+    tracking_api::Tracker::trackObject(obj, event, data);
     return 0;
 }
 
