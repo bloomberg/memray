@@ -1376,18 +1376,14 @@ void
 Tracker::unregisterReferenceTrackingHooks() const noexcept
 {
     s_reference_tracking_owner.store(nullptr);
-#ifndef Py_GIL_DISABLED
+    // Only remove the tracer if it is still ours: another tool may have
+    // replaced it. This check-then-set is race-free under the GIL. On
+    // free-threaded builds, a tracer that another thread installs between the
+    // check and the set is overwritten, because CPython offers no atomic way
+    // to remove only our own tracer.
     if (ownsReferenceTrackingHooks()) {
         compat::refTracerSetTracer(nullptr, nullptr);
     }
-#else
-    // SetTracer stops the world, potentially detaching this thread while it
-    // waits for another setter. Ownership checked before that wait can be
-    // obsolete by the time it installs nullptr. Nor can we call SetTracer
-    // inside a stop-the-world guard: those locks are not recursive.
-    // Leave our callback retired instead. It reads only the atomic owner
-    // above, retains no Tracker or Python objects, and can safely be replaced.
-#endif
 }
 
 std::unordered_set<PyObject*>
@@ -1397,14 +1393,11 @@ Tracker::getSurvivingObjects()
     std::unordered_set<PyObject*> surviving_objects;
     {
         // Replacing the tracer can leave stale pointers in d_tracked_objects.
-        // Keep other Python threads stopped between checking ownership and
-        // acquiring strong references to the surviving objects.
-#if PY_VERSION_HEX >= 0x030E0000
+        // Keep other threads stopped (a no-op before 3.14) between checking
+        // that the tracer is still ours and taking strong references to the
+        // surviving objects. Same lock order as createTracker.
         StopTheWorldGuard stop_the_world;
-#else
-        // Earlier versions do not export the stop-the-world API.
         std::scoped_lock<std::mutex> lock(*s_mutex);
-#endif
         if (d_reference_tracking_lost.load() || !ownsReferenceTrackingHooks()) {
             d_tracked_objects.clear();
             throw std::runtime_error(
@@ -1431,9 +1424,9 @@ Tracker::getSurvivingObjects()
         d_tracked_objects.clear();
     }
 
-    // The surviving objects now have strong references. Retire or unregister
-    // our callback before returning them to Python; another thread replacing
-    // the tracer at this point cannot invalidate these references.
+    // The surviving objects now hold strong references, so unregistering the
+    // tracer here cannot invalidate them. This must happen outside the guard
+    // above: PyRefTracer_SetTracer stops the world itself on newer versions.
     if (d_reference_tracking) {
         unregisterReferenceTrackingHooks();
     }

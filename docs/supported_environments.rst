@@ -69,6 +69,16 @@ Known issues and limitations
   incorrect stacks being reported if :doc:`the Memray API <api>` is used to
   start tracking in one thread while another thread is already making use of
   the Greenlet library.
+* ``track_object_lifetimes`` relies on CPython's reference tracer, which only
+  one tool can own at a time. If another tool such as ``tracemalloc`` installs
+  its own reference tracer while a Memray tracker with
+  ``track_object_lifetimes=True`` is active, exiting the tracker raises
+  ``RuntimeError`` and the surviving objects are not available. On Python 3.13
+  and 3.14 this is only detected if the tracer is still replaced when the
+  tracker exits; Python 3.15 notifies Memray as soon as its tracer is removed.
+  On free-threaded builds, a reference tracer installed by another thread at
+  the same moment Memray is removing its own may be removed along with it,
+  because CPython does not provide an atomic way to remove only our tracer.
 
 .. _an os.exec function: https://docs.python.org/3/library/os.html#os.execl
 .. _multiprocessing start method: https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods

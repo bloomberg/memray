@@ -276,31 +276,25 @@ class Tracker
     __attribute__((always_inline)) inline static void
     trackObject(PyObject* obj, compat::RefTracerEvent event, void* data)
     {
-        // Free-threaded cleanup leaves a retired callback installed. Its data
-        // is only an opaque identity: never dereference it after retirement.
+        // `data` identifies the Tracker that installed this callback. Another
+        // tool can hand a stale (callback, data) pair back to CPython after
+        // that Tracker is gone, so never dereference it unless it is the
+        // current owner.
         if (!data || data != s_reference_tracking_owner.load()) {
             return;
         }
 
-        switch (event) {
-            case compat::RefTracer_CREATE:
-            case compat::RefTracer_DESTROY:
-                break;
 #if PY_VERSION_HEX >= 0x030F0000
-            case compat::RefTracer_TRACKER_REMOVED: {
-                // Removal notifications can arrive with the recursion guard
-                // active. Do not lock or touch obj:
-                // CPython supplies nullptr for this notification.
-                Tracker* tracker = getTracker();
-                if (tracker && tracker == data) {
-                    tracker->d_reference_tracking_lost.store(true);
-                }
-                return;
+        if (event == compat::RefTracer_TRACKER_REMOVED) {
+            // Delivered from inside PyRefTracer_SetTracer, possibly with the
+            // recursion guard active. Do not lock; obj is NULL.
+            Tracker* tracker = getTracker();
+            if (tracker == data) {
+                tracker->d_reference_tracking_lost.store(true);
             }
-#endif
-            default:
-                return;
+            return;
         }
+#endif
 
         if (RecursionGuard::isActive() || !Tracker::isActive()) {
             return;
@@ -309,7 +303,7 @@ class Tracker
 
         std::optional<NativeTrace> trace{std::nullopt};
         // Only creation events store native stacks.
-        if (event == 0 && Tracker::areNativeTracesEnabled()) {
+        if (event == compat::RefTracer_CREATE && Tracker::areNativeTracesEnabled()) {
             if (!prepareNativeTrace(trace)) {
                 return;
             }
@@ -319,9 +313,7 @@ class Tracker
 
         std::unique_lock<std::mutex> lock(*s_mutex);
         Tracker* tracker = getTracker();
-        if (tracker && tracker == data && tracker == s_reference_tracking_owner.load()
-            && !tracker->d_reference_tracking_lost.load())
-        {
+        if (tracker == data && !tracker->d_reference_tracking_lost.load()) {
             tracker->trackObjectImpl(obj, event, trace);
         }
     }

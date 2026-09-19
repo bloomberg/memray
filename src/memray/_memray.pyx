@@ -733,12 +733,17 @@ cdef class Tracker:
         track_object_lifetimes (bool): Whether or not to track which objects are
             created during the tracking session and still alive at the end (or
             in other words, what objects are leaked by the code being tracked).
-            Defaults to False. If another tool replaces or removes the Python
-            reference tracer, exiting the tracker raises RuntimeError. Object
-            lifetime records in that capture are incomplete, and surviving
-            objects are unavailable.
-            On free-threaded Python, cleanup leaves an inactive reference
-            tracer installed until another tool replaces or removes it.
+            Defaults to False. Requires Python 3.13.3 or later. Memray uses
+            CPython's reference tracer for this, and only one reference tracer
+            can be installed at a time. If another tool (for instance
+            ``tracemalloc``) replaces or removes Memray's tracer while
+            tracking is active, exiting the tracker raises ``RuntimeError``,
+            the object lifetime records in the capture file are incomplete,
+            and :meth:`get_surviving_objects` is unavailable. On Python 3.13
+            and 3.14 this is only detected if the tracer is still replaced
+            when the tracker exits. On free-threaded builds, a tracer that
+            another thread installs at the exact moment Memray removes its
+            own may be removed along with it.
         follow_fork (bool): Whether or not to continue tracking in a subprocess
             that is forked from the tracked process (see :ref:`Tracking across
             Forks`). Defaults to False.
@@ -907,7 +912,7 @@ cdef class Tracker:
                         pass
                 self._patched_thread_class = None
 
-    cdef void _populate_surviving_objects(self):
+    cdef void _populate_surviving_objects(self) except *:
         cdef NativeTracker *tracker = NativeTracker.getTracker()
         if tracker == NULL:
             return
