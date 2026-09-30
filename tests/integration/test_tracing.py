@@ -13,6 +13,7 @@ from memray._test import MemoryAllocator
 from memray._test import _cython_nested_allocation
 from memray._test import allocate_without_gil_held
 from memray._test import function_caller
+from tests import utils
 
 
 def alloc_func3(allocator):
@@ -56,10 +57,10 @@ def test_traceback(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 20),
-        ("alloc_func2", __file__, 29),
-        ("alloc_func1", __file__, 36),
-        ("test_traceback", __file__, 49),
+        ("alloc_func3", __file__, 21),
+        ("alloc_func2", __file__, 30),
+        ("alloc_func1", __file__, 37),
+        ("test_traceback", __file__, 50),
     ]
     frees = [
         record
@@ -90,10 +91,10 @@ def test_traceback_for_high_watermark(tmpdir):
     (alloc,) = allocs
     traceback = list(alloc.stack_trace())
     assert traceback[-4:] == [
-        ("alloc_func3", __file__, 20),
-        ("alloc_func2", __file__, 29),
-        ("alloc_func1", __file__, 36),
-        ("test_traceback_for_high_watermark", __file__, 83),
+        ("alloc_func3", __file__, 21),
+        ("alloc_func2", __file__, 30),
+        ("alloc_func1", __file__, 37),
+        ("test_traceback_for_high_watermark", __file__, 84),
     ]
 
 
@@ -144,12 +145,12 @@ def test_cython_traceback(tmpdir):
     traceback = list(alloc1.stack_trace())
     assert traceback == [
         ("valloc", sys.modules["memray._test"].__file__, 50),
-        ("test_cython_traceback", __file__, 134),
+        ("test_cython_traceback", __file__, 135),
     ]
 
     traceback = list(alloc2.stack_trace())
     assert traceback == [
-        ("test_cython_traceback", __file__, 134),
+        ("test_cython_traceback", __file__, 135),
     ]
 
     frees = [
@@ -161,6 +162,27 @@ def test_cython_traceback(tmpdir):
     (free,) = frees
     with pytest.raises(NotImplementedError):
         free.stack_trace()
+
+
+def test_profiled_cython_frame_is_balanced(tmp_path):
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    with Tracker(output):
+        _cython_nested_allocation(allocator.valloc, 1234)
+        allocator.free()
+        allocator.valloc(4321)
+    allocator.free()
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()] == [
+        "valloc",
+        "test_profiled_cython_frame_is_balanced",
+    ]
 
 
 def test_large_number_of_frame_pops_between_subsequent_allocations(tmpdir):
@@ -299,11 +321,186 @@ def test_profile_function_is_restored_after_tracking(tmpdir):
 
     sys.setprofile(profilefunc)
 
-    with Tracker(output):
-        assert sys.getprofile() != profilefunc
+    try:
+        with Tracker(output):
+            profile_while_tracking = sys.getprofile()
+        profile_after_tracking = sys.getprofile()
+    finally:
+        sys.setprofile(None)
 
     # THEN
-    assert sys.getprofile() == profilefunc
+    if utils.MONITORING_BACKEND_SUPPORTED:
+        # sys.monitoring coexists with other profilers, so we leave it alone.
+        assert profile_while_tracking == profilefunc
+    else:
+        assert profile_while_tracking != profilefunc
+    assert profile_after_tracking == profilefunc
+
+
+@utils.requires_monitoring_backend
+def test_uses_sys_monitoring(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        active_tool = sys.monitoring.get_tool(sys.monitoring.PROFILER_ID)
+        active_profile = sys.getprofile()
+    released_tool = sys.monitoring.get_tool(sys.monitoring.PROFILER_ID)
+
+    # THEN
+    assert (active_tool, active_profile, released_tool) == ("memray", None, None)
+
+
+@utils.requires_monitoring_backend
+def test_profile_fallback_updates_preexisting_thread_line_numbers(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    ready_r, ready_w = os.pipe()
+    proceed_r, proceed_w = os.pipe()
+    allocation_line = None
+
+    def thread_body():
+        nonlocal allocation_line
+        os.write(ready_w, b"x")
+        os.read(proceed_r, 1)
+        allocation_line = sys._getframe().f_lineno + 1
+        mapping = mmap.mmap(-1, 1)
+        mapping.close()
+
+    tool_id = sys.monitoring.PROFILER_ID
+    sys.monitoring.use_tool_id(tool_id, "test")
+    thread = threading.Thread(target=thread_body)
+    thread.start()
+    os.read(ready_r, 1)
+
+    # WHEN
+    try:
+        with Tracker(output):
+            os.write(proceed_w, b"x")
+            thread.join()
+    finally:
+        sys.monitoring.free_tool_id(tool_id)
+
+    # THEN
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.MMAP and record.size == 1
+    )
+    assert allocation.stack_trace()[0][2] == allocation_line
+
+
+@utils.requires_monitoring_backend
+@pytest.mark.parametrize("allocate_while_disabled", [False, True])
+def test_rebuilds_stack_when_monitoring_configuration_is_restored(
+    tmp_path, allocate_while_disabled
+):
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+    monitoring = sys.monitoring
+    tool_id = monitoring.PROFILER_ID
+
+    def allocate_after_restore():
+        allocator.valloc(2345)
+        allocator.free()
+
+    def disable_monitoring():
+        events = monitoring.get_events(tool_id)
+        monitoring.set_events(tool_id, 0)
+        if allocate_while_disabled:
+            allocator.valloc(1234)
+            allocator.free()
+        return events
+
+    with Tracker(output):
+        events = disable_monitoring()
+        monitoring.set_events(tool_id, events)
+        allocate_after_restore()
+
+    (valloc,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 2345
+    )
+    functions = [frame[0] for frame in valloc.stack_trace()]
+    assert functions[:2] == ["valloc", "allocate_after_restore"]
+    assert "disable_monitoring" not in functions
+    assert "test_rebuilds_stack_when_monitoring_configuration_is_restored" in functions
+
+
+@utils.requires_monitoring_backend
+def test_monitoring_tracks_generator_resumes(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+
+    def generator():
+        allocator.valloc(1234)
+        allocator.free()
+        yield
+        allocator.valloc(2345)
+        allocator.free()
+
+    # WHEN
+    with Tracker(output):
+        iterator = generator()
+        next(iterator)
+        with pytest.raises(StopIteration):
+            next(iterator)
+        allocator.valloc(3456)
+        allocator.free()
+
+    # THEN
+    stacks = {
+        record.size: [frame[0] for frame in record.stack_trace()]
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC
+    }
+    assert stacks == {
+        1234: ["valloc", "generator", "test_monitoring_tracks_generator_resumes"],
+        2345: ["valloc", "generator", "test_monitoring_tracks_generator_resumes"],
+        3456: ["valloc", "test_monitoring_tracks_generator_resumes"],
+    }
+
+
+@utils.requires_monitoring_backend
+def test_monitoring_tracks_exceptions_thrown_into_generators(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+
+    def generator():
+        try:
+            yield
+        except ValueError:
+            allocator.valloc(1234)
+            allocator.free()
+            raise
+
+    # WHEN
+    with Tracker(output):
+        iterator = generator()
+        next(iterator)
+        with pytest.raises(ValueError):
+            iterator.throw(ValueError)
+        allocator.valloc(2345)
+        allocator.free()
+
+    # THEN
+    stacks = {
+        record.size: [frame[0] for frame in record.stack_trace()]
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC
+    }
+    assert stacks == {
+        1234: [
+            "valloc",
+            "generator",
+            "test_monitoring_tracks_exceptions_thrown_into_generators",
+        ],
+        2345: ["valloc", "test_monitoring_tracks_exceptions_thrown_into_generators"],
+    }
 
 
 def test_initial_tracking_frames_are_correctly_populated(tmpdir):
@@ -897,10 +1094,6 @@ def test_cython_frame_in_pre_existing_thread_stack_when_restarting_tracking(tmp_
 
 
 def test_allocation_after_unsetting_profile_function(tmp_path):
-    """After tracking starts, unset the profile function then allocate.
-
-    Make sure that the stack for the allocation is unknown.
-    """
     # GIVEN
     allocator = MemoryAllocator()
     output = tmp_path / "test.bin"
@@ -935,14 +1128,13 @@ def test_allocation_after_unsetting_profile_function(tmp_path):
         "func",
         "test_allocation_after_unsetting_profile_function",
     ]
-    assert alloc2_funcs == []
+    if utils.MONITORING_BACKEND_SUPPORTED:
+        assert alloc2_funcs == alloc1_funcs
+    else:
+        assert alloc2_funcs == []
 
 
 def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
-    """In a thread, unset the profile function then allocate.
-
-    Make sure that the stack for the allocation is unknown.
-    """
     # GIVEN
     allocator = MemoryAllocator()
     output = tmp_path / "test.bin"
@@ -975,7 +1167,10 @@ def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
     alloc2_funcs = [frame[0] for frame in second.stack_trace()]
 
     assert alloc1_funcs[:2] == ["valloc", "func"]
-    assert alloc2_funcs == []
+    if utils.MONITORING_BACKEND_SUPPORTED:
+        assert alloc2_funcs == alloc1_funcs
+    else:
+        assert alloc2_funcs == []
 
 
 class TestMmap:
@@ -1018,7 +1213,7 @@ class TestMmap:
         # GIVEN / WHEN
         output = Path(tmpdir) / "test.bin"
 
-        def custom_trace_fn():  # pragma: no cover
+        def custom_trace_fn(*args):  # pragma: no cover
             pass
 
         try:
@@ -1058,3 +1253,347 @@ class TestMmap:
         assert munmap_record is not None
         with pytest.raises(NotImplementedError):
             munmap_record.stack_trace()
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="requires Python 3.14")
+def test_profile_fallback_repairs_stack_after_preexisting_cython_call(tmp_path):
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+    ready_read, ready_write = os.pipe()
+    proceed_read, proceed_write = os.pipe()
+
+    def blocker(size):
+        os.write(ready_write, b"x")
+        os.read(proceed_read, 1)
+
+    def thread_body():
+        _cython_nested_allocation(blocker, 1234)
+        allocator.valloc(4321)
+        allocator.free()
+
+    monitoring = sys.monitoring
+    tool_id = monitoring.PROFILER_ID
+    monitoring.use_tool_id(tool_id, "test")
+    previous_thread_profile = threading.getprofile()
+    threading.setprofile(lambda *args: None)
+
+    try:
+        thread = threading.Thread(target=thread_body)
+        thread.start()
+        os.read(ready_read, 1)
+
+        with Tracker(output):
+            os.write(proceed_write, b"x")
+            thread.join()
+    finally:
+        threading.setprofile(previous_thread_profile)
+        monitoring.free_tool_id(tool_id)
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()][:2] == [
+        "valloc",
+        "thread_body",
+    ]
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 13), reason="requires Cython monitoring events"
+)
+@pytest.mark.parametrize("cython_call", [False, True])
+@pytest.mark.parametrize("release_gil", [False, True])
+@pytest.mark.parametrize("native_traces", [False, True])
+def test_profile_fallback_first_call_in_preexisting_thread(
+    tmp_path, cython_call, release_gil, native_traces
+):
+    from memray._test_utils import allocate_after_nested_call
+    from memray._test_utils import profiled_cython_noop
+
+    output = tmp_path / "test.bin"
+    ready_read, ready_write = os.pipe()
+    proceed_read, proceed_write = os.pipe()
+
+    def python_noop():
+        pass
+
+    callback = profiled_cython_noop if cython_call else python_noop
+
+    def thread_body():
+        allocate_after_nested_call(ready_write, proceed_read, callback, release_gil)
+
+    monitoring = sys.monitoring
+    tool_id = monitoring.PROFILER_ID
+    monitoring.use_tool_id(tool_id, "test")
+    thread = threading.Thread(target=thread_body)
+    try:
+        thread.start()
+        os.read(ready_read, 1)
+        with Tracker(output, native_traces=native_traces):
+            os.write(proceed_write, b"x")
+            thread.join()
+    finally:
+        monitoring.free_tool_id(tool_id)
+        for fd in (ready_read, ready_write, proceed_read, proceed_write):
+            os.close(fd)
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()] == [
+        "thread_body",
+        "run",
+        "_bootstrap_inner",
+        "_bootstrap",
+    ]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="requires sys.monitoring")
+def test_profile_fallback_does_not_confuse_reused_frames(tmp_path):
+    from memray._test_utils import MemoryAllocator as NativeMemoryAllocator
+
+    allocator = NativeMemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # Identical frame sizes let CPython reuse the first frame for the second.
+    def first():
+        allocator.valloc(1234)
+        allocator.free()
+
+    def second():
+        allocator.valloc(4321)
+        allocator.free()
+
+    tool_id = sys.monitoring.PROFILER_ID
+    sys.monitoring.use_tool_id(tool_id, "test")
+    try:
+        with Tracker(output):
+            for _ in range(10):
+                first()
+                second()
+    finally:
+        sys.monitoring.free_tool_id(tool_id)
+
+    allocations = [
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC
+    ]
+    assert len(allocations) == 20
+    for record in allocations:
+        expected = "first" if record.size == 1234 else "second"
+        assert record.stack_trace()[0][0] == expected
+
+
+def memray_tool_id():
+    return next(i for i in range(6) if sys.monitoring.get_tool(i) == "memray")
+
+
+def valloc_stacks(output):
+    return {
+        record.size: [frame[0] for frame in record.stack_trace()]
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC
+    }
+
+
+@utils.requires_monitoring_backend
+def test_uses_another_tool_id_when_profiler_id_is_in_use(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+    sys.monitoring.use_tool_id(sys.monitoring.PROFILER_ID, "test")
+
+    # WHEN
+    try:
+        with Tracker(output):
+            tool_id = memray_tool_id()
+            allocator.valloc(1234)
+            allocator.free()
+    finally:
+        sys.monitoring.free_tool_id(sys.monitoring.PROFILER_ID)
+
+    # THEN
+    assert tool_id != sys.monitoring.PROFILER_ID
+    assert valloc_stacks(output) == {
+        1234: ["valloc", "test_uses_another_tool_id_when_profiler_id_is_in_use"]
+    }
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="requires sys.monitoring")
+def test_falls_back_to_profile_function_when_no_tool_id_is_free(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+    taken = [i for i in (2, 3, 4) if sys.monitoring.get_tool(i) is None]
+    for tool_id in taken:
+        sys.monitoring.use_tool_id(tool_id, "test")
+
+    # WHEN
+    try:
+        with Tracker(output):
+            tools = {sys.monitoring.get_tool(i) for i in range(6)}
+            allocator.valloc(1234)
+            allocator.free()
+    finally:
+        for tool_id in taken:
+            sys.monitoring.free_tool_id(tool_id)
+
+    # THEN
+    assert "memray" not in tools
+    assert valloc_stacks(output) == {
+        1234: ["valloc", "test_falls_back_to_profile_function_when_no_tool_id_is_free"]
+    }
+
+
+def disable_monitoring_events(monitoring):
+    monitoring.set_events(memray_tool_id(), 0)
+
+
+def replace_monitoring_callback(monitoring):
+    monitoring.register_callback(
+        memray_tool_id(),
+        monitoring.events.PY_START,
+        lambda *args: None,
+    )
+
+
+@utils.requires_monitoring_backend
+@pytest.mark.parametrize(
+    "invalidate",
+    [disable_monitoring_events, replace_monitoring_callback],
+    ids=["events-disabled", "callback-replaced"],
+)
+def test_warns_when_monitoring_configuration_changes(tmp_path, invalidate):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+
+    # WHEN
+    with pytest.warns(RuntimeWarning, match="was modified while Memray was tracking"):
+        with Tracker(output):
+            invalidate(sys.monitoring)
+            allocator.valloc(1234)
+            allocator.free()
+
+    # THEN
+    # Pushes are lost once our slot is tampered with, so the Cython "valloc"
+    # frame is missing. Events that are disabled also lose the return from
+    # disable_monitoring_events, which stays on our (owned, stale) stack.
+    expected = ["test_warns_when_monitoring_configuration_changes"]
+    if invalidate is disable_monitoring_events:
+        expected.insert(0, "disable_monitoring_events")
+    assert valloc_stacks(output) == {1234: expected}
+
+
+@utils.requires_monitoring_backend
+def test_frames_with_missed_returns_are_owned_until_tracking_stops(tmp_path):
+    """If we miss a frame's return, our stack keeps a strong reference to it,
+    so it can never dangle, and we release that reference when tracking stops.
+    """
+    import gc
+    import weakref
+
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+
+    class Canary:
+        pass
+
+    canary_ref = None
+
+    def return_unobserved():
+        nonlocal canary_ref
+        canary = Canary()
+        canary_ref = weakref.ref(canary)
+        sys.monitoring.set_events(memray_tool_id(), 0)
+
+    # WHEN
+    with pytest.warns(RuntimeWarning, match="was modified"):
+        with Tracker(output):
+            return_unobserved()
+            gc.collect()
+            alive_while_tracking = canary_ref() is not None
+            allocator.valloc(1234)
+            allocator.free()
+    gc.collect()
+
+    # THEN
+    assert alive_while_tracking
+    assert canary_ref() is None
+    assert valloc_stacks(output) == {
+        1234: [
+            "return_unobserved",
+            "test_frames_with_missed_returns_are_owned_until_tracking_stops",
+        ]
+    }
+
+
+@utils.requires_monitoring_backend
+def test_no_gil_allocation_after_monitoring_is_disabled(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    ready_r, ready_w = os.pipe()
+    proceed_r, proceed_w = os.pipe()
+
+    def thread_body():
+        sys.monitoring.set_events(memray_tool_id(), 0)
+        allocate_without_gil_held(ready_w, proceed_r)
+
+    # WHEN
+    with pytest.warns(RuntimeWarning, match="was modified"):
+        with Tracker(output):
+            thread = threading.Thread(target=thread_body)
+            thread.start()
+            os.read(ready_r, 1)
+            os.write(proceed_w, b"x")
+            thread.join()
+
+    # THEN
+    stacks = valloc_stacks(output)
+    assert {1234, 4321} <= stacks.keys()
+    assert all(stacks[size][0] == "thread_body" for size in (1234, 4321))
+
+
+@utils.requires_monitoring_backend
+def test_stack_is_correct_when_monitoring_tool_is_replaced_by_itself(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+    monitoring = sys.monitoring
+    events = (
+        monitoring.events.PY_START,
+        monitoring.events.PY_RESUME,
+        monitoring.events.PY_RETURN,
+        monitoring.events.PY_YIELD,
+        monitoring.events.PY_UNWIND,
+        monitoring.events.PY_THROW,
+    )
+
+    # WHEN
+    with Tracker(output):
+        tool_id = memray_tool_id()
+        callbacks = [
+            monitoring.register_callback(tool_id, event, None) for event in events
+        ]
+        monitoring.free_tool_id(tool_id)
+        monitoring.use_tool_id(tool_id, "memray")
+        for event, callback in zip(events, callbacks):
+            monitoring.register_callback(tool_id, event, callback)
+        monitoring.set_events(tool_id, sum(events))
+        allocator.valloc(1234)
+        allocator.free()
+
+    # THEN
+    assert monitoring.get_tool(tool_id) is None
+    assert valloc_stacks(output) == {
+        1234: [
+            "valloc",
+            "test_stack_is_correct_when_monitoring_tool_is_replaced_by_itself",
+        ]
+    }

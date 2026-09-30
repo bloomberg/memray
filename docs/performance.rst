@@ -49,12 +49,16 @@ Source of the overhead
 
 The overhead of running Memray comes from two places:
 
-- A `Python profile function <https://docs.python.org/3/library/sys.html#sys.setprofile>`_ implemented in
-  C++. This function is called every time a Python function is called or returns
-  and is used to register the function calls so Memray can reconstruct the
-  stack trace of every allocation. Although the overhead is very, very small, it
-  adds up. This means that the more your application calls Python
-  functions the bigger the overhead will be.
+- A hook that is called every time a Python function is called or returns,
+  used to register the function calls so Memray can reconstruct the stack
+  trace of every allocation. On Python 3.12 and newer (when the GIL is
+  enabled), this uses `sys.monitoring
+  <https://docs.python.org/3/library/sys.monitoring.html>`_ events. Otherwise,
+  it is a `Python profile function
+  <https://docs.python.org/3/library/sys.html#sys.setprofile>`_ implemented in
+  C++. Although the overhead is very, very small, it adds up. This means that
+  the more your application calls Python functions the bigger the overhead
+  will be.
 - The allocation registering code. This is the main source of the overhead.
   Every time your application makes a memory allocation or deallocation,
   Memray needs to register it. This means that the more frequently your application

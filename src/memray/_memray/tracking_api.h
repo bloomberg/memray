@@ -131,6 +131,20 @@ void
 install_trace_function();
 
 /**
+ * Select sys.monitoring (instead of a profile function) for maintaining
+ * Python stacks. Must be called while no Tracker is active.
+ */
+void
+set_monitoring_enabled(bool enabled);
+
+/**
+ * Handle a sys.monitoring event: PY_START/PY_RESUME/PY_THROW push, and
+ * PY_RETURN/PY_YIELD/PY_UNWIND pop.
+ */
+void
+handle_monitoring_event(PyCodeObject* code, bool is_push) noexcept;
+
+/**
  * Install our pthread fork handlers.
  */
 void
