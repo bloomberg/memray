@@ -15,7 +15,7 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
     void set_up_pthread_fork_handlers() except+
     void install_trace_function() except*
     void set_monitoring_enabled(bool enabled)
-    void handle_monitoring_event(PyCodeObject* code, bool is_push) noexcept
+    void handle_monitoring_event(PyCodeObject* code, int event) noexcept
 
     cdef cppclass RecursionGuard:
         RecursionGuard()

@@ -138,11 +138,11 @@ void
 set_monitoring_enabled(bool enabled);
 
 /**
- * Handle a sys.monitoring event: PY_START/PY_RESUME/PY_THROW push, and
- * PY_RETURN/PY_YIELD/PY_UNWIND pop.
+ * Handle a sys.monitoring event, one of MonitoringEvent: PY_START/PY_RESUME
+ * push, PY_THROW throws, and PY_RETURN/PY_YIELD/PY_UNWIND pop.
  */
 void
-handle_monitoring_event(PyCodeObject* code, bool is_push) noexcept;
+handle_monitoring_event(PyCodeObject* code, int event) noexcept;
 
 /**
  * Install our pthread fork handlers.
@@ -239,6 +239,13 @@ class NativeTrace
  * temporarily stop the tracking as desired. The singleton manages a mirror copy of the Python stack
  * so it can be accessed synchronized by its the allocation tracking interfaces.
  * */
+// The sys.monitoring events we use to maintain Python stacks.
+enum class MonitoringEvent : int {
+    PUSH = 0,  // PY_START, PY_RESUME
+    THROW = 1,  // PY_THROW
+    POP = 2,  // PY_RETURN, PY_YIELD, PY_UNWIND
+};
+
 class Tracker
 {
   public:
@@ -415,6 +422,7 @@ class Tracker
      * Handle a notification of control switching from one greenlet to another.
      */
     static void handleGreenletSwitch(PyObject* from, PyObject* to);
+    static void handleMonitoringEvent(PyCodeObject* code, MonitoringEvent event);
 
     static void prepareFork();
     static void parentFork();

@@ -103,14 +103,26 @@ set_up_pthread_fork_handlers()
 os.register_at_fork(after_in_child=NativeTracker.childFork)
 
 
+# Must match memray::tracking_api::MonitoringEvent.
+cdef enum:
+    MONITORING_PUSH = 0
+    MONITORING_THROW = 1
+    MONITORING_POP = 2
+
+
 @cython.profile(False)
-def _monitoring_push(code, instruction_offset, arg=None):
-    handle_monitoring_event(<PyCodeObject*>code, True)
+def _monitoring_push(code, instruction_offset):
+    handle_monitoring_event(<PyCodeObject*>code, MONITORING_PUSH)
+
+
+@cython.profile(False)
+def _monitoring_throw(code, instruction_offset, exception):
+    handle_monitoring_event(<PyCodeObject*>code, MONITORING_THROW)
 
 
 @cython.profile(False)
 def _monitoring_pop(code, instruction_offset, arg):
-    handle_monitoring_event(<PyCodeObject*>code, False)
+    handle_monitoring_event(<PyCodeObject*>code, MONITORING_POP)
 
 
 _MONITORING_TOOL_NAME = "memray"
@@ -121,7 +133,7 @@ def _monitoring_callbacks():
     return (
         (events.PY_START, _monitoring_push),
         (events.PY_RESUME, _monitoring_push),
-        (events.PY_THROW, _monitoring_push),
+        (events.PY_THROW, _monitoring_throw),
         (events.PY_RETURN, _monitoring_pop),
         (events.PY_YIELD, _monitoring_pop),
         (events.PY_UNWIND, _monitoring_pop),
@@ -978,8 +990,11 @@ cdef class Tracker:
             sys.setprofile(self._previous_profile_func)
             threading.setprofile(self._previous_thread_profile_func)
         else:
-            _stop_monitoring(self._monitoring_tool_id)
-            set_monitoring_enabled(False)
+            try:
+                _stop_monitoring(self._monitoring_tool_id)
+            finally:
+                # Even if the tampering warning is raised as an error.
+                set_monitoring_enabled(False)
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):

@@ -368,8 +368,10 @@ def test_profile_fallback_updates_preexisting_thread_line_numbers(tmp_path):
         mapping = mmap.mmap(-1, 1)
         mapping.close()
 
-    tool_id = sys.monitoring.PROFILER_ID
-    sys.monitoring.use_tool_id(tool_id, "test")
+    # Occupy every tool ID Memray would use, forcing the profile function.
+    taken = [i for i in (2, 3, 4) if sys.monitoring.get_tool(i) is None]
+    for tool_id in taken:
+        sys.monitoring.use_tool_id(tool_id, "test")
     thread = threading.Thread(target=thread_body)
     thread.start()
     os.read(ready_r, 1)
@@ -380,7 +382,8 @@ def test_profile_fallback_updates_preexisting_thread_line_numbers(tmp_path):
             os.write(proceed_w, b"x")
             thread.join()
     finally:
-        sys.monitoring.free_tool_id(tool_id)
+        for tool_id in taken:
+            sys.monitoring.free_tool_id(tool_id)
 
     # THEN
     (allocation,) = (
@@ -1597,3 +1600,113 @@ def test_stack_is_correct_when_monitoring_tool_is_replaced_by_itself(tmp_path):
             "test_stack_is_correct_when_monitoring_tool_is_replaced_by_itself",
         ]
     }
+
+
+@pytest.mark.parametrize("depth", [1, 3])
+def test_throw_into_delegating_generator(tmp_path, depth):
+    """Throwing into a generator that delegates with `yield from` links the
+    delegating frames into the stack without firing any events for them.
+    They must not be left on our stack once the throw returns.
+    """
+    # GIVEN
+    import contextlib
+
+    output = tmp_path / "test.bin"
+
+    def inner():
+        while True:
+            with contextlib.suppress(ValueError):
+                yield
+
+    def delegate(n):
+        yield from (delegate(n - 1) if n else inner())
+
+    gen = delegate(depth)
+    next(gen)
+
+    # WHEN
+    with Tracker(output):
+        gen.throw(ValueError)
+        # A C-level allocation, with no Python events in between.
+        mapping = mmap.mmap(-1, 4321)
+        mapping.close()
+
+    # THEN
+    (record,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.MMAP and record.size == 4321
+    )
+    assert [frame[0] for frame in record.stack_trace()] == [
+        "test_throw_into_delegating_generator"
+    ]
+
+
+@utils.requires_monitoring_backend
+def test_forked_child_releases_frames_when_not_following_fork(tmp_path):
+    # GIVEN
+    import gc
+    import weakref
+
+    output = tmp_path / "test.bin"
+    read_fd, write_fd = os.pipe()
+
+    class Canary:
+        pass
+
+    canary_ref = None
+
+    def fork_with_canary():
+        nonlocal canary_ref
+        canary = Canary()
+        canary_ref = weakref.ref(canary)
+        return os.fork()
+
+    # WHEN
+    with Tracker(output, follow_fork=False):
+        pid = fork_with_canary()
+        if pid == 0:  # pragma: no cover
+            gc.collect()
+            os.write(write_fd, b"1" if canary_ref() is None else b"0")
+            os._exit(0)
+    os.waitpid(pid, 0)
+
+    # THEN
+    assert os.read(read_fd, 1) == b"1"
+
+
+@utils.requires_monitoring_backend
+def test_frames_of_exited_threads_are_released_when_tracking_stops(tmp_path):
+    """A thread that exits while its frames' returns were missed can't release
+    them itself (it can't take the GIL during teardown); stopping tracking must.
+    """
+    # GIVEN
+    import gc
+    import weakref
+
+    output = tmp_path / "test.bin"
+
+    class Canary:
+        pass
+
+    canary_ref = None
+
+    def thread_body():
+        nonlocal canary_ref
+        canary = Canary()
+        canary_ref = weakref.ref(canary)
+        sys.monitoring.set_events(memray_tool_id(), 0)
+
+    # WHEN
+    with pytest.warns(RuntimeWarning, match="was modified"):
+        with Tracker(output):
+            thread = threading.Thread(target=thread_body)
+            thread.start()
+            thread.join()
+            gc.collect()
+            alive_while_tracking = canary_ref() is not None
+    gc.collect()
+
+    # THEN
+    assert alive_while_tracking
+    assert canary_ref() is None

@@ -312,4 +312,6 @@ def test_disabling_monitoring_before_greenlet_switch_resyncs_stack(tmp_path):
         for record in FileReader(output).get_allocation_records()
         if record.allocator == AllocatorType.VALLOC
     )
-    assert [frame[0] for frame in valloc.stack_trace()] == ["valloc", "target"]
+    # The switch resyncs our stack with the interpreter's. With events off,
+    # we never see the call to the Python-level valloc() itself.
+    assert [frame[0] for frame in valloc.stack_trace()] == ["target"]
