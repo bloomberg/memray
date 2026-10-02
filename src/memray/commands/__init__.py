@@ -4,17 +4,12 @@ import sys
 import textwrap
 from typing import List
 from typing import Optional
-
-from memray._version import __version__
-
-try:
-    from typing import Protocol
-except ImportError:
-    from typing_extensions import Protocol
+from typing import Protocol
 
 from memray._errors import MemrayCommandError
 from memray._errors import MemrayError
 from memray._memray import set_log_level
+from memray._version import __version__
 
 from . import attach
 from . import flamegraph
