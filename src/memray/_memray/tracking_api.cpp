@@ -321,11 +321,7 @@ PythonStackTracker::emitPendingPushesAndPops()
     if (!d_stack->empty()) {
         PyThreadState* ts = PyGILState_GetThisThreadState();
         if (!ts || ts->c_profilefunc != PyTraceFunction) {
-            // Note: clear() will call back into emitPendingPushesAndPops() to
-            //       emit the pops, but we won't call back into clear() because
-            //       the stack has already been emptied.
             clear();
-            return;
         }
     }
 
@@ -585,6 +581,7 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 
     // Clear any old TLS stack, emitting pops for frames that had been pushed.
     this->clear();
+    emitPendingPushesAndPops();
 
     // Save current TID on old greenlet. Print errors but otherwise ignore them.
     PyObject* tid = PyLong_FromUnsignedLong(t_tid);
@@ -806,7 +803,6 @@ PythonStackTracker::clear()
     d_num_pending_pops +=
             std::count_if(d_stack->begin(), d_stack->end(), [](const auto& f) { return f.isEmitted(); });
     d_stack->clear();
-    emitPendingPushesAndPops();
 }
 
 Tracker::Tracker(

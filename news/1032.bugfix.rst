@@ -1,0 +1,1 @@
+Fix a race that could corrupt the capture file when a thread that was already running when tracking started resumes executing Python code while other threads are allocating memory.
