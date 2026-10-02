@@ -848,7 +848,7 @@ Tracker::Tracker(
                 }
                 RecursionGuard guard;
 
-                std::unique_lock<TrackerMutex> lock(*s_mutex);
+                std::unique_lock lock(*s_mutex);
                 Tracker* tracker = Tracker::getTracker();
                 if (tracker) {
                     tracker->forgetCodeObject(code);
@@ -863,7 +863,7 @@ Tracker::Tracker(
             }
             RecursionGuard guard;
 
-            std::unique_lock<TrackerMutex> lock(*s_mutex);
+            std::unique_lock lock(*s_mutex);
             Tracker* tracker = Tracker::getTracker();
             if (tracker) {
                 tracker->forgetCodeObject((PyCodeObject*)code);
@@ -905,7 +905,7 @@ Tracker::~Tracker()
     d_background_thread->stop();
 
     {
-        std::scoped_lock<TrackerMutex> lock(*s_mutex);
+        std::scoped_lock lock(*s_mutex);
         d_patcher.restore_symbols();
     }
 
@@ -914,12 +914,12 @@ Tracker::~Tracker()
         gstate = PyGILState_Ensure();
 
         if (d_reference_tracking) {
-            std::scoped_lock<TrackerMutex> lock(*s_mutex);
+            std::scoped_lock lock(*s_mutex);
             unregisterReferenceTrackingHooks();
         }
 
         if (d_trace_python_allocators) {
-            std::scoped_lock<TrackerMutex> lock(*s_mutex);
+            std::scoped_lock lock(*s_mutex);
             unregisterPymallocHooks();
         }
 
@@ -928,7 +928,7 @@ Tracker::~Tracker()
         PyGILState_Release(gstate);
     }
 
-    std::scoped_lock<TrackerMutex> lock(*s_mutex);
+    std::scoped_lock lock(*s_mutex);
     d_tracked_objects.clear();
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
@@ -998,7 +998,7 @@ Tracker::BackgroundThread::captureMemorySnapshot()
         return false;
     }
 
-    std::lock_guard<TrackerMutex> lock(*s_mutex);
+    std::lock_guard lock(*s_mutex);
     if (!d_writer->writeRecord(MemoryRecord{now, rss})) {
         if (Tracker::isActive()) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
@@ -1115,7 +1115,7 @@ Tracker::childFork()
             old_tracker->d_reference_tracking));
 
     StopTheWorldGuard stop_the_world;
-    std::unique_lock<TrackerMutex> lock(*s_mutex);
+    std::unique_lock lock(*s_mutex);
     PythonStackTracker::recordAllStacks(*s_instance_owner);
     tracking_api::Tracker::activate();
     RecursionGuard::setValue(false);
@@ -1367,7 +1367,7 @@ Tracker::unregisterReferenceTrackingHooks() const noexcept
 std::unordered_set<PyObject*>
 Tracker::getSurvivingObjects()
 {
-    std::scoped_lock<TrackerMutex> lock(*s_mutex);
+    std::scoped_lock lock(*s_mutex);
     RecursionGuard guard;
 
     std::unordered_set<PyObject*> surviving_objects;
@@ -1499,7 +1499,7 @@ Tracker::createTracker(
             reference_tracking));
 
     StopTheWorldGuard stop_the_world;
-    std::unique_lock<TrackerMutex> lock(*s_mutex);
+    std::unique_lock lock(*s_mutex);
     PythonStackTracker::recordAllStacks(*s_instance_owner);
     tracking_api::Tracker::activate();
     Py_RETURN_NONE;
@@ -1604,7 +1604,7 @@ Tracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     }
 
     // Grab the Tracker lock, as this may need to write pushes/pops.
-    std::unique_lock<TrackerMutex> lock(*s_mutex);
+    std::unique_lock lock(*s_mutex);
     RecursionGuard guard;
 
     PythonStackTracker::get().handleGreenletSwitch(from, to);
