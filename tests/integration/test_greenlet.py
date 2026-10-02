@@ -1,3 +1,4 @@
+import importlib.util
 import subprocess
 import sys
 import textwrap
@@ -10,7 +11,7 @@ from memray import FileReader
 from tests.utils import filter_relevant_allocations
 
 pytestmark = pytest.mark.skipif(
-    sys.version_info >= (3, 14), reason="Greenlet does not yet support Python 3.14"
+    importlib.util.find_spec("greenlet") is None, reason="greenlet is not installed"
 )
 
 
