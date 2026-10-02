@@ -9,9 +9,12 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <pthread.h>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <unordered_set>
 
@@ -43,6 +46,40 @@
 #endif
 
 namespace memray::tracking_api {
+
+#if defined(__linux__) && defined(__GLIBC__)
+class TrackerMutex
+{
+  public:
+    TrackerMutex() = default;
+
+    ~TrackerMutex()
+    {
+        pthread_mutex_destroy(&d_mutex);
+    }
+
+    TrackerMutex(const TrackerMutex&) = delete;
+    TrackerMutex& operator=(const TrackerMutex&) = delete;
+
+    void lock()
+    {
+        int error = pthread_mutex_lock(&d_mutex);
+        if (error != 0) {
+            throw std::system_error(error, std::generic_category(), "pthread_mutex_lock");
+        }
+    }
+
+    void unlock() noexcept
+    {
+        pthread_mutex_unlock(&d_mutex);
+    }
+
+  private:
+    pthread_mutex_t d_mutex = PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP;
+};
+#else
+using TrackerMutex = std::mutex;
+#endif
 
 bool
 getRSSFromProcStatus(const std::string& proc_status, size_t* rss_in_bytes);
@@ -265,7 +302,7 @@ class Tracker
             trace.value().fill(1);
         }
 
-        std::unique_lock<std::mutex> lock(*s_mutex);
+        std::unique_lock lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->trackAllocationImpl(ptr, size, func, trace);
@@ -290,7 +327,7 @@ class Tracker
             trace.value().fill(1);
         }
 
-        std::unique_lock<std::mutex> lock(*s_mutex);
+        std::unique_lock lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->trackObjectImpl(obj, event, trace);
@@ -323,7 +360,7 @@ class Tracker
         }
         RecursionGuard guard;
 
-        std::unique_lock<std::mutex> lock(*s_mutex);
+        std::unique_lock lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->trackDeallocationImpl(ptr, size, func);
@@ -337,7 +374,7 @@ class Tracker
         }
         RecursionGuard guard;
 
-        std::unique_lock<std::mutex> lock(*s_mutex);
+        std::unique_lock lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->invalidate_module_cache_impl();
@@ -351,7 +388,7 @@ class Tracker
         }
         RecursionGuard guard;
 
-        std::unique_lock<std::mutex> lock(*s_mutex);
+        std::unique_lock lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             tracker->registerThreadNameImpl(name);
@@ -365,7 +402,7 @@ class Tracker
         }
         RecursionGuard guard;
 
-        std::unique_lock<std::mutex> lock(*s_mutex);
+        std::unique_lock lock(*s_mutex);
         Tracker* tracker = getTracker();
         if (tracker) {
             if (thread == (uint64_t)(pthread_self())) {
@@ -435,7 +472,7 @@ class Tracker
     };
 
     // Data members
-    static std::unique_ptr<std::mutex> s_mutex;
+    static std::unique_ptr<TrackerMutex> s_mutex;
     static pthread_key_t s_native_unwind_vector_key;
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
