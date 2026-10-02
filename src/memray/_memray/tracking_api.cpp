@@ -422,8 +422,6 @@ PythonStackTracker::reloadStackIfTrackerChanged()
 void
 PythonStackTracker::populateShadowStack()
 {
-    installGreenletTraceFunctionIfNeeded();
-
     clear();
 
     PyFrameObject* frame = PyEval_GetFrame();
@@ -1632,7 +1630,9 @@ install_trace_function()
     }
 
     PyEval_SetProfile(PyTraceFunction, nullptr);
-    PythonStackTracker::get().populateShadowStack();
+    PythonStackTracker& tracker = PythonStackTracker::get();
+    tracker.installGreenletTraceFunctionIfNeeded();
+    tracker.populateShadowStack();
 }
 
 }  // namespace memray::tracking_api
