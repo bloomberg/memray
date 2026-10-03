@@ -7,7 +7,9 @@ import pytest
 
 from memray import AllocatorType
 from memray import FileReader
+from tests.utils import MONITORING_BACKEND_SUPPORTED
 from tests.utils import filter_relevant_allocations
+from tests.utils import requires_monitoring_backend
 
 pytestmark = pytest.mark.skipif(
     sys.version_info >= (3, 14), reason="Greenlet does not yet support Python 3.14"
@@ -250,17 +252,63 @@ def test_uninstall_profile_in_greenlet(tmpdir):
     def stack(alloc):
         return [frame[0] for frame in alloc.stack_trace()]
 
-    # Verify allocations and their stack traces (which should be empty
-    # because we remove the tracking function)
     assert len(vallocs) == 2
 
-    assert stack(vallocs[0]) == []
-    assert vallocs[0].size == 70 * 1024
+    if MONITORING_BACKEND_SUPPORTED:
+        assert stack(vallocs[0]) == ["valloc", "test"]
+        assert stack(vallocs[1]) == ["valloc", "foo", "<module>"]
+    else:
+        assert stack(vallocs[0]) == []
+        assert stack(vallocs[1]) == []
 
-    assert stack(vallocs[1]) == []
+    assert vallocs[0].size == 70 * 1024
     assert vallocs[1].size == 10 * 1024
 
     # Verify thread IDs
     main_tid = vallocs[0].tid  # inner greenlet
     outer_tid = vallocs[1].tid  # outer greenlet
-    assert main_tid == outer_tid
+    if MONITORING_BACKEND_SUPPORTED:
+        assert main_tid != outer_tid
+    else:
+        assert main_tid == outer_tid
+
+
+@requires_monitoring_backend
+def test_disabling_monitoring_before_greenlet_switch_clears_stack(tmp_path):
+    # GIVEN
+    output = tmp_path / "test.bin"
+    subprocess_code = textwrap.dedent(
+        f"""
+        import greenlet
+        import sys
+
+        from memray import Tracker
+        from memray._test import MemoryAllocator
+
+
+        def target():
+            sys.monitoring.set_events(sys.monitoring.PROFILER_ID, 0)
+            main_greenlet.switch()
+            allocator.valloc(1234)
+            allocator.free()
+
+
+        allocator = MemoryAllocator()
+        with Tracker("{output}"):
+            main_greenlet = greenlet.getcurrent()
+            other = greenlet.greenlet(target)
+            other.switch()
+            other.switch()
+        """
+    )
+
+    # WHEN
+    subprocess.run([sys.executable, "-Xdev", "-c", subprocess_code], timeout=5)
+
+    # THEN
+    (valloc,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC
+    )
+    assert valloc.stack_trace() == []
