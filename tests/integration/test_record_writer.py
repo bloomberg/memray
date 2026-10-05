@@ -201,6 +201,39 @@ def test_write_basic_records(tmp_path):
     assert records == expected_records
 
 
+def test_allocation_record_encoding_boundaries(tmp_path):
+    output_file = tmp_path / "allocation_encoding.memray"
+    writer = RecordWriterTestHarness(str(output_file), native_traces=True)
+
+    # Cache miss with one-byte size/native varints.
+    assert writer.write_allocation_record(1, 0x1000, 63, AllocatorType.MALLOC, 63)
+    # Cache hit and simple deallocator: no native id or size payload.
+    assert writer.write_allocation_record(1, 0x1000, 0, AllocatorType.PYMALLOC_FREE)
+    # Uncommon allocator plus multi-byte size/native varints and a large pointer delta.
+    assert writer.write_allocation_record(
+        1, 0x123456789ABCDEF0, 1 << 20, AllocatorType.POSIX_MEMALIGN, 1 << 20
+    )
+    # Force negative pointer/native deltas after the large values above.
+    assert writer.write_allocation_record(1, 0x2000, 128, AllocatorType.MALLOC, 1)
+    # Preserve context-switch handling outside the fused allocation payload.
+    assert writer.write_allocation_record(2, 0x3000, 256, AllocatorType.MALLOC, 2)
+    assert writer.write_trailer()
+
+    _, records = parse_capture_file(output_file)
+    expected_parse_output = """
+        CONTEXT_SWITCH tid=1
+        ALLOCATION address=0x1000 size=63 allocator=malloc native_frame_id=63
+        ALLOCATION address=0x1000 size=0 allocator=pymalloc_free native_frame_id=0
+        ALLOCATION address=0x123456789abcdef0 size=1048576 allocator=posix_memalign native_frame_id=1048576
+        ALLOCATION address=0x2000 size=128 allocator=malloc native_frame_id=1
+        CONTEXT_SWITCH tid=2
+        ALLOCATION address=0x3000 size=256 allocator=malloc native_frame_id=2
+        TRAILER
+    """
+    expected_records = textwrap.dedent(expected_parse_output).strip().splitlines()
+    assert records == expected_records
+
+
 def test_snapshot_allocations_preserve_capture_order(tmp_path):
     output_file = tmp_path / "ordered.memray"
     writer = RecordWriterTestHarness(str(output_file))
