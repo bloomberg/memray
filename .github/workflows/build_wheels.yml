@@ -97,7 +97,7 @@ jobs:
         run: |
           echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
       - name: Build wheels
-        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2.0
+        uses: pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae # v4.2.1
         env:
           CIBW_BUILD: "cp3{9..15}{t,}-${{ matrix.cibw_platform }}"
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux || 'auto' }}
@@ -147,7 +147,7 @@ jobs:
         run: |
           echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
       - name: Build wheels
-        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2.0
+        uses: pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae # v4.2.1
         env:
           CIBW_BUILD: "cp3{9..15}{t,}-*"
           CIBW_ARCHS: "${{matrix.arch}}"
