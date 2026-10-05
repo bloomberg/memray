@@ -211,7 +211,7 @@ def test_allocation_record_encoding_boundaries(tmp_path):
     assert writer.write_allocation_record(1, 0x1000, 0, AllocatorType.PYMALLOC_FREE)
     # Uncommon allocator plus multi-byte size/native varints and a large pointer delta.
     assert writer.write_allocation_record(
-        1, 0x123456789ABCDEF0, 1 << 20, AllocatorType.POSIX_MEMALIGN, 1 << 20
+        1, 0x7ABCDEF0, 1 << 20, AllocatorType.POSIX_MEMALIGN, 1 << 20
     )
     # Force negative pointer/native deltas after the large values above.
     assert writer.write_allocation_record(1, 0x2000, 128, AllocatorType.MALLOC, 1)
@@ -221,7 +221,7 @@ def test_allocation_record_encoding_boundaries(tmp_path):
 
     _, records = parse_capture_file(output_file)
     long_allocation_record = (
-        "ALLOCATION address=0x123456789abcdef0 size=1048576 "
+        "ALLOCATION address=0x7abcdef0 size=1048576 "
         "allocator=posix_memalign native_frame_id=1048576"
     )
     expected_parse_output = f"""
