@@ -220,11 +220,15 @@ def test_allocation_record_encoding_boundaries(tmp_path):
     assert writer.write_trailer()
 
     _, records = parse_capture_file(output_file)
-    expected_parse_output = """
+    long_allocation_record = (
+        "ALLOCATION address=0x123456789abcdef0 size=1048576 "
+        "allocator=posix_memalign native_frame_id=1048576"
+    )
+    expected_parse_output = f"""
         CONTEXT_SWITCH tid=1
         ALLOCATION address=0x1000 size=63 allocator=malloc native_frame_id=63
         ALLOCATION address=0x1000 size=0 allocator=pymalloc_free native_frame_id=0
-        ALLOCATION address=0x123456789abcdef0 size=1048576 allocator=posix_memalign native_frame_id=1048576
+        {long_allocation_record}
         ALLOCATION address=0x2000 size=128 allocator=malloc native_frame_id=1
         CONTEXT_SWITCH tid=2
         ALLOCATION address=0x3000 size=256 allocator=malloc native_frame_id=2
