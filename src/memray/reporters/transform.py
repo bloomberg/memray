@@ -28,12 +28,6 @@ class _SampleWeights:
 
 
 class TransformReporter:
-    SUFFIX_MAP = {
-        "gprof2dot": ".json",
-        "csv": ".csv",
-        "speedscope": ".speedscope.json",
-    }
-
     def __init__(
         self,
         allocations: Iterable[AllocationRecord],

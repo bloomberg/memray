@@ -2,7 +2,7 @@
 
 import os
 
-import memray.commands
+from memray.commands import _parse_args
 
 # -- General configuration ------------------------------------------------------------
 
@@ -85,4 +85,4 @@ os.environ["COLUMNS"] = "88"
 # around this by providing the first sentence of our desired description as the
 # parser's description, and then letting the argparse role append the rest of
 # the intended description. This description doesn't go into the HTML docs.
-memray.commands._DESCRIPTION = "Memray is a memory profiler for Python applications."
+_parse_args.DESCRIPTION = "Memray is a memory profiler for Python applications."

@@ -7,6 +7,7 @@ import pytest
 
 from memray import FileDestination
 from memray import SocketDestination
+from memray.commands import _parse_args
 from memray.commands import main
 from memray.commands.flamegraph import FlamegraphCommand
 from memray.commands.run import RunCommand
@@ -366,10 +367,9 @@ class TestFlamegraphSubCommand:
     @staticmethod
     def get_prepared_parser():
         parser = argparse.ArgumentParser()
-        command = FlamegraphCommand()
-        command.prepare_parser(parser)
+        _parse_args.prepare_flamegraph_parser(parser)
 
-        return command, parser
+        return FlamegraphCommand(), parser
 
     def test_parser_rejects_no_arguments(self):
         # GIVEN
@@ -514,10 +514,9 @@ class TestTreeSubCommand:
     @staticmethod
     def get_prepared_parser():
         parser = argparse.ArgumentParser()
-        command = TreeCommand()
-        command.prepare_parser(parser)
+        _parse_args.prepare_tree_parser(parser)
 
-        return command, parser
+        return TreeCommand(), parser
 
     def test_parser_rejects_no_arguments(self):
         # GIVEN
@@ -573,10 +572,9 @@ class TestTableSubCommand:
     @staticmethod
     def get_prepared_parser():
         parser = argparse.ArgumentParser()
-        command = TableCommand()
-        command.prepare_parser(parser)
+        _parse_args.prepare_table_parser(parser)
 
-        return command, parser
+        return TableCommand(), parser
 
     def test_parser_rejects_no_arguments(self):
         # GIVEN
@@ -686,10 +684,9 @@ class TestSummarySubCommand:
     @staticmethod
     def get_prepared_parser():
         parser = argparse.ArgumentParser()
-        command = SummaryCommand()
-        command.prepare_parser(parser)
+        _parse_args.prepare_summary_parser(parser)
 
-        return command, parser
+        return SummaryCommand(), parser
 
     def test_parser_rejects_no_arguments(self):
         # GIVEN
@@ -775,10 +772,9 @@ class TestStatsSubCommand:
     @staticmethod
     def get_prepared_parser():
         parser = argparse.ArgumentParser()
-        command = StatsCommand()
-        command.prepare_parser(parser)
+        _parse_args.prepare_stats_parser(parser)
 
-        return command, parser
+        return StatsCommand(), parser
 
     def test_parser_rejects_no_arguments(self):
         # GIVEN
@@ -823,10 +819,9 @@ class TestTransformSubCommand:
     @staticmethod
     def get_prepared_parser():
         parser = argparse.ArgumentParser()
-        command = TransformCommand()
-        command.prepare_parser(parser)
+        _parse_args.prepare_transform_parser(parser)
 
-        return command, parser
+        return TransformCommand(), parser
 
     def test_parser_rejects_no_arguments(self):
         # GIVEN

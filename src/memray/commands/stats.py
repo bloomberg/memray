@@ -9,51 +9,6 @@ from memray.reporters.stats import StatsReporter
 
 
 class StatsCommand:
-    """Generate high level stats of the memory usage in the terminal"""
-
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("results", help="Results of the tracker run")
-
-        def valid_positive_int(value: str) -> int:
-            try:
-                ivalue = int(value)
-                if ivalue <= 0:
-                    raise ValueError
-            except ValueError:
-                raise argparse.ArgumentTypeError(
-                    f"{value} is an invalid positive int value"
-                )
-
-            return ivalue
-
-        parser.add_argument(
-            "-n",
-            "--num-largest",
-            help="Displays the top 'n' largest allocating functions. Default is 5",
-            type=valid_positive_int,
-            default=5,
-        )
-
-        parser.add_argument(
-            "--json",
-            help="Exports stats to a JSON file",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
-            "-o",
-            "--output",
-            help="Output file name for JSON output",
-            default=None,
-        )
-        parser.add_argument(
-            "-f",
-            "--force",
-            help="If the JSON output file already exists, overwrite it",
-            action="store_true",
-            default=False,
-        )
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         result_path = Path(args.results)
         if not result_path.exists() or not result_path.is_file():
