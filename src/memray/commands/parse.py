@@ -6,11 +6,6 @@ from memray._errors import MemrayCommandError
 
 
 class ParseCommand:
-    """Debug a results file by parsing and printing each record in it"""
-
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("results", help="Results of the tracker run")
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         if os.isatty(1):
             raise MemrayCommandError(
