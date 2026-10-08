@@ -183,7 +183,7 @@ def prepare_run_parser(parser: argparse.ArgumentParser) -> None:
     output_group.add_argument(
         "-o",
         "--output",
-        help="Output file name (default: <process_name>.<pid>.bin)",
+        help="Output file name (default: memray-<script>.<pid>.bin)",
     )
     output_group.add_argument(
         "--live",

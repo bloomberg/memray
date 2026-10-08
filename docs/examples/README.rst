@@ -7,7 +7,7 @@ The projects in the directories located here contain very simple
 examples to demonstrate usage with Memray.
 
 Make sure you install the required dependencies by running
-``python3.9 -m pip install -r requirements.txt`` in the respective
+``python3 -m pip install -r requirements.txt`` in the respective
 directory. The examples below use the project in the ``mandelbrot`` folder, but
 you can use the same instructions to launch the other examples as well.
 

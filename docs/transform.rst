@@ -82,21 +82,31 @@ be very useful to analyze the information using other data analysis tools and
 libraries such as `pandas <https://pandas.pydata.org>`_.
 
 Every row in the CSV file represents a call stack where memory that contributed
-to the process's memory high water mark was allocated.
+to the process's memory high water mark was allocated. Allocations from the
+same call stack in different threads are combined into a single row.
 
 The available columns are:
 
 * ``allocator``: the name of the allocator that performed the allocations.
 * ``num_allocations``: the number of different allocations performed at this
-  location by this thread and not deallocated before the high water mark.
+  location and not deallocated before the high water mark.
 * ``size``: the total size in bytes of the allocations performed at this
-  location by this thread and not deallocated before the high water mark.
-* ``tid``: the thread id of the thread that performed the allocations.
-* ``thread_name``: the name of the thread that performed the allocations.
+  location and not deallocated before the high water mark.
+* ``tid``: the thread id of a thread that performed the allocations.
+* ``thread_name``: that thread's id and name, such as ``0x3 (worker)``.
 * ``stack_trace``: the stack trace of the allocations. The stack trace is
   represented as a ``|`` separated list of stack frames (most recent call
   first), where each stack frame in the list has the following format:
   ``<function_name>;<file_name>;<line_number>``.
+
+speedscope
+~~~~~~~~~~
+
+This format allows you to produce JSON files that can be opened with
+`speedscope <https://www.speedscope.app>`_. By default, the file contains two
+profiles of the allocations that contributed to the process's memory high water
+mark: one weighted by allocated bytes and one weighted by number of
+allocations.
 
 CLI Reference
 -------------

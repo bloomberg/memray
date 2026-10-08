@@ -24,7 +24,7 @@ To use live mode, you can specify the program to be profiled in live mode using 
   $ memray run --live application.py
 
 Immediately Memray will start your process in the background and will connect a TUI to it in the foreground. The TUI will
-display the current high watermark of the heap every time it takes a snapshot, in a tabular format.
+display the heap's current allocations every time it takes a snapshot, in a tabular format.
 
 .. image:: _static/images/live_running.png
 
