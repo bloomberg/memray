@@ -98,6 +98,12 @@ The available columns are:
   first), where each stack frame in the list has the following format:
   ``<function_name>;<file_name>;<line_number>``.
 
+Unlike memray's human-readable reporters, the ``csv`` format does not merge
+allocations across threads. Two threads that allocate memory at the same call
+stack produce two separate rows, each carrying that thread's own ``tid`` and
+``thread_name``, so the output can be grouped or filtered by thread with other
+data analysis tools.
+
 CLI Reference
 -------------
 

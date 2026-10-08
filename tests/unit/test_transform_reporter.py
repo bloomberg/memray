@@ -2,6 +2,8 @@ import csv
 import json
 from io import StringIO
 
+import pytest
+
 from memray import AllocatorType
 from memray._version import __version__
 from memray.reporters.transform import TransformReporter
@@ -540,3 +542,108 @@ class TestSpeedscopeTransformReporter:
         assert output_data["profiles"][0]["weights"] == [1024, 2048]
         assert output_data["profiles"][1]["samples"] == [[0], [1]]
         assert output_data["profiles"][1]["weights"] == [1, 2]
+
+
+class TestCSVTransformReporterThreadHandling:
+    HEADER = TestCSVTransformReporter.HEADER
+
+    @staticmethod
+    def _records_on_two_threads():
+        return [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                thread_name="thread-1",
+                _stack=[("me", "fun.py", 12)],
+            ),
+            MockAllocationRecord(
+                tid=2,
+                address=0x1100000,
+                size=2048,
+                allocator=AllocatorType.MALLOC,
+                stack_id=2,
+                n_allocations=1,
+                thread_name="thread-2",
+                _stack=[("me", "fun.py", 12)],
+            ),
+        ]
+
+    def test_render_preserves_per_thread_identity(self):
+        # GIVEN
+        reporter = TransformReporter(
+            self._records_on_two_threads(),
+            format="csv",
+            memory_records=[],
+            native_traces=False,
+        )
+        output = StringIO()
+
+        # WHEN
+        reporter.render(
+            output,
+            metadata=None,
+            show_memory_leaks=False,
+            merge_threads=False,
+            inverted=False,
+        )
+        output.seek(0)
+
+        # THEN
+        header, *rows = tuple(csv.reader(output))
+        assert header == self.HEADER
+        assert rows == [
+            ["MALLOC", "1", "1024", "1", "0x1 (thread-1)", "me;fun.py;12"],
+            ["MALLOC", "1", "2048", "2", "0x2 (thread-2)", "me;fun.py;12"],
+        ]
+
+    def test_render_formats_merged_thread_sentinel(self):
+        # GIVEN a record that the reader merged across threads (tid == -1)
+        merged_record = MockAllocationRecord(
+            tid=-1,
+            address=0x1000000,
+            size=3072,
+            allocator=AllocatorType.MALLOC,
+            stack_id=1,
+            n_allocations=2,
+            _stack=[("me", "fun.py", 12)],
+        )
+        reporter = TransformReporter(
+            [merged_record], format="csv", memory_records=[], native_traces=False
+        )
+        output = StringIO()
+
+        # WHEN
+        reporter.render(
+            output,
+            metadata=None,
+            show_memory_leaks=False,
+            merge_threads=True,
+            inverted=False,
+        )
+        output.seek(0)
+
+        # THEN
+        header, *rows = tuple(csv.reader(output))
+        assert header == self.HEADER
+        assert rows == [["MALLOC", "2", "3072", "-1", "merged thread", "me;fun.py;12"]]
+
+    @pytest.mark.parametrize("fmt", ["gprof2dot", "speedscope"])
+    def test_render_rejects_split_threads_for_other_formats(self, fmt):
+        # GIVEN
+        reporter = TransformReporter(
+            [], format=fmt, memory_records=[], native_traces=False
+        )
+
+        # WHEN / THEN
+        with pytest.raises(NotImplementedError, match="split threads"):
+            reporter.render(
+                StringIO(),
+                metadata=None,
+                show_memory_leaks=False,
+                merge_threads=False,
+                inverted=False,
+            )
