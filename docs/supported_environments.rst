@@ -9,17 +9,19 @@ Only CPython is supported.
 Supported Python versions
 -------------------------
 
-Every Python version that hasn't reached end of life is supported.
+Every Python version that hasn't reached end of life is supported, and older
+versions may remain supported for a while.
 
-Currently that's Python 3.8 through 3.14.
+Currently that's Python 3.9 through 3.15.
 
 Supported operating systems
 ---------------------------
 
 You will have the best Memray experience on Linux.
 
-We also support macOS 11 or newer. We cannot support older
-macOS versions, as they don't provide a C++17 compatible runtime. Although all
+We also support macOS 10.14 or newer on Intel Macs, and macOS 11 or newer on
+Apple Silicon Macs. We cannot support older macOS versions, as they don't
+provide a C++17 compatible runtime. Although all
 features work on macOS, the way that macOS applications and Python libraries
 are typically distributed often results in subpar native stacks on Mac. See
 :ref:`the native mode documentation <mac symbolification>` for details on these
@@ -37,14 +39,13 @@ For Linux, we test on ``i686``, ``x86-64``, and ``aarch64``. Pre-built wheels
 are available on PyPI.
 
 For macOS, we test on ``x86-64`` and ``arm64`` - so, both Intel and Apple
-Silicon Macs. Pre-built wheels are available for both architectures, though
-only for Python 3.8 and newer.
+Silicon Macs. Pre-built wheels are available for both architectures.
 
 Supported runtime environments
 ------------------------------
 
-We require a C++17 runtime. As noted above, macOS 11 or higher is required for
-a C++17 runtime on Mac.
+We require a C++17 runtime. As noted above, macOS 10.14 or higher is required
+for a C++17 runtime on Mac.
 
 On Linux we support glibc and musl libc. Other libc's have not been tested, and
 issues are likely. We support platforms compatible with the ``manylinux2014``

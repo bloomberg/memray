@@ -53,10 +53,14 @@ first TUI session.
 Debugger Privileges
 -------------------
 
-Memray leverages a debugger for attaching to the process. It is compatible with
-both gdb and lldb, but one or the other must be installed in order for ``memray
-attach`` to work. Only a super user (either root, or a user with the
-``CAP_SYS_PTRACE`` capability) can attach to processes run by another user.
+When run with Python 3.14 or newer, Memray uses :func:`sys.remote_exec` for
+attaching to the process by default, which requires the process to run the
+same major and minor Python version. Otherwise, it leverages a debugger. It is
+compatible with both gdb and lldb, but one or the other must be installed in
+order to attach with a debugger. The ``--method`` option selects a specific
+method, such as a debugger for a process running a different Python version.
+Only a super user (either root, or a user with the ``CAP_SYS_PTRACE``
+capability) can attach to processes run by another user.
 Further, security settings on modern Linux systems typically prevent a regular
 user from attaching even to their own processes. You can loosen that
 restriction by writing ``0`` to ``/proc/sys/kernel/yama/ptrace_scope`` as root,
@@ -87,14 +91,10 @@ you're attempting to attach to, depending on what it's doing at the point when
 we attach. We advise only using this as a debugging tool on development
 machines.
 
-If you attach to a Python 3.7 or Python 3.8 process that has never imported the
-``threading`` module, the attached process will show an error when the
-interpreter finishes running the main script. This is due to `a known bug
-<https://github.com/python/cpython/issues/81597>`_ that was not fixed until
-Python 3.9. From Python 3.9 onwards there will be no error on exit, but the
-interpreter will assign the wrong name to the main thread if ``threading`` is
-later imported by the script. That should not have any major effect on the
-behavior of the program.
+If you attach to a Python 3.12 or older process that has never imported the
+``threading`` module, the interpreter will assign the wrong name to the main
+thread if ``threading`` is later imported by the script. That should not have
+any major effect on the behavior of the program.
 
 When attaching to a running process, Memray will ``import`` a helper module.
 This means that Memray must be installed in the Python environment that the

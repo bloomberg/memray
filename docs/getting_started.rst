@@ -11,11 +11,11 @@ PyPI
 
 When installing Memray with ``pip`` you need to install it with the
 Python interpreter you intend to run your profiled application with. In
-this case example we're installing it for use with Python 3.9:
+this example we're installing it for use with ``python3``:
 
 .. code:: shell
 
-    python3.9 -m pip install memray
+    python3 -m pip install memray
 
 Using the CLI
 -------------
@@ -24,7 +24,7 @@ You can invoke Memray the following way:
 
 .. code:: shell
 
-  python3.9 -m memray
+  python3 -m memray
 
 Or alternatively through the ``memray`` script:
 
