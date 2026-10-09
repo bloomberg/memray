@@ -110,7 +110,7 @@ especially when tracking down memory leaks.
 
 .. note::
   This acts also as an alternative way to run with ``PYTHONMALLOC=malloc`` but
-  in a way that allows distiguishing allocations made by using the system
+  in a way that allows distinguishing allocations made by using the system
   allocator directly and ones made by using the Python allocator.
 
 .. code:: shell

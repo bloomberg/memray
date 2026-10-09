@@ -70,7 +70,7 @@ packaging tools. We recommend installing the latest stable release from
 
 Notice that Memray contains a C extension so releases are distributed as binary
 wheels as well as the source code. If a binary wheel is not available for your system
-(Linux x86/x64 or macOS), you'll need to ensure that all the dependencies are satisfied on the
+(Linux x86, x86-64, or aarch64, or macOS), you'll need to ensure that all the dependencies are satisfied on the
 system where you are doing the installation.
 
 ## Building from source
@@ -93,9 +93,16 @@ before installing `memray`. Check the documentation of your package manager to k
 files for more detailed information.
 
 If you are building on MacOS, you will also need to set the deployment target.
+On Intel Macs:
 
 ```shell
 export MACOSX_DEPLOYMENT_TARGET=10.14
+```
+
+On Apple Silicon Macs:
+
+```shell
+export MACOSX_DEPLOYMENT_TARGET=11.0
 ```
 
 Once you have the binary dependencies installed, you can clone the repository and follow with the normal building process:
@@ -128,7 +135,8 @@ You can find the latest documentation available [here](https://bloomberg.github.
 There are many ways to use Memray. The easiest way is to use it as a command line tool to run your script, application, or library.
 
 ```
-usage: memray [-h] [-v] {run,flamegraph,table,live,tree,parse,summary,stats} ...
+usage: memray [-h] [-v] [-V]
+              {run,flamegraph,table,live,tree,parse,summary,stats,transform,attach,detach} ...
 
 Memory profiler for Python applications
 
@@ -141,7 +149,7 @@ Example:
     $ python3 -m memray flamegraph output.bin
 
 positional arguments:
-  {run,flamegraph,table,live,tree,parse,summary,stats}
+  {run,flamegraph,table,live,tree,parse,summary,stats,transform,attach,detach}
                         Mode of operation
     run                 Run the specified application and track memory usage
     flamegraph          Generate an HTML flame graph for peak memory usage
@@ -151,13 +159,17 @@ positional arguments:
     parse               Debug a results file by parsing and printing each record in it
     summary             Generate a terminal-based summary report of the functions that allocate most memory
     stats               Generate high level stats of the memory usage in the terminal
+    transform           Generate reports files in different formats
+    attach              Begin tracking allocations in an already-started process
+    detach              End the tracking started by a previous ``memray attach`` call
 
-optional arguments:
-  -h, --help            Show this help message and exit
+options:
+  -h, --help            show this help message and exit
   -v, --verbose         Increase verbosity. Option is additive and can be specified up to 3 times
   -V, --version         Displays the current version of Memray
 
-Please submit feedback, ideas, and bug reports by filing a new issue at https://github.com/bloomberg/memray/issues
+Please submit feedback, ideas, and bug reports by filing a new issue at
+https://github.com/bloomberg/memray/issues
 ```
 
 To use Memray over a script or a single python file you can use:
@@ -179,10 +191,10 @@ memray run my_script.py
 memray run -m my_module
 ```
 
-The output will be a binary file (like `memray-my_script.2369.bin`) that you can analyze in different ways. One way is to use the `memray flamegraph` command to generate a flame graph:
+The output will be a binary file (like `memray-my_script.py.2369.bin`) that you can analyze in different ways. One way is to use the `memray flamegraph` command to generate a flame graph:
 
 ```shell
-memray flamegraph my_script.2369.bin
+memray flamegraph memray-my_script.py.2369.bin
 ```
 
 This will produce an HTML file with a flame graph of the memory usage that you can inspect with your favorite browser. There are multiple other reporters that you can use to generate other types of reports, some of them generating terminal-based output and some of them generating HTML files. Here is an example of a Memray flamegraph:
@@ -292,7 +304,7 @@ The sorted column's heading is underlined.
 
 ## Viewing different threads
 
-By default, the live command will present the main thread of the program. You can look at different threads of the program by pressing the greater than and less than keys, `<` and `>`. In most terminals you can also click the "Previous Thread" and "Next Thread" buttons on the footer.
+By default, the live command will present allocations from all of the program's threads. You can look at individual threads of the program by first pressing `m` (to disable thread merging), and then pressing the greater than and less than keys, `<` and `>`, to switch between threads. In most terminals you can also click the "Unmerge Threads", "Previous Thread", and "Next Thread" buttons on the footer.
 
 <img src="https://github.com/bloomberg/memray/blob/main/docs/_static/images/live_different_thread.png?raw=true" align="center"/>
 
