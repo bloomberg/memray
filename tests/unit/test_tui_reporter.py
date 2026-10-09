@@ -772,7 +772,7 @@ def test_merging_allocations_from_all_threads():
 
             datatable = pilot.app.screen.query_one(DataTable)
 
-            for key in ("m", ">", "m", "<", "m", "<"):
+            for key in ("", "m", ">", "m", "<", "m", "<"):
                 await pilot.press(key)
                 functions.append(datatable.get_cell_at(Coordinate(0, 0)).plain)
                 labels = extract_label_text(app)
@@ -782,8 +782,8 @@ def test_merging_allocations_from_all_threads():
     async_run(run_test())
 
     # THEN
-    order = [0, 1, 2, 2, 1, 0]
-    merged = [False, False, True, True, False, False]
+    order = [2, 0, 1, 2, 2, 1, 0]
+    merged = [True, False, False, True, True, False, False]
     assert functions == ["abc"[i] for i in order]
     assert tids == [
         "TID: *" if all else f"TID: {hex(i + 1)}" for i, all in zip(order, merged)
