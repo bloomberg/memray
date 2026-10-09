@@ -221,7 +221,7 @@ class AllocationTable(Widget):
     sort_column_id = reactive(default_sort_column_id)
     snapshot = reactive(_EMPTY_SNAPSHOT)
     current_thread = reactive(0)
-    merge_threads = reactive(False, init=False)
+    merge_threads = reactive(True, init=False)
 
     columns = [
         "Location",
