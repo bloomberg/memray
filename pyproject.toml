@@ -129,15 +129,17 @@ cmake.build-type = "Debug"
 
 [tool.ruff]
 line-length = 95
-select = ["C4", "E", "F", "I001", "PERF", "W"]
 fix = true
 
-[tool.ruff.isort]
+[tool.ruff.lint]
+select = ["C4", "E", "F", "I001", "PERF", "W"]
+
+[tool.ruff.lint.isort]
 force-single-line = true
 known-first-party = ["memray"]
 known-third-party = ["rich", "elftools", "pytest"]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "benchmarks/*" = ["C4", "PERF"]
 
 [tool.isort]
