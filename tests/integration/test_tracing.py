@@ -1058,3 +1058,153 @@ class TestMmap:
         assert munmap_record is not None
         with pytest.raises(NotImplementedError):
             munmap_record.stack_trace()
+
+
+def test_profiled_cython_frame_is_balanced(tmp_path):
+    from memray._test_utils import _profiled_cython_nested_allocation
+
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    with Tracker(output):
+        _profiled_cython_nested_allocation(allocator.valloc, 1234)
+        allocator.free()
+        allocator.valloc(4321)
+    allocator.free()
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()] == [
+        "valloc",
+        "test_profiled_cython_frame_is_balanced",
+    ]
+
+
+def test_profiled_cython_frame_is_balanced_when_it_raises(tmp_path):
+    from memray._test_utils import _profiled_cython_nested_allocation
+
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    def raiser(size):
+        raise ValueError(size)
+
+    def propagates():
+        _profiled_cython_nested_allocation(raiser, 1234)
+
+    with Tracker(output):
+        try:
+            _profiled_cython_nested_allocation(raiser, 1234)
+        except ValueError:
+            pass
+        allocator.valloc(4321)
+        allocator.free()
+        try:
+            propagates()
+        except ValueError:
+            pass
+        allocator.valloc(5432)
+        allocator.free()
+
+    allocations = {
+        record.size: [frame[0] for frame in record.stack_trace()]
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC
+    }
+    expected = ["valloc", "test_profiled_cython_frame_is_balanced_when_it_raises"]
+    assert allocations[4321] == expected
+    assert allocations[5432] == expected
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="requires Python 3.14")
+def test_repairs_stack_after_preexisting_profiled_cython_call(tmp_path):
+    from memray._test_utils import _profiled_cython_nested_allocation
+
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+    ready_read, ready_write = os.pipe()
+    proceed_read, proceed_write = os.pipe()
+
+    def blocker(size):
+        os.write(ready_write, b"x")
+        os.read(proceed_read, 1)
+
+    def thread_body():
+        _profiled_cython_nested_allocation(blocker, 1234)
+        allocator.valloc(4321)
+        allocator.free()
+
+    previous_thread_profile = threading.getprofile()
+    threading.setprofile(lambda *args: None)
+
+    try:
+        thread = threading.Thread(target=thread_body)
+        thread.start()
+        os.read(ready_read, 1)
+
+        with Tracker(output):
+            os.write(proceed_write, b"x")
+            thread.join()
+    finally:
+        threading.setprofile(previous_thread_profile)
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()][:2] == [
+        "valloc",
+        "thread_body",
+    ]
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 13), reason="requires Cython monitoring events"
+)
+@pytest.mark.parametrize("cython_call", [False, True])
+@pytest.mark.parametrize("release_gil", [False, True])
+@pytest.mark.parametrize("native_traces", [False, True])
+def test_first_call_in_preexisting_thread(
+    tmp_path, cython_call, release_gil, native_traces
+):
+    from memray._test_utils import allocate_after_nested_call
+    from memray._test_utils import profiled_cython_noop
+
+    output = tmp_path / "test.bin"
+    ready_read, ready_write = os.pipe()
+    proceed_read, proceed_write = os.pipe()
+
+    def python_noop():
+        pass
+
+    callback = profiled_cython_noop if cython_call else python_noop
+
+    def thread_body():
+        allocate_after_nested_call(ready_write, proceed_read, callback, release_gil)
+
+    thread = threading.Thread(target=thread_body)
+    try:
+        thread.start()
+        os.read(ready_read, 1)
+        with Tracker(output, native_traces=native_traces):
+            os.write(proceed_write, b"x")
+            thread.join()
+    finally:
+        for fd in (ready_read, ready_write, proceed_read, proceed_write):
+            os.close(fd)
+
+    (allocation,) = (
+        record
+        for record in FileReader(output).get_allocation_records()
+        if record.allocator == AllocatorType.VALLOC and record.size == 4321
+    )
+    assert [frame[0] for frame in allocation.stack_trace()] == [
+        "thread_body",
+        "run",
+        "_bootstrap_inner",
+        "_bootstrap",
+    ]

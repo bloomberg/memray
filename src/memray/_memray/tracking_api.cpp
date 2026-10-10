@@ -207,6 +207,22 @@ class PythonStackTracker
         // Has the instruction offset been frozen?
         bool isFrozen() const;
 
+        // Is this entry for the given frame?
+        bool isFrame(PyFrameObject* frame) const;
+
+        // Mark this entry as taken from the interpreter's stack, rather than
+        // pushed by a call event.
+        void markAdopted();
+
+        // Was this entry taken from the interpreter's stack?
+        bool isAdopted() const;
+
+        // Record that a frameless (Cython) function was called from this
+        // frame, or that one returned. popFramelessCall() returns false if
+        // no calls are outstanding.
+        void pushFramelessCall();
+        bool popFramelessCall();
+
         // If we haven't already, register the held code object, saving its ID
         // and dropping our borrowed reference to the code object.
         void resolveCodeObjectId(Tracker& tracker);
@@ -243,6 +259,14 @@ class PythonStackTracker
 
         // The frame's current bytecode offset within the code object.
         int d_instruction_offset{};
+
+        // Frameless functions called from this frame that haven't returned.
+        uint32_t d_frameless_calls{};
+
+        // Whether this entry was taken from the interpreter's stack, in which
+        // case a frameless function may have been called from it before we
+        // could see the call.
+        bool d_adopted{};
     };
 
   public:
@@ -256,7 +280,7 @@ class PythonStackTracker
     static PythonStackTracker& get();
     void emitPendingPushesAndPops();
     void populateShadowStack();
-    void handleTraceEvent(int what, PyFrameObject* frame);
+    void handleTraceEvent(int what, PyFrameObject* frame, PyObject* arg);
 
     void installGreenletTraceFunctionIfNeeded();
     void handleGreenletSwitch(PyObject* from, PyObject* to);
@@ -275,6 +299,9 @@ class PythonStackTracker
 
     int pushPythonFrame(PyFrameObject* frame);
     void popPythonFrame();
+
+    bool isFramelessCall(PyFrameObject* frame);
+    bool isFramelessReturn(PyFrameObject* frame, PyObject* arg);
 
     static std::mutex s_mutex;
     static std::unordered_map<PyThreadState*, std::vector<LazilyEmittedFrame>> s_initial_stack_by_thread;
@@ -433,10 +460,15 @@ PythonStackTracker::populateShadowStack()
     }
 
     std::for_each(stack.rbegin(), stack.rend(), [this](auto& frame) { pushPythonFrame(frame); });
+    if (d_stack) {
+        for (auto& entry : *d_stack) {
+            entry.markAdopted();
+        }
+    }
 }
 
 void
-PythonStackTracker::handleTraceEvent(int what, PyFrameObject* frame)
+PythonStackTracker::handleTraceEvent(int what, PyFrameObject* frame, PyObject* arg)
 {
     installGreenletTraceFunctionIfNeeded();
 
@@ -455,10 +487,42 @@ PythonStackTracker::handleTraceEvent(int what, PyFrameObject* frame)
     }
 
     if (what == PyTrace_CALL) {
+        if (isFramelessCall(frame)) {
+            d_stack->back().pushFramelessCall();
+            return;
+        }
         pushPythonFrame(frame);
     } else if (what == PyTrace_RETURN) {
+        if (isFramelessReturn(frame, arg)) {
+            return;
+        }
         popPythonFrame();
     }
+}
+
+bool
+PythonStackTracker::isFramelessCall(PyFrameObject* frame)
+{
+    // A frame can't be called while it's already on top of our stack, so
+    // this is a frameless function reporting its call against its caller.
+    return d_stack && !d_stack->empty() && d_stack->back().isFrame(frame)
+           && !compat::frameIsStarting(frame);
+}
+
+bool
+PythonStackTracker::isFramelessReturn(PyFrameObject* frame, PyObject* arg)
+{
+    if (!d_stack || d_stack->empty() || !d_stack->back().isFrame(frame)) {
+        return false;
+    }
+    LazilyEmittedFrame& top = d_stack->back();
+    if (top.popFramelessCall()) {
+        return true;
+    }
+    // A frameless function may have been called from an adopted frame before
+    // we could see the call. We can recognize it returning, but not unwinding
+    // (when `arg` is null), as that looks just like the frame itself unwinding.
+    return top.isAdopted() && arg && !compat::frameIsReturning(frame);
 }
 
 int
@@ -674,6 +738,40 @@ bool
 PythonStackTracker::LazilyEmittedFrame::isFrozen() const
 {
     return d_frame == nullptr;
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::isFrame(PyFrameObject* frame) const
+{
+    return d_frame && d_frame == frame;
+}
+
+void
+PythonStackTracker::LazilyEmittedFrame::markAdopted()
+{
+    d_adopted = true;
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::isAdopted() const
+{
+    return d_adopted;
+}
+
+void
+PythonStackTracker::LazilyEmittedFrame::pushFramelessCall()
+{
+    d_frameless_calls += 1;
+}
+
+bool
+PythonStackTracker::LazilyEmittedFrame::popFramelessCall()
+{
+    if (d_frameless_calls == 0) {
+        return false;
+    }
+    d_frameless_calls -= 1;
+    return true;
 }
 
 void
@@ -1563,7 +1661,7 @@ PyTraceFunction(
         [[maybe_unused]] PyObject* obj,
         PyFrameObject* frame,
         int what,
-        [[maybe_unused]] PyObject* arg)
+        PyObject* arg)
 {
     RecursionGuard guard;
     if (!Tracker::isActive()) {
@@ -1576,7 +1674,7 @@ PyTraceFunction(
         return 0;
     }
 
-    PythonStackTracker::get().handleTraceEvent(what, frame);
+    PythonStackTracker::get().handleTraceEvent(what, frame, arg);
     return 0;
 }
 

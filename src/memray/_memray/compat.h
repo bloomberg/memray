@@ -4,6 +4,9 @@
 #include <Python.h>
 
 #include "frameobject.h"
+#if PY_VERSION_HEX >= 0x030D0000
+#    include "opcode.h"
+#endif
 #include <cassert>
 #include <string>
 
@@ -88,6 +91,65 @@ frameGetLasti(PyFrameObject* frame)
 #else
     // Use PyFrame_GetLasti for Python 3.11+
     return PyFrame_GetLasti(frame);
+#endif
+}
+
+#if PY_VERSION_HEX >= 0x030D0000
+// Return the unspecialized opcode of the instruction a frame is executing,
+// or -1 if it can't be determined.
+inline int
+frameGetOpcode(PyFrameObject* frame)
+{
+    int lasti = PyFrame_GetLasti(frame);
+    if (lasti < 0) {
+        return -1;
+    }
+    PyCodeObject* code = PyFrame_GetCode(frame);
+    PyObject* co_code = PyCode_GetCode(code);
+    Py_DECREF(code);
+    if (!co_code) {
+        PyErr_Clear();
+        return -1;
+    }
+    int opcode = -1;
+    if (lasti < PyBytes_GET_SIZE(co_code)) {
+        opcode = (unsigned char)PyBytes_AS_STRING(co_code)[lasti];
+    }
+    Py_DECREF(co_code);
+    return opcode;
+}
+#endif
+
+// Cython functions profiled with sys.monitoring (on 3.13+) have no frames, so
+// their profile events are reported against their Python caller's frame. These
+// tell whether a call or return event was really for the given frame, which is
+// only the case if it fired at the frame's RESUME or return instruction.
+// If we can't tell, assume that it was.
+inline bool
+frameIsStarting(PyFrameObject* frame)
+{
+#if PY_VERSION_HEX >= 0x030D0000
+    int opcode = frameGetOpcode(frame);
+    return opcode == -1 || opcode == RESUME;
+#else
+    (void)frame;
+    return true;
+#endif
+}
+
+inline bool
+frameIsReturning(PyFrameObject* frame)
+{
+#if PY_VERSION_HEX >= 0x030D0000
+    int opcode = frameGetOpcode(frame);
+    return opcode == -1 || opcode == RETURN_VALUE || opcode == YIELD_VALUE
+#    ifdef RETURN_CONST
+           || opcode == RETURN_CONST
+#    endif
+            ;
+#else
+    (void)frame;
+    return true;
 #endif
 }
 
