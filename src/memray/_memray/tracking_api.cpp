@@ -372,11 +372,7 @@ PythonStackTracker::emitPendingPushesAndPops()
     if (!s_monitoring_enabled && !d_stack->empty()) {
         PyThreadState* ts = PyGILState_GetThisThreadState();
         if (!ts || ts->c_profilefunc != PyTraceFunction) {
-            // Note: clear() will call back into emitPendingPushesAndPops() to
-            //       emit the pops, but we won't call back into clear() because
-            //       the stack has already been emptied.
             clear();
-            return;
         }
     }
 
@@ -484,8 +480,6 @@ PythonStackTracker::populateShadowStack(std::vector<PyFrameObject*>* released)
 void
 PythonStackTracker::rebuildShadowStack(PyFrameObject* frame, std::vector<PyFrameObject*>* released)
 {
-    installGreenletTraceFunctionIfNeeded();
-
     clear(released);
 
     std::vector<PyFrameObject*> stack;
@@ -536,6 +530,8 @@ PythonStackTracker::handleMonitoringEvent(
         MonitoringEvent event,
         PyFrameObject** rebuild_from)
 {
+    installGreenletTraceFunctionIfNeeded();
+
     PyFrameObject* frame = PyEval_GetFrame();
     if (!frame || compat::frameGetCode(frame) != code) {
         // Not a Python frame: e.g. an event fired by a Cython function.
@@ -724,6 +720,7 @@ PythonStackTracker::handleGreenletSwitch(
 
     // Clear any old TLS stack, emitting pops for frames that had been pushed.
     this->clear(released);
+    emitPendingPushesAndPops();
 
     // Save current TID on old greenlet. Print errors but otherwise ignore them.
     PyObject* tid = PyLong_FromUnsignedLong(t_tid);
@@ -747,7 +744,7 @@ PythonStackTracker::handleGreenletSwitch(
     populateShadowStack(released);
 }
 
-std::unique_ptr<std::mutex> Tracker::s_mutex(new std::mutex);
+std::unique_ptr<TrackerMutex> Tracker::s_mutex(new TrackerMutex);
 pthread_key_t Tracker::s_native_unwind_vector_key;
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
@@ -990,7 +987,6 @@ PythonStackTracker::clear(std::vector<PyFrameObject*>* released)
         }
     }
     d_stack->clear();
-    emitPendingPushesAndPops();
 
     if (released) {
         released->insert(released->end(), owned.begin(), owned.end());
@@ -1078,7 +1074,7 @@ Tracker::Tracker(
                 }
                 RecursionGuard guard;
 
-                std::unique_lock<std::mutex> lock(*s_mutex);
+                std::unique_lock lock(*s_mutex);
                 Tracker* tracker = Tracker::getTracker();
                 if (tracker) {
                     tracker->forgetCodeObject(code);
@@ -1093,7 +1089,7 @@ Tracker::Tracker(
             }
             RecursionGuard guard;
 
-            std::unique_lock<std::mutex> lock(*s_mutex);
+            std::unique_lock lock(*s_mutex);
             Tracker* tracker = Tracker::getTracker();
             if (tracker) {
                 tracker->forgetCodeObject((PyCodeObject*)code);
@@ -1135,7 +1131,7 @@ Tracker::~Tracker()
     d_background_thread->stop();
 
     {
-        std::scoped_lock<std::mutex> lock(*s_mutex);
+        std::scoped_lock lock(*s_mutex);
         d_patcher.restore_symbols();
     }
 
@@ -1144,12 +1140,12 @@ Tracker::~Tracker()
         gstate = PyGILState_Ensure();
 
         if (d_reference_tracking) {
-            std::scoped_lock<std::mutex> lock(*s_mutex);
+            std::scoped_lock lock(*s_mutex);
             unregisterReferenceTrackingHooks();
         }
 
         if (d_trace_python_allocators) {
-            std::scoped_lock<std::mutex> lock(*s_mutex);
+            std::scoped_lock lock(*s_mutex);
             unregisterPymallocHooks();
         }
 
@@ -1160,7 +1156,7 @@ Tracker::~Tracker()
             // its stack while we release the frames it owns.
             std::vector<PyFrameObject*> owned_frames;
             {
-                std::scoped_lock<std::mutex> lock(*s_mutex);
+                std::scoped_lock lock(*s_mutex);
                 PythonStackTracker::disownAllFrames(owned_frames);
             }
             for (PyFrameObject* frame : owned_frames) {
@@ -1171,7 +1167,7 @@ Tracker::~Tracker()
         PyGILState_Release(gstate);
     }
 
-    std::scoped_lock<std::mutex> lock(*s_mutex);
+    std::scoped_lock lock(*s_mutex);
     d_tracked_objects.clear();
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
@@ -1241,7 +1237,7 @@ Tracker::BackgroundThread::captureMemorySnapshot()
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(*s_mutex);
+    std::lock_guard lock(*s_mutex);
     if (!d_writer->writeRecord(MemoryRecord{now, rss})) {
         if (Tracker::isActive()) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
@@ -1323,7 +1319,7 @@ Tracker::childFork()
 
     // Likewise, leak our old mutex, and re-create it.
     (void)s_mutex.release();
-    s_mutex.reset(new std::mutex);
+    s_mutex.reset(new TrackerMutex);
     PythonStackTracker::afterForkInChild();
 
     // Save a reference to the old tracker (if any), then unset our singleton.
@@ -1359,7 +1355,7 @@ Tracker::childFork()
             old_tracker->d_reference_tracking));
 
     StopTheWorldGuard stop_the_world;
-    std::unique_lock<std::mutex> lock(*s_mutex);
+    std::unique_lock lock(*s_mutex);
     PythonStackTracker::recordAllStacks(*s_instance_owner);
     tracking_api::Tracker::activate();
     RecursionGuard::setValue(false);
@@ -1611,7 +1607,7 @@ Tracker::unregisterReferenceTrackingHooks() const noexcept
 std::unordered_set<PyObject*>
 Tracker::getSurvivingObjects()
 {
-    std::scoped_lock<std::mutex> lock(*s_mutex);
+    std::scoped_lock lock(*s_mutex);
     RecursionGuard guard;
 
     std::unordered_set<PyObject*> surviving_objects;
@@ -1743,7 +1739,7 @@ Tracker::createTracker(
             reference_tracking));
 
     StopTheWorldGuard stop_the_world;
-    std::unique_lock<std::mutex> lock(*s_mutex);
+    std::unique_lock lock(*s_mutex);
     PythonStackTracker::recordAllStacks(*s_instance_owner);
     tracking_api::Tracker::activate();
     Py_RETURN_NONE;
@@ -1851,7 +1847,7 @@ Tracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     std::vector<PyFrameObject*> released;
     {
         // Grab the Tracker lock, as this may need to write pushes/pops.
-        std::unique_lock<std::mutex> lock(*s_mutex);
+        std::unique_lock lock(*s_mutex);
         RecursionGuard guard;
 
         PythonStackTracker::get().handleGreenletSwitch(from, to, &released);
@@ -1877,7 +1873,7 @@ Tracker::handleMonitoringEvent(PyCodeObject* code, MonitoringEvent event)
         if (!stack.handleMonitoringEvent(code, event, &rebuild_from)) {
             // Rebuilding writes pops for frames we'd already emitted, so it
             // needs the Tracker lock, like any other write.
-            std::unique_lock<std::mutex> lock(*s_mutex);
+            std::unique_lock lock(*s_mutex);
             stack.rebuildShadowStack(rebuild_from, &released);
         }
     }
@@ -1918,7 +1914,9 @@ install_trace_function()
     }
 
     PyEval_SetProfile(PyTraceFunction, nullptr);
-    PythonStackTracker::get().populateShadowStack();
+    PythonStackTracker& tracker = PythonStackTracker::get();
+    tracker.installGreenletTraceFunctionIfNeeded();
+    tracker.populateShadowStack();
 }
 
 void

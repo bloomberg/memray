@@ -19,7 +19,6 @@ import threading
 import memray
 from memray._errors import MemrayCommandError
 
-from .live import LiveCommand
 from .run import _get_free_port
 
 try:
@@ -385,28 +384,6 @@ class ErrorReaderThread(threading.Thread):
 
 
 class _DebuggerCommand:
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--method",
-            help="Method to use for injecting commands into the remote process",
-            type=str,
-            default="auto",
-            choices=["auto", "sys.remote_exec", "gdb", "lldb"],
-        )
-
-        parser.add_argument(
-            "-v",
-            "--verbose",
-            help="Print verbose debugging information.",
-            action="store_true",
-        )
-
-        parser.add_argument(
-            "pid",
-            help="Process id to affect",
-            type=int,
-        )
-
     def resolve_debugger(self, method: str, *, verbose: bool = False) -> str:
         if method == "auto":
             # Prefer gdb on Linux but lldb on macOS
@@ -458,72 +435,6 @@ class _DebuggerCommand:
 
 
 class AttachCommand(_DebuggerCommand):
-    """Begin tracking allocations in an already-started process"""
-
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "-o",
-            "--output",
-            metavar="FILE",
-            help=(
-                "Capture allocations into the given file"
-                " instead of starting a live tracking session"
-            ),
-        )
-        parser.add_argument(
-            "-f",
-            "--force",
-            help="If the output file already exists, overwrite it",
-            action="store_true",
-            default=False,
-        )
-
-        parser.add_argument(
-            "--aggregate",
-            help="Write aggregated stats to the output file instead of all allocations",
-            action="store_true",
-            default=False,
-        )
-
-        parser.add_argument(
-            "--native",
-            help="Track native (C/C++) stack frames as well",
-            action="store_true",
-            dest="native",
-            default=False,
-        )
-        parser.add_argument(
-            "--follow-fork",
-            action="store_true",
-            help="Record allocations in child processes forked from the tracked script",
-            default=False,
-        )
-        parser.add_argument(
-            "--trace-python-allocators",
-            action="store_true",
-            help="Record allocations made by the pymalloc allocator",
-            default=False,
-        )
-        compression = parser.add_mutually_exclusive_group()
-        compression.add_argument(
-            "--compress-on-exit",
-            help="Compress the resulting file using lz4 after tracking completes",
-            default=True,
-            action="store_true",
-        )
-        compression.add_argument(
-            "--no-compress",
-            help="Do not compress the resulting file using lz4",
-            default=False,
-            action="store_true",
-        )
-
-        parser.add_argument(
-            "--duration", type=int, help="Duration to track for (in seconds)"
-        )
-
-        super().prepare_parser(parser)
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         verbose = args.verbose
         mode: TrackingMode = "ACTIVATE"
@@ -598,6 +509,12 @@ class AttachCommand(_DebuggerCommand):
         # already exited. If so we must ignore the extra KeyboardInterrupt.
         error_reader = ErrorReaderThread(client)
         error_reader.start()
+
+        # Imported lazily so that `memray attach -o <file>` (which never shows
+        # the live TUI) doesn't import the TUI, and therefore doesn't import
+        # textual/rich.
+        from .live import LiveCommand
+
         live = LiveCommand()
 
         with contextlib.suppress(KeyboardInterrupt):
@@ -619,8 +536,6 @@ class AttachCommand(_DebuggerCommand):
 
 
 class DetachCommand(_DebuggerCommand):
-    """End the tracking started by a previous ``memray attach`` call"""
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         verbose = args.verbose
         mode: TrackingMode = "DEACTIVATE"

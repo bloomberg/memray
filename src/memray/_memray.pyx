@@ -11,10 +11,6 @@ import threading
 import warnings
 from datetime import datetime
 
-from rich import print as pprint
-from rich.progress import Progress
-from rich.progress import SpinnerColumn
-
 from posix.time cimport CLOCK_MONOTONIC
 from posix.time cimport clock_gettime
 from posix.time cimport timespec
@@ -1055,9 +1051,9 @@ def greenlet_trace_function(event, args):
 
 
 def print_greenlet_warning():
-    pprint(
-        ":warning: [bold red]Memray support for Greenlet is experimental[/] :warning:\n"
-        "[yellow]Please report any issues at https://github.com/bloomberg/memray/issues[/]\n"
+    print(
+        "⚠ Memray support for Greenlet is experimental ⚠\n"
+        "Please report any issues at https://github.com/bloomberg/memray/issues\n"
         "\n",
         file=sys.stderr,
     )
@@ -1124,6 +1120,9 @@ cdef class ProgressIndicator:
         self._task = None
         self._context_manager = None
         if report_progress:
+            from rich.progress import Progress
+            from rich.progress import SpinnerColumn
+
             self._indicator = Progress(
                 SpinnerColumn(),
                 *Progress.get_default_columns(),

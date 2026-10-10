@@ -1,7 +1,6 @@
 import argparse
 import os
 from pathlib import Path
-from textwrap import dedent
 
 from memray import FileReader
 from memray._errors import MemrayCommandError
@@ -11,50 +10,6 @@ from memray.reporters.summary import SummaryReporter
 
 
 class SummaryCommand:
-    """Generate a terminal-based summary report of the functions that allocate most memory"""
-
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("results", help="Results of the tracker run")
-        parser.add_argument(
-            "-s",
-            "--sort-column",
-            help="Column number to sort on",
-            type=int,
-            default=1,
-        )
-        parser.add_argument(
-            "-r",
-            "--max-rows",
-            help="Maximum number of rows to display",
-            type=int,
-            default=None,
-        )
-        alloc_type_group = parser.add_mutually_exclusive_group()
-        alloc_type_group.add_argument(
-            "--temporary-allocation-threshold",
-            metavar="N",
-            help=dedent(
-                """
-                Report temporary allocations, as opposed to leaked allocations
-                or high watermark allocations.  An allocation is considered
-                temporary if at most N other allocations occur before it is
-                deallocated.  With N=0, an allocation is temporary only if it
-                is immediately deallocated before any other allocation occurs.
-                """
-            ),
-            action="store",
-            dest="temporary_allocation_threshold",
-            type=int,
-            default=-1,
-        )
-        alloc_type_group.add_argument(
-            "--temporary-allocations",
-            help="Equivalent to --temporary-allocation-threshold=1",
-            action="store_const",
-            dest="temporary_allocation_threshold",
-            const=1,
-        )
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         max_cols = SummaryReporter.N_COLUMNS
         if args.sort_column < 1 or args.sort_column > max_cols:

@@ -21,7 +21,6 @@ from memray import FileFormat
 from memray import SocketDestination
 from memray import Tracker
 from memray._errors import MemrayCommandError
-from memray.commands.live import LiveCommand
 
 
 def _get_free_port() -> int:
@@ -111,6 +110,11 @@ def _child_process(
 
 
 def _run_child_process_and_attach(args: argparse.Namespace) -> None:
+    # Imported lazily so that the common `memray run` paths (and the tracked
+    # child process, which imports this module) never pull in the live TUI,
+    # and therefore never import textual/rich.
+    from memray.commands.live import LiveCommand
+
     port = args.live_port
     if port is None:
         port = _get_free_port()
@@ -204,117 +208,6 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
 
 
 class RunCommand:
-    """Run the specified application and track memory usage"""
-
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.usage = "%(prog)s [-m module | -c cmd | file] [args]"
-        output_group = parser.add_mutually_exclusive_group()
-        output_group.add_argument(
-            "-o",
-            "--output",
-            help="Output file name (default: <process_name>.<pid>.bin)",
-        )
-        output_group.add_argument(
-            "--live",
-            help="Start a live tracking session and immediately connect a live server",
-            action="store_true",
-            dest="live_mode",
-            default=False,
-        )
-        output_group.add_argument(
-            "--live-remote",
-            help="Start a live tracking session and wait until a client connects",
-            action="store_true",
-            dest="live_remote_mode",
-            default=False,
-        )
-        parser.add_argument(
-            "--live-port",
-            "-p",
-            help="Port to use when starting live tracking (default: random free port)",
-            default=None,
-            type=int,
-        )
-        parser.add_argument(
-            "--aggregate",
-            help="Write aggregated stats to the output file instead of all allocations",
-            action="store_true",
-            default=False,
-        )
-
-        parser.add_argument(
-            "--native",
-            help="Track native (C/C++) stack frames as well",
-            action="store_true",
-            dest="native",
-            default=False,
-        )
-        parser.add_argument(
-            "--follow-fork",
-            action="store_true",
-            help="Record allocations in child processes forked from the tracked script",
-            default=False,
-        )
-        parser.add_argument(
-            "--trace-python-allocators",
-            action="store_true",
-            help="Record allocations made by the pymalloc allocator",
-            default=False,
-        )
-        parser.add_argument(
-            "-q",
-            "--quiet",
-            help="Don't show any tracking-specific output while running",
-            action="store_true",
-        )
-        parser.add_argument(
-            "-f",
-            "--force",
-            help="If the output file already exists, overwrite it",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
-            "--buffered-file-io",
-            help="Buffer captured records in memory instead of using memory mapped IO",
-            action="store_true",
-            dest="buffered_file_io",
-            default=False,
-        )
-        compression = parser.add_mutually_exclusive_group()
-        compression.add_argument(
-            "--compress-on-exit",
-            help="Compress the resulting file using lz4 after tracking completes",
-            default=True,
-            action="store_true",
-        )
-        compression.add_argument(
-            "--no-compress",
-            help="Do not compress the resulting file using lz4",
-            default=False,
-            action="store_true",
-        )
-        parser.add_argument(
-            "-c",
-            help="Program passed in as string",
-            action="store_true",
-            dest="run_as_cmd",
-            default=False,
-        )
-        parser.add_argument(
-            "-m",
-            help="Run library module as a script (terminates option list)",
-            action="store_true",
-            dest="run_as_module",
-        )
-        parser.add_argument("script", help=argparse.SUPPRESS, metavar="file")
-        parser.add_argument(
-            "script_args",
-            help=argparse.SUPPRESS,
-            nargs=argparse.REMAINDER,
-            metavar="module",
-        )
-
     def validate_target_file(self, args: argparse.Namespace) -> None:
         """Ensure we are running a Python file"""
         if args.run_as_module:

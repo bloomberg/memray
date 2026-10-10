@@ -8,16 +8,6 @@ from memray.reporters.tui import TUIApp
 
 
 class LiveCommand:
-    """Remotely monitor allocations in a text-based interface"""
-
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "port",
-            help="Remote port to connect to",
-            default=None,
-            type=int,
-        )
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         with suppress(KeyboardInterrupt):
             self.start_live_interface(args.port)

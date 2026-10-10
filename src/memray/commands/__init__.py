@@ -1,118 +1,17 @@
-import argparse
+import importlib
 import logging
 import sys
-import textwrap
 from typing import List
 from typing import Optional
-
-from memray._version import __version__
-
-try:
-    from typing import Protocol
-except ImportError:
-    from typing_extensions import Protocol
 
 from memray._errors import MemrayCommandError
 from memray._errors import MemrayError
 from memray._memray import set_log_level
 
-from . import attach
-from . import flamegraph
-from . import live
-from . import parse
-from . import run
-from . import stats
-from . import summary
-from . import table
-from . import transform
-from . import tree
+from ._parse_args import SUBCOMMANDS
+from ._parse_args import get_argument_parser
 
-_EPILOG = textwrap.dedent(
-    """\
-    Please submit feedback, ideas, and bug reports by filing a new issue at
-    https://github.com/bloomberg/memray/issues
-    """
-)
-
-_DESCRIPTION = textwrap.dedent(
-    """\
-    Memory profiler for Python applications
-
-    Run `memray run` to generate a memory profile report, then use a reporter command
-    such as `memray flamegraph` or `memray table` to convert the results into HTML.
-
-    Example:
-
-        $ python3 -m memray run -o output.bin my_script.py
-        $ python3 -m memray flamegraph output.bin
-    """
-)
-
-
-class Command(Protocol):
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        ...
-
-    def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
-        ...
-
-
-_COMMANDS: List[Command] = [
-    run.RunCommand(),
-    flamegraph.FlamegraphCommand(),
-    table.TableCommand(),
-    live.LiveCommand(),
-    tree.TreeCommand(),
-    parse.ParseCommand(),
-    summary.SummaryCommand(),
-    stats.StatsCommand(),
-    transform.TransformCommand(),
-    attach.AttachCommand(),
-    attach.DetachCommand(),
-]
-
-
-def get_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=_DESCRIPTION,
-        prog="memray",
-        formatter_class=argparse.RawTextHelpFormatter,
-        epilog=_EPILOG,
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity. Option is additive and can be specified up to 3 times",
-    )
-    parser.add_argument(
-        "-V",
-        "--version",
-        action="version",
-        version=__version__,
-        help="Displays the current version of Memray",
-    )
-
-    subparsers = parser.add_subparsers(
-        help="Mode of operation",
-        dest="command",
-        required=True,
-    )
-
-    for command in _COMMANDS:
-        # Extract the CLI command name from the classes' names
-        assert command.__class__.__name__.endswith("Command")
-        name = command.__class__.__name__[: -len("Command")].lower()
-
-        # Add the subcommand
-        command_parser = subparsers.add_parser(
-            name, help=command.__doc__, description=command.__doc__, epilog=_EPILOG
-        )
-        command_parser.set_defaults(entrypoint=command.run)
-        command.prepare_parser(command_parser)
-
-    return parser
+__all__ = ["get_argument_parser", "main"]
 
 
 def determine_logging_level_from_verbosity(
@@ -135,7 +34,10 @@ def main(args: Optional[List[str]] = None) -> int:
     set_log_level(determine_logging_level_from_verbosity(arg_values.verbose))
 
     try:
-        arg_values.entrypoint(arg_values, parser)
+        # Only import the one module providing the subcommand we're running
+        module_name, _, class_name = SUBCOMMANDS[arg_values.command][0].rpartition(".")
+        module = importlib.import_module(f"memray.commands.{module_name}")
+        getattr(module, class_name)().run(arg_values, parser)
     except MemrayCommandError as e:
         print(e, file=sys.stderr)
         return e.exit_code
