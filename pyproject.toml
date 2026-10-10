@@ -128,11 +128,12 @@ editable.verbose = false
 cmake.build-type = "Debug"
 
 [tool.ruff]
-line-length = 95
+line-length = 88
 fix = true
 
 [tool.ruff.lint]
 select = ["C4", "E", "F", "I001", "PERF", "W"]
+ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 force-single-line = true
