@@ -164,17 +164,17 @@ class SortableText(Text):
         )
 
     def __lt__(self, other: Any) -> bool:
-        if type(other) != SortableText:
+        if type(other) is not SortableText:
             return NotImplemented
         return cast(bool, self.value < other.value)
 
     def __gt__(self, other: Any) -> bool:
-        if type(other) != SortableText:
+        if type(other) is not SortableText:
             return NotImplemented
         return cast(bool, self.value > other.value)
 
     def __eq__(self, other: Any) -> bool:
-        if type(other) != SortableText:
+        if type(other) is not SortableText:
             return NotImplemented
         return cast(bool, self.value == other.value)
 
