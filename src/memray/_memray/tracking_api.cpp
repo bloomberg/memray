@@ -530,8 +530,6 @@ PythonStackTracker::handleMonitoringEvent(
         MonitoringEvent event,
         PyFrameObject** rebuild_from)
 {
-    installGreenletTraceFunctionIfNeeded();
-
     PyFrameObject* frame = PyEval_GetFrame();
     if (!frame || compat::frameGetCode(frame) != code) {
         // Not a Python frame: e.g. an event fired by a Cython function.
@@ -1868,12 +1866,20 @@ Tracker::handleMonitoringEvent(PyCodeObject* code, MonitoringEvent event)
             return;
         }
 
+        PythonStackTracker::get().installGreenletTraceFunctionIfNeeded();
+        // Installing the greenlet hooks runs Python code, which can release
+        // the GIL and let another thread destroy the Tracker and release every
+        // owned frame. Check again so we don't take new references afterwards,
+        // and refetch our stack in case a new Tracker has since been created.
+        if (!isActive()) {
+            return;
+        }
         PythonStackTracker& stack = PythonStackTracker::get();
+
+        // Like any push or pop, rebuilding only changes this thread's stack;
+        // pending pops are written later by emitPendingPushesAndPops.
         PyFrameObject* rebuild_from = nullptr;
         if (!stack.handleMonitoringEvent(code, event, &rebuild_from)) {
-            // Rebuilding writes pops for frames we'd already emitted, so it
-            // needs the Tracker lock, like any other write.
-            std::unique_lock lock(*s_mutex);
             stack.rebuildShadowStack(rebuild_from, &released);
         }
     }
