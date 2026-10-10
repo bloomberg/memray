@@ -17,7 +17,7 @@ def test_with_multiple_allocations():
             n_allocations=i + 1,
             _stack=[
                 (f"function{i}", f"/src/lel_{i}.py", i),
-                (f"function{i+1}", f"/src/lel_{i+1}.py", i),
+                (f"function{i + 1}", f"/src/lel_{i + 1}.py", i),
             ],
         )
         for i in range(5)
@@ -102,7 +102,7 @@ def test_sort_column():
             n_allocations=i + 1,
             _stack=[
                 (f"function{i}", f"/src/lel_{i}.py", i),
-                (f"function{i+1}", f"/src/lel_{i+1}.py", i),
+                (f"function{i + 1}", f"/src/lel_{i + 1}.py", i),
             ],
         )
         for i in range(5)
@@ -145,7 +145,7 @@ def test_max_rows():
             n_allocations=i + 1,
             _stack=[
                 (f"function{i}", f"/src/lel_{i}.py", i),
-                (f"function{i+1}", f"/src/lel_{i+1}.py", i),
+                (f"function{i + 1}", f"/src/lel_{i + 1}.py", i),
             ],
         )
         for i in range(5)
@@ -185,7 +185,7 @@ def test_non_sequence_iterable():
             n_allocations=i + 1,
             _stack=[
                 (f"function{i}", f"/src/lel_{i}.py", i),
-                (f"function{i+1}", f"/src/lel_{i+1}.py", i),
+                (f"function{i + 1}", f"/src/lel_{i + 1}.py", i),
             ],
         )
         for i in range(5)

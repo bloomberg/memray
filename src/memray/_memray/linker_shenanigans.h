@@ -8,7 +8,7 @@
 namespace memray::linker {
 
 static void
-_dummy(void){};
+_dummy(void) {};
 
 class SymbolPatcher
 {

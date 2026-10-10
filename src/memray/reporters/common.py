@@ -12,7 +12,7 @@ from memray._memray import TemporalAllocationRecord
 
 
 def format_thread_name(
-    record: Union[AllocationRecord, TemporalAllocationRecord]
+    record: Union[AllocationRecord, TemporalAllocationRecord],
 ) -> str:
     if record.tid == -1:
         return "merged thread"

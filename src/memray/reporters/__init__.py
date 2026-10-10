@@ -18,5 +18,4 @@ class BaseReporter(Protocol):
         merge_threads: bool,
         inverted: bool,
         no_web: bool = False,
-    ) -> None:
-        ...
+    ) -> None: ...

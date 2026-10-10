@@ -114,8 +114,8 @@ class FrameDetailScreen(Widget):
 
     def _get_content_by_label_id(self) -> Dict[str, str]:
         common = {
-            "allocs": f"\N{floppy disk} Allocations: {self.frame.n_allocations}",
-            "size": f"\N{package} Size: {size_fmt(self.frame.value)}",
+            "allocs": f"\N{FLOPPY DISK} Allocations: {self.frame.n_allocations}",
+            "size": f"\N{PACKAGE} Size: {size_fmt(self.frame.value)}",
         }
 
         if self.frame.location is None:
@@ -143,16 +143,16 @@ class FrameDetailScreen(Widget):
             }
         return {
             **common,
-            "function": f"\N{compass} Function: {function}",
+            "function": f"\N{COMPASS} Function: {function}",
             "location": (
-                "\N{compass} Location: "
+                "\N{COMPASS} Location: "
                 + (
                     f"{_filename_to_module_name(file)}:{lineno}"
                     if lineno != 0
                     else file
                 )
             ),
-            "thread": f"\N{spool of thread} Thread: {self.frame.thread_id}",
+            "thread": f"\N{SPOOL OF THREAD} Thread: {self.frame.thread_id}",
         }
 
     def watch_frame(self) -> None:
@@ -251,9 +251,9 @@ class TreeScreen(Screen[None]):
         self.data = data
         self.elided_locations = elided_locations
         self.import_system_filter: Optional[Callable[[Frame], bool]] = None
-        self.uninteresting_filter: Optional[
-            Callable[[Frame], bool]
-        ] = node_is_interesting
+        self.uninteresting_filter: Optional[Callable[[Frame], bool]] = (
+            node_is_interesting
+        )
 
     def expand_first_child(self, node: TreeNode[Frame]) -> None:
         while node.children:
@@ -352,7 +352,7 @@ class TreeScreen(Screen[None]):
         percentage = 100 * value / root_data.value
         size_str = f"{size_fmt(value)} ({percentage:.2f} %)"
         size_color = _percentage_to_color(int(percentage))
-        ret = Text.from_markup("\N{black question mark ornament}")
+        ret = Text.from_markup("\N{BLACK QUESTION MARK ORNAMENT}")
         ret.append_text(Text(f" {size_str} ", style=Style(color=size_color.rich_color)))
         ret.append_text(
             Text.from_markup(

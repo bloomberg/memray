@@ -716,9 +716,9 @@ class TestParseSubcommand:
             record_count_by_type[record.partition(" ")[0]] += 1
 
         for record_type, count in record_count_by_type.items():
-            assert (
-                count > 0
-            ), f"no {record_type} records found in {record_count_by_type}"
+            assert count > 0, (
+                f"no {record_type} records found in {record_count_by_type}"
+            )
 
     def test_successful_parse_of_aggregated_capture_file(self, tmp_path):
         # GIVEN
@@ -778,9 +778,9 @@ class TestParseSubcommand:
             record_count_by_type[record.partition(" ")[0]] += 1
 
         for record_type, count in record_count_by_type.items():
-            assert (
-                count > 0
-            ), f"no {record_type} records found in {record_count_by_type}"
+            assert count > 0, (
+                f"no {record_type} records found in {record_count_by_type}"
+            )
 
     def test_error_when_stdout_is_a_tty(self, tmp_path, simple_test_file):
         # GIVEN
