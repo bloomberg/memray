@@ -9,7 +9,7 @@
 extern "C" {
 #ifndef __GLIBC__
 static void*
-pvalloc [[maybe_unused]] (size_t size)
+pvalloc [[maybe_unused]](size_t size)
 {
     return NULL;
 }
@@ -26,7 +26,7 @@ aligned_alloc(size_t alignment, size_t size)
 #ifdef __APPLE__
 
 static void*
-memalign [[maybe_unused]] (size_t alignment, size_t size)
+memalign [[maybe_unused]](size_t alignment, size_t size)
 {
     return NULL;
 }

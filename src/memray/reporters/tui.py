@@ -122,7 +122,7 @@ class MemoryGraph(Widget):
         if self._maxval > 1:
             self.border_subtitle = (
                 f"{size_fmt(int(value))}"
-                f" ({int(round(value * 100/self._maxval, 0))}%"
+                f" ({int(round(value * 100 / self._maxval, 0))}%"
                 f" of {size_fmt(int(self._maxval))} max)"
             )
         self.refresh()

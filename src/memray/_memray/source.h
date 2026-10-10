@@ -15,7 +15,7 @@ const int MAX_BUF_SIZE = 4096;
 class Source
 {
   public:
-    virtual ~Source(){};
+    virtual ~Source() {};
     virtual void close() = 0;
     virtual bool is_open() = 0;
     virtual bool read(char* result, ssize_t length) = 0;

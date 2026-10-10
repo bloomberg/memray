@@ -2348,7 +2348,7 @@ class TestFlameGraphReporter:
                                             "interesting": True,
                                             "location": ["me", "fun.py", 12],
                                             "n_allocations": 1,
-                                            "name": "me at " "fun.py:12",
+                                            "name": "me at fun.py:12",
                                             "thread_id": "0x1",
                                             "value": 1024,
                                         }
@@ -2357,11 +2357,11 @@ class TestFlameGraphReporter:
                                     "interesting": False,
                                     "location": [
                                         "parent",
-                                        "&lt;frozen " "importlib&gt;",
+                                        "&lt;frozen importlib&gt;",
                                         8,
                                     ],
                                     "n_allocations": 1,
-                                    "name": "parent at <frozen " "importlib>:8",
+                                    "name": "parent at <frozen importlib>:8",
                                     "thread_id": "0x1",
                                     "value": 1024,
                                 }

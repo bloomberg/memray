@@ -41,7 +41,8 @@ InternedString::get() const
     return d_ref.get();
 }
 
-InternedString::operator const std::string&() const
+InternedString::
+operator const std::string&() const
 {
     return d_ref.get();
 }

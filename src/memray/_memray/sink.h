@@ -12,7 +12,7 @@ namespace memray::io {
 class Sink
 {
   public:
-    virtual ~Sink(){};
+    virtual ~Sink() {};
     virtual bool writeAll(const char* data, size_t length) = 0;
     virtual bool seek(off_t offset, int whence) = 0;
     virtual std::unique_ptr<Sink> cloneInChildProcess() = 0;

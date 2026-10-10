@@ -824,9 +824,10 @@ Tracker::Tracker(
         // call malloc, hitting our malloc hook). POSIX guarantees multiple
         // rounds of TLS destruction if destructors call pthread_setspecific.
         // Note: If this raises an exception, the call_once can be retried.
-        if (0 != pthread_key_create(&s_native_unwind_vector_key, [](void* data) {
-                delete static_cast<std::vector<NativeTrace::ip_t>*>(data);
-            }))
+        if (0
+            != pthread_key_create(
+                    &s_native_unwind_vector_key,
+                    [](void* data) { delete static_cast<std::vector<NativeTrace::ip_t>*>(data); }))
         {
             throw std::runtime_error{"Failed to create pthread key"};
         }

@@ -35,8 +35,7 @@ class ReporterFactory(Protocol):
         merge_threads: bool,
         inverted: bool,
         confidential_files: str = "default",
-    ) -> BaseReporter:
-        ...
+    ) -> BaseReporter: ...
 
 
 class TemporalReporterFactory(Protocol):
@@ -49,8 +48,7 @@ class TemporalReporterFactory(Protocol):
         high_water_mark_by_snapshot: Optional[List[int]],
         inverted: bool,
         confidential_files: str = "default",
-    ) -> BaseReporter:
-        ...
+    ) -> BaseReporter: ...
 
 
 def warn_if_not_enough_symbols() -> None:

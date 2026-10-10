@@ -627,24 +627,26 @@ HighWaterMarkAggregator::generateIndex() const
             auto& curr = contribs[i];
             auto& next = contribs[i + 1];
 
-            index.emplace_back(AllocationLifetime{
-                    curr.as_of_snapshot,
-                    next.as_of_snapshot,
-                    location,
-                    curr.contrib.allocations,
-                    curr.contrib.bytes});
+            index.emplace_back(
+                    AllocationLifetime{
+                            curr.as_of_snapshot,
+                            next.as_of_snapshot,
+                            location,
+                            curr.contrib.allocations,
+                            curr.contrib.bytes});
         }
 
         if (!contribs.empty()) {
             // The last one is special because there's no end snapshot.
             auto& curr = contribs.back();
 
-            index.emplace_back(AllocationLifetime{
-                    curr.as_of_snapshot,
-                    static_cast<size_t>(-1),
-                    location,
-                    curr.contrib.allocations,
-                    curr.contrib.bytes});
+            index.emplace_back(
+                    AllocationLifetime{
+                            curr.as_of_snapshot,
+                            static_cast<size_t>(-1),
+                            location,
+                            curr.contrib.allocations,
+                            curr.contrib.bytes});
         }
     }
 

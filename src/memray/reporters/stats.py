@@ -37,7 +37,7 @@ def get_histogram_databins(data: Dict[int, int], bins: int) -> List[Tuple[int, i
 
 
 def describe_histogram_databins(
-    databins: List[Tuple[int, int]]
+    databins: List[Tuple[int, int]],
 ) -> List[Dict[str, int]]:
     ret: List[Dict[str, int]] = []
     start = 0

@@ -185,9 +185,9 @@ def test_track_object_lifetimes_deallocated_object(tmp_path):
 
     # One object should have a deallocation record
     assert obj_ids[0] in deleted_objects, "Object 1 should have a deallocation record"
-    assert (
-        obj_ids[1] not in deleted_objects
-    ), "Object 2 should not have a deallocation record"
+    assert obj_ids[1] not in deleted_objects, (
+        "Object 2 should not have a deallocation record"
+    )
 
 
 @requires_at_least_py313
@@ -206,9 +206,9 @@ def test_track_object_lifetimes_with_stack_trace(tmp_path):
 
     # Find our object in the surviving objects
     surviving_objects = tracker.get_surviving_objects()
-    assert any(
-        o is obj for o in surviving_objects
-    ), "Test object not found in surviving objects"
+    assert any(o is obj for o in surviving_objects), (
+        "Test object not found in surviving objects"
+    )
 
     # Get tracked objects from the file and create address -> object mapping
     created_objects = {
@@ -279,9 +279,9 @@ def test_multiple_surviving_objects(tmp_path):
 
     # All objects should have creation records
     for obj in objects:
-        assert (
-            id(obj) in created_objects
-        ), f"Object with ID {id(obj)} should have a creation record"
+        assert id(obj) in created_objects, (
+            f"Object with ID {id(obj)} should have a creation record"
+        )
 
 
 @requires_at_least_py313
@@ -331,9 +331,9 @@ def test_object_tracking_in_threads(tmp_path):
     # Verify each thread object has a creation record
     for name, obj in thread_objects.items():
         obj_id = id(obj)
-        assert (
-            obj_id in created_objects
-        ), f"Object for thread {name} should have a creation record"
+        assert obj_id in created_objects, (
+            f"Object for thread {name} should have a creation record"
+        )
 
 
 @requires_at_least_py313
@@ -408,9 +408,9 @@ def test_get_tracked_objects_without_filter(tmp_path):
     all_tracked_objects = list(reader.get_object_lifetime_events())
 
     # Should have at least 3 records: 2 creation records and 1 deallocation record
-    assert (
-        len(all_tracked_objects) >= 3
-    ), "Should have at least 3 tracked object records"
+    assert len(all_tracked_objects) >= 3, (
+        "Should have at least 3 tracked object records"
+    )
 
     # Create separate dictionaries for created and deallocated objects
     created_objects = {
@@ -426,19 +426,19 @@ def test_get_tracked_objects_without_filter(tmp_path):
 
     # Only obj1 should have a deallocation record
     assert obj1_id in deallocated_objects, "obj1 should have a deallocation record"
-    assert (
-        obj2_id not in deallocated_objects
-    ), "obj2 should not have a deallocation record"
+    assert obj2_id not in deallocated_objects, (
+        "obj2 should not have a deallocation record"
+    )
 
     # Check we can get stack traces from the created objects
     for address, obj in created_objects.items():
         stack_trace = obj.stack_trace()
-        assert (
-            stack_trace is not None
-        ), f"Stack trace should be available for object at {address}"
-        assert (
-            len(stack_trace) > 0
-        ), f"Stack trace should have at least one frame for object at {address}"
+        assert stack_trace is not None, (
+            f"Stack trace should be available for object at {address}"
+        )
+        assert len(stack_trace) > 0, (
+            f"Stack trace should have at least one frame for object at {address}"
+        )
 
 
 @requires_at_least_py313
@@ -472,17 +472,17 @@ def test_track_object_lifetimes_aggregating_writer(tmp_path):
 
     # Both obj1 and obj2 should be in surviving objects
     assert len([o for o in surviving_objects if isinstance(o, MyClass)]) >= 2
-    assert any(
-        o is obj1 for o in surviving_objects
-    ), "obj1 should be in surviving objects"
-    assert any(
-        o is obj2 for o in surviving_objects
-    ), "obj2 should be in surviving objects"
+    assert any(o is obj1 for o in surviving_objects), (
+        "obj1 should be in surviving objects"
+    )
+    assert any(o is obj2 for o in surviving_objects), (
+        "obj2 should be in surviving objects"
+    )
 
     # The temporary object should not be in surviving objects (it was deleted)
-    assert not any(
-        id(o) == temp_obj_id for o in surviving_objects
-    ), "temp_obj should not be in surviving objects"
+    assert not any(id(o) == temp_obj_id for o in surviving_objects), (
+        "temp_obj should not be in surviving objects"
+    )
 
     # Read from the aggregated file to verify surviving objects are written correctly
     reader = FileReader(output)
@@ -494,17 +494,17 @@ def test_track_object_lifetimes_aggregating_writer(tmp_path):
 
     # All tracked objects in aggregated format should be marked as created (surviving)
     for obj in tracked_objects:
-        assert (
-            obj.is_created
-        ), "All objects in aggregated format should be marked as created/surviving"
+        assert obj.is_created, (
+            "All objects in aggregated format should be marked as created/surviving"
+        )
 
     # Should include our test objects
     tracked_addresses = {obj.address for obj in tracked_objects}
     assert id(obj1) in tracked_addresses, "obj1 should be in tracked objects"
     assert id(obj2) in tracked_addresses, "obj2 should be in tracked objects"
-    assert (
-        temp_obj_id not in tracked_addresses
-    ), "temp_obj should not be in tracked objects"
+    assert temp_obj_id not in tracked_addresses, (
+        "temp_obj should not be in tracked objects"
+    )
 
 
 @requires_at_least_py313

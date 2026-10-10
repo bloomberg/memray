@@ -692,7 +692,7 @@ def test_switching_threads():
     # THEN
     order = [0, 1, 2, 0, 2, 1, 0]
     assert functions == ["abc"[i] for i in order]
-    assert tids == [f"TID: {hex(i+1)}" for i in order]
+    assert tids == [f"TID: {hex(i + 1)}" for i in order]
     assert threads == [thread_labels[i] for i in order]
 
 
@@ -786,10 +786,11 @@ def test_merging_allocations_from_all_threads():
     merged = [False, False, True, True, False, False]
     assert functions == ["abc"[i] for i in order]
     assert tids == [
-        "TID: *" if all else f"TID: {hex(i+1)}" for i, all in zip(order, merged)
+        "TID: *" if all else f"TID: {hex(i + 1)}" for i, all in zip(order, merged)
     ]
     assert threads == [
-        "All threads" if all else f"Thread {i+1} of 3" for i, all in zip(order, merged)
+        "All threads" if all else f"Thread {i + 1} of 3"
+        for i, all in zip(order, merged)
     ]
 
 
