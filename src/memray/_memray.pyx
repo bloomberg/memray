@@ -169,11 +169,14 @@ def _start_monitoring():
 def _stop_monitoring(tool_id):
     """Release our tool ID, warning if anyone tampered with it meanwhile."""
     monitoring = sys.monitoring
-    if monitoring.get_tool(tool_id) != _MONITORING_TOOL_NAME:
-        intact = False
-    else:
+    tool = monitoring.get_tool(tool_id)
+    intact = tool == _MONITORING_TOOL_NAME
+    if tool is None:
+        # Someone freed our tool ID. Before 3.14 that leaves its events and
+        # callbacks in place, so claim it again to clear them.
+        monitoring.use_tool_id(tool_id, _MONITORING_TOOL_NAME)
+    if tool is None or intact:
         mask = 0
-        intact = True
         for event, callback in _monitoring_callbacks():
             mask |= event
             intact &= monitoring.register_callback(tool_id, event, None) is callback
@@ -941,45 +944,57 @@ cdef class Tracker:
             writer = move(self._writer)
 
             self._patched_thread_class = threading.Thread
-            for attr in ("_name", "_ident"):
-                assert not hasattr(self._patched_thread_class, attr)
-                setattr(
-                    self._patched_thread_class,
-                    attr,
-                    ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
-                )
-
-            orig_set_os_name = getattr(self._patched_thread_class, "_set_os_name", None)
-            if orig_set_os_name is not None:
-                def set_os_name_wrapper(self):
-                    cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
-                    orig_set_os_name(self)
-
-                setattr(self._patched_thread_class, "_set_os_name", set_os_name_wrapper)
-
-            self._monitoring_tool_id = _start_monitoring()
-            set_monitoring_enabled(self._monitoring_tool_id is not None)
-            if self._monitoring_tool_id is None:
-                self._previous_profile_func = sys.getprofile()
-                self._previous_thread_profile_func = threading._profile_hook
-                threading.setprofile(start_thread_trace)
-
-            if "greenlet" in sys.modules:
-                NativeTracker.beginTrackingGreenlets()
-
             try:
-                NativeTracker.createTracker(
-                    move(writer),
-                    self._native_traces,
-                    self._memory_interval_ms,
-                    self._follow_fork,
-                    self._trace_python_allocators,
-                    self._track_object_lifetimes,
-                )
+                for attr in ("_name", "_ident"):
+                    assert not hasattr(self._patched_thread_class, attr)
+                    setattr(
+                        self._patched_thread_class,
+                        attr,
+                        ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
+                    )
+
+                orig_set_os_name = getattr(self._patched_thread_class, "_set_os_name", None)
+                if orig_set_os_name is not None:
+                    def set_os_name_wrapper(self):
+                        cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
+                        orig_set_os_name(self)
+
+                    setattr(self._patched_thread_class, "_set_os_name", set_os_name_wrapper)
+
+                self._monitoring_tool_id = _start_monitoring()
+                set_monitoring_enabled(self._monitoring_tool_id is not None)
+                if self._monitoring_tool_id is None:
+                    self._previous_profile_func = sys.getprofile()
+                    self._previous_thread_profile_func = threading._profile_hook
+                    threading.setprofile(start_thread_trace)
+
+                try:
+                    if "greenlet" in sys.modules:
+                        NativeTracker.beginTrackingGreenlets()
+
+                    NativeTracker.createTracker(
+                        move(writer),
+                        self._native_traces,
+                        self._memory_interval_ms,
+                        self._follow_fork,
+                        self._trace_python_allocators,
+                        self._track_object_lifetimes,
+                    )
+                except BaseException:
+                    self._stop_stack_tracking()
+                    raise
             except BaseException:
-                self._stop_stack_tracking()
+                self._restore_thread_class()
                 raise
             return self
+
+    cdef _restore_thread_class(self):
+        for attr in ("_name", "_ident"):
+            try:
+                delattr(self._patched_thread_class, attr)
+            except AttributeError:
+                pass
+        self._patched_thread_class = None
 
     cdef void _stop_stack_tracking(self):
         if self._monitoring_tool_id is None:
@@ -994,18 +1009,25 @@ cdef class Tracker:
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
+        # Release any frames we kept alive because we missed their returns.
+        # Do it while still tracking, so we see what they free, and without
+        # holding tracker_creation_lock, as it can run arbitrary code.
+        NativeTracker.releaseStaleFrames()
         if self._track_object_lifetimes:
             self._populate_surviving_objects()
-        with tracker_creation_lock:
-            NativeTracker.destroyTracker()
-            self._stop_stack_tracking()
-
-            for attr in ("_name", "_ident"):
+        try:
+            with tracker_creation_lock:
                 try:
-                    delattr(self._patched_thread_class, attr)
-                except AttributeError:
-                    pass
-            self._patched_thread_class = None
+                    NativeTracker.destroyTracker()
+                finally:
+                    try:
+                        self._stop_stack_tracking()
+                    finally:
+                        self._restore_thread_class()
+        finally:
+            # Likewise, release the frames we held when tracking stopped
+            # without holding tracker_creation_lock.
+            NativeTracker.releaseOrphanedFrames()
 
     cdef void _populate_surviving_objects(self):
         cdef NativeTracker *tracker = NativeTracker.getTracker()

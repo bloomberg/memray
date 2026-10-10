@@ -35,6 +35,12 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
         object destroyTracker() except +
 
         @staticmethod
+        void releaseStaleFrames() except+
+
+        @staticmethod
+        void releaseOrphanedFrames() except+
+
+        @staticmethod
         Tracker* getTracker()
 
         @staticmethod

@@ -165,11 +165,13 @@ def test_cython_traceback(tmpdir):
 
 
 def test_profiled_cython_frame_is_balanced(tmp_path):
+    from memray._test_utils import _profiled_cython_nested_allocation
+
     allocator = MemoryAllocator()
     output = tmp_path / "test.bin"
 
     with Tracker(output):
-        _cython_nested_allocation(allocator.valloc, 1234)
+        _profiled_cython_nested_allocation(allocator.valloc, 1234)
         allocator.free()
         allocator.valloc(4321)
     allocator.free()
@@ -1258,103 +1260,6 @@ class TestMmap:
             munmap_record.stack_trace()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 14), reason="requires Python 3.14")
-def test_profile_fallback_repairs_stack_after_preexisting_cython_call(tmp_path):
-    output = tmp_path / "test.bin"
-    allocator = MemoryAllocator()
-    ready_read, ready_write = os.pipe()
-    proceed_read, proceed_write = os.pipe()
-
-    def blocker(size):
-        os.write(ready_write, b"x")
-        os.read(proceed_read, 1)
-
-    def thread_body():
-        _cython_nested_allocation(blocker, 1234)
-        allocator.valloc(4321)
-        allocator.free()
-
-    monitoring = sys.monitoring
-    tool_id = monitoring.PROFILER_ID
-    monitoring.use_tool_id(tool_id, "test")
-    previous_thread_profile = threading.getprofile()
-    threading.setprofile(lambda *args: None)
-
-    try:
-        thread = threading.Thread(target=thread_body)
-        thread.start()
-        os.read(ready_read, 1)
-
-        with Tracker(output):
-            os.write(proceed_write, b"x")
-            thread.join()
-    finally:
-        threading.setprofile(previous_thread_profile)
-        monitoring.free_tool_id(tool_id)
-
-    (allocation,) = (
-        record
-        for record in FileReader(output).get_allocation_records()
-        if record.allocator == AllocatorType.VALLOC and record.size == 4321
-    )
-    assert [frame[0] for frame in allocation.stack_trace()][:2] == [
-        "valloc",
-        "thread_body",
-    ]
-
-
-@pytest.mark.skipif(
-    sys.version_info < (3, 13), reason="requires Cython monitoring events"
-)
-@pytest.mark.parametrize("cython_call", [False, True])
-@pytest.mark.parametrize("release_gil", [False, True])
-@pytest.mark.parametrize("native_traces", [False, True])
-def test_profile_fallback_first_call_in_preexisting_thread(
-    tmp_path, cython_call, release_gil, native_traces
-):
-    from memray._test_utils import allocate_after_nested_call
-    from memray._test_utils import profiled_cython_noop
-
-    output = tmp_path / "test.bin"
-    ready_read, ready_write = os.pipe()
-    proceed_read, proceed_write = os.pipe()
-
-    def python_noop():
-        pass
-
-    callback = profiled_cython_noop if cython_call else python_noop
-
-    def thread_body():
-        allocate_after_nested_call(ready_write, proceed_read, callback, release_gil)
-
-    monitoring = sys.monitoring
-    tool_id = monitoring.PROFILER_ID
-    monitoring.use_tool_id(tool_id, "test")
-    thread = threading.Thread(target=thread_body)
-    try:
-        thread.start()
-        os.read(ready_read, 1)
-        with Tracker(output, native_traces=native_traces):
-            os.write(proceed_write, b"x")
-            thread.join()
-    finally:
-        monitoring.free_tool_id(tool_id)
-        for fd in (ready_read, ready_write, proceed_read, proceed_write):
-            os.close(fd)
-
-    (allocation,) = (
-        record
-        for record in FileReader(output).get_allocation_records()
-        if record.allocator == AllocatorType.VALLOC and record.size == 4321
-    )
-    assert [frame[0] for frame in allocation.stack_trace()] == [
-        "thread_body",
-        "run",
-        "_bootstrap_inner",
-        "_bootstrap",
-    ]
-
-
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="requires sys.monitoring")
 def test_profile_fallback_does_not_confuse_reused_frames(tmp_path):
     from memray._test_utils import MemoryAllocator as NativeMemoryAllocator
@@ -1710,3 +1615,248 @@ def test_frames_of_exited_threads_are_released_when_tracking_stops(tmp_path):
     # THEN
     assert alive_while_tracking
     assert canary_ref() is None
+
+
+@utils.requires_monitoring_backend
+def test_frees_by_frames_with_missed_returns_are_tracked(tmp_path):
+    """Frames we kept alive because we missed their returns are released
+    before tracking stops, so what they free isn't reported as leaked.
+    """
+    # GIVEN
+    output = tmp_path / "test.bin"
+    size = 123456
+
+    def return_unobserved():
+        buffer = b"x" * size  # noqa: F841 (only this frame references it)
+        sys.monitoring.set_events(memray_tool_id(), 0)
+
+    # WHEN
+    with pytest.warns(RuntimeWarning, match="was modified"):
+        with Tracker(output):
+            return_unobserved()
+
+    # THEN
+    leaks = [
+        record.size
+        for record in FileReader(output).get_leaked_allocation_records()
+        if size <= record.size < size + 100
+    ]
+    assert leaks == []
+
+
+@utils.requires_monitoring_backend
+def test_finalizer_starting_a_tracker_while_tracking_stops(tmp_path):
+    """Releasing frames we kept alive can run finalizers, which mustn't
+    deadlock if they try to start a new Tracker.
+    """
+    # GIVEN
+    import subprocess
+    import textwrap
+
+    output = tmp_path / "test.bin"
+    nested_output = tmp_path / "nested.bin"
+    code = textwrap.dedent(
+        f"""
+        import sys
+        import warnings
+
+        from memray import Tracker
+
+        warnings.simplefilter("ignore")
+
+
+        class StartsTracker:
+            def __del__(self):
+                with Tracker({str(nested_output)!r}):
+                    pass
+
+
+        def return_unobserved():
+            canary = StartsTracker()
+            tool_id = next(
+                i for i in range(6) if sys.monitoring.get_tool(i) == "memray"
+            )
+            sys.monitoring.set_events(tool_id, 0)
+
+
+        with Tracker({str(output)!r}):
+            return_unobserved()
+        print("done")
+        """
+    )
+
+    # WHEN
+    proc = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=30
+    )
+
+    # THEN
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == "done\n"
+
+
+@utils.requires_monitoring_backend
+def test_forked_child_releases_frames_of_exited_threads(tmp_path):
+    # GIVEN
+    import gc
+    import weakref
+
+    output = tmp_path / "test.bin"
+    read_fd, write_fd = os.pipe()
+
+    class Canary:
+        pass
+
+    canary_ref = None
+
+    def thread_body():
+        nonlocal canary_ref
+        canary = Canary()
+        canary_ref = weakref.ref(canary)
+        sys.monitoring.set_events(memray_tool_id(), 0)
+
+    # WHEN
+    with pytest.warns(RuntimeWarning, match="was modified"):
+        with Tracker(output, follow_fork=False):
+            thread = threading.Thread(target=thread_body)
+            thread.start()
+            thread.join()
+            pid = os.fork()
+            if pid == 0:  # pragma: no cover
+                gc.collect()
+                os.write(write_fd, b"1" if canary_ref() is None else b"0")
+                os._exit(0)
+            os.waitpid(pid, 0)
+
+    # THEN
+    assert os.read(read_fd, 1) == b"1"
+
+
+def test_throw_into_delegating_generator_in_preexisting_thread(tmp_path):
+    """If a thread's first event is a throw into a generator that delegates
+    with `yield from`, rebuilding its stack must skip the delegating frames.
+    """
+    # GIVEN
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+    ready_r, ready_w = os.pipe()
+    proceed_r, proceed_w = os.pipe()
+
+    def inner():
+        try:
+            yield
+        except ValueError:
+            allocator.valloc(1234)
+            allocator.free()
+            yield
+
+    def delegate():
+        yield from inner()
+
+    def thread_body():
+        gen = delegate()
+        next(gen)
+        os.write(ready_w, b"x")
+        os.read(proceed_r, 1)
+        gen.throw(ValueError)
+
+    thread = threading.Thread(target=thread_body)
+    thread.start()
+    os.read(ready_r, 1)
+
+    # WHEN
+    with Tracker(output):
+        os.write(proceed_w, b"x")
+        thread.join()
+
+    # THEN
+    assert valloc_stacks(output)[1234][:3] == ["valloc", "inner", "thread_body"]
+
+
+@utils.requires_monitoring_backend
+def test_tracker_can_be_restarted_after_stopping_raises(tmp_path):
+    # GIVEN
+    import warnings
+
+    # WHEN
+    with pytest.raises(RuntimeWarning, match="was modified"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with Tracker(tmp_path / "test.bin"):
+                sys.monitoring.set_events(memray_tool_id(), 0)
+
+    # THEN
+    with Tracker(tmp_path / "test2.bin"):
+        pass
+
+
+@utils.requires_monitoring_backend
+def test_tracker_can_be_restarted_after_starting_raises(tmp_path):
+    # GIVEN
+    import subprocess
+    import textwrap
+
+    code = textwrap.dedent(
+        f"""
+        import sys
+
+        from memray import Tracker
+
+        rejecting = True
+
+
+        def hook(event, args):
+            if rejecting and event == "sys.monitoring.register_callback":
+                raise RuntimeError("rejected")
+
+
+        sys.addaudithook(hook)
+        try:
+            with Tracker({str(tmp_path / "test.bin")!r}):
+                pass
+        except RuntimeError:
+            pass
+        rejecting = False
+        with Tracker({str(tmp_path / "test2.bin")!r}):
+            pass
+        print("done")
+        """
+    )
+
+    # WHEN
+    proc = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=30
+    )
+
+    # THEN
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == "done\n"
+
+
+@utils.requires_monitoring_backend
+def test_events_are_disabled_when_tool_id_is_freed_while_tracking(tmp_path):
+    """Before 3.14, freeing a tool ID leaves its events and callbacks in place,
+    so stopping tracking must still clear them.
+    """
+    # GIVEN
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with pytest.warns(RuntimeWarning, match="was modified"):
+        with Tracker(output):
+            tool_id = memray_tool_id()
+            sys.monitoring.free_tool_id(tool_id)
+
+    # THEN
+    assert sys.monitoring.get_tool(tool_id) is None
+    sys.monitoring.use_tool_id(tool_id, "test")
+    try:
+        assert sys.monitoring.get_events(tool_id) == 0
+        assert (
+            sys.monitoring.register_callback(
+                tool_id, sys.monitoring.events.PY_START, None
+            )
+            is None
+        )
+    finally:
+        sys.monitoring.free_tool_id(tool_id)

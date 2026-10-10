@@ -303,6 +303,13 @@ class Tracker
             bool trace_python_allocators,
             bool reference_tracking);
     static PyObject* destroyTracker();
+    // Release the frames that sys.monitoring tracking holds for calls whose
+    // returns it missed, while tracking is still active so that we see what
+    // they free. Requires the GIL, and that no locks are held.
+    static void releaseStaleFrames();
+    // Release the frames held by stopped Trackers and exited threads. Requires
+    // the GIL, and that no locks are held.
+    static void releaseOrphanedFrames();
     static Tracker* getTracker();
 
     // Allocation tracking interface
