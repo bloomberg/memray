@@ -23,16 +23,12 @@ repos:
       - id: rst-directive-colons
       - id: rst-inline-touching-normal
 
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: "v0.1.7"
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.17.0"
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
-
-  - repo: https://github.com/psf/black
-    rev: 23.12.0
-    hooks:
-      - id: black
+      - id: ruff-format
 
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
