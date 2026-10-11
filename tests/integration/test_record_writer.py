@@ -8,6 +8,8 @@ import sysconfig
 import textwrap
 from unittest.mock import ANY
 
+import pytest
+
 from memray import AllocatorType
 from memray import FileFormat
 from memray import FileReader
@@ -67,6 +69,42 @@ def parse_capture_file(output_file):
     assert header.startswith("HEADER ")
     header_fields = list(re.findall(r"(\S+)=(.*?)\s*(?=\S+=|$)", header))
     return header_fields, rest
+
+
+def assert_python_version_compatible(header_fields: list[tuple[str, str]]) -> None:
+    """Check the compiled header version without requiring a matching micro release."""
+    # C extensions store build-time PY_VERSION_HEX; autopkgtest may use a
+    # newer Python micro release at runtime. Check major/minor compatibility.
+    captured = dict(header_fields)["python_version"]
+    assert re.fullmatch(r"[0-9a-f]{8}", captured)
+    assert int(captured, 16) >> 16 == sys.hexversion >> 16
+
+
+@pytest.mark.parametrize(
+    ("version_mask", "compatible"),
+    [
+        (0x00000000, True),  # Exact version
+        (0x00000100, True),  # Different micro release
+        (0x00000010, True),  # Different release level
+        (0x00010000, False),  # Different minor release
+        (0x01000000, False),  # Different major release
+    ],
+)
+def test_python_version_header_compatibility(version_mask: int, compatible: bool) -> None:
+    """Accept a build-time micro mismatch, but not a major/minor mismatch."""
+    fields = [("python_version", f"{sys.hexversion ^ version_mask:08x}")]
+    if compatible:
+        assert_python_version_compatible(fields)
+    else:
+        with pytest.raises(AssertionError):
+            assert_python_version_compatible(fields)
+
+
+@pytest.mark.parametrize("captured", ["", "030e07f", "030e07f00", "030e07fg"])
+def test_python_version_header_rejects_invalid_hex(captured: str) -> None:
+    """Reject malformed version headers rather than silently accepting them."""
+    with pytest.raises(AssertionError):
+        assert_python_version_compatible([("python_version", captured)])
 
 
 def sort_runs_of_same_record_type(records):
@@ -139,6 +177,7 @@ def test_write_basic_records(tmp_path):
 
     # THEN
     header_fields, records = parse_capture_file(output_file)
+    assert_python_version_compatible(header_fields)
     allocator = (
         "mimalloc" if sysconfig.get_config_var("Py_GIL_DISABLED") else "pymalloc"
     )
@@ -146,7 +185,7 @@ def test_write_basic_records(tmp_path):
     assert header_fields == [
         ("magic", "memray"),
         ("version", "13"),
-        ("python_version", f"{sys.hexversion:08x}"),
+        ("python_version", ANY),
         ("native_traces", "true"),
         ("file_format", "ALL_ALLOCATIONS"),
         ("n_allocations", "0"),
@@ -260,6 +299,7 @@ def test_write_aggregated_records(tmp_path):
 
     # THEN
     header_fields, records = parse_capture_file(output_file)
+    assert_python_version_compatible(header_fields)
     allocator = (
         "mimalloc" if sysconfig.get_config_var("Py_GIL_DISABLED") else "pymalloc"
     )
@@ -267,7 +307,7 @@ def test_write_aggregated_records(tmp_path):
     assert header_fields == [
         ("magic", "memray"),
         ("version", "13"),
-        ("python_version", f"{sys.hexversion:08x}"),
+        ("python_version", ANY),
         ("native_traces", "false"),
         ("file_format", "AGGREGATED_ALLOCATIONS"),
         ("n_allocations", "0"),
