@@ -8,6 +8,7 @@ import sys
 cimport cython
 
 import threading
+import warnings
 from datetime import datetime
 
 from posix.time cimport CLOCK_MONOTONIC
@@ -59,7 +60,9 @@ from _memray.source cimport SocketSource
 from _memray.tracking_api cimport RecursionGuard
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport getRSSFromProcStatus
+from _memray.tracking_api cimport handle_monitoring_event
 from _memray.tracking_api cimport install_trace_function
+from _memray.tracking_api cimport set_monitoring_enabled
 from _memray.tracking_api cimport set_up_pthread_fork_handlers
 from cpython cimport Py_DECREF
 from cpython cimport PyErr_CheckSignals
@@ -94,6 +97,99 @@ from ._thread_name_interceptor import ThreadNameInterceptor
 #       a pthread fork handler to disable tracking before forking.
 set_up_pthread_fork_handlers()
 os.register_at_fork(after_in_child=NativeTracker.childFork)
+
+
+# Must match memray::tracking_api::MonitoringEvent.
+cdef enum:
+    MONITORING_PUSH = 0
+    MONITORING_THROW = 1
+    MONITORING_POP = 2
+
+
+@cython.profile(False)
+def _monitoring_push(code, instruction_offset):
+    handle_monitoring_event(<PyCodeObject*>code, MONITORING_PUSH)
+
+
+@cython.profile(False)
+def _monitoring_throw(code, instruction_offset, exception):
+    handle_monitoring_event(<PyCodeObject*>code, MONITORING_THROW)
+
+
+@cython.profile(False)
+def _monitoring_pop(code, instruction_offset, arg):
+    handle_monitoring_event(<PyCodeObject*>code, MONITORING_POP)
+
+
+_MONITORING_TOOL_NAME = "memray"
+
+
+def _monitoring_callbacks():
+    events = sys.monitoring.events
+    return (
+        (events.PY_START, _monitoring_push),
+        (events.PY_RESUME, _monitoring_push),
+        (events.PY_THROW, _monitoring_throw),
+        (events.PY_RETURN, _monitoring_pop),
+        (events.PY_YIELD, _monitoring_pop),
+        (events.PY_UNWIND, _monitoring_pop),
+    )
+
+
+def _start_monitoring():
+    """Claim a sys.monitoring tool ID, returning it, or None if we can't.
+
+    Without the GIL, a profile function is used instead: memray's allocation
+    hooks read the shadow stack without holding a lock that callbacks use.
+    """
+    if sys.version_info < (3, 12) or not getattr(sys, "_is_gil_enabled", lambda: True)():
+        return None
+
+    monitoring = sys.monitoring
+    # PROFILER_ID is conventional, but other tools (e.g. PyTorch) grab it
+    # too, so fall back to the IDs that CPython leaves unassigned.
+    for tool_id in (monitoring.PROFILER_ID, 3, 4):
+        try:
+            monitoring.use_tool_id(tool_id, _MONITORING_TOOL_NAME)
+        except ValueError:
+            continue
+        try:
+            mask = 0
+            for event, callback in _monitoring_callbacks():
+                monitoring.register_callback(tool_id, event, callback)
+                mask |= event
+            monitoring.set_events(tool_id, mask)
+        except BaseException:
+            _stop_monitoring(tool_id)
+            raise
+        return tool_id
+    return None
+
+
+def _stop_monitoring(tool_id):
+    """Release our tool ID, warning if anyone tampered with it meanwhile."""
+    monitoring = sys.monitoring
+    tool = monitoring.get_tool(tool_id)
+    intact = tool == _MONITORING_TOOL_NAME
+    if tool is None:
+        # Someone freed our tool ID. Before 3.14 that leaves its events and
+        # callbacks in place, so claim it again to clear them.
+        monitoring.use_tool_id(tool_id, _MONITORING_TOOL_NAME)
+    if tool is None or intact:
+        mask = 0
+        for event, callback in _monitoring_callbacks():
+            mask |= event
+            intact &= monitoring.register_callback(tool_id, event, None) is callback
+        intact &= monitoring.get_events(tool_id) == mask
+        monitoring.set_events(tool_id, 0)
+        monitoring.free_tool_id(tool_id)
+    if not intact:
+        warnings.warn(
+            f"sys.monitoring tool {tool_id} was modified while Memray was "
+            "tracking. Python stacks reported after that may be inaccurate.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
 
 def set_log_level(int level):
@@ -752,6 +848,7 @@ cdef class Tracker:
     cdef bool _trace_python_allocators
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
+    cdef object _monitoring_tool_id
     cdef object _patched_thread_class
     cdef unique_ptr[RecordWriter] _writer
     cdef object _surviving_objects
@@ -847,54 +944,90 @@ cdef class Tracker:
             writer = move(self._writer)
 
             self._patched_thread_class = threading.Thread
-            for attr in ("_name", "_ident"):
-                assert not hasattr(self._patched_thread_class, attr)
-                setattr(
-                    self._patched_thread_class,
-                    attr,
-                    ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
-                )
+            try:
+                for attr in ("_name", "_ident"):
+                    assert not hasattr(self._patched_thread_class, attr)
+                    setattr(
+                        self._patched_thread_class,
+                        attr,
+                        ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
+                    )
 
-            orig_set_os_name = getattr(self._patched_thread_class, "_set_os_name", None)
-            if orig_set_os_name is not None:
-                def set_os_name_wrapper(self):
-                    cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
-                    orig_set_os_name(self)
+                orig_set_os_name = getattr(self._patched_thread_class, "_set_os_name", None)
+                if orig_set_os_name is not None:
+                    def set_os_name_wrapper(self):
+                        cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
+                        orig_set_os_name(self)
 
-                setattr(self._patched_thread_class, "_set_os_name", set_os_name_wrapper)
+                    setattr(self._patched_thread_class, "_set_os_name", set_os_name_wrapper)
 
-            self._previous_profile_func = sys.getprofile()
-            self._previous_thread_profile_func = threading._profile_hook
-            threading.setprofile(start_thread_trace)
+                self._monitoring_tool_id = _start_monitoring()
+                set_monitoring_enabled(self._monitoring_tool_id is not None)
+                if self._monitoring_tool_id is None:
+                    self._previous_profile_func = sys.getprofile()
+                    self._previous_thread_profile_func = threading._profile_hook
+                    threading.setprofile(start_thread_trace)
 
-            if "greenlet" in sys.modules:
-                NativeTracker.beginTrackingGreenlets()
+                try:
+                    if "greenlet" in sys.modules:
+                        NativeTracker.beginTrackingGreenlets()
 
-            NativeTracker.createTracker(
-                move(writer),
-                self._native_traces,
-                self._memory_interval_ms,
-                self._follow_fork,
-                self._trace_python_allocators,
-                self._track_object_lifetimes,
-            )
+                    NativeTracker.createTracker(
+                        move(writer),
+                        self._native_traces,
+                        self._memory_interval_ms,
+                        self._follow_fork,
+                        self._trace_python_allocators,
+                        self._track_object_lifetimes,
+                    )
+                except BaseException:
+                    self._stop_stack_tracking()
+                    raise
+            except BaseException:
+                self._restore_thread_class()
+                raise
             return self
+
+    cdef _restore_thread_class(self):
+        for attr in ("_name", "_ident"):
+            try:
+                delattr(self._patched_thread_class, attr)
+            except AttributeError:
+                pass
+        self._patched_thread_class = None
+
+    cdef void _stop_stack_tracking(self):
+        if self._monitoring_tool_id is None:
+            sys.setprofile(self._previous_profile_func)
+            threading.setprofile(self._previous_thread_profile_func)
+        else:
+            try:
+                _stop_monitoring(self._monitoring_tool_id)
+            finally:
+                # Even if the tampering warning is raised as an error.
+                set_monitoring_enabled(False)
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
+        # Release any frames we kept alive because we missed their returns.
+        # Do it while still tracking, so we see what they free, and without
+        # holding tracker_creation_lock, as it can run arbitrary code.
+        NativeTracker.releaseStaleFrames()
         if self._track_object_lifetimes:
             self._populate_surviving_objects()
-        with tracker_creation_lock:
-            NativeTracker.destroyTracker()
-            sys.setprofile(self._previous_profile_func)
-            threading.setprofile(self._previous_thread_profile_func)
-
-            for attr in ("_name", "_ident"):
+        try:
+            with tracker_creation_lock:
                 try:
-                    delattr(self._patched_thread_class, attr)
-                except AttributeError:
-                    pass
-            self._patched_thread_class = None
+                    NativeTracker.destroyTracker()
+                finally:
+                    try:
+                        self._stop_stack_tracking()
+                    finally:
+                        self._restore_thread_class()
+        finally:
+            # Likewise, release the frames we held when tracking stopped
+            # without holding tracker_creation_lock.
+            NativeTracker.releaseOrphanedFrames()
 
     cdef void _populate_surviving_objects(self):
         cdef NativeTracker *tracker = NativeTracker.getTracker()

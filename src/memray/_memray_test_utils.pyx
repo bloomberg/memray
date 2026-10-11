@@ -14,6 +14,7 @@ from posix.mman cimport munmap
 from posix.unistd cimport read
 from posix.unistd cimport write
 
+cimport cython
 from _memray.alloc cimport PyMem_Calloc
 from _memray.alloc cimport PyMem_Free
 from _memray.alloc cimport PyMem_Malloc
@@ -308,3 +309,13 @@ cdef class PrimeCaches:
         return self
     def __exit__(self, *args):
         sys.setprofile(self.old_profile)
+
+
+# Like _cython_nested_allocation, but reports profile events, which must not
+# unbalance our stack.
+@cython.profile(True)
+def _profiled_cython_nested_allocation(allocator_fn, size):
+    allocator_fn(size)
+    cdef void* p = valloc(size);
+    do_not_optimize_ptr(p)
+    free(p)
