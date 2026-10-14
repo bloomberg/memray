@@ -90,7 +90,9 @@ def assert_python_version_compatible(header_fields: list[tuple[str, str]]) -> No
         (0x01000000, False),  # Different major release
     ],
 )
-def test_python_version_header_compatibility(version_mask: int, compatible: bool) -> None:
+def test_python_version_header_compatibility(
+    version_mask: int, compatible: bool
+) -> None:
     """Accept a build-time micro mismatch, but not a major/minor mismatch."""
     fields = [("python_version", f"{sys.hexversion ^ version_mask:08x}")]
     if compatible:
