@@ -137,6 +137,11 @@ startTheWorld(PyInterpreterState*)
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg);
 
+// For Python 3.11 and later, return the version of the running interpreter.
+// For earlier versions, return the interpreter version used to build Memray.
+int
+runtimePythonVersion();
+
 inline const char*
 codeGetLinetable(PyCodeObject* code, size_t* size)
 {
