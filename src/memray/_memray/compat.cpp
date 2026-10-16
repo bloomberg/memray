@@ -24,6 +24,16 @@ setprofileAllThreads(Py_tracefunc func, PyObject* arg)
 #endif
 }
 
+int
+runtimePythonVersion()
+{
+#if PY_VERSION_HEX >= 0x030B0000
+    return static_cast<int>(Py_Version);
+#else
+    return PY_VERSION_HEX;
+#endif
+}
+
 // Constants for older Python versions
 static const int NO_LINE_NUMBER = -0x80;
 
