@@ -23,6 +23,47 @@ namespace memray::tracking_api {
 
 using namespace std::chrono;
 
+namespace {
+
+// Maximum current wire size: token (1) + pointer delta (10) + allocator (1)
+// + native-frame delta (10) + size varint (10) = 32 bytes.
+// Keep this bound and the allocation-record boundary tests in sync if the wire
+// format gains fields or any encoded component can grow beyond these maxima.
+constexpr size_t MAX_ENCODED_ALLOCATION_RECORD_SIZE = 32;
+
+inline char*
+appendVarint(char* out, uint64_t rest)
+{
+    do {
+        unsigned char byte = rest & 0x7f;
+        rest >>= 7;
+        if (rest) {
+            byte |= 0x80;
+        }
+        *out++ = static_cast<char>(byte);
+    } while (rest);
+    return out;
+}
+
+inline char*
+appendSignedVarint(char* out, int64_t val)
+{
+    uint64_t zigzag_val = (static_cast<uint64_t>(val) << 1)
+                          ^ static_cast<uint64_t>(val >> std::numeric_limits<int64_t>::digits);
+    return appendVarint(out, zigzag_val);
+}
+
+template<typename T>
+inline char*
+appendIntegralDelta(char* out, T* prev, T new_val)
+{
+    int64_t delta = new_val - *prev;
+    *prev = new_val;
+    return appendSignedVarint(out, delta);
+}
+
+}  // unnamed namespace
+
 static PythonAllocatorType
 getPythonAllocator()
 {
@@ -436,15 +477,26 @@ StreamingRecordWriter::writeThreadSpecificRecord(thread_id_t tid, const Allocati
     int pointer_cache_index = pointerCacheIndex(record.address);
     token |= (pointer_cache_index & 0x0f) << 3;
 
-    return writeSimpleType(token)
-           && (pointer_cache_index != -1
-               || writeIntegralDelta(&d_last.data_pointer, record.address >> 3))
-           && (allocator_id < 8 || writeSimpleType(record.allocator))
-           && (!d_header.native_traces
-               || hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
-               || writeIntegralDelta(&d_last.native_frame_id, record.native_frame_id))
-           && (hooks::allocatorKind(record.allocator) == hooks::AllocatorKind::SIMPLE_DEALLOCATOR
-               || writeVarint(record.size));
+    const auto allocator_kind = hooks::allocatorKind(record.allocator);
+    std::array<char, MAX_ENCODED_ALLOCATION_RECORD_SIZE> encoded{};
+    char* out = encoded.data();
+    *out++ = static_cast<char>(token);
+
+    if (pointer_cache_index == -1) {
+        out = appendIntegralDelta(out, &d_last.data_pointer, record.address >> 3);
+    }
+    if (allocator_id >= 8) {
+        *out++ = static_cast<char>(record.allocator);
+    }
+    if (d_header.native_traces && allocator_kind != hooks::AllocatorKind::SIMPLE_DEALLOCATOR) {
+        out = appendIntegralDelta(out, &d_last.native_frame_id, record.native_frame_id);
+    }
+    if (allocator_kind != hooks::AllocatorKind::SIMPLE_DEALLOCATOR) {
+        out = appendVarint(out, record.size);
+    }
+
+    assert(out <= encoded.data() + encoded.size());
+    return d_sink->writeAll(encoded.data(), static_cast<size_t>(out - encoded.data()));
 }
 
 bool
