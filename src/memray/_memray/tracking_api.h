@@ -168,6 +168,20 @@ void
 install_trace_function();
 
 /**
+ * Select sys.monitoring (instead of a profile function) for maintaining
+ * Python stacks. Must be called while no Tracker is active.
+ */
+void
+set_monitoring_enabled(bool enabled);
+
+/**
+ * Handle a sys.monitoring event, one of MonitoringEvent: PY_START/PY_RESUME
+ * push, PY_THROW throws, and PY_RETURN/PY_YIELD/PY_UNWIND pop.
+ */
+void
+handle_monitoring_event(PyCodeObject* code, int event) noexcept;
+
+/**
  * Install our pthread fork handlers.
  */
 void
@@ -262,6 +276,13 @@ class NativeTrace
  * temporarily stop the tracking as desired. The singleton manages a mirror copy of the Python stack
  * so it can be accessed synchronized by its the allocation tracking interfaces.
  * */
+// The sys.monitoring events we use to maintain Python stacks.
+enum class MonitoringEvent : int {
+    PUSH = 0,  // PY_START, PY_RESUME
+    THROW = 1,  // PY_THROW
+    POP = 2,  // PY_RETURN, PY_YIELD, PY_UNWIND
+};
+
 class Tracker
 {
   public:
@@ -282,6 +303,13 @@ class Tracker
             bool trace_python_allocators,
             bool reference_tracking);
     static PyObject* destroyTracker();
+    // Release the frames that sys.monitoring tracking holds for calls whose
+    // returns it missed, while tracking is still active so that we see what
+    // they free. Requires the GIL, and that no locks are held.
+    static void releaseStaleFrames();
+    // Release the frames held by stopped Trackers and exited threads. Requires
+    // the GIL, and that no locks are held.
+    static void releaseOrphanedFrames();
     static Tracker* getTracker();
 
     // Allocation tracking interface
@@ -438,6 +466,7 @@ class Tracker
      * Handle a notification of control switching from one greenlet to another.
      */
     static void handleGreenletSwitch(PyObject* from, PyObject* to);
+    static void handleMonitoringEvent(PyCodeObject* code, MonitoringEvent event);
 
     static void prepareFork();
     static void parentFork();
