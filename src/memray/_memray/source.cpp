@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <vector>
 
 #include <chrono>
 #include <thread>
@@ -87,16 +88,38 @@ FileSource::findReadableSize()
     // in order to recover from the file truncation. To ignore these, we count
     // the zeroed bytes at the end of the file, and make calls to read() and
     // getline() fail if they read into those bytes.
-    d_raw_stream->seekg(-1, d_raw_stream->end);
-    while (*d_raw_stream) {
-        char c = d_raw_stream->peek();
-        if (c != 0x00) {
-            d_readable_size = d_raw_stream->tellg() + std::streamoff(1);
+    constexpr size_t buffer_size = 64 * 1024;
+    std::vector<char> buffer(1);
+
+    d_raw_stream->clear();
+    d_raw_stream->seekg(0, d_raw_stream->end);
+    std::streamoff scan_end = d_raw_stream->tellg();
+
+    while (scan_end > 0) {
+        size_t bytes_to_scan =
+                static_cast<size_t>(std::min(scan_end, static_cast<std::streamoff>(buffer.size())));
+        std::streamoff scan_start = scan_end - static_cast<std::streamoff>(bytes_to_scan);
+        d_raw_stream->seekg(scan_start, d_raw_stream->beg);
+        d_raw_stream->read(buffer.data(), bytes_to_scan);
+        if (d_raw_stream->gcount() != static_cast<std::streamsize>(bytes_to_scan)) {
             break;
         }
-        // If we're at BOF, this sets failbit and makes the loop break.
-        d_raw_stream->seekg(-1, d_raw_stream->cur);
+
+        for (size_t i = bytes_to_scan; i > 0; --i) {
+            if (buffer[i - 1] != 0x00) {
+                d_readable_size = scan_start + static_cast<std::streamoff>(i);
+                break;
+            }
+        }
+        if (d_readable_size) {
+            break;
+        }
+        scan_end = scan_start;
+        // Only allocate the full buffer if the last byte wasn't a TRAILER.
+        buffer.resize(buffer_size);
     }
+
+    d_raw_stream->clear();
     d_raw_stream->seekg(0, d_raw_stream->beg);
 }
 
