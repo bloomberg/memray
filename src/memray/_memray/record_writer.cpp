@@ -9,6 +9,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "compat.h"
 #include "frame_tree.h"
 #include "records.h"
 #include "snapshot.h"
@@ -233,7 +234,7 @@ StreamingRecordWriter::StreamingRecordWriter(
     d_header = HeaderRecord{
             "",
             d_version,
-            PY_VERSION_HEX,
+            compat::runtimePythonVersion(),
             native_traces,
             FileFormat::ALL_ALLOCATIONS,
             d_stats,
@@ -574,7 +575,7 @@ AggregatingRecordWriter::AggregatingRecordWriter(
 {
     memcpy(d_header.magic, MAGIC, sizeof(d_header.magic));
     d_header.version = CURRENT_HEADER_VERSION;
-    d_header.python_version = PY_VERSION_HEX;
+    d_header.python_version = compat::runtimePythonVersion();
     d_header.native_traces = native_traces;
     d_header.file_format = FileFormat::AGGREGATED_ALLOCATIONS;
     d_header.command_line = command_line;
