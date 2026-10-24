@@ -21,8 +21,11 @@ def get_histogram_databins(data: Dict[int, int], bins: int) -> List[Tuple[int, i
     if bins <= 0:
         raise ValueError(f"Invalid input bins={bins}, should be greater than 0")
 
-    low = math.log(min(filter(None, data)))
-    high = math.log(max(data))
+    # Zero-byte allocations always go in the first bin, so only positive sizes
+    # determine the bounds. Treat a capture without any as if it were 1 byte.
+    positive_sizes = [size for size in data if size]
+    low = math.log(min(positive_sizes, default=1))
+    high = math.log(max(positive_sizes, default=1))
     if low == high:
         low = low / 2
     step = (high - low) / bins
@@ -31,7 +34,13 @@ def get_histogram_databins(data: Dict[int, int], bins: int) -> List[Tuple[int, i
     steps = [int(math.exp(low + step * (i + 1))) for i in range(bins)]
     dist: Dict[int, int] = Counter()
     for size, count in data.items():
-        bucket = min(int((math.log(size) - low) // step), bins - 1) if size else 0
+        if not size:
+            bucket = 0
+        elif not step:
+            # Every positive size is 1 byte, and every bin has the same bound.
+            bucket = bins - 1
+        else:
+            bucket = min(int((math.log(size) - low) // step), bins - 1)
         dist[bucket] += count
     return [(steps[b], dist[b]) for b in range(bins)]
 
