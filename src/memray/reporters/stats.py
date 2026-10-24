@@ -1,3 +1,4 @@
+import bisect
 import datetime
 import json
 import math
@@ -30,17 +31,15 @@ def get_histogram_databins(data: Dict[int, int], bins: int) -> List[Tuple[int, i
         low = low / 2
     step = (high - low) / bins
 
-    # Determine the upper bound in bytes for each bin
-    steps = [int(math.exp(low + step * (i + 1))) for i in range(bins)]
+    # Determine the upper bound in bytes for each bin. Every bin's bound is
+    # exclusive except the last one's, which must include the largest size.
+    steps = [int(math.exp(low + step * (i + 1))) for i in range(bins - 1)]
+    steps.append(max(positive_sizes, default=1))
     dist: Dict[int, int] = Counter()
     for size, count in data.items():
-        if not size:
-            bucket = 0
-        elif not step:
-            # Every positive size is 1 byte, and every bin has the same bound.
-            bucket = bins - 1
-        else:
-            bucket = min(int((math.log(size) - low) // step), bins - 1)
+        # Bucket by the same integer bounds that we report, rather than by the
+        # logarithms, so that truncation and rounding can't make them disagree.
+        bucket = min(bisect.bisect_right(steps, size), bins - 1)
         dist[bucket] += count
     return [(steps[b], dist[b]) for b in range(bins)]
 

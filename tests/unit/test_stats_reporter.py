@@ -14,6 +14,7 @@ from memray._memray import FileFormat
 from memray._metadata import Metadata
 from memray._stats import Stats
 from memray.reporters.stats import StatsReporter
+from memray.reporters.stats import describe_histogram_databins
 from memray.reporters.stats import draw_histogram
 from memray.reporters.stats import get_histogram_databins
 from tests.utils import MockAllocationRecord
@@ -314,6 +315,31 @@ def test_draw_histogram_only_one_byte_allocations():
 
     # THEN
     assert output.splitlines()[2:4] == ["\t< 1.000B   : 0 ", "\t<=1.000B   : 4 ▇▇▇▇"]
+
+
+@pytest.mark.parametrize("bins", [1, 2, 3, 5, 10])
+@pytest.mark.parametrize(
+    "sizes",
+    [
+        pytest.param([17870, 17871], id="bound truncated onto a size"),
+        pytest.param([32, 1050856], id="rounding"),
+        pytest.param([10000000000, 536, 592, 576, 4486], id="over bound"),
+        pytest.param([0, 1, 2, 3, 1000, 1001, 999999], id="mixed"),
+    ],
+)
+def test_histogram_bins_contain_their_sizes(sizes, bins):
+    """Test that each size is counted in the bin whose range contains it."""
+    # GIVEN
+    data = Counter(sizes)
+
+    # WHEN
+    databins = describe_histogram_databins(get_histogram_databins(data, bins=bins))
+
+    # THEN
+    for size in sizes:
+        counted_in = get_histogram_databins(Counter({**data, size: 1000}), bins=bins)
+        bucket = max(range(bins), key=lambda i: counted_in[i][1])
+        assert databins[bucket]["min_bytes"] <= size <= databins[bucket]["max_bytes"]
 
 
 def test_get_histogram_databins_invalid_bins():
