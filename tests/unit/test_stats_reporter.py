@@ -1,3 +1,4 @@
+import dataclasses
 import json
 from collections import Counter
 from datetime import datetime
@@ -13,6 +14,7 @@ from memray._memray import FileFormat
 from memray._metadata import Metadata
 from memray._stats import Stats
 from memray.reporters.stats import StatsReporter
+from memray.reporters.stats import describe_histogram_databins
 from memray.reporters.stats import draw_histogram
 from memray.reporters.stats import get_histogram_databins
 from tests.utils import MockAllocationRecord
@@ -290,6 +292,56 @@ def test_get_histogram_all_allocations_same_size():
     assert expected_output == actual_output
 
 
+@pytest.mark.parametrize(
+    "input_data, expected_output",
+    [
+        pytest.param({}, [(1, 0)] * 9 + [(1, 0)], id="no allocations"),
+        pytest.param({0: 3}, [(1, 3)] + [(1, 0)] * 9, id="only zero bytes"),
+        pytest.param({1: 3}, [(1, 0)] * 9 + [(1, 3)], id="only one byte"),
+        pytest.param({0: 2, 1: 3}, [(1, 2)] + [(1, 0)] * 8 + [(1, 3)], id="0 and 1"),
+    ],
+)
+def test_get_histogram_databins_degenerate_sizes(input_data, expected_output):
+    # WHEN
+    actual_output = get_histogram_databins(input_data, bins=10)
+
+    # THEN
+    assert expected_output == actual_output
+
+
+def test_draw_histogram_only_one_byte_allocations():
+    # WHEN
+    output = draw_histogram({1: 4}, bins=2, hist_scale_factor=4)
+
+    # THEN
+    assert output.splitlines()[2:4] == ["\t< 1.000B   : 0 ", "\t<=1.000B   : 4 ▇▇▇▇"]
+
+
+@pytest.mark.parametrize("bins", [1, 2, 3, 5, 10])
+@pytest.mark.parametrize(
+    "sizes",
+    [
+        pytest.param([17870, 17871], id="bound truncated onto a size"),
+        pytest.param([32, 1050856], id="rounding"),
+        pytest.param([10000000000, 536, 592, 576, 4486], id="over bound"),
+        pytest.param([0, 1, 2, 3, 1000, 1001, 999999], id="mixed"),
+    ],
+)
+def test_histogram_bins_contain_their_sizes(sizes, bins):
+    """Test that each size is counted in the bin whose range contains it."""
+    # GIVEN
+    data = Counter(sizes)
+
+    # WHEN
+    databins = describe_histogram_databins(get_histogram_databins(data, bins=bins))
+
+    # THEN
+    for size in sizes:
+        counted_in = get_histogram_databins(Counter({**data, size: 1000}), bins=bins)
+        bucket = max(range(bins), key=lambda i: counted_in[i][1])
+        assert databins[bucket]["min_bytes"] <= size <= databins[bucket]["max_bytes"]
+
+
 def test_get_histogram_databins_invalid_bins():
     with pytest.raises(ValueError):
         _ = get_histogram_databins([], bins=0)  # invalid bins value
@@ -522,3 +574,20 @@ def test_stats_json_includes_empty_module_list(empty_module_stats, tmp_path):
     data = json.loads(output_file.read_text())
     assert data["top_modules_by_allocation_size"] == []
     assert data["top_modules_by_allocation_count"] == []
+
+
+def test_stats_json_with_no_allocations(empty_module_stats, tmp_path):
+    output_file = tmp_path / "out.json"
+    stats = dataclasses.replace(
+        empty_module_stats,
+        total_num_allocations=0,
+        total_memory_allocated=0,
+        allocation_count_by_size=Counter(),
+        allocation_count_by_allocator={},
+        top_locations_by_count=[],
+        top_locations_by_size=[],
+    )
+    reporter = StatsReporter(stats, 5)
+    reporter.render(json_output_file=output_file)
+    data = json.loads(output_file.read_text())
+    assert sum(b["count"] for b in data["allocation_size_histogram"]) == 0
