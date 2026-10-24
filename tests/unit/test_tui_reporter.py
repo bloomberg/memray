@@ -27,6 +27,7 @@ from memray.reporters.tui import MemoryGraph
 from memray.reporters.tui import Snapshot
 from memray.reporters.tui import SnapshotFetched
 from memray.reporters.tui import TUIApp
+from memray.reporters.tui import UpdateThread
 from memray.reporters.tui import aggregate_allocations
 from tests.utils import MockAllocationRecord
 from tests.utils import async_run
@@ -91,8 +92,8 @@ class MockReader:
         self, *, merge_threads: bool
     ) -> Iterable[AllocationRecord]:
         assert isinstance(merge_threads, bool)  # ignore unused argument
-        assert self.is_active
-        snapshot = self._snapshots[self._next_snapshot]
+        # Like the real reader, keep returning the final snapshot after EOF.
+        snapshot = self._snapshots[min(self._next_snapshot, len(self._snapshots) - 1)]
         self._next_snapshot += 1
         self.is_active = self._next_snapshot < len(self._snapshots)
         return snapshot
@@ -462,16 +463,52 @@ def test_update_thread(native_traces):
     async_run(run_test())
 
     # THEN
-    assert len(messages) == len(snapshots)
+    # Once the reader goes inactive, one more snapshot is fetched to report the
+    # final state along with the disconnection.
+    expected_snapshots = [*snapshots, snapshots[-1]]
+    assert len(messages) == len(expected_snapshots)
     for i, message in enumerate(messages):
         last_message = i == len(messages) - 1
         assert message.disconnected is last_message
-        assert message.snapshot.heap_size == sum(a.size for a in snapshots[i])
-        assert message.snapshot.records == snapshots[i]
+        assert message.snapshot.heap_size == sum(a.size for a in expected_snapshots[i])
+        assert message.snapshot.records == expected_snapshots[i]
         assert message.snapshot.records_by_location == aggregate_allocations(
             message.snapshot.records,
             native_traces=native_traces,
         )
+
+
+def test_update_thread_reader_disconnects_after_fetching_snapshot():
+    # GIVEN
+    final = SHORT_SNAPSHOTS[0]
+
+    class DisconnectingReader:
+        has_native_traces = False
+        is_active = True
+        records = final[:1]
+
+        def get_current_snapshot(self, *, merge_threads):
+            # The last records arrive and EOF hits right after this fetch.
+            records, self.records, self.is_active = self.records, final, False
+            return records
+
+    class RecordingApp:
+        def __init__(self) -> None:
+            self.messages: List[SnapshotFetched] = []
+
+        def post_message(self, message: SnapshotFetched) -> None:
+            self.messages.append(message)
+            thread.schedule_update()
+
+    app = RecordingApp()
+    thread = UpdateThread(app, DisconnectingReader())  # type: ignore[arg-type]
+
+    # WHEN
+    thread.run()
+
+    # THEN
+    assert [m.disconnected for m in app.messages] == [False, True]
+    assert app.messages[-1].snapshot.records == final
 
 
 @pytest.mark.parametrize(
