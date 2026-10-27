@@ -195,7 +195,7 @@ class FrameDetailScreen(Widget):
         content_by_label_id = self._get_content_by_label_id()
         for label_id in ("function", "location", "allocs", "size", "thread"):
             content = content_by_label_id[label_id]
-            label = Label(content, id=label_id)
+            label = Label(content, id=label_id, markup=False)
             label.styles.display = "block" if content else "none"
             labels.append(label)
 
@@ -310,9 +310,10 @@ class TreeScreen(Screen[None]):
             code_position = (
                 f"{_filename_to_module_name(file)}:{lineno}" if lineno != 0 else file
             )
-            ret.append_text(Text.from_markup(f"[bold]{function}[/]"))
+            ret.append(function, style="bold")
             if code_position:
-                ret.append_text(Text.from_markup(f"  [dim cyan]{code_position}[/]"))
+                ret.append("  ")
+                ret.append(code_position, style="dim cyan")
         else:
             ret.append_text(Text("hidden"))
         return ret
