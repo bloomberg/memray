@@ -1,0 +1,1 @@
+Thread names were not being properly escaped when generating the HTML output, which could lead to issues if a thread name contained HTML special characters.
