@@ -26,8 +26,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -qy npm git
-      - name: Check if files are up to date
-        run: make build-js
+      - name: Regenerate files
+        run: |
+          npm ci
+          npm run build
       - name: Check for changes
         run: |
           git add -u
