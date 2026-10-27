@@ -370,6 +370,40 @@ class TestTableReporter:
         assert "&gt;" in table.data[0]["stack_trace"]
         assert "<int>" not in table.data[0]["stack_trace"]
 
+    def test_html_special_chars_in_thread_name_and_location(self):
+        """Thread names and locations with HTML special chars are escaped."""
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=512,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("<b>me</b>", "<i>fun</i>.py", 12),
+                ],
+                thread_name="<img src=x onerror=alert(1)>",
+            ),
+        ]
+
+        # WHEN
+        table = TableReporter.from_snapshot(
+            peak_allocations,
+            memory_records=[],
+            native_traces=False,
+            merge_threads=False,
+        )
+
+        # THEN
+        assert len(table.data) == 1
+        assert table.data[0]["tid"] == "0x1 (&lt;img src=x onerror=alert(1)&gt;)"
+        assert (
+            table.data[0]["stack_trace"]
+            == "&lt;b&gt;me&lt;/b&gt; at &lt;i&gt;fun&lt;/i&gt;.py:12"
+        )
+
     def test_html_special_chars_do_not_break_aggregation(self):
         """Records with HTML chars in function names still aggregate correctly."""
         # GIVEN
