@@ -61,7 +61,7 @@ class TableReporter:
                 aggregated[key]["n_allocations"] += record.n_allocations
             else:
                 aggregated[key] = {
-                    "tid": tid,
+                    "tid": html.escape(tid),
                     "size": record.size,
                     "allocator": allocator.name.lower(),
                     "n_allocations": record.n_allocations,
