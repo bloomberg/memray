@@ -358,7 +358,8 @@ export function initThreadsDropdown(data, merge_threads) {
     let elem = document.createElement("a");
     elem.className = "dropdown-item";
     elem.dataset.thread = thread;
-    elem.text = thread;
+    // Thread names are HTML-escaped by the Python reporter
+    elem.innerHTML = thread;
     elem.onclick = onFilterThread;
     threadsDropdownList.appendChild(elem);
   }
