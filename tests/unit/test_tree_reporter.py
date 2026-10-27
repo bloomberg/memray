@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import pytest
 from textual.pilot import Pilot
+from textual.widgets import Label
 from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
@@ -21,6 +22,7 @@ from memray import AllocationRecord
 from memray import AllocatorType
 from memray.reporters.tree import MAX_STACKS
 from memray.reporters.tree import Frame
+from memray.reporters.tree import FrameDetailScreen
 from memray.reporters.tree import TreeReporter
 from tests.utils import MockAllocationRecord
 from tests.utils import async_run
@@ -1520,6 +1522,48 @@ class TestTreeTui:
             assert len(current_node.children) == 1
             current_node = current_node.children[0]
         assert not current_node.children
+
+    def test_markup_in_names_is_not_interpreted(self):
+        """Function, file, and thread names are displayed verbatim."""
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[("[/x]", "[red]fun[/red].py", 12)],
+                thread_name="[link=https://example.com]click[/link]",
+            ),
+        ]
+
+        reporter = TreeReporter.from_snapshot(peak_allocations, native_traces=False)
+        app = reporter.get_app()
+
+        # WHEN
+        async def run_test():
+            async with app.run_test() as pilot:
+                await pilot.press("down")
+                await pilot.pause()
+                detail = app.screen.query_one(FrameDetailScreen)
+                labels = {
+                    label.id: str(label.render()) for label in detail.query(Label)
+                }
+                return app.screen.query_one(Tree).root, labels
+
+        root, labels = async_run(run_test())
+
+        # THEN
+        assert str(root.children[0].label) == (
+            "📄 1.024kB (100.00 %) [/x]  [red]fun[/red].py:12"
+        )
+        assert labels["function"] == "🧭 Function: [/x]"
+        assert labels["location"] == "🧭 Location: [red]fun[/red].py:12"
+        assert labels["thread"] == (
+            "🧵 Thread: 0x1 ([link=https://example.com]click[/link])"
+        )
 
     def test_render_runs_the_app(self):
         # GIVEN
