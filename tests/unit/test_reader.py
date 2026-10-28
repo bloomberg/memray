@@ -69,6 +69,22 @@ def test_filereader_fails_to_open_file(tmp_path):
         FileReader(test_file)
 
 
+@pytest.mark.parametrize("padding", [1, 64 * 1024, 64 * 1024 + 1])
+def test_ignores_trailing_zero_padding(tmp_path, padding):
+    output = tmp_path / "test.bin"
+    allocator = MemoryAllocator()
+
+    destination = FileDestination(output, overwrite=False, compress_on_exit=False)
+    with Tracker(destination=destination):
+        allocator.valloc(1024)
+
+    with output.open("ab") as f:
+        f.write(b"\0" * padding)
+
+    records = list(FileReader(output).get_allocation_records())
+    assert any(record.size == 1024 for record in records)
+
+
 def test_read_pid(tmp_path):
     # GIVEN
     output = tmp_path / "test.bin"
