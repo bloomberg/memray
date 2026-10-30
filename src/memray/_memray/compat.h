@@ -142,6 +142,19 @@ setprofileAllThreads(Py_tracefunc func, PyObject* arg);
 int
 runtimePythonVersion();
 
+// Walk live frames without allocation or a new GIL acquisition.
+class FrameWalker
+{
+  public:
+    explicit FrameWalker(PyThreadState* tstate);
+
+    // Advance only on a match. Never dereference the candidate.
+    bool findFrame(PyFrameObject* candidate, uint32_t code_version);
+
+  private:
+    void* d_frame;
+};
+
 inline const char*
 codeGetLinetable(PyCodeObject* code, size_t* size)
 {

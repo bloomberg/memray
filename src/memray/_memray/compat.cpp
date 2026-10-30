@@ -3,7 +3,63 @@
 #include <exception>
 #include <limits>
 
+#if PY_VERSION_HEX >= 0x030B0000
+#    define Py_BUILD_CORE
+#    include "internal/pycore_frame.h"
+#    if PY_VERSION_HEX >= 0x030E0000
+#        include "internal/pycore_interpframe.h"
+#    endif
+#    undef Py_BUILD_CORE
+#endif
+
 namespace memray::compat {
+
+FrameWalker::FrameWalker(PyThreadState* tstate)
+{
+#if PY_VERSION_HEX >= 0x030D0000
+    d_frame = tstate->current_frame;
+#elif PY_VERSION_HEX >= 0x030B0000
+    d_frame = tstate->cframe ? tstate->cframe->current_frame : nullptr;
+#else
+    d_frame = tstate->frame;
+#endif
+}
+
+bool
+FrameWalker::findFrame(PyFrameObject* candidate, [[maybe_unused]] uint32_t code_version)
+{
+#if PY_VERSION_HEX < 0x030B0000
+    for (auto* frame = static_cast<PyFrameObject*>(d_frame); frame; frame = frame->f_back) {
+        if (frame == candidate) {
+            d_frame = frame->f_back;
+            return true;
+        }
+    }
+#else
+    for (auto* frame = static_cast<_PyInterpreterFrame*>(d_frame); frame; frame = frame->previous) {
+        if (frame->owner > FRAME_OWNED_BY_FRAME_OBJECT) {
+            continue;
+        }
+        if (frame->frame_obj == candidate) {
+#    if PY_VERSION_HEX >= 0x030D0000
+            auto* code = _PyFrame_GetCode(frame);
+#    elif PY_VERSION_HEX >= 0x030C0000
+            auto* code = frame->f_code;
+#    endif
+#    if PY_VERSION_HEX >= 0x030C0000
+            // Frame and code addresses can both be reused before a profile
+            // event. A nonzero code version never changes or repeats.
+            if (!code_version || code->co_version != code_version) {
+                return false;
+            }
+#    endif
+            d_frame = frame->previous;
+            return true;
+        }
+    }
+#endif
+    return false;
+}
 
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg)

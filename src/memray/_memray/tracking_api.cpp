@@ -207,6 +207,17 @@ class PythonStackTracker
         // Has the instruction offset been frozen?
         bool isFrozen() const;
 
+        bool isFor(PyFrameObject* frame) const
+        {
+            return d_frame && d_frame == frame;
+        }
+
+        bool isActive(compat::FrameWalker& frames) const
+        {
+            return frames.findFrame(d_frame, d_code_version)
+                   && (!s_native_tracking_enabled || d_is_entry_frame == compat::isEntryFrame(d_frame));
+        }
+
         // If we haven't already, register the held code object, saving its ID
         // and dropping our borrowed reference to the code object.
         void resolveCodeObjectId(Tracker& tracker);
@@ -217,6 +228,7 @@ class PythonStackTracker
 
       private:
         bool d_emitted{false};
+        uint32_t d_code_version{};
 
         // Threads' initial stacks can have calls to sys.settrace tracing
         // functions which our profile function won't see get popped. We can't
@@ -329,6 +341,26 @@ PythonStackTracker::emitPendingPushesAndPops()
     PyGILState_STATE gstate = PyGILState_Ensure();
 #endif
 
+    if (d_greenlet_hooks_installed && !d_stack->empty()) {
+        // A greenlet can resume code without profile return events. Remove
+        // exited frames before reading their offsets or borrowed code data.
+        auto* tstate = PyGILState_GetThisThreadState();
+        compat::FrameWalker frames(tstate);
+        size_t valid_size = d_stack->size();
+        for (size_t i = d_stack->size(); i > 0; --i) {
+            const auto& entry = (*d_stack)[i - 1];
+            if (entry.isFrozen()) {
+                break;
+            }
+            if (!entry.isActive(frames)) {
+                valid_size = i - 1;
+            }
+        }
+        while (d_stack->size() > valid_size) {
+            popPythonFrame();
+        }
+    }
+
     // At any time, the stack contains (from beginning to end) any number of
     // emitted frames followed by any number of not yet emitted frames.
     // The line number of the last emitted frame may be out of date.
@@ -440,11 +472,10 @@ PythonStackTracker::handleTraceEvent(int what, PyFrameObject* frame)
 {
     installGreenletTraceFunctionIfNeeded();
 
-    if (d_stack && !d_stack->empty() && d_stack->back().isFrozen()) {
-        // This stack was set by reloadStackIfTrackerChanged and may have calls
-        // to sys.settrace tracing functions on it. Drop it now, replacing it
-        // with a stack fetched from PyEval_GetFrame which we know can't have
-        // trace function frames on it, and which we can track properly.
+    auto* expected_frame = what == PyTrace_CALL ? compat::frameGetBack(frame) : frame;
+    if (!d_stack || d_stack->empty() || !d_stack->back().isFor(expected_frame)) {
+        // Initial snapshots and greenlet switches can include frames without
+        // matching profile events. Rebuild when an event disagrees with them.
         populateShadowStack();
 
         if (what == PyTrace_CALL) {
@@ -614,7 +645,9 @@ PythonStackTracker::LazilyEmittedFrame::LazilyEmittedFrame(PyFrameObject* frame)
 
     d_frame = frame;
     d_code = compat::frameGetCode(frame);
-#if PY_VERSION_HEX < 0x030C0000
+#if PY_VERSION_HEX >= 0x030C0000
+    d_code_version = d_code->co_version;
+#else
     if (s_extra_index != -1) {
         void* extra;
         if (-1 == _PyCode_GetExtra((PyObject*)d_code, s_extra_index, &extra)) {

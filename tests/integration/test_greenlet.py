@@ -265,3 +265,142 @@ def test_uninstall_profile_in_greenlet(tmpdir):
     main_tid = vallocs[0].tid  # inner greenlet
     outer_tid = vallocs[1].tid  # outer greenlet
     assert main_tid == outer_tid
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 11), reason="gen.throw frame links require 3.11"
+)
+@pytest.mark.parametrize("handled", [False, True])
+@pytest.mark.parametrize("native_traces", [False, True])
+def test_greenlet_throw_stack(tmp_path, handled, native_traces):
+    output = tmp_path / "capture.bin"
+    code = textwrap.dedent(f"""
+        import greenlet
+        import memray
+        import sys
+
+        main = greenlet.getcurrent()
+
+        def child():
+            main.switch()
+
+        def inner():
+            worker = greenlet.greenlet(child)
+            worker.switch()
+            try:
+                yield
+            except ValueError:
+                try:
+                    worker.throw(*sys.exc_info())
+                except ValueError:
+                    if not {handled!r}:
+                        raise
+                    yield
+
+        def middle():
+            try:
+                yield from inner()
+            finally:
+                marker = bytearray(777_777)
+
+        def outer():
+            yield from middle()
+
+        def run():
+            gen = outer()
+            next(gen)
+            try:
+                gen.throw(ValueError)
+            except ValueError:
+                pass
+            marker = bytearray(888_888)
+            gen.close()
+
+        with memray.Tracker({str(output)!r}, native_traces={native_traces!r}):
+            run()
+        """)
+    subprocess.run([sys.executable, "-Xdev", "-c", code], check=True, timeout=10)
+    records = list(FileReader(output).get_allocation_records())
+    for size, expected in (
+        (777_777, ["middle"] + ([] if handled else ["outer"]) + ["run", "<module>"]),
+        (888_888, ["run", "<module>"]),
+    ):
+        stacks = [
+            [name for name, _, _ in record.stack_trace()]
+            for record in records
+            if size <= record.size <= size + 64
+        ]
+        assert stacks == [expected]
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 12), reason="code instrumentation requires 3.12"
+)
+@pytest.mark.parametrize("mode", ["return", "frame_reuse", "code_reuse", "same_code"])
+@pytest.mark.parametrize("native_traces", [False, True])
+def test_greenlet_returns_without_profile_events(tmp_path, mode, native_traces):
+    output = tmp_path / "capture.bin"
+    code = textwrap.dedent(f"""
+        import greenlet
+        import memray
+        import sys
+        import types
+
+        main = greenlet.getcurrent()
+        mode = {mode!r}
+
+        def leaf():
+            return pow(2, 3)
+
+        def transient():
+            namespace["paused"]()
+
+        def run():
+            transient()
+            if mode == "return":
+                marker = bytearray(777_777)
+                return
+            if mode == "code_reuse":
+                fn = types.FunctionType(template.replace(co_name="leaf"), namespace)
+            elif mode == "same_code":
+                fn = namespace["paused"]
+            else:
+                fn = leaf
+            try:
+                fn()
+            except RuntimeError:
+                pass
+
+        def trace(frame, event, arg):
+            if event == "call" and frame.f_code.co_name in {{"paused", "leaf"}}:
+                marker = bytearray(777_777)
+                raise RuntimeError("stop before the profile call event")
+            return trace
+
+        namespace = {{"main": main, "sys": sys}}
+        source = (
+            "def paused():\\n"
+            "    global paused\\n"
+            "    frame_id = id(sys._getframe())\\n"
+            + ("" if mode == "same_code" else "    del paused\\n")
+            + "    main.switch()\\n"
+        )
+        exec(compile(source, "temporary.py", "exec"), namespace)
+        template = namespace["paused"].__code__.replace(co_linetable=b"")
+        worker = greenlet.greenlet(run)
+        worker.switch()
+        with memray.Tracker({str(output)!r}, native_traces={native_traces!r}):
+            if mode != "return":
+                sys.settrace(trace)
+            try:
+                worker.switch()
+            finally:
+                sys.settrace(None)
+        """)
+    subprocess.run([sys.executable, "-Xdev", "-c", code], check=True, timeout=10)
+    stacks = [
+        [name for name, _, _ in record.stack_trace()]
+        for record in FileReader(output).get_allocation_records()
+        if 777_777 <= record.size <= 777_777 + 64
+    ]
+    assert stacks == [["run"]]
