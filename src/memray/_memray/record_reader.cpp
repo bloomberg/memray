@@ -163,7 +163,8 @@ RecordReader::RecordReader(
         std::unique_ptr<Source> source,
         bool track_stacks,
         bool track_object_lifetimes)
-: d_input(std::move(source))
+: d_buffered_source(std::move(source))
+, d_input(&d_buffered_source)
 , d_track_stacks(track_stacks)
 , d_track_object_lifetimes(track_object_lifetimes)
 {
