@@ -24,6 +24,11 @@ class StatsCommand:
                 f"Failed to compute statistics for {result_path}\nReason: {e}",
                 exit_code=1,
             )
+        except NotImplementedError as e:
+            raise MemrayCommandError(
+                f"Failed to compute statistics for {result_path}\nReason: {e}",
+                exit_code=1,
+            )
 
         json_output_file: Optional[Path] = None
         if args.json:

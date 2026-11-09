@@ -124,6 +124,7 @@ def generate_sample_results(
     native=False,
     trace_python_allocators=False,
     disable_pymalloc=False,
+    aggregate=False,
 ):
     results_file = tmp_path / "result.bin"
     env = os.environ.copy()
@@ -136,6 +137,7 @@ def generate_sample_results(
             "run",
             *(["--native"] if native else []),
             *(["--trace-python-allocators"] if trace_python_allocators else []),
+            *(["--aggregate"] if aggregate else []),
             "--output",
             str(results_file),
             str(code),
@@ -1415,6 +1417,124 @@ class TestReporterSubCommands:
         assert re.match(
             r"Failed to parse allocation records in .*badfile\.bin", proc.stderr
         )
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["stats"],
+            ["flamegraph", "--temporal"],
+            ["flamegraph", "--temporal", "--leaks"],
+            ["flamegraph", "--temporary-allocations"],
+            ["table", "--temporary-allocations"],
+            ["summary", "--temporary-allocations"],
+            ["tree", "--temporary-allocations"],
+            ["transform", "csv", "--temporary-allocations"],
+            ["transform", "gprof2dot", "--temporary-allocations"],
+            ["transform", "speedscope", "--temporary-allocations"],
+        ],
+    )
+    def test_report_rejects_aggregated_capture_cleanly(
+        self, tmp_path, simple_test_file, args
+    ):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, aggregate=True
+        )
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        output_args = (
+            []
+            if args[0] in ("summary", "tree", "stats")
+            else ["--output", str(output_dir / "report")]
+        )
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                *args,
+                *output_args,
+                str(results_file),
+            ],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+        )
+
+        # THEN
+        assert proc.returncode == 1
+        assert "Traceback" not in proc.stderr
+        assert "aggregated capture file" in proc.stderr
+        assert list(output_dir.iterdir()) == []
+
+    def test_failed_report_keeps_existing_output_file(self, tmp_path, simple_test_file):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, aggregate=True
+        )
+        output_file = tmp_path / "output.json"
+        output_file.write_text("previous report")
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                "speedscope",
+                "--temporary-allocations",
+                "--force",
+                "--output",
+                str(output_file),
+                str(results_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 1
+        assert output_file.read_text() == "previous report"
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["flamegraph"],
+            ["flamegraph", "--leaks"],
+            ["table"],
+            ["transform", "csv"],
+        ],
+    )
+    def test_supported_reports_accept_aggregated_capture(
+        self, tmp_path, simple_test_file, args
+    ):
+        # GIVEN
+        results_file, _ = generate_sample_results(
+            tmp_path, simple_test_file, aggregate=True
+        )
+        output_file = tmp_path / "output"
+
+        # WHEN
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                *args,
+                "--output",
+                str(output_file),
+                str(results_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # THEN
+        assert proc.returncode == 0, proc.stderr
+        assert output_file.stat().st_size > 0
 
     @pytest.mark.parametrize("report", ["flamegraph", "table"])
     def test_report_leaks_argument(self, tmp_path, simple_test_file, report):

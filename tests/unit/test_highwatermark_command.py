@@ -236,6 +236,7 @@ class TestReportGeneration:
         calls = [
             call(os.fspath(result_path), report_progress=True),
             call().metadata.has_native_traces.__bool__(),
+            call().metadata.file_format.__ne__(FileFormat.AGGREGATED_ALLOCATIONS),
             call().get_temporary_allocation_records(
                 threshold=3, merge_threads=merge_threads
             ),
@@ -245,3 +246,36 @@ class TestReportGeneration:
 
         reporter_factory_mock.assert_called_once()
         reporter_factory_mock().render.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "temporal, temporary_allocation_threshold",
+        [(True, -1), (False, 0), (False, 1)],
+    )
+    def test_rejects_aggregated_capture_for_reports_needing_all_allocations(
+        self, tmp_path, temporal, temporary_allocation_threshold
+    ):
+        # GIVEN
+        reporter_factory_mock = Mock()
+        command = HighWatermarkCommand(
+            reporter_factory_mock,
+            reporter_name="reporter",
+            temporal_reporter_factory=Mock(),
+        )
+        result_path = tmp_path / "results.bin"
+        output_file = tmp_path / "output.txt"
+
+        # WHEN
+        with patch("memray.commands.common.FileReader") as reader_mock:
+            reader_mock().metadata.file_format = FileFormat.AGGREGATED_ALLOCATIONS
+            with pytest.raises(MemrayCommandError, match="aggregated capture file"):
+                command.write_report(
+                    result_path=result_path,
+                    output_file=output_file,
+                    show_memory_leaks=False,
+                    temporary_allocation_threshold=temporary_allocation_threshold,
+                    temporal=temporal,
+                )
+
+        # THEN
+        reporter_factory_mock.assert_not_called()
+        assert not output_file.exists()
