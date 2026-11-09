@@ -4,6 +4,7 @@ from pathlib import Path
 
 from memray import FileReader
 from memray._errors import MemrayCommandError
+from memray.commands.common import ensure_capture_supports_report
 from memray.commands.common import warn_if_file_is_not_aggregated_and_is_too_big
 from memray.commands.common import warn_if_not_enough_symbols
 from memray.reporters.tree import TreeReporter
@@ -17,6 +18,11 @@ class TreeCommand:
 
         try:
             reader = FileReader(os.fspath(args.results), report_progress=True)
+            ensure_capture_supports_report(
+                reader,
+                temporary_allocations=args.temporary_allocation_threshold >= 0,
+            )
+
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
 

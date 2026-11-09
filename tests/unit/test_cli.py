@@ -8,6 +8,8 @@ import pytest
 
 from memray import FileDestination
 from memray import SocketDestination
+from memray._errors import MemrayCommandError
+from memray._memray import FileFormat
 from memray.commands import _parse_args
 from memray.commands import main
 from memray.commands.flamegraph import FlamegraphCommand
@@ -568,6 +570,27 @@ class TestTreeSubCommand:
         assert namespace.results == "results.txt"
         assert namespace.biggest_allocs == 5
 
+    def test_rejects_temporary_allocations_for_aggregated_capture(self, tmp_path):
+        # GIVEN
+        command, parser = self.get_prepared_parser()
+        results = tmp_path / "results.bin"
+        results.touch()
+        args = parser.parse_args([str(results), "--temporary-allocations"])
+
+        # WHEN / THEN
+        with patch("memray.commands.tree.FileReader") as reader_mock:
+            reader = reader_mock.return_value
+            reader.metadata.has_native_traces = False
+            reader.metadata.file_format = FileFormat.AGGREGATED_ALLOCATIONS
+            with patch(
+                "memray.commands.tree.TreeReporter.from_snapshot"
+            ) as from_snapshot:
+                with pytest.raises(MemrayCommandError, match="aggregated capture"):
+                    command.run(args, parser)
+
+        reader.get_temporary_allocation_records.assert_not_called()
+        from_snapshot.assert_not_called()
+
 
 class TestTableSubCommand:
     @staticmethod
@@ -768,6 +791,27 @@ class TestSummarySubCommand:
         assert namespace.sort_column == 1
         assert namespace.max_rows == 2
 
+    def test_rejects_temporary_allocations_for_aggregated_capture(self, tmp_path):
+        # GIVEN
+        command, parser = self.get_prepared_parser()
+        results = tmp_path / "results.bin"
+        results.touch()
+        args = parser.parse_args([str(results), "--temporary-allocations"])
+
+        # WHEN / THEN
+        with patch("memray.commands.summary.FileReader") as reader_mock:
+            reader = reader_mock.return_value
+            reader.metadata.has_native_traces = False
+            reader.metadata.file_format = FileFormat.AGGREGATED_ALLOCATIONS
+            with patch(
+                "memray.commands.summary.SummaryReporter.from_snapshot"
+            ) as from_snapshot:
+                with pytest.raises(MemrayCommandError, match="aggregated capture"):
+                    command.run(args, parser)
+
+        reader.get_temporary_allocation_records.assert_not_called()
+        from_snapshot.assert_not_called()
+
 
 class TestStatsSubCommand:
     @staticmethod
@@ -814,6 +858,21 @@ class TestStatsSubCommand:
         # WHEN / THEN
         with pytest.raises(SystemExit):
             parser.parse_args(["-n", "-1", "results.txt"])
+
+    def test_reports_aggregated_capture_as_command_error(self, tmp_path):
+        # GIVEN
+        command, parser = self.get_prepared_parser()
+        results = tmp_path / "results.bin"
+        results.touch()
+        args = parser.parse_args([str(results)])
+        error = NotImplementedError(
+            "Can't compute statistics using a pre-aggregated capture file."
+        )
+
+        # WHEN / THEN
+        with patch("memray.commands.stats.compute_statistics", side_effect=error):
+            with pytest.raises(MemrayCommandError, match="pre-aggregated capture"):
+                command.run(args, parser)
 
 
 class TestTransformSubCommand:
