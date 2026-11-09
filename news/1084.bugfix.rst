@@ -1,0 +1,1 @@
+Show a clear error instead of a traceback, and stop leaving empty output files behind, when a report that needs every allocation is requested for an aggregated capture file.
