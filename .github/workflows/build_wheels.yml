@@ -90,6 +90,9 @@ jobs:
         with:
           name: tests
           path: tests
+      - name: Work around the known issue in Docker 29.4.2 https://docs.docker.com/engine/release-notes/29#2942
+        if: matrix.wheel_type == 'manylinux_i686'
+        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
       - name: Extract sdist
         run: |
           tar zxvf dist/*.tar.gz --strip-components=1
