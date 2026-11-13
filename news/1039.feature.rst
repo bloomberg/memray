@@ -1,0 +1,1 @@
+Improve allocation-record serialization performance by encoding each record into one contiguous payload before writing it to the output sink.
