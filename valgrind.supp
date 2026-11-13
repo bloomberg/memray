@@ -435,3 +435,11 @@
    fun:__run_exit_handlers
    ...
 }
+
+{
+   python-sem-trywait-EAGAIN
+   Helgrind:PthAPIerror
+   fun:sem_trywait_WRK
+   ...
+   fun:PyThread_acquire_lock_timed
+}
