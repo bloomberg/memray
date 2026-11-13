@@ -1,0 +1,1 @@
+Reports that need per-allocation data now fail with a one-line error on an aggregated capture, instead of a traceback and a partial output file.

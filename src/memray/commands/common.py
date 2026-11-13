@@ -79,6 +79,32 @@ def warn_if_not_enough_symbols() -> None:
         return
 
 
+def reject_aggregated_capture_without_per_allocation_data(
+    reader: FileReader,
+    *,
+    temporal: bool = False,
+    temporary_allocations: bool = False,
+) -> None:
+    """Raise if this report needs lifetimes that an aggregated capture omits.
+
+    The reader raises ``NotImplementedError`` only when those generators are
+    iterated, which is after some commands have already created the output file.
+    """
+    if reader.metadata.file_format != FileFormat.AGGREGATED_ALLOCATIONS:
+        return
+    if temporal:
+        kind = "a temporal report"
+    elif temporary_allocations:
+        kind = "a temporary allocations report"
+    else:
+        return
+    raise MemrayCommandError(
+        f"Can't generate {kind} from an aggregated capture file.\n"
+        "Rerun `memray run` without `--aggregate` to capture the needed data.",
+        exit_code=1,
+    )
+
+
 def warn_if_file_is_not_aggregated_and_is_too_big(
     reader: FileReader, result_path: Path
 ) -> None:
@@ -159,6 +185,11 @@ class HighWatermarkCommand:
             if max_memory_records is not None:
                 kwargs["max_memory_records"] = max_memory_records
             reader = FileReader(os.fspath(result_path), report_progress=True, **kwargs)
+            reject_aggregated_capture_without_per_allocation_data(
+                reader,
+                temporal=temporal,
+                temporary_allocations=temporary_allocation_threshold >= 0,
+            )
             merge_threads = True if merge_threads is None else merge_threads
             inverted = False if inverted is None else inverted
 
