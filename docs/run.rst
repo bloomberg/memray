@@ -259,6 +259,8 @@ information is enough to run most of our reporters, with just a few exceptions:
 - You cannot find :doc:`temporary allocations </temporary_allocations>` using
   this capture file format, since finding temporary allocations requires
   knowing when each individual allocation was deallocated.
+- You cannot generate temporal reports (``--temporal``) from this capture
+  file format, because they need the history of each individual allocation.
 - You cannot use the :doc:`stats reporter <stats>` with this capture file
   format, because it needs to see each individual allocation's size.
 - You cannot use ``--aggregate`` with :ref:`live tracking <live tracking>`,
