@@ -188,21 +188,34 @@ musllinux-x86_64-image = "musllinux_1_2"
 
 [tool.cibuildwheel.linux]
 before-all = [
-  # Build the latest curl from source.
-  "yum install -y openssl-devel",
+  # Build OpenSSL from source. Recent curl releases need OpenSSL 3, and the
+  # manylinux images only provide OpenSSL 1.x.
+  "yum install -y perl-IPC-Cmd perl-Time-Piece",
   "cd /",
-  "CURL_VERS=8.7.1",
+  "OPENSSL_VERS=3.5.9",
+  "curl -LO https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VERS/openssl-$OPENSSL_VERS.tar.gz",
+  "tar xf ./openssl-$OPENSSL_VERS.tar.gz",
+  "cd openssl-$OPENSSL_VERS",
+  "./Configure --prefix=/usr/local --libdir=lib --openssldir=/etc/pki/tls shared no-tests",
+  "make -j$(nproc)",
+  "make install_sw",
+
+  # Build the latest curl from source. The rpath lets this curl find the
+  # libraries above without changing which ones the system tools (yum and
+  # the system curl) load, so the downloads below use this curl.
+  "cd /",
+  "CURL_VERS=8.23.0",
   "curl -LO https://curl.se/download/curl-$CURL_VERS.tar.bz2",
   "tar xf ./curl-$CURL_VERS.tar.bz2",
   "cd curl-$CURL_VERS",
-  "./configure --with-openssl",
+  "LDFLAGS=-Wl,-rpath,/usr/local/lib ./configure --with-openssl=/usr/local --without-libpsl",
   "make install",
 
   # Build the latest zstd from source
   "yum install -y lz4-devel xz-devel",
   "cd /",
   "ZSTD_VERS=1.5.6",
-  "/usr/bin/curl -LO https://github.com/facebook/zstd/releases/download/v1.5.6/zstd-$ZSTD_VERS.tar.gz",
+  "/usr/local/bin/curl -LO https://github.com/facebook/zstd/releases/download/v1.5.6/zstd-$ZSTD_VERS.tar.gz",
   "tar xf ./zstd-$ZSTD_VERS.tar.gz",
   "cd zstd-$ZSTD_VERS",
   "V=1 LDLIBS=-lrt make install",
@@ -211,7 +224,7 @@ before-all = [
   "yum install -y lz4-devel",
   "cd /",
   "VERS=0.191",
-  "/usr/bin/curl -L https://mirrors.kernel.org/sourceware/elfutils/$VERS/elfutils-$VERS.tar.bz2 >./elfutils.tar.bz2",
+  "/usr/local/bin/curl -L https://mirrors.kernel.org/sourceware/elfutils/$VERS/elfutils-$VERS.tar.bz2 >./elfutils.tar.bz2",
   "tar -xf elfutils.tar.bz2",
   "cd elfutils-$VERS",
   "CFLAGS='-Wno-error -g -O3' CXXFLAGS='-Wno-error -g -O3' LDFLAGS=-lrt ./configure --enable-libdebuginfod --disable-debuginfod --disable-nls --with-zstd",
