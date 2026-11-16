@@ -655,6 +655,9 @@ class UpdateThread(threading.Thread):
                 return
             self._update_requested.clear()
 
+            # Read once, before fetching: the reader stops only after processing
+            # every record, so a snapshot fetched once it's inactive is final.
+            reader_active = self._reader.is_active
             records = list(self._reader.get_current_snapshot(merge_threads=False))
             heap_size = sum(record.size for record in records)
             records_by_location = aggregate_allocations(
@@ -666,14 +669,9 @@ class UpdateThread(threading.Thread):
                 records_by_location=records_by_location,
             )
 
-            self._app.post_message(
-                SnapshotFetched(
-                    snapshot,
-                    not self._reader.is_active,
-                )
-            )
+            self._app.post_message(SnapshotFetched(snapshot, not reader_active))
 
-            if not self._reader.is_active:
+            if not reader_active:
                 return
 
     def cancel(self) -> None:
