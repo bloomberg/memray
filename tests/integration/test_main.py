@@ -1972,3 +1972,140 @@ class TestTransformSubCommands:
             ["VALLOC", "1", "2048", "2", "0x2 (worker-2)", "worker;worker.py;0"],
             ["VALLOC", "1", "3072", "3", "0x3 (worker-3)", "worker;worker.py;0"],
         ]
+
+
+class TestAggregatedCaptureUnsupportedReports:
+    def test_unsupported_reports_do_not_traceback_or_leave_output(self, tmp_path):
+        # GIVEN
+        code = tmp_path / "demo.py"
+        code.write_text("x = bytearray(1024)\n")
+        capture = tmp_path / "agg.bin"
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "run",
+                "--aggregate",
+                "-o",
+                str(capture),
+                str(code),
+            ],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # High-watermark reports are supported on aggregated captures.
+        peak = tmp_path / "peak.json"
+        peak_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "memray",
+                "transform",
+                "speedscope",
+                "-o",
+                str(peak),
+                str(capture),
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+        assert peak_proc.returncode == 0, peak_proc.stderr
+        assert peak.stat().st_size > 0
+
+        # WHEN / THEN
+        cases = [
+            (["stats", str(capture)], None),
+            (
+                [
+                    "flamegraph",
+                    "--temporal",
+                    "-o",
+                    str(tmp_path / "temporal.html"),
+                    str(capture),
+                ],
+                tmp_path / "temporal.html",
+            ),
+            (
+                [
+                    "flamegraph",
+                    "--temporal",
+                    "--leaks",
+                    "-o",
+                    str(tmp_path / "temporal-leaks.html"),
+                    str(capture),
+                ],
+                tmp_path / "temporal-leaks.html",
+            ),
+            (
+                [
+                    "flamegraph",
+                    "--temporary-allocations",
+                    "-o",
+                    str(tmp_path / "temp-fg.html"),
+                    str(capture),
+                ],
+                tmp_path / "temp-fg.html",
+            ),
+            (
+                [
+                    "table",
+                    "--temporary-allocations",
+                    "-o",
+                    str(tmp_path / "temp-table.html"),
+                    str(capture),
+                ],
+                tmp_path / "temp-table.html",
+            ),
+            (["summary", "--temporary-allocations", str(capture)], None),
+            (["tree", "--temporary-allocations", str(capture)], None),
+            (
+                [
+                    "transform",
+                    "csv",
+                    "--temporary-allocations",
+                    "-o",
+                    str(tmp_path / "out.csv"),
+                    str(capture),
+                ],
+                tmp_path / "out.csv",
+            ),
+            (
+                [
+                    "transform",
+                    "gprof2dot",
+                    "--temporary-allocations",
+                    "-o",
+                    str(tmp_path / "out.json"),
+                    str(capture),
+                ],
+                tmp_path / "out.json",
+            ),
+            (
+                [
+                    "transform",
+                    "speedscope",
+                    "--temporary-allocations",
+                    "-o",
+                    str(tmp_path / "out-ss.json"),
+                    str(capture),
+                ],
+                tmp_path / "out-ss.json",
+            ),
+        ]
+        for args, output in cases:
+            proc = subprocess.run(
+                [sys.executable, "-m", "memray", *args],
+                cwd=tmp_path,
+                capture_output=True,
+                text=True,
+            )
+            assert proc.returncode == 1, (args, proc.stderr)
+            assert "Traceback" not in proc.stderr, (args, proc.stderr)
+            assert "aggregat" in proc.stderr.lower(), (args, proc.stderr)
+            if output is not None:
+                assert not output.exists(), args

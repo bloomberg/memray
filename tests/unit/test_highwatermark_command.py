@@ -167,6 +167,7 @@ class TestReportGeneration:
         # THEN
         calls = [
             call(os.fspath(result_path), report_progress=True),
+            call().metadata.file_format.__ne__(FileFormat.AGGREGATED_ALLOCATIONS),
             call().metadata.has_native_traces.__bool__(),
             call().metadata.file_format.__eq__(FileFormat.ALL_ALLOCATIONS)
             if sys.version_info >= (3, 8, 0)
@@ -200,6 +201,7 @@ class TestReportGeneration:
         # THEN
         calls = [
             call(os.fspath(result_path), report_progress=True),
+            call().metadata.file_format.__ne__(FileFormat.AGGREGATED_ALLOCATIONS),
             call().metadata.has_native_traces.__bool__(),
             call().metadata.file_format.__eq__(FileFormat.ALL_ALLOCATIONS)
             if sys.version_info >= (3, 8, 0)
@@ -235,6 +237,7 @@ class TestReportGeneration:
         # THEN
         calls = [
             call(os.fspath(result_path), report_progress=True),
+            call().metadata.file_format.__ne__(FileFormat.AGGREGATED_ALLOCATIONS),
             call().metadata.has_native_traces.__bool__(),
             call().get_temporary_allocation_records(
                 threshold=3, merge_threads=merge_threads
