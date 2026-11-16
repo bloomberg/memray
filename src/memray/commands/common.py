@@ -99,6 +99,35 @@ def warn_if_file_is_not_aggregated_and_is_too_big(
         )
 
 
+def ensure_capture_supports_report(
+    reader: FileReader,
+    *,
+    temporal: bool = False,
+    temporary_allocations: bool = False,
+) -> None:
+    """Fail cleanly if the report needs data an aggregated capture lacks.
+
+    Aggregated capture files don't record individual allocations, so they
+    can't be used for temporal or temporary allocation reports.
+
+    Raises:
+        MemrayCommandError: If the capture file can't produce this report.
+    """
+    if temporal:
+        report = "a temporal report"
+    elif temporary_allocations:
+        report = "a temporary allocations report"
+    else:
+        return
+    if reader.metadata.file_format != FileFormat.AGGREGATED_ALLOCATIONS:
+        return
+    raise MemrayCommandError(
+        f"Can't generate {report} from an aggregated capture file. "
+        "Rerun `memray run` without `--aggregate` to capture the needed data.",
+        exit_code=1,
+    )
+
+
 class HighWatermarkCommand:
     def __init__(
         self,
@@ -164,6 +193,12 @@ class HighWatermarkCommand:
 
             if reader.metadata.has_native_traces:
                 warn_if_not_enough_symbols()
+
+            ensure_capture_supports_report(
+                reader,
+                temporal=temporal,
+                temporary_allocations=temporary_allocation_threshold >= 0,
+            )
 
             if not temporal and not temporary_allocation_threshold >= 0:
                 warn_if_file_is_not_aggregated_and_is_too_big(reader, result_path)
