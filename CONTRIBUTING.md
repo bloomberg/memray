@@ -116,6 +116,12 @@ will automatically close the issue upon merging it.
 Do not include the issue reference in your commit messages however, add it only in the description
 of the PR.
 
+### Adding a news entry
+
+User-facing changes need a news entry in the `news/` directory, named `<number>.<type>.rst`.
+Use the issue number, or the PR number if there is no issue. The type is one of `feature`, `removal`,
+`bugfix`, `doc` or `misc`. For example, `news/100.bugfix.rst` for a fix of issue #100.
+
 <!-- LINKS -->
 
 [pep 257]: https://www.python.org/dev/peps/pep-0257/ "Docstring Conventions"
