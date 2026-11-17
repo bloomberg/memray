@@ -13,6 +13,7 @@ from memray._memray import FileFormat
 from memray._metadata import Metadata
 from memray._stats import Stats
 from memray.reporters.stats import StatsReporter
+from memray.reporters.stats import describe_histogram_databins
 from memray.reporters.stats import draw_histogram
 from memray.reporters.stats import get_histogram_databins
 from tests.utils import MockAllocationRecord
@@ -288,6 +289,48 @@ def test_get_histogram_all_allocations_same_size():
 
     # THEN
     assert expected_output == actual_output
+
+
+def test_get_histogram_databins_without_data():
+    assert get_histogram_databins({}, bins=10) == []
+
+
+@pytest.mark.parametrize(
+    "input_data, expected_output",
+    [
+        pytest.param({0: 3}, [(0, 3)], id="only-zero-byte-allocations"),
+        pytest.param({1: 5}, [(1, 5)], id="only-one-byte-allocations"),
+        pytest.param({0: 2, 1: 5}, [(1, 7)], id="zero-and-one-byte-allocations"),
+    ],
+)
+def test_get_histogram_databins_without_size_range(input_data, expected_output):
+    assert get_histogram_databins(input_data, bins=10) == expected_output
+
+
+def test_get_histogram_databins_places_sizes_within_reported_bounds():
+    """Data chosen so that comparing logarithms and comparing the truncated
+    integer bounds disagree about which bin 17870 belongs in."""
+    # GIVEN
+    input_data = {17870: 1, 17871: 1}
+
+    # WHEN
+    actual_output = describe_histogram_databins(
+        get_histogram_databins(input_data, bins=2)
+    )
+
+    # THEN
+    assert actual_output == [
+        {"min_bytes": 0, "max_bytes": 17869, "count": 0},
+        {"min_bytes": 17870, "max_bytes": 17871, "count": 2},
+    ]
+
+
+def test_get_histogram_databins_last_bound_is_largest_size():
+    input_data = Counter([3, 5])
+
+    actual_output = get_histogram_databins(input_data, bins=3)
+
+    assert actual_output[-1] == (5, 1)
 
 
 def test_get_histogram_databins_invalid_bins():

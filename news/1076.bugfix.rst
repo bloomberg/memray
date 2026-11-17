@@ -1,0 +1,1 @@
+Fix ``memray stats`` crashing when building the allocation size histogram for captures with no allocations larger than 1 byte, and fix sizes sometimes being counted in a histogram bin whose reported range does not contain them.
