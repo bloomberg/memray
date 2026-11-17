@@ -262,13 +262,14 @@ class FlameGraphReporter:
 
         unique_threads: Set[str] = set()
         for record in allocations:
-            unique_threads.add(format_thread_name(record))
+            thread_name = html.escape(format_thread_name(record))
+            unique_threads.add(thread_name)
 
             record_data: RecordData
             if temporal:
                 assert isinstance(record, TemporalAllocationRecord)
                 record_data = {
-                    "thread_name": format_thread_name(record),
+                    "thread_name": thread_name,
                     "intervals": record.intervals,
                     "size": None,
                     "n_allocations": None,
@@ -276,7 +277,7 @@ class FlameGraphReporter:
             else:
                 assert not isinstance(record, TemporalAllocationRecord)
                 record_data = {
-                    "thread_name": format_thread_name(record),
+                    "thread_name": thread_name,
                     "intervals": None,
                     "size": record.size,
                     "n_allocations": record.n_allocations,

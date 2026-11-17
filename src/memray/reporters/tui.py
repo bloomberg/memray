@@ -15,7 +15,6 @@ from typing import Optional
 from typing import Tuple
 from typing import cast
 
-from rich.markup import escape
 from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
@@ -412,13 +411,17 @@ class Header(Widget):
         self.pid = str(pid) if pid is not None else "???"
         if not cmd_line:
             cmd_line = "???"
-        self.command_line = escape(cmd_line)
+        self.command_line = cmd_line
 
     def compose(self) -> ComposeResult:
         header_metadata = HorizontalScroll(
             Container(
                 Label(f"[b]PID[/]: {self.pid}", id="pid"),
-                Label(f"[b]CMD[/]: {self.command_line}", shrink=False, id="cmd"),
+                Label(
+                    Text.assemble(("CMD", "bold"), f": {self.command_line}"),
+                    shrink=False,
+                    id="cmd",
+                ),
                 Label(id="tid"),
                 Label(id="thread"),
                 Label(id="samples"),
@@ -506,13 +509,15 @@ class TUI(Screen[None]):
     def _populate_header_thread_labels(self, thread_idx: int) -> None:
         if self._merge_threads:
             tid_label = "[b]TID[/]: *"
-            thread_label = "[b]All threads[/]"
+            thread_label = Text("All threads", style="bold")
         else:
             tid_label = f"[b]TID[/]: {hex(self.current_thread)}"
-            thread_label = f"[b]Thread[/] {thread_idx + 1} of {len(self.threads)}"
+            thread_label = Text.assemble(
+                ("Thread", "bold"), f" {thread_idx + 1} of {len(self.threads)}"
+            )
             thread_name = self._name_by_tid.get(self.current_thread)
             if thread_name:
-                thread_label += f" ({thread_name})"
+                thread_label.append(f" ({thread_name})")
 
         self.query_one("#tid", Label).update(tid_label)
         self.query_one("#thread", Label).update(thread_label)
@@ -576,7 +581,7 @@ class TUI(Screen[None]):
             TimeDisplay(id="head_time_display"),
             id="head",
         )
-        yield Header(pid=self.pid, cmd_line=escape(self.cmd_line or ""))
+        yield Header(pid=self.pid, cmd_line=self.cmd_line)
         yield AllocationTable()
         yield Footer()
 

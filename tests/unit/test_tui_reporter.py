@@ -519,6 +519,16 @@ def test_pid_display(pid, display_val):
             id="Memray module with path",
         ),
         pytest.param(None, "CMD: ???", id="Unknown command"),
+        pytest.param(
+            "prog [red]boom [/x]",
+            "CMD: prog [red]boom [/x]",
+            id="Command with markup",
+        ),
+        pytest.param(
+            "prog C:\\path\\ a\\[b]",
+            "CMD: prog C:\\path\\ a\\[b]",
+            id="Command with backslashes",
+        ),
     ],
 )
 def test_command_line_display(command_line, display_val):
@@ -694,6 +704,42 @@ def test_switching_threads():
     assert functions == ["abc"[i] for i in order]
     assert tids == [f"TID: {hex(i + 1)}" for i in order]
     assert threads == [thread_labels[i] for i in order]
+
+
+def test_markup_in_thread_name_is_not_interpreted():
+    """Test that thread names are displayed verbatim, not parsed as markup"""
+    # GIVEN
+    snapshot = [
+        mock_allocation(
+            tid=1,
+            stack=[("a", "a.py", 1)],
+            thread_name="[/x]",
+        ),
+        mock_allocation(
+            tid=2,
+            stack=[("b", "b.py", 1)],
+            thread_name="[red]boom",
+        ),
+    ]
+
+    reader = MockReader([])
+    app = MockApp(reader)
+    threads = []
+
+    # WHEN
+    async def run_test():
+        async with app.run_test() as pilot:
+            app.add_mock_snapshot(snapshot)
+            await pilot.pause()
+            for key in ("m", ">"):
+                await pilot.press(key)
+                labels = extract_label_text(app)
+                threads.append(" ".join(labels["thread"].split()))
+
+    async_run(run_test())
+
+    # THEN
+    assert threads == ["Thread 1 of 2 ([/x])", "Thread 2 of 2 ([red]boom)"]
 
 
 def test_merge_mode_new_threads():

@@ -1,0 +1,1 @@
+Ensure function names, file names, and thread names are never interpreted as markup in Textual TUIs.

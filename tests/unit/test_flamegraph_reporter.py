@@ -1640,6 +1640,41 @@ class TestFlameGraphReporter:
             ],
         } == tree
 
+    def test_html_special_chars_in_thread_name_and_location(self):
+        """Thread names and locations with HTML special chars are escaped."""
+        # GIVEN
+        peak_allocations = [
+            MockAllocationRecord(
+                tid=1,
+                address=0x1000000,
+                size=1024,
+                allocator=AllocatorType.MALLOC,
+                stack_id=1,
+                n_allocations=1,
+                _stack=[
+                    ("<b>foo</b>", "/src/<i>lel</i>.py", 12),
+                ],
+                thread_name="<img src=x onerror=alert(1)>",
+            ),
+        ]
+
+        # WHEN
+        reporter = FlameGraphReporter.from_snapshot(
+            peak_allocations, memory_records=[], native_traces=False
+        )
+
+        tree, _ = get_packed_trees(reporter.data)
+
+        # THEN
+        expected = "0x1 (&lt;img src=x onerror=alert(1)&gt;)"
+        assert tree["unique_threads"] == [expected]
+        assert tree["children"][0]["thread_id"] == expected
+        assert tree["children"][0]["location"] == [
+            "&lt;b&gt;foo&lt;/b&gt;",
+            "/src/&lt;i&gt;lel&lt;/i&gt;.py",
+            12,
+        ]
+
     def test_works_with_merged_threads(self):
         # GIVEN
         peak_allocations = [
