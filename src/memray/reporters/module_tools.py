@@ -31,6 +31,10 @@ def get_python_path_info() -> PathInfo:
     # Get site-packages directories
     site_packages: List[Path] = [Path(p) for p in site.getsitepackages()]
 
+    site_packages.extend(
+        Path(path) for path in sys.path if path and Path(path).name == "site-packages"
+    )
+
     # Get user site-packages
     user_site = site.getusersitepackages()
     if Path(user_site).exists():

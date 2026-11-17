@@ -1,0 +1,1 @@
+Add missing site-packages lookup for sys.path entries in ModuleResolver.
