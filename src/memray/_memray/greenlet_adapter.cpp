@@ -16,12 +16,102 @@
 #    include <unistd.h>
 #endif
 #ifdef __linux__
-#    include "tls_model.h"
+#    include "elf_utils.h"
 #    include <link.h>
 #endif
 
 namespace memray::tracking_api::greenlet_adapter {
 namespace {
+#ifdef __linux__
+inline bool
+moduleContains(const dl_phdr_info* info, uintptr_t address, size_t size)
+{
+    for (ElfW(Half) index = 0; index < info->dlpi_phnum; ++index) {
+        const auto& segment = info->dlpi_phdr[index];
+        const auto start = info->dlpi_addr + segment.p_vaddr;
+        if (segment.p_type == PT_LOAD && size <= segment.p_memsz && address >= start
+            && address - start <= segment.p_memsz - size)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+inline bool
+usesGetAddrTls(const dl_phdr_info* info)
+{
+#    if defined(__linux__) && defined(__x86_64__)
+    const Dyn* dynamic = nullptr;
+    size_t dynamic_size = 0;
+    for (ElfW(Half) i = 0; i < info->dlpi_phnum; ++i) {
+        if (info->dlpi_phdr[i].p_type == PT_DYNAMIC) {
+            dynamic = reinterpret_cast<const Dyn*>(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
+            dynamic_size = info->dlpi_phdr[i].p_memsz;
+        }
+    }
+    if (!dynamic || !moduleContains(info, reinterpret_cast<uintptr_t>(dynamic), dynamic_size))
+        return false;
+    bool terminated = false;
+    for (size_t i = 0; i < dynamic_size / sizeof(Dyn); ++i) {
+        const auto& tag = dynamic[i];
+        if (tag.d_tag == DT_NULL) {
+            terminated = true;
+            break;
+        }
+        if ((tag.d_tag == DT_FLAGS && (tag.d_un.d_val & DF_STATIC_TLS)) || tag.d_tag == DT_TLSDESC_PLT
+            || tag.d_tag == DT_TLSDESC_GOT || (tag.d_tag == DT_RELSZ && tag.d_un.d_val)
+            || (tag.d_tag == DT_RELAENT && tag.d_un.d_val != sizeof(Rela))
+            || (tag.d_tag == DT_SYMENT && tag.d_un.d_val != sizeof(Sym))
+            || (tag.d_tag == DT_PLTREL && tag.d_un.d_val != DT_RELA))
+            return false;
+    }
+    if (!terminated) return false;
+    SymbolTable symbols(info->dlpi_addr, dynamic);
+    if (!symbols.symbol_table.table || !symbols.string_table.table
+        || !moduleContains(
+                info,
+                reinterpret_cast<uintptr_t>(symbols.string_table.table),
+                symbols.string_table.size))
+        return false;
+    bool own_module = false;
+    bool resolver_call = false;
+    const auto inspect = [&](const Rela* table, size_t size) {
+        if (!size) return true;
+        if (!table || size % sizeof(Rela)
+            || !moduleContains(info, reinterpret_cast<uintptr_t>(table), size))
+            return false;
+        for (size_t i = 0; i < size / sizeof(Rela); ++i) {
+            const auto type = ELF64_R_TYPE(table[i].r_info);
+            const auto symbol_index = ELF64_R_SYM(table[i].r_info);
+            if (type == R_X86_64_TPOFF64 || type == R_X86_64_TPOFF32 || type == R_X86_64_GOTTPOFF
+                || type == R_X86_64_TLSDESC || type == R_X86_64_TLSDESC_CALL
+                || type == R_X86_64_GOTPC32_TLSDESC)
+                return false;
+            if (type == R_X86_64_DTPMOD64 && symbol_index == 0) own_module = true;
+            if (type != R_X86_64_JUMP_SLOT && type != R_X86_64_GLOB_DAT) continue;
+            const auto* symbol = symbols.symbol_table.table + symbol_index;
+            if (!moduleContains(info, reinterpret_cast<uintptr_t>(symbol), sizeof(Sym))) return false;
+            constexpr char resolver[] = "__tls_get_addr";
+            if (symbol->st_shndx == SHN_UNDEF && symbol->st_name <= symbols.string_table.size
+                && sizeof(resolver) <= symbols.string_table.size - symbol->st_name
+                && memcmp(symbols.string_table.table + symbol->st_name, resolver, sizeof(resolver)) == 0)
+                resolver_call = true;
+        }
+        return true;
+    };
+    const RelaTable relocations(info->dlpi_addr, dynamic);
+    const JmpRelaTable calls(info->dlpi_addr, dynamic);
+    return inspect(relocations.table, relocations.size) && inspect(calls.table, calls.size) && own_module
+           && resolver_call;
+#    else
+    (void)info;
+    return false;
+#    endif
+}
+
+#endif
+
 struct GreenletPrefix
 {
     PyObject_HEAD void* weakrefs;
@@ -158,13 +248,7 @@ copyTls(const dl_phdr_info* info, ModuleTls& result)
 struct GreenletSymbols
 {
     uintptr_t type{};
-    uintptr_t initialize{};
-    bool named{};
-
-    bool present() const
-    {
-        return named || type || initialize;
-    }
+    bool present{};
 };
 
 GreenletSymbols
@@ -172,30 +256,31 @@ greenletSymbols(const dl_phdr_info* info)
 {
     const char* filename = strrchr(info->dlpi_name, '/');
     filename = filename ? filename + 1 : info->dlpi_name;
-    GreenletSymbols result;
-    result.named = strncmp(filename, "_greenlet.", 10) == 0;
+    const bool named = strncmp(filename, "_greenlet.", 10) == 0;
+    uintptr_t type = 0;
+    uintptr_t initialize = 0;
 
     for (ElfW(Half) index = 0; index < info->dlpi_phnum; ++index) {
         const auto& segment = info->dlpi_phdr[index];
         if (segment.p_type != PT_DYNAMIC) continue;
         const auto* dynamic = reinterpret_cast<const Dyn*>(info->dlpi_addr + segment.p_vaddr);
         SymbolTable symbols(info->dlpi_addr, dynamic);
-        result.type = symbols.getSymbolAddress("PyGreenlet_Type");
-        result.initialize = symbols.getSymbolAddress("PyInit__greenlet");
+        type = symbols.getSymbolAddress("PyGreenlet_Type");
+        initialize = symbols.getSymbolAddress("PyInit__greenlet");
         break;
     }
     // Direct ELF lookup returns only this module's defined exports. No dlsym,
     // dlopen, or dladdr call can acquire another loader lock in this callback.
-    if (result.type && !moduleContains(info, result.type, sizeof(PyTypeObject))) result.type = 0;
-    if (result.initialize && !moduleContains(info, result.initialize, 1)) result.initialize = 0;
-    return result;
+    if (type && !moduleContains(info, type, sizeof(PyTypeObject))) type = 0;
+    if (initialize && !moduleContains(info, initialize, 1)) initialize = 0;
+    return {type, named || type || initialize};
 }
 
 int
 findModule(dl_phdr_info* info, size_t info_size, void* raw)
 {
     const auto symbols = greenletSymbols(info);
-    if (!symbols.present()) return 0;
+    if (!symbols.present) return 0;
     module_present.store(true, std::memory_order_release);
     if (info_size < offsetof(dl_phdr_info, dlpi_tls_data) + sizeof(info->dlpi_tls_data)) return 0;
 
@@ -217,7 +302,7 @@ int
 countGreenletModules(dl_phdr_info* info, size_t info_size, void* raw)
 {
     auto& result = *static_cast<GreenletModuleCount*>(raw);
-    if (!greenletSymbols(info).present()) return 0;
+    if (!greenletSymbols(info).present) return 0;
     ++result.count;
     if (info_size >= offsetof(dl_phdr_info, dlpi_tls_modid) + sizeof(info->dlpi_tls_modid)
         && info->dlpi_tls_modid == result.expected_module)
@@ -455,7 +540,7 @@ markRegistered(void* pointer)
 static void
 clearIdentities()
 {
-    // The caller holds the registry mutex at an inactive session boundary.
+    // The caller has exclusive access during setup, shutdown, or after fork.
     identity_generation.fetch_add(1, std::memory_order_release);
     registry->identities.clear();
     for (auto& word : identity_filter)
@@ -496,14 +581,14 @@ markModuleLoaded()
 struct CurrentGreenlet
 {
     uintptr_t address{};
-    bool absent{};
+    uint64_t absent_generation{};
 };
 
 static CurrentGreenlet
 currentGreenlet()
 {
 #if defined(__linux__) || defined(__APPLE__)
-    if (!active.load(std::memory_order_acquire) || !registry) {
+    if (!active.load(std::memory_order_acquire)) {
         return {};
     }
     const bool ready = calibrated.load(std::memory_order_acquire);
@@ -513,7 +598,7 @@ currentGreenlet()
         if (checked == generation && !module_present.load(std::memory_order_acquire)
             && generation == module_generation.load(std::memory_order_acquire))
         {
-            return {0, true};
+            return {0, generation};
         }
     }
     // Do not read greenlet TLS after the bound Python thread state is gone.
@@ -523,13 +608,21 @@ currentGreenlet()
         calibrate();
         if (!calibrated.load(std::memory_order_acquire)) return {};
     }
+#    ifdef MEMRAY_WITH_FRAME_MARKERS
+    const auto generation = module_generation.load(std::memory_order_acquire);
+#    endif
     bool module_found = false;
     const char* block = currentTls(tls_index.module, tls_uses_get_addr, &module_found);
     // Only the supported __tls_get_addr model proves that null TLS means no
     // prior greenlet use. Initial-exec and TLSDESC can access a static block
     // while dlpi_tls_data remains null. Recheck null on every capture.
     if (!block) {
-        return {0, module_found && tls_uses_get_addr && isOnlyGreenletModule()};
+        if (!module_found || !tls_uses_get_addr || !isOnlyGreenletModule()) return {};
+#    ifdef MEMRAY_WITH_FRAME_MARKERS
+        return {0, generation == module_generation.load(std::memory_order_acquire) ? generation : 0};
+#    else
+        return {};
+#    endif
     }
     const uintptr_t state = *reinterpret_cast<const uintptr_t*>(block + tls_index.offset);
     if (state <= 1) return {};
@@ -559,15 +652,9 @@ threadKnownAbsent()
 uintptr_t
 currentIdentity()
 {
-#ifdef MEMRAY_WITH_FRAME_MARKERS
-    const auto generation_before = module_generation.load(std::memory_order_acquire);
-#endif
     const auto state = currentGreenlet();
 #ifdef MEMRAY_WITH_FRAME_MARKERS
-    t_absent_generation =
-            state.absent && generation_before == module_generation.load(std::memory_order_acquire)
-                    ? generation_before
-                    : 0;
+    t_absent_generation = state.absent_generation;
 #endif
     const uintptr_t current = state.address;
     if (!current) return 0;
@@ -591,9 +678,7 @@ currentIdentity()
 void
 forgetAllocation(void* pointer)
 {
-    if (!pointer || !active.load(std::memory_order_acquire)
-        || !identities_present.load(std::memory_order_acquire) || !registry)
-        return;
+    if (!pointer || !identities_present.load(std::memory_order_acquire)) return;
     // Bits remain set until the registry is empty at a session boundary.
     // False positives take the mutex. A registered address cannot be missed.
     if (!possiblyRegistered(pointer)) return;
