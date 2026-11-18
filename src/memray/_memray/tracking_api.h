@@ -82,13 +82,6 @@ class TrackerMutex
 using TrackerMutex = std::mutex;
 #endif
 
-inline bool
-sameAllocator(const PyMemAllocatorEx& left, const PyMemAllocatorEx& right)
-{
-    return left.ctx == right.ctx && left.malloc == right.malloc && left.calloc == right.calloc
-           && left.realloc == right.realloc && left.free == right.free;
-}
-
 bool
 getRSSFromProcStatus(const std::string& proc_status, size_t* rss_in_bytes);
 
@@ -157,9 +150,6 @@ struct PymallocAllocatorContext
     const PyMemAllocatorEx original;
     std::atomic<bool> active{};
 };
-
-bool
-unwrapPymallocAllocator(PyMemAllocatorEx* allocator);
 
 /** Install our pthread fork handlers. */
 void

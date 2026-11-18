@@ -30,8 +30,15 @@
 #include "python_stack_capture.h"
 #include "tracking_api.h"
 
-namespace memray::tracking_api::capture_lifetime {
+namespace memray::tracking_api {
 namespace {
+
+inline bool
+sameAllocator(const PyMemAllocatorEx& left, const PyMemAllocatorEx& right)
+{
+    return left.ctx == right.ctx && left.malloc == right.malloc && left.calloc == right.calloc
+           && left.realloc == right.realloc && left.free == right.free;
+}
 
 struct SavedAllocators
 {
@@ -127,13 +134,18 @@ savedAllocators()
 // contexts are process-lived, and their original callback tables never change.
 struct AllocatorContext
 {
-    const PyMemAllocatorEx original;
+    PymallocAllocatorContext callbacks;
     const PyMemAllocatorDomain domain;
-    std::atomic<bool> active{};
+    const bool trace_allocations;
     AllocatorContext* next;
 };
 AllocatorContext* s_contexts{};
 std::array<AllocatorContext*, 4> s_active_contexts{};
+AllocatorContext* s_active_pymalloc_contexts[3]{};
+constexpr PyMemAllocatorDomain s_pymalloc_domains[] = {
+        PYMEM_DOMAIN_RAW,
+        PYMEM_DOMAIN_MEM,
+        PYMEM_DOMAIN_OBJ};
 // A child process cannot use or destroy a mutex held by a vanished thread.
 // Its at-fork callback abandons that mutex and installs a new one.
 std::mutex* s_tlbc_mutex = new std::mutex;
@@ -147,7 +159,7 @@ waitForReaders([[maybe_unused]] PyMemAllocatorDomain domain)
         // CPython publishes a replacement co_tlbc before retiring the old
         // table. Drain existing readers. Later readers acquire this mutex
         // after that publication and cannot load the retired table.
-        TlbcReadGuard guard;
+        capture_lifetime::TlbcReadGuard guard;
     }
 #endif
 }
@@ -155,14 +167,14 @@ waitForReaders([[maybe_unused]] PyMemAllocatorDomain domain)
 void*
 allocate(void* context, size_t size)
 {
-    auto& original = static_cast<AllocatorContext*>(context)->original;
+    auto& original = static_cast<AllocatorContext*>(context)->callbacks.original;
     return original.malloc(original.ctx, size);
 }
 
 void*
 allocateZeroed(void* context, size_t count, size_t size)
 {
-    auto& original = static_cast<AllocatorContext*>(context)->original;
+    auto& original = static_cast<AllocatorContext*>(context)->callbacks.original;
     return original.calloc(original.ctx, count, size);
 }
 
@@ -170,8 +182,8 @@ void*
 resize(void* context, void* pointer, size_t size)
 {
     auto& allocator = *static_cast<AllocatorContext*>(context);
-    auto& original = allocator.original;
-    if (!allocator.active.load(std::memory_order_acquire)) {
+    auto& original = allocator.callbacks.original;
+    if (!allocator.callbacks.active.load(std::memory_order_acquire)) {
         return original.realloc(original.ctx, pointer, size);
     }
     // Greenlet implementation objects do not resize. Invalidate before a
@@ -185,8 +197,8 @@ void
 release(void* context, void* pointer)
 {
     auto& allocator = *static_cast<AllocatorContext*>(context);
-    auto& original = allocator.original;
-    if (!allocator.active.load(std::memory_order_acquire)) {
+    auto& original = allocator.callbacks.original;
+    if (!allocator.callbacks.active.load(std::memory_order_acquire)) {
         original.free(original.ctx, pointer);
         return;
     }
@@ -204,16 +216,18 @@ release(void* context, void* pointer)
 }
 
 AllocatorContext*
-contextFor(PyMemAllocatorDomain domain, const PyMemAllocatorEx& original)
+contextFor(PyMemAllocatorDomain domain, const PyMemAllocatorEx& original, bool trace_allocations = false)
 {
     // Setup runs with Python stopped. Allocation callbacks never read the
     // list. Reusing an exact table avoids one retained context per session.
     for (auto* context = s_contexts; context; context = context->next) {
-        if (context->domain == domain && sameAllocator(context->original, original)) {
+        if (context->domain == domain && context->trace_allocations == trace_allocations
+            && sameAllocator(context->callbacks.original, original))
+        {
             return context;
         }
     }
-    auto* context = new AllocatorContext{original, domain, {}, s_contexts};
+    auto* context = new AllocatorContext{{original, {}}, domain, trace_allocations, s_contexts};
     s_contexts = context;
     return context;
 }
@@ -221,28 +235,24 @@ contextFor(PyMemAllocatorDomain domain, const PyMemAllocatorEx& original)
 PyMemAllocatorEx
 wrapperFor(AllocatorContext& context)
 {
+    if (context.trace_allocations) {
+        return {&context.callbacks,
+                intercept::pymalloc_malloc,
+                intercept::pymalloc_calloc,
+                intercept::pymalloc_realloc,
+                intercept::pymalloc_free};
+    }
     return {&context, allocate, allocateZeroed, resize, release};
 }
 
-void
-restore(PyMemAllocatorDomain domain, AllocatorContext& context)
-{
-    PyMemAllocatorEx current;
-    PyMem_GetAllocator(domain, &current);
-    if (sameAllocator(current, wrapperFor(context))) {
-        auto original = context.original;
-        PyMem_SetAllocator(domain, &original);
-    }
-}
-
 bool
-unwrapLifetimeAllocator(PyMemAllocatorEx& allocator)
+unwrapAllocator(PyMemAllocatorEx& allocator)
 {
     for (auto* context = s_contexts; context; context = context->next) {
-        if (!context->active.load(std::memory_order_acquire)
+        if (!context->callbacks.active.load(std::memory_order_acquire)
             && sameAllocator(allocator, wrapperFor(*context)))
         {
-            allocator = context->original;
+            allocator = context->callbacks.original;
             return true;
         }
     }
@@ -252,7 +262,7 @@ unwrapLifetimeAllocator(PyMemAllocatorEx& allocator)
 void
 unwrapSavedAllocator(PyMemAllocatorEx& allocator)
 {
-    while (unwrapLifetimeAllocator(allocator) || unwrapPymallocAllocator(&allocator)) {
+    while (unwrapAllocator(allocator)) {
     }
 }
 
@@ -269,7 +279,41 @@ unwrapCurrentAllocator(PyMemAllocatorDomain domain)
 }  // namespace
 
 void
-activate()
+Tracker::registerPymallocHooks() const
+{
+    assert(d_trace_python_allocators);
+    AllocatorContext* prepared[3];
+    for (size_t index = 0; index < 3; ++index) {
+        PyMemAllocatorEx original;
+        PyMem_GetAllocator(s_pymalloc_domains[index], &original);
+        unwrapSavedAllocator(original);
+        prepared[index] = contextFor(s_pymalloc_domains[index], original, true);
+    }
+    // No slot changes until all context allocations succeed.
+    for (size_t index = 0; index < 3; ++index) {
+        auto* context = prepared[index];
+        context->callbacks.active.store(true, std::memory_order_release);
+        s_active_pymalloc_contexts[index] = context;
+        auto wrapper = wrapperFor(*context);
+        PyMem_SetAllocator(s_pymalloc_domains[index], &wrapper);
+    }
+}
+
+void
+Tracker::unregisterPymallocHooks() const noexcept
+{
+    assert(d_trace_python_allocators);
+    for (size_t index = 0; index < 3; ++index) {
+        auto* context = s_active_pymalloc_contexts[index];
+        if (!context) continue;
+        context->callbacks.active.store(false, std::memory_order_release);
+        unwrapCurrentAllocator(s_pymalloc_domains[index]);
+        s_active_pymalloc_contexts[index] = nullptr;
+    }
+}
+
+void
+capture_lifetime::activate()
 {
     PyMemAllocatorEx mem_original;
     PyMemAllocatorEx obj_original;
@@ -304,27 +348,24 @@ activate()
     auto obj_wrapper = wrapperFor(*obj);
     s_active_contexts = {mem, obj, inner_mem, inner_obj};
     if (inner_mem) {
-        inner_mem->active.store(true, std::memory_order_release);
+        inner_mem->callbacks.active.store(true, std::memory_order_release);
         *saved.mem = wrapperFor(*inner_mem);
     }
     if (inner_obj) {
-        inner_obj->active.store(true, std::memory_order_release);
+        inner_obj->callbacks.active.store(true, std::memory_order_release);
         *saved.obj = wrapperFor(*inner_obj);
     }
-    mem->active.store(true, std::memory_order_release);
-    obj->active.store(true, std::memory_order_release);
+    mem->callbacks.active.store(true, std::memory_order_release);
+    obj->callbacks.active.store(true, std::memory_order_release);
     PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &mem_wrapper);
     PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &obj_wrapper);
 }
 
 void
-deactivate()
+capture_lifetime::deactivate()
 {
     for (auto* context : s_active_contexts) {
-        if (context) context->active.store(false, std::memory_order_release);
-    }
-    for (auto* context : s_active_contexts) {
-        if (context) restore(context->domain, *context);
+        if (context) context->callbacks.active.store(false, std::memory_order_release);
     }
     unwrapCurrentAllocator(PYMEM_DOMAIN_MEM);
     unwrapCurrentAllocator(PYMEM_DOMAIN_OBJ);
@@ -337,18 +378,18 @@ deactivate()
     s_active_contexts.fill(nullptr);
 }
 
-TlbcReadGuard::TlbcReadGuard()
+capture_lifetime::TlbcReadGuard::TlbcReadGuard()
 {
     if (t_lock_depth++ == 0) s_tlbc_mutex->lock();
 }
 
-TlbcReadGuard::~TlbcReadGuard()
+capture_lifetime::TlbcReadGuard::~TlbcReadGuard()
 {
     if (--t_lock_depth == 0) s_tlbc_mutex->unlock();
 }
 
 void
-childFork()
+capture_lifetime::childFork()
 {
     auto* mutex = new std::mutex;
     // A guard on this thread's surviving stack must still unlock once.
@@ -357,4 +398,4 @@ childFork()
     s_tlbc_mutex = mutex;
 }
 
-}  // namespace memray::tracking_api::capture_lifetime
+}  // namespace memray::tracking_api
