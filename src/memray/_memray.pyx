@@ -59,7 +59,6 @@ from _memray.source cimport SocketSource
 from _memray.tracking_api cimport RecursionGuard
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport getRSSFromProcStatus
-from _memray.tracking_api cimport install_trace_function
 from _memray.tracking_api cimport set_up_pthread_fork_handlers
 from cpython cimport Py_DECREF
 from cpython cimport PyErr_CheckSignals
@@ -211,9 +210,8 @@ cdef hybrid_stack_trace(
     # 1. For the thread that called Tracker.__enter__, we want to hide
     #    frames (both Python and C) above the one that made that call.
     #    For other threads we want to keep all frames.
-    # 2. If _PyFrame_EvalFrameDefault allocates memory before calling our
-    #    profile function, we'll have too few Python frames to pair up
-    #    every _PyFrame_EvalFrameDefault call. This happens in 3.11.
+    # 2. An evaluator call can allocate before its Python frame is complete.
+    #    That native frame then has no Python frame to pair with it.
     # 3. Since Python 3.11, one _PyFrame_EvalFrameDefault call can evaluate
     #    many Python frames. If a frame's is_entry_frame flag is unset, it
     #    uses the same _PyFrame_EvalFrameDefault call as its caller.
@@ -233,7 +231,7 @@ cdef hybrid_stack_trace(
 
     # Both stacks are from most recent to least, but we must pair things up
     # least recent to most to handle cases where _PyFrame_EvalFrameDefault
-    # allocated memory before calling the profile function.
+    # allocated memory before its Python frame became complete.
     native_stack.reverse()
     cdef ssize_t pidx = len(python_stack) - 1
     cdef ssize_t hidx = len(hybrid_stack) - 1
@@ -750,9 +748,8 @@ cdef class Tracker:
     cdef unsigned int _memory_interval_ms
     cdef bool _follow_fork
     cdef bool _trace_python_allocators
-    cdef object _previous_profile_func
-    cdef object _previous_thread_profile_func
     cdef object _patched_thread_class
+    cdef dict _thread_class_patches
     cdef unique_ptr[RecordWriter] _writer
     cdef object _surviving_objects
 
@@ -847,54 +844,62 @@ cdef class Tracker:
             writer = move(self._writer)
 
             self._patched_thread_class = threading.Thread
-            for attr in ("_name", "_ident"):
-                assert not hasattr(self._patched_thread_class, attr)
-                setattr(
-                    self._patched_thread_class,
-                    attr,
-                    ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
+            self._thread_class_patches = {}
+            try:
+                for attr in ("_name", "_ident"):
+                    assert not hasattr(self._patched_thread_class, attr)
+                    interceptor = ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById)
+                    self._thread_class_patches[attr] = (interceptor, False, None)
+                    setattr(self._patched_thread_class, attr, interceptor)
+
+                orig_set_os_name = getattr(self._patched_thread_class, "_set_os_name", None)
+                if orig_set_os_name is not None:
+                    def set_os_name_wrapper(self):
+                        cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
+                        orig_set_os_name(self)
+
+                    own_attributes = self._patched_thread_class.__dict__
+                    self._thread_class_patches["_set_os_name"] = (
+                        set_os_name_wrapper,
+                        "_set_os_name" in own_attributes,
+                        own_attributes.get("_set_os_name"),
+                    )
+                    setattr(self._patched_thread_class, "_set_os_name", set_os_name_wrapper)
+
+                NativeTracker.createTracker(
+                    move(writer),
+                    self._native_traces,
+                    self._memory_interval_ms,
+                    self._follow_fork,
+                    self._trace_python_allocators,
+                    self._track_object_lifetimes,
                 )
-
-            orig_set_os_name = getattr(self._patched_thread_class, "_set_os_name", None)
-            if orig_set_os_name is not None:
-                def set_os_name_wrapper(self):
-                    cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
-                    orig_set_os_name(self)
-
-                setattr(self._patched_thread_class, "_set_os_name", set_os_name_wrapper)
-
-            self._previous_profile_func = sys.getprofile()
-            self._previous_thread_profile_func = threading._profile_hook
-            threading.setprofile(start_thread_trace)
-
-            if "greenlet" in sys.modules:
-                NativeTracker.beginTrackingGreenlets()
-
-            NativeTracker.createTracker(
-                move(writer),
-                self._native_traces,
-                self._memory_interval_ms,
-                self._follow_fork,
-                self._trace_python_allocators,
-                self._track_object_lifetimes,
-            )
+            except BaseException:
+                self._restore_thread_class()
+                raise
             return self
+
+    cdef void _restore_thread_class(self) except *:
+        if self._patched_thread_class is None:
+            return
+        for attr, (replacement, was_present, original) in self._thread_class_patches.items():
+            if self._patched_thread_class.__dict__.get(attr) is replacement:
+                if was_present:
+                    setattr(self._patched_thread_class, attr, original)
+                else:
+                    delattr(self._patched_thread_class, attr)
+        self._thread_class_patches = None
+        self._patched_thread_class = None
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if self._track_object_lifetimes:
             self._populate_surviving_objects()
         with tracker_creation_lock:
-            NativeTracker.destroyTracker()
-            sys.setprofile(self._previous_profile_func)
-            threading.setprofile(self._previous_thread_profile_func)
-
-            for attr in ("_name", "_ident"):
-                try:
-                    delattr(self._patched_thread_class, attr)
-                except AttributeError:
-                    pass
-            self._patched_thread_class = None
+            try:
+                NativeTracker.destroyTracker()
+            finally:
+                self._restore_thread_class()
 
     cdef void _populate_surviving_objects(self):
         cdef NativeTracker *tracker = NativeTracker.getTracker()
@@ -926,26 +931,6 @@ cdef class Tracker:
                 "Tracking was never started or has not finished yet or failed."
             )
         return tuple(self._surviving_objects)
-
-
-def start_thread_trace(frame, event, arg):
-    if event in {"call", "c_call"}:
-        install_trace_function()
-    return start_thread_trace
-
-
-def greenlet_trace_function(event, args):
-    if event in {"switch", "throw"}:
-        NativeTracker.handleGreenletSwitch(args[0], args[1])
-
-
-def print_greenlet_warning():
-    print(
-        "⚠ Memray support for Greenlet is experimental ⚠\n"
-        "Please report any issues at https://github.com/bloomberg/memray/issues\n"
-        "\n",
-        file=sys.stderr,
-    )
 
 
 cdef millis_to_dt(millis):

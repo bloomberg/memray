@@ -7,7 +7,16 @@
 #include <cassert>
 #include <string>
 
+#if PY_VERSION_HEX >= 0x030E0000 && PY_VERSION_HEX < 0x03100000 && !defined(Py_DEBUG)                   \
+        && !defined(Py_GIL_DISABLED)
+#    define MEMRAY_WITH_FRAME_MARKERS
+#endif
+
 namespace memray::compat {
+
+// Return the copied byte count, or zero if the address cannot be read.
+size_t
+copyReadableMemory(void* destination, const void* source, size_t size);
 
 inline int
 isPythonFinalizing()
@@ -16,34 +25,6 @@ isPythonFinalizing()
     return Py_IsFinalizing();
 #else
     return _Py_IsFinalizing();
-#endif
-}
-
-inline bool
-isEntryFrame(PyFrameObject* frame)
-{
-#if PY_VERSION_HEX >= 0x030B0000
-    return _PyFrame_IsEntryFrame(frame);
-#else
-    (void)frame;
-    return true;
-#endif
-}
-
-inline PyFrameObject*
-threadStateGetFrame(PyThreadState* tstate)
-{
-#if PY_VERSION_HEX < 0x030B0000
-    // Prior to Python 3.11 this was exposed.
-    return tstate->frame;
-#else
-    // Return a borrowed reference.
-    PyFrameObject* ret = PyThreadState_GetFrame(tstate);
-    if (ret) {
-        assert(Py_REFCNT(ret) >= 2);
-        Py_DECREF(ret);
-    }
-    return ret;
 #endif
 }
 
@@ -91,51 +72,17 @@ frameGetLasti(PyFrameObject* frame)
 #endif
 }
 
-inline PyInterpreterState*
-threadStateGetInterpreter(PyThreadState* tstate)
-{
-#if PY_VERSION_HEX < 0x03090000
-    return tstate->interp;
-#else
-    return PyThreadState_GetInterpreter(tstate);
-#endif
-}
-
-#if PY_VERSION_HEX >= 0x030E0000
-
-extern "C" void
-_PyEval_StopTheWorld(PyInterpreterState*);
-extern "C" void
-_PyEval_StartTheWorld(PyInterpreterState*);
-
-inline void
-stopTheWorld(PyInterpreterState* interp)
-{
-    _PyEval_StopTheWorld(interp);
-}
-
-inline void
-startTheWorld(PyInterpreterState* interp)
-{
-    _PyEval_StartTheWorld(interp);
-}
-
-#else
-
-inline void
-stopTheWorld(PyInterpreterState*)
-{
-}
-
-inline void
-startTheWorld(PyInterpreterState*)
-{
-}
-
-#endif
-
+// Stops the current interpreter on free-threaded builds. The callback must
+// not allocate Python-managed memory or start another stop-the-world event.
 void
-setprofileAllThreads(Py_tracefunc func, PyObject* arg);
+withStoppedWorld(void (*callback)(void*), void* context);
+
+template<typename Callback>
+void
+withStoppedWorld(Callback callback)
+{
+    withStoppedWorld([](void* context) { (*static_cast<Callback*>(context))(); }, &callback);
+}
 
 // For Python 3.11 and later, return the version of the running interpreter.
 // For earlier versions, return the interpreter version used to build Memray.

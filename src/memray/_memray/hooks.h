@@ -80,7 +80,6 @@ arrow_mi_free(void* ptr) MAYBE_MISSING;
     FOR_EACH_HOOKED_FUNCTION(munmap)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(dlopen)                                                                    \
     FOR_EACH_HOOKED_FUNCTION(dlclose)                                                                   \
-    FOR_EACH_HOOKED_FUNCTION(PyGILState_Ensure)                                                         \
     FOR_EACH_HOOKED_FUNCTION(free_sized)                                                                \
     FOR_EACH_HOOKED_FUNCTION(free_aligned_sized)                                                        \
     MEMRAY_ARROW_HOOKED_FUNCTIONS                                                                       \
@@ -260,9 +259,6 @@ munmap(void* addr, size_t length) noexcept;
 
 int
 prctl(int option, ...) noexcept;
-
-PyGILState_STATE
-PyGILState_Ensure() noexcept;
 
 void*
 pymalloc_malloc(void* ctx, size_t size) noexcept;

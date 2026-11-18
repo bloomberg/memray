@@ -11,7 +11,6 @@ from ._memray import SocketReader
 from ._memray import Tracker
 from ._memray import dump_all_records
 from ._memray import set_log_level
-from ._memray import start_thread_trace
 from ._metadata import Metadata
 from ._version import __version__
 
@@ -21,7 +20,6 @@ __all__ = [
     "FileFormat",
     "MemorySnapshot",
     "dump_all_records",
-    "start_thread_trace",
     "Tracker",
     "FileReader",
     "SocketReader",

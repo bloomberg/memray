@@ -12,7 +12,6 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
     bool getRSSFromProcStatus(const string& proc_status, size_t* rss_in_bytes)
 
     void set_up_pthread_fork_handlers() except+
-    void install_trace_function() except*
 
     cdef cppclass RecursionGuard:
         RecursionGuard()
@@ -33,12 +32,6 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
 
         @staticmethod
         Tracker* getTracker()
-
-        @staticmethod
-        void beginTrackingGreenlets() except+
-
-        @staticmethod
-        void handleGreenletSwitch(object, object) except+
 
         @staticmethod
         void registerThreadNameById(uint64_t, const char*) except+

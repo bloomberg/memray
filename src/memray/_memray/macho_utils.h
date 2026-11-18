@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstring>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
@@ -8,6 +9,7 @@
 #include <mach/mach.h>
 #include <mach/vm_map.h>
 #include <mach/vm_region.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <vector>
 
@@ -48,6 +50,8 @@ struct DynamicInfoTable
     const nlist_t* symbol_table = nullptr;
     const char* string_table = nullptr;
     const uint32_t* dynsym_table = nullptr;
+    uint32_t symbol_count{};
+    uint32_t string_size{};
     std::vector<const segment_command_t*> segments;
 
     explicit DynamicInfoTable(
@@ -89,6 +93,8 @@ struct DynamicInfoTable
         symbol_table = reinterpret_cast<nlist_t*>(linkedit_base + symtab_cmd->symoff);
         string_table = reinterpret_cast<char*>(linkedit_base + symtab_cmd->stroff);
         dynsym_table = reinterpret_cast<uint32_t*>(linkedit_base + dysym_cmd->indirectsymoff);
+        symbol_count = symtab_cmd->nsyms;
+        string_size = symtab_cmd->strsize;
     }
 
     explicit operator bool() const
@@ -105,5 +111,55 @@ struct DynamicInfoTable
 
         uint32_t string_table_offset = symbol_table[index_into_symtable].n_un.n_strx;
         return string_table + string_table_offset;
+    }
+
+    uintptr_t getSymbolAddress(const char* name, uintptr_t slide) const
+    {
+        const auto length = strlen(name) + 1;
+        for (uint32_t i = 0; i < symbol_count; ++i) {
+            const auto& symbol = symbol_table[i];
+            const auto offset = symbol.n_un.n_strx;
+            if (!(symbol.n_type & N_STAB) && (symbol.n_type & N_TYPE) == N_SECT && offset <= string_size
+                && length <= string_size - offset && memcmp(string_table + offset, name, length) == 0)
+                return slide + symbol.n_value;
+        }
+        return 0;
+    }
+
+    struct ThreadLocalStorage
+    {
+        pthread_key_t key{};
+        size_t size{};
+    };
+
+    ThreadLocalStorage threadLocalStorage(uintptr_t slide) const
+    {
+        uintptr_t first = UINTPTR_MAX, end = 0;
+        uint32_t key = 0;
+        bool found = false;
+        for (const auto* segment : segments) {
+            const auto* sections = reinterpret_cast<const section_t*>(segment + 1);
+            for (uint32_t i = 0; i < segment->nsects; ++i) {
+                const auto& section = sections[i];
+                switch (section.flags & SECTION_TYPE) {
+                    case S_THREAD_LOCAL_VARIABLES:
+                        if (!found && section.size >= 3 * sizeof(uintptr_t)) {
+                            // Both 64-bit descriptor layouts store the key here.
+                            // New dyld versions pack a 32-bit offset after it.
+                            memcpy(&key,
+                                   reinterpret_cast<void*>(slide + section.addr + sizeof(void*)),
+                                   sizeof(key));
+                            found = true;
+                        }
+                        break;
+                    case S_THREAD_LOCAL_REGULAR:
+                    case S_THREAD_LOCAL_ZEROFILL:
+                        first = std::min<uintptr_t>(first, section.addr);
+                        end = std::max<uintptr_t>(end, section.addr + section.size);
+                        break;
+                }
+            }
+        }
+        return found && first < end ? ThreadLocalStorage{key, end - first} : ThreadLocalStorage{};
     }
 };

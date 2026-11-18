@@ -30,6 +30,7 @@
 #endif
 
 #include "frame_tree.h"
+#include "greenlet_adapter.h"
 #include "hooks.h"
 #include "linker_shenanigans.h"
 #include "record_writer.h"
@@ -141,35 +142,16 @@ struct RecursionGuard
 #endif
 };
 
-// Trace function interface
+thread_id_t
+allocateThreadId();
 
-/**
- * Trace function to be installed in all Python treads to track function calls
- *
- * This trace function's sole purpose is to give a thread-safe, GIL-synchronized view of the Python
- * stack. To retrieve the Python stack using the C-API forces the caller to have the GIL held. Requiring
- * the GIL in the allocator function has too much impact on performance and can deadlock extension
- * modules that have native locks that are not synchronized themselves with the GIL. For this reason we
- * need a way to record and store the Python call frame information in a way that we can read without the
- * need to use the C-API. This trace function writes to disk the PUSH and POP operations so the Python
- *stack at any point can be reconstructed later.
- *
- **/
-int
-PyTraceFunction(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
+struct PymallocAllocatorContext
+{
+    const PyMemAllocatorEx original;
+    std::atomic<bool> active{};
+};
 
-/**
- * Installs the trace function in the current thread.
- *
- * This function installs the trace function in the current thread using the C-API.
- *
- * */
-void
-install_trace_function();
-
-/**
- * Install our pthread fork handlers.
- */
+/** Install our pthread fork handlers. */
 void
 set_up_pthread_fork_handlers();
 
@@ -254,14 +236,9 @@ class NativeTrace
 };
 
 /**
- * Singleton managing all the global state and functionality of the tracing mechanism
- *
- * This class acts as the only interface to the tracing functionality and encapsulates all the
- * required global state. *All access* must be done through the singleton interface as the singleton
- * has the same lifetime of the entire program. The singleton can be activated and deactivated to
- * temporarily stop the tracking as desired. The singleton manages a mirror copy of the Python stack
- * so it can be accessed synchronized by its the allocation tracking interfaces.
- * */
+ * Owns allocation records, metadata caches, and capture state. Allocation
+ * hooks read live Python frames while the Tracker mutex protects the output.
+ */
 class Tracker
 {
   public:
@@ -294,18 +271,12 @@ class Tracker
         RecursionGuard guard;
 
         std::optional<NativeTrace> trace{std::nullopt};
-        if (Tracker::areNativeTracesEnabled()) {
-            if (!prepareNativeTrace(trace)) {
-                return;
-            }
-            // Skip the internal frames so we don't need to filter them later.
-            trace.value().fill(1);
-        }
-
-        std::unique_lock lock(*s_mutex);
+        uintptr_t identity;
+        auto lock = lockWithCurrentIdentity(identity, &trace);
+        if (!lock.owns_lock()) return;
         Tracker* tracker = getTracker();
         if (tracker) {
-            tracker->trackAllocationImpl(ptr, size, func, trace);
+            tracker->trackAllocationImpl(ptr, size, func, trace, identity);
         }
     }
 
@@ -319,18 +290,12 @@ class Tracker
 
         std::optional<NativeTrace> trace{std::nullopt};
         // Only creation events store native stacks.
-        if (event == 0 && Tracker::areNativeTracesEnabled()) {
-            if (!prepareNativeTrace(trace)) {
-                return;
-            }
-            // Skip the internal frames so we don't need to filter them later.
-            trace.value().fill(1);
-        }
-
-        std::unique_lock lock(*s_mutex);
+        uintptr_t identity;
+        auto lock = lockWithCurrentIdentity(identity, event == 0 ? &trace : nullptr);
+        if (!lock.owns_lock()) return;
         Tracker* tracker = getTracker();
         if (tracker) {
-            tracker->trackObjectImpl(obj, event, trace);
+            tracker->trackObjectImpl(obj, event, trace, identity);
         }
     }
 
@@ -360,10 +325,11 @@ class Tracker
         }
         RecursionGuard guard;
 
-        std::unique_lock lock(*s_mutex);
+        uintptr_t identity;
+        auto lock = lockWithCurrentIdentity(identity);
         Tracker* tracker = getTracker();
         if (tracker) {
-            tracker->trackDeallocationImpl(ptr, size, func);
+            tracker->trackDeallocationImpl(ptr, size, func, identity);
         }
     }
 
@@ -421,23 +387,14 @@ class Tracker
     bool popFrames(uint32_t count);
 
     // code object registration
-    code_object_id_t registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj);
-    void forgetCodeObject(PyCodeObject* code);
+    code_object_id_t registerCodeObject(PyCodeObject* code);
+    void refreshRawCodeCache(uint64_t generation);
+    static void codeObjectDestroyed(PyCodeObject* code);
 
     // Interface to activate/deactivate the tracking
     static bool isActive();
     static void activate();
     static void deactivate();
-
-    /**
-     * Sets a flag to enable integration with the `greenlet` module.
-     */
-    static void beginTrackingGreenlets();
-
-    /**
-     * Handle a notification of control switching from one greenlet to another.
-     */
-    static void handleGreenletSwitch(PyObject* from, PyObject* to);
 
     static void prepareFork();
     static void parentFork();
@@ -476,6 +433,8 @@ class Tracker
     static pthread_key_t s_native_unwind_vector_key;
     static std::unique_ptr<Tracker> s_instance_owner;
     static std::atomic<Tracker*> s_instance;
+    static std::atomic<uint64_t> s_session_generation;
+    static std::atomic<bool> s_native_traces;
 
     std::shared_ptr<RecordWriter> d_writer;
     FrameTree d_native_trace_tree;
@@ -488,6 +447,7 @@ class Tracker
     std::unique_ptr<BackgroundThread> d_background_thread;
 
     std::unordered_map<PyCodeObject*, code_object_id_t> d_code_object_cache;
+    uint64_t d_raw_code_generation{};
     code_object_id_t d_next_code_object_id{1};
     std::unordered_map<uint64_t, std::string> d_cached_thread_names;
     std::unordered_set<PyObject*> d_tracked_objects;
@@ -495,19 +455,49 @@ class Tracker
     // Methods
     static size_t computeMainTidSkip();
 
+    __attribute__((always_inline)) inline static std::unique_lock<TrackerMutex>
+    lockWithCurrentIdentity(uintptr_t& identity, std::optional<NativeTrace>* trace = nullptr)
+    {
+        for (;;) {
+            const auto generation = s_session_generation.load(std::memory_order_acquire);
+            if (trace) {
+                trace->reset();
+                if (s_native_traces.load(std::memory_order_acquire)) {
+                    if (!prepareNativeTrace(*trace)) return {};
+                    // Keep the same internal-frame skip on each session retry.
+                    trace->value().fill(1);
+                }
+            }
+            // Discovery can take the loader lock. Complete it before s_mutex
+            // so a loader callback can record its allocation without a cycle.
+            identity = greenlet_adapter::currentIdentity();
+            std::unique_lock<TrackerMutex> lock(*s_mutex);
+            if (generation == s_session_generation.load(std::memory_order_acquire)) {
+                return lock;
+            }
+            // A stop/start can replace the native mode and identity registry.
+            // Capture both again after releasing the mutex.
+        }
+    }
+
     void trackAllocationImpl(
             void* ptr,
             size_t size,
             hooks::Allocator func,
-            const std::optional<NativeTrace>& trace);
-    void trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func);
-    void trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTrace>& trace);
+            const std::optional<NativeTrace>& trace,
+            uintptr_t identity);
+    void trackDeallocationImpl(void* ptr, size_t size, hooks::Allocator func, uintptr_t identity);
+    void trackObjectImpl(
+            PyObject* obj,
+            int event,
+            const std::optional<NativeTrace>& trace,
+            uintptr_t identity);
     void invalidate_module_cache_impl();
     void updateModuleCacheImpl();
     void registerThreadNameImpl(const char* name);
     void registerCachedThreadName();
     void dropCachedThreadName();
-    void registerPymallocHooks() const noexcept;
+    void registerPymallocHooks() const;
     void unregisterPymallocHooks() const noexcept;
     void registerReferenceTrackingHooks() const noexcept;
     void unregisterReferenceTrackingHooks() const noexcept;
@@ -519,8 +509,6 @@ class Tracker
             bool follow_fork,
             bool trace_python_allocators,
             bool reference_tracking);
-
-    static bool areNativeTracesEnabled();
 };
 
 }  // namespace memray::tracking_api

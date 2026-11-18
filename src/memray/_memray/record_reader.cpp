@@ -657,7 +657,12 @@ RecordReader::frameToLocation(frame_id_t frame_id)
 
         int lineno = 0;
 
-        if (!code.linetable.empty() && frame.instruction_offset >= 0) {
+        if (frame.instruction_offset == -1 && d_header.python_version < 0x030B0000) {
+            // Before Python 3.11, a trace CALL callback sees f_lasti == -1.
+            // Addr2Line maps that position to the definition, not the first
+            // instruction. Newer recordings use -1 for an unknown offset.
+            lineno = code.firstlineno;
+        } else if (!code.linetable.empty() && frame.instruction_offset >= 0) {
             compat::LocationInfo info;
             if (compat::parseLinetable(
                         d_header.python_version,

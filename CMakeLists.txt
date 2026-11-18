@@ -126,6 +126,9 @@ python_add_library(_memray MODULE WITH_SOABI
     src/memray/_memray/compat.cpp
     src/memray/_memray/hooks.cpp
     src/memray/_memray/tracking_api.cpp
+    src/memray/_memray/capture_lifetime.cpp
+    src/memray/_memray/greenlet_adapter.cpp
+    src/memray/_memray/python_stack_capture.cpp
     src/memray/_memray/${BINARY_FORMAT}_shenanigans.cpp
     src/memray/_memray/logging.cpp
     src/memray/_memray/python_helpers.cpp
@@ -150,6 +153,7 @@ target_include_directories(_memray PRIVATE
 target_link_libraries(_memray PRIVATE
     ${LIBBACKTRACE_LIB_DIR}/libbacktrace.a
     ${LZ4_LIBRARIES}
+    ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES}
     ${UNWIND_LIBRARIES}
     ${DEBUGINFOD_LIBRARIES}
     dl
@@ -160,9 +164,9 @@ target_link_directories(_memray PRIVATE
     ${DEBUGINFOD_LIBRARY_DIRS}
 )
 target_link_options(_memray PRIVATE
-    ${LZ4_LDFLAGS}
-    ${UNWIND_LDFLAGS}
-    ${DEBUGINFOD_LDFLAGS}
+    ${LZ4_LDFLAGS_OTHER}
+    ${UNWIND_LDFLAGS_OTHER}
+    ${DEBUGINFOD_LDFLAGS_OTHER}
 )
 target_compile_options(_memray PRIVATE
     ${LZ4_CFLAGS}
