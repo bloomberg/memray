@@ -150,6 +150,7 @@ target_include_directories(_memray PRIVATE
 target_link_libraries(_memray PRIVATE
     ${LIBBACKTRACE_LIB_DIR}/libbacktrace.a
     ${LZ4_LIBRARIES}
+    ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES}
     ${UNWIND_LIBRARIES}
     ${DEBUGINFOD_LIBRARIES}
     dl
@@ -160,9 +161,9 @@ target_link_directories(_memray PRIVATE
     ${DEBUGINFOD_LIBRARY_DIRS}
 )
 target_link_options(_memray PRIVATE
-    ${LZ4_LDFLAGS}
-    ${UNWIND_LDFLAGS}
-    ${DEBUGINFOD_LDFLAGS}
+    ${LZ4_LDFLAGS_OTHER}
+    ${UNWIND_LDFLAGS_OTHER}
+    ${DEBUGINFOD_LDFLAGS_OTHER}
 )
 target_compile_options(_memray PRIVATE
     ${LZ4_CFLAGS}

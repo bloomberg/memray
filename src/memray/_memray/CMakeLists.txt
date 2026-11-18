@@ -46,10 +46,11 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
 else()
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(BINARY_DEPS REQUIRED liblz4 libunwind)
-  target_link_libraries(_memray ${BINARY_DEPS_STATIC_LIBRARIES})
+  target_link_libraries(_memray ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES} ${BINARY_DEPS_STATIC_LIBRARIES})
   target_include_directories(_memray PUBLIC ${BINARY_DEPS_INCLUDE_DIRS})
   target_compile_options(_memray PUBLIC ${BINARY_DEPS_CFLAGS})
-  target_link_options(_memray PUBLIC ${BINARY_DEPS_LDFLAGS})
+  target_link_directories(_memray PUBLIC ${BINARY_DEPS_LIBRARY_DIRS})
+  target_link_options(_memray PUBLIC ${BINARY_DEPS_LDFLAGS_OTHER})
 endif()
 
 include_directories(. ../../vendor/libbacktrace/install/include
