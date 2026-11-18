@@ -28,34 +28,6 @@ isPythonFinalizing()
 #endif
 }
 
-inline bool
-isEntryFrame(PyFrameObject* frame)
-{
-#if PY_VERSION_HEX >= 0x030B0000
-    return _PyFrame_IsEntryFrame(frame);
-#else
-    (void)frame;
-    return true;
-#endif
-}
-
-inline PyFrameObject*
-threadStateGetFrame(PyThreadState* tstate)
-{
-#if PY_VERSION_HEX < 0x030B0000
-    // Prior to Python 3.11 this was exposed.
-    return tstate->frame;
-#else
-    // Return a borrowed reference.
-    PyFrameObject* ret = PyThreadState_GetFrame(tstate);
-    if (ret) {
-        assert(Py_REFCNT(ret) >= 2);
-        Py_DECREF(ret);
-    }
-    return ret;
-#endif
-}
-
 inline PyCodeObject*
 frameGetCode(PyFrameObject* frame)
 {
@@ -99,52 +71,6 @@ frameGetLasti(PyFrameObject* frame)
     return PyFrame_GetLasti(frame);
 #endif
 }
-
-inline PyInterpreterState*
-threadStateGetInterpreter(PyThreadState* tstate)
-{
-#if PY_VERSION_HEX < 0x03090000
-    return tstate->interp;
-#else
-    return PyThreadState_GetInterpreter(tstate);
-#endif
-}
-
-#if PY_VERSION_HEX >= 0x030E0000
-
-extern "C" void
-_PyEval_StopTheWorld(PyInterpreterState*);
-extern "C" void
-_PyEval_StartTheWorld(PyInterpreterState*);
-
-inline void
-stopTheWorld(PyInterpreterState* interp)
-{
-    _PyEval_StopTheWorld(interp);
-}
-
-inline void
-startTheWorld(PyInterpreterState* interp)
-{
-    _PyEval_StartTheWorld(interp);
-}
-
-#else
-
-inline void
-stopTheWorld(PyInterpreterState*)
-{
-}
-
-inline void
-startTheWorld(PyInterpreterState*)
-{
-}
-
-#endif
-
-void
-setprofileAllThreads(Py_tracefunc func, PyObject* arg);
 
 // Stops the current interpreter on free-threaded builds. The callback must
 // not allocate Python-managed memory or start another stop-the-world event.

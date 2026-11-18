@@ -1,0 +1,3 @@
+Prevent stale Python frames after cancellation of paused greenlets.
+Capture the current Python stack at allocation boundaries without replacing
+application execution callbacks.

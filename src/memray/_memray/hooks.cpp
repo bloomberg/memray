@@ -3,6 +3,7 @@
 #include <mutex>
 #include <unordered_set>
 
+#include "greenlet_adapter.h"
 #include "hooks.h"
 #include "tracking_api.h"
 
@@ -426,8 +427,10 @@ dlopen(const char* filename, int flag) noexcept
     }
     if (ret) {
         tracking_api::Tracker::invalidate_module_cache();
-        if (filename && nullptr != strstr(filename, "/_greenlet.")) {
-            tracking_api::Tracker::beginTrackingGreenlets();
+        // A custom extension loader can rename the greenlet library.
+        // NOLOAD only obtains a handle to an existing mapping.
+        if (!(flag & RTLD_NOLOAD)) {
+            tracking_api::greenlet_adapter::markModuleLoaded();
         }
     }
     return ret;
@@ -444,7 +447,10 @@ dlclose(void* handle) noexcept
         ret = MEMRAY_ORIG(dlclose)(handle);
     }
     tracking_api::NativeTrace::flushCache();
-    if (!ret) tracking_api::Tracker::invalidate_module_cache();
+    if (!ret) {
+        tracking_api::Tracker::invalidate_module_cache();
+        tracking_api::greenlet_adapter::markModuleLoaded();
+    }
     return ret;
 }
 
@@ -571,14 +577,6 @@ prctl(int option, ...) noexcept
     return ret;
 }
 #endif
-
-PyGILState_STATE
-PyGILState_Ensure() noexcept
-{
-    PyGILState_STATE ret = MEMRAY_ORIG(PyGILState_Ensure)();
-    tracking_api::install_trace_function();
-    return ret;
-}
 
 int
 pyreftracer(PyObject* obj, compat::RefTracerEvent event, void* data) noexcept

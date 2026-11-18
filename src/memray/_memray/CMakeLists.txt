@@ -23,6 +23,9 @@ add_library(
   logging.cpp
   native_resolver.cpp
   python_helpers.cpp
+  capture_lifetime.cpp
+  greenlet_adapter.cpp
+  python_stack_capture.cpp
   record_reader.cpp
   record_writer.cpp
   records.cpp

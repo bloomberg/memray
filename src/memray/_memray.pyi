@@ -158,8 +158,6 @@ class FileFormat(enum.IntEnum):
     ALL_ALLOCATIONS = 1
     AGGREGATED_ALLOCATIONS = 2
 
-def start_thread_trace(frame: FrameType, event: str, arg: Any) -> None: ...
-
 class FileReader:
     @property
     def metadata(self) -> Metadata: ...

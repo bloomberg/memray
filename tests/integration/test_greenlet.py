@@ -251,17 +251,16 @@ def test_uninstall_profile_in_greenlet(tmpdir):
     def stack(alloc):
         return [frame[0] for frame in alloc.stack_trace()]
 
-    # Verify allocations and their stack traces (which should be empty
-    # because we remove the tracking function)
+    # Removing the user profile function does not disable stack capture.
     assert len(vallocs) == 2
 
-    assert stack(vallocs[0]) == []
+    assert stack(vallocs[0]) == ["valloc", "test"]
     assert vallocs[0].size == 70 * 1024
 
-    assert stack(vallocs[1]) == []
+    assert stack(vallocs[1]) == ["valloc", "foo", "<module>"]
     assert vallocs[1].size == 10 * 1024
 
     # Verify thread IDs
-    main_tid = vallocs[0].tid  # inner greenlet
-    outer_tid = vallocs[1].tid  # outer greenlet
-    assert main_tid == outer_tid
+    child_tid = vallocs[0].tid
+    main_tid = vallocs[1].tid
+    assert child_tid != main_tid

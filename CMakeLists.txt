@@ -126,6 +126,9 @@ python_add_library(_memray MODULE WITH_SOABI
     src/memray/_memray/compat.cpp
     src/memray/_memray/hooks.cpp
     src/memray/_memray/tracking_api.cpp
+    src/memray/_memray/capture_lifetime.cpp
+    src/memray/_memray/greenlet_adapter.cpp
+    src/memray/_memray/python_stack_capture.cpp
     src/memray/_memray/${BINARY_FORMAT}_shenanigans.cpp
     src/memray/_memray/logging.cpp
     src/memray/_memray/python_helpers.cpp

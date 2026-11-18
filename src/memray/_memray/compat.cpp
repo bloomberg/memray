@@ -90,25 +90,6 @@ withStoppedWorld(void (*callback)(void*), void* context)
 #endif
 }
 
-void
-setprofileAllThreads(Py_tracefunc func, PyObject* arg)
-{
-    assert(PyGILState_Check());
-#if PY_VERSION_HEX >= 0x030C00F0
-    PyEval_SetProfileAllThreads(func, arg);
-#else
-    PyThreadState* this_tstate = PyThreadState_Get();
-    PyInterpreterState* interp = threadStateGetInterpreter(this_tstate);
-    for (PyThreadState* tstate = PyInterpreterState_ThreadHead(interp); tstate != nullptr;
-         tstate = PyThreadState_Next(tstate))
-    {
-        if (_PyEval_SetProfile(tstate, func, arg) < 0) {
-            _PyErr_WriteUnraisableMsg("in PyEval_SetProfileAllThreads", nullptr);
-        }
-    }
-#endif
-}
-
 int
 runtimePythonVersion()
 {
