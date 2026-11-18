@@ -1514,47 +1514,109 @@ Tracker::getTracker()
     return s_instance;
 }
 
-static struct
+namespace {
+
+struct PymallocContextRecord
 {
-    PyMemAllocatorEx raw;
-    PyMemAllocatorEx mem;
-    PyMemAllocatorEx obj;
-} s_orig_pymalloc_allocators;
+    PymallocAllocatorContext allocator;
+    PyMemAllocatorDomain domain;
+    PymallocContextRecord* next;
+};
+
+// External allocator chains can retain these callbacks after Tracker stops.
+// Published contexts remain valid for the process lifetime.
+PymallocContextRecord* s_pymalloc_contexts{};
+PymallocAllocatorContext* s_active_pymalloc_contexts[3]{};
+constexpr PyMemAllocatorDomain s_pymalloc_domains[] = {
+        PYMEM_DOMAIN_RAW,
+        PYMEM_DOMAIN_MEM,
+        PYMEM_DOMAIN_OBJ};
+
+PyMemAllocatorEx
+pymallocWrapper(PymallocAllocatorContext* context)
+{
+    return {context,
+            intercept::pymalloc_malloc,
+            intercept::pymalloc_calloc,
+            intercept::pymalloc_realloc,
+            intercept::pymalloc_free};
+}
+
+PymallocAllocatorContext*
+pymallocContextFor(PyMemAllocatorDomain domain, const PyMemAllocatorEx& original)
+{
+    for (auto* record = s_pymalloc_contexts; record; record = record->next) {
+        if (record->domain == domain && sameAllocator(record->allocator.original, original)) {
+            return &record->allocator;
+        }
+    }
+    auto* record = new PymallocContextRecord{{original, {}}, domain, s_pymalloc_contexts};
+    s_pymalloc_contexts = record;
+    return &record->allocator;
+}
+
+}  // namespace
+
+bool
+unwrapPymallocAllocator(PyMemAllocatorEx* allocator)
+{
+    // Setup and cleanup hold Python stopped. Check the pointer against the
+    // published list before treating an external context as one of ours.
+    for (auto* record = s_pymalloc_contexts; record; record = record->next) {
+        auto* context = &record->allocator;
+        if (sameAllocator(*allocator, pymallocWrapper(context))
+            && !context->active.load(std::memory_order_acquire))
+        {
+            *allocator = context->original;
+            return true;
+        }
+    }
+    return false;
+}
 
 void
-Tracker::registerPymallocHooks() const noexcept
+Tracker::registerPymallocHooks() const
 {
     assert(d_trace_python_allocators);
-    PyMemAllocatorEx alloc;
-
-    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    if (alloc.free == &intercept::pymalloc_free) {
-        // Nothing to do; our hooks are already installed.
-        return;
+    PymallocAllocatorContext* prepared[3];
+    for (size_t index = 0; index < 3; ++index) {
+        PyMemAllocatorEx original;
+        PyMem_GetAllocator(s_pymalloc_domains[index], &original);
+        while (unwrapPymallocAllocator(&original)) {
+        }
+        prepared[index] = pymallocContextFor(s_pymalloc_domains[index], original);
     }
-
-    alloc.malloc = intercept::pymalloc_malloc;
-    alloc.calloc = intercept::pymalloc_calloc;
-    alloc.realloc = intercept::pymalloc_realloc;
-    alloc.free = intercept::pymalloc_free;
-    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
-    PyMem_GetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
-    PyMem_GetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
-    alloc.ctx = &s_orig_pymalloc_allocators.raw;
-    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    alloc.ctx = &s_orig_pymalloc_allocators.mem;
-    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &alloc);
-    alloc.ctx = &s_orig_pymalloc_allocators.obj;
-    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &alloc);
+    // No slot changes until all context allocations succeed.
+    for (size_t index = 0; index < 3; ++index) {
+        auto* context = prepared[index];
+        context->active.store(true, std::memory_order_release);
+        s_active_pymalloc_contexts[index] = context;
+        auto wrapper = pymallocWrapper(context);
+        PyMem_SetAllocator(s_pymalloc_domains[index], &wrapper);
+    }
 }
 
 void
 Tracker::unregisterPymallocHooks() const noexcept
 {
     assert(d_trace_python_allocators);
-    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
-    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
-    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
+    for (size_t index = 0; index < 3; ++index) {
+        auto* context = s_active_pymalloc_contexts[index];
+        if (!context) continue;
+        context->active.store(false, std::memory_order_release);
+        PyMemAllocatorEx current;
+        PyMem_GetAllocator(s_pymalloc_domains[index], &current);
+        // tracemalloc.stop can restore an inactive wrapper from an earlier
+        // session. Remove any exact known inactive layer, not an external one.
+        bool changed = false;
+        while (unwrapPymallocAllocator(&current)) {
+            changed = true;
+        }
+        if (changed) {
+            PyMem_SetAllocator(s_pymalloc_domains[index], &current);
+        }
+        s_active_pymalloc_contexts[index] = nullptr;
+    }
 }
 
 // Trace Function interface

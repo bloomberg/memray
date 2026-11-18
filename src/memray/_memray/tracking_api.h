@@ -530,7 +530,7 @@ class Tracker
     void registerThreadNameImpl(const char* name);
     void registerCachedThreadName();
     void dropCachedThreadName();
-    void registerPymallocHooks() const noexcept;
+    void registerPymallocHooks() const;
     void unregisterPymallocHooks() const noexcept;
     void registerReferenceTrackingHooks() const noexcept;
     void unregisterReferenceTrackingHooks() const noexcept;
