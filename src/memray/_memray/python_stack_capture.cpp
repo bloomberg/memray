@@ -446,5 +446,563 @@ markerAllowed(PyThreadState* ts)
 #endif
 }
 
+struct StackCache
+{
+    struct CapturedFrame
+    {
+        code_object_id_t code_object_id;
+        PyCodeObject* code;
+        uintptr_t instruction;
+        int instruction_offset;
+        uint8_t owner;
+        bool is_entry_frame;
+
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+        uintptr_t bytecode_base;
+#endif
+
+        Frame frame() const
+        {
+            return {code_object_id, instruction_offset, is_entry_frame};
+        }
+
+        bool sameLocation(const CapturedFrame& other) const
+        {
+            return code_object_id == other.code_object_id
+                   && instruction_offset == other.instruction_offset
+                   && is_entry_frame == other.is_entry_frame;
+        }
+    };
+
+    struct MarkerAddress
+    {
+        uintptr_t frame;
+        uintptr_t previous;
+    };
+
+    struct Change
+    {
+        size_t index;
+        CapturedFrame current;
+    };
+
+    bool marker_reusable{};
+    bool marker_no_anchor{};
+    uintptr_t marker_version{};
+    unsigned long marker_gil_switch{};
+    unsigned int generation{};
+    uint64_t code_identity_generation{};
+    PyThreadState* thread{};
+    uint64_t thread_id{};
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+    int tlbc_index{};
+    TlbcCache tlbc;
+#endif
+    std::vector<MarkerAddress> marker_addresses;
+    std::vector<MarkerAddress> marker_pending;
+    std::vector<CapturedFrame> previous;
+    std::vector<CapturedFrame> pending;
+    std::vector<Change> changes;
+};
+
+MEMRAY_FAST_TLS static thread_local StackCache* t_cache;
+MEMRAY_FAST_TLS static thread_local bool t_cache_destroyed;
+MEMRAY_FAST_TLS static thread_local size_t t_emitted_depth;
+MEMRAY_FAST_TLS static thread_local unsigned int t_emitted_generation;
+static pthread_key_t s_cache_key;
+
+static void
+destroyStackCache(void* pointer)
+{
+    RecursionGuard guard;
+    t_cache = nullptr;
+    t_cache_destroyed = true;
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+    t_tlbc = nullptr;
+#endif
+    delete static_cast<StackCache*>(pointer);
+}
+
+static StackCache&
+getStackCache()
+{
+    if (!t_cache) {
+        RecursionGuard guard;
+        auto cache = std::make_unique<StackCache>();
+        cache->previous.reserve(128);
+        if (s_marker_runtime) {
+            cache->marker_addresses.reserve(128);
+            cache->marker_pending.reserve(128);
+        }
+        cache->pending.reserve(128);
+        cache->changes.reserve(16);
+        if (pthread_setspecific(s_cache_key, cache.get()) != 0) {
+            throw std::runtime_error("Failed to store the Python stack cache");
+        }
+        t_cache = cache.release();
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+        t_tlbc = &t_cache->tlbc;
+#endif
+    }
+    return *t_cache;
+}
+
+#if PY_VERSION_HEX < 0x030C0000
+static destructor s_original_code_dealloc;
+
+static void
+codeDealloc(PyObject* code)
+{
+    Tracker::codeObjectDestroyed(reinterpret_cast<PyCodeObject*>(code));
+    s_original_code_dealloc(code);
+}
+#endif
+
 }  // namespace
+
+void
+initialize()
+{
+    static std::once_flag once;
+    std::call_once(once, [] {
+        initializeDirectTls();
+#ifdef MEMRAY_WITH_FRAME_MARKERS
+        // Experimental exact-runtime gate. Earlier patch releases use visited in GC.
+        s_marker_runtime = (Py_Version == 0x030e06f0 || Py_Version == 0x030f00c3)
+                           && PySys_GetObject("gettotalrefcount") == nullptr;
+#endif
+        // C++ TLS destructor registration can allocate while its runtime
+        // holds a once flag. Use pthread ownership to avoid recursive setup.
+        if (pthread_key_create(&s_cache_key, destroyStackCache) != 0) {
+            throw std::runtime_error("Failed to create the Python stack cache key");
+        }
+#if PY_VERSION_HEX < 0x030C0000
+        // Older interpreters have no code watcher. A type destructor hook also
+        // covers code objects first observed by an allocation with no GIL.
+        s_original_code_dealloc = PyCode_Type.tp_dealloc;
+        PyCode_Type.tp_dealloc = codeDealloc;
+#endif
+    });
+}
+
+bool
+hasThreadState()
+{
+    return directThreadState() != nullptr && !t_cache_destroyed;
+}
+
+void
+invalidateMarkers()
+{
+#ifdef MEMRAY_WITH_FRAME_MARKERS
+    if (!t_cache || !t_cache->marker_reusable) return;
+    // Only an active monitoring event can change a paused frame's line.
+    // Use the live bound state; the cache's saved state may be gone.
+#    if PY_VERSION_HEX >= 0x030F0000
+    PyThreadState* ts;
+    {
+        // A TLS resolver can allocate when its loader state changes.
+        RecursionGuard guard;
+        ts = directThreadState();
+    }
+#    else
+    auto* ts = directThreadState();
+#    endif
+    if (!ts || ts->state != 1 || !ts->holds_gil || ts->what_event >= 0 || ts->_status.finalizing
+        || ts->_status.cleared || ts->_status.finalized)
+    {
+        t_cache->marker_reusable = false;
+    }
+#endif
+}
+
+void
+beginTracking(bool native)
+{
+    initialize();
+    s_native = native;
+    s_generation.fetch_add(1, std::memory_order_relaxed);
+}
+
+void
+forgetTlbcCode()
+{
+    s_code_identity_generation.fetch_add(1, std::memory_order_release);
+}
+
+void
+invalidateCodeCache()
+{
+    s_code_generation.fetch_add(1, std::memory_order_release);
+}
+
+void
+clear(Tracker& tracker)
+{
+    const auto generation = s_generation.load(std::memory_order_relaxed);
+    if (t_emitted_generation == generation && t_emitted_depth) {
+        tracker.popFrames(t_emitted_depth);
+    }
+    t_emitted_depth = 0;
+    if (t_cache) {
+        t_cache->previous.clear();
+        t_cache->thread = nullptr;
+    }
+}
+
+void
+emit(Tracker& tracker)
+{
+    auto* ts = directThreadState();
+    if (!ts || t_cache_destroyed) {
+        clear(tracker);
+        return;
+    }
+
+    auto& cache = getStackCache();
+    const auto generation = s_generation.load(std::memory_order_relaxed);
+    if (cache.generation != generation) {
+        cache.previous.clear();
+        cache.thread = nullptr;
+        cache.generation = generation;
+    }
+
+    const auto code_generation = s_code_generation.load(std::memory_order_acquire);
+    const auto identity_generation = s_code_identity_generation.load(std::memory_order_acquire);
+    const bool identities_valid = cache.code_identity_generation == identity_generation;
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+    const int tlbc_index = reinterpret_cast<_PyThreadStateImpl*>(ts)->tlbc_index;
+#endif
+    const bool same_thread = cache.thread == ts && cache.thread_id == ts->id
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+                             && cache.tlbc_index == tlbc_index
+#endif
+            ;
+    tracker.refreshRawCodeCache(code_generation);
+    bool marker_eligible = !cache.previous.empty() && markerAllowed(ts);
+    bool marker_has_anchor = false;
+    uintptr_t marker_version = 0;
+    unsigned long marker_gil_switch = 0;
+#ifdef MEMRAY_WITH_FRAME_MARKERS
+    if (marker_eligible) {
+        marker_version = ts->interp->ceval.instrumentation_version;
+        // A foreign callback can outlive its cleared monitoring tool. The
+        // GIL counter detects that callback resuming between our captures.
+        marker_gil_switch = ts->interp->ceval.gil->switch_number;
+    }
+#endif
+    const bool marker_old_reusable = marker_eligible && cache.marker_reusable && identities_valid
+                                     && same_thread && cache.marker_version == marker_version
+                                     && cache.marker_gil_switch == marker_gil_switch;
+    if (!marker_eligible) cache.marker_reusable = false;
+#ifdef MEMRAY_WITH_FRAME_MARKERS
+    if (marker_old_reusable && !cache.previous.empty()
+        && cache.marker_addresses.size() == cache.previous.size())
+    {
+        auto* frame = captureCurrentFrame(ts);
+        const auto& saved = cache.previous.front();
+        const auto& address = cache.marker_addresses.front();
+        if (frame && frame->owner == FRAME_OWNED_BY_THREAD && frame->owner == saved.owner
+            && frame->visited == 0xa5 && reinterpret_cast<uintptr_t>(frame) == address.frame
+            && reinterpret_cast<uintptr_t>(capturePreviousFrame(frame)) == address.previous
+            && captureFrameCode(frame) == saved.code
+            && captureFrameInstruction(frame) == saved.instruction
+            && (!s_native || captureFrameEntry(frame)) == saved.is_entry_frame)
+        {
+            return;
+        }
+    }
+#endif
+    if ((!marker_eligible || cache.marker_no_anchor) && identities_valid && same_thread
+        && !cache.previous.empty())
+    {
+        const auto* saved = cache.previous.data();
+        const auto* end = saved + cache.previous.size();
+        auto* live = captureCurrentFrame(ts);
+        bool unchanged = true;
+        while (live) {
+#if PY_VERSION_HEX >= 0x030B0000
+            const auto owner = live->owner;
+#else
+            const uint8_t owner = 0;
+#endif
+#if PY_VERSION_HEX >= 0x030C0000
+            if (owner >= 3) {
+                live = capturePreviousFrame(live);
+                continue;
+            }
+#endif
+            if (saved == end) {
+                unchanged = false;
+                break;
+            }
+            const uintptr_t changed = (reinterpret_cast<uintptr_t>(captureFrameCode(live))
+                                       ^ reinterpret_cast<uintptr_t>(saved->code))
+                                      | (captureFrameInstruction(live) ^ saved->instruction)
+                                      | (static_cast<uintptr_t>(owner) ^ saved->owner)
+                                      | (static_cast<uintptr_t>(!s_native || captureFrameEntry(live))
+                                         ^ saved->is_entry_frame);
+            if (changed
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+                || saved->instruction_offset < 0
+                || !((live->tlbc_index == 0 && saved->bytecode_base == 0)
+                     || (live->tlbc_index == tlbc_index && saved->bytecode_base != 0))
+#endif
+            )
+            {
+                unchanged = false;
+                break;
+            }
+            ++saved;
+            live = capturePreviousFrame(live);
+        }
+        if (unchanged && saved == end) {
+            return;
+        }
+    }
+    cache.changes.clear();
+    cache.marker_pending.clear();
+    bool marker_aligned_hit = false;
+    size_t count = 0;
+    for (auto* frame = captureCurrentFrame(ts); frame; frame = capturePreviousFrame(frame)) {
+#if PY_VERSION_HEX >= 0x030B0000
+        const uint8_t frame_owner = frame->owner;
+#else
+        const uint8_t frame_owner = 0;
+#endif
+#if PY_VERSION_HEX >= 0x030C0000
+        if (frame_owner >= 3) {
+            continue;
+        }
+#endif
+        auto* code = captureFrameCode(frame);
+        bool marker_was_set = false;
+        bool frame_markable = false;
+#ifdef MEMRAY_WITH_FRAME_MARKERS
+        if (marker_eligible && frame_owner == FRAME_OWNED_BY_GENERATOR) {
+            const auto instruction = reinterpret_cast<uintptr_t>(frame->instr_ptr);
+            const auto base = reinterpret_cast<uintptr_t>(code->co_code_adaptive);
+            const auto bytes = static_cast<uintptr_t>(Py_SIZE(code)) * sizeof(_Py_CODEUNIT);
+            // Public frame constructors can leave the instruction past the code.
+            if (instruction < base || instruction - base >= bytes
+                || (instruction - base) % sizeof(_Py_CODEUNIT))
+            {
+                marker_eligible = false;
+            }
+        }
+        if (marker_eligible && frame_owner == FRAME_OWNED_BY_GENERATOR) {
+            // A pending call at RESUME can close an executing generator on
+            // 3.14. Exclude resumptions and opcodes that can hide one.
+            switch (frame->instr_ptr->op.code) {
+                case RESUME:
+                case RESUME_CHECK:
+#    ifdef RESUME_CHECK_JIT
+                case RESUME_CHECK_JIT:
+#    endif
+                case INSTRUMENTED_RESUME:
+                case INSTRUMENTED_LINE:
+                case INSTRUMENTED_INSTRUCTION:
+                case ENTER_EXECUTOR:
+                    marker_eligible = false;
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (marker_eligible) {
+            frame_markable = frame_owner == FRAME_OWNED_BY_THREAD
+                             && !(code->co_flags & (CO_GENERATOR | CO_COROUTINE | CO_ASYNC_GENERATOR));
+            marker_was_set = frame_markable && frame->visited == 0xa5;
+        }
+#endif
+        auto reuse_marker_suffix = [&] {
+#ifdef MEMRAY_WITH_FRAME_MARKERS
+            if (!marker_eligible) return false;
+            cache.marker_pending.push_back(
+                    {reinterpret_cast<uintptr_t>(frame),
+                     reinterpret_cast<uintptr_t>(capturePreviousFrame(frame))});
+            if (!frame_markable) return false;
+            // A marked ordinary activation cannot return and resume without
+            // resetting its mark. Its older frames cannot resume while this
+            // activation stays live. Frame edits invalidate the cache separately.
+            marker_has_anchor = true;
+            frame->visited = 0xa5;
+            if (!marker_was_set || !marker_old_reusable) return false;
+            size_t anchor = 0;
+            while (anchor < cache.previous.size()
+                   && cache.marker_addresses[anchor].frame != reinterpret_cast<uintptr_t>(frame))
+                ++anchor;
+            if (anchor == cache.previous.size()) return false;
+            const auto& saved = cache.previous[anchor];
+            if (saved.code != code || saved.owner != frame_owner
+                || cache.marker_addresses[anchor].previous
+                           != reinterpret_cast<uintptr_t>(capturePreviousFrame(frame)))
+                return false;
+            if (anchor + 1 == count) {
+                marker_aligned_hit = true;
+                count = cache.previous.size();
+            } else {
+                for (size_t index = anchor + 1; index < cache.previous.size(); ++index) {
+                    cache.changes.push_back({count++, cache.previous[index]});
+                    cache.marker_pending.push_back(cache.marker_addresses[index]);
+                }
+            }
+            return true;
+#else
+            return false;
+#endif
+        };
+        const uintptr_t instruction = captureFrameInstruction(frame);
+        const bool entry = !s_native || captureFrameEntry(frame);
+        const auto* previous = count < cache.previous.size() ? &cache.previous[count] : nullptr;
+        const bool same_code = identities_valid && previous && code == previous->code;
+        bool reusable = same_code && instruction == previous->instruction
+                        && frame_owner == previous->owner && entry == previous->is_entry_frame;
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+        // A raw instruction value has the same meaning only while its code,
+        // thread state and TLBC index retain their lifetimes. Unknown offsets
+        // must retry the protected base read instead of becoming permanent.
+        reusable = reusable && same_thread && previous->instruction_offset >= 0
+                   && ((frame->tlbc_index == 0 && previous->bytecode_base == 0)
+                       || (frame->tlbc_index == tlbc_index && previous->bytecode_base != 0));
+#endif
+
+        if (reusable) {
+            ++count;
+            if (reuse_marker_suffix()) break;
+            continue;
+        }
+        const auto code_id = same_code ? previous->code_object_id : tracker.registerRawCodeObject(code);
+        uintptr_t base = 0;
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+        if (same_thread && previous && code_id == previous->code_object_id) {
+            base = previous->bytecode_base;
+        }
+        // Cold bases can be read under the allocator lifetime guard, so no
+        // search through earlier snapshots is needed when depth changes.
+        base = captureBytecodeBase(frame, ts, base);
+#endif
+        const int offset = captureFrameOffset(frame, base);
+        if (!captureFrameComplete(frame, offset)) {
+            // This frame is absent from the snapshot and cannot be an anchor.
+            continue;
+        }
+        StackCache::CapturedFrame current{
+                code_id,
+                code,
+                instruction,
+                offset,
+                frame_owner,
+                entry
+
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+                ,
+                frame->tlbc_index != 0 && frame->tlbc_index == tlbc_index ? base : 0
+#endif
+        };
+        cache.changes.push_back({count, current});
+        ++count;
+        if (reuse_marker_suffix()) break;
+    }
+    if (count == cache.previous.size()) {
+        // A line change usually affects one leaf. Update only those copied
+        // entries after the complete live chain has been inspected.
+        size_t affected = 0;
+        for (const auto& change : cache.changes) {
+            auto& previous = cache.previous[change.index];
+            if (!change.current.sameLocation(previous)) {
+                affected = change.index + 1;
+            }
+            previous = change.current;
+        }
+        if (affected) {
+            tracker.popFrames(affected);
+            for (size_t remaining = affected; remaining; --remaining) {
+                tracker.pushFrame(cache.previous[remaining - 1].frame());
+            }
+        }
+    } else {
+        const size_t retained = std::min(count, cache.previous.size());
+        cache.pending.assign(cache.previous.begin(), cache.previous.begin() + retained);
+        cache.pending.resize(count);
+        for (const auto& change : cache.changes) {
+            cache.pending[change.index] = change.current;
+        }
+        size_t common = 0;
+        while (common < count && common < cache.previous.size()
+               && cache.pending[count - common - 1].sameLocation(
+                       cache.previous[cache.previous.size() - common - 1]))
+        {
+            ++common;
+        }
+        if (cache.previous.size() > common) {
+            tracker.popFrames(cache.previous.size() - common);
+        }
+        for (size_t remaining = count - common; remaining; --remaining) {
+            tracker.pushFrame(cache.pending[remaining - 1].frame());
+        }
+        cache.previous.swap(cache.pending);
+    }
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+    cache.tlbc_index = tlbc_index;
+#endif
+    if (marker_eligible) {
+        if (marker_aligned_hit) {
+            std::copy(
+                    cache.marker_pending.begin(),
+                    cache.marker_pending.end(),
+                    cache.marker_addresses.begin());
+        } else {
+            cache.marker_addresses.swap(cache.marker_pending);
+        }
+    } else {
+        cache.marker_addresses.clear();
+    }
+    cache.marker_reusable = marker_eligible && marker_has_anchor;
+    cache.marker_no_anchor = marker_eligible && !marker_has_anchor;
+    cache.marker_version = marker_version;
+    cache.marker_gil_switch = marker_gil_switch;
+    cache.code_identity_generation = identity_generation;
+    t_emitted_depth = count;
+    t_emitted_generation = generation;
+    cache.thread = ts;
+    cache.thread_id = ts->id;
+}
+
 }  // namespace memray::tracking_api::python_stack_capture
+
+namespace memray::tracking_api {
+
+code_object_id_t
+Tracker::registerRawCodeObject(PyCodeObject* code)
+{
+    auto found = d_code_object_cache.find(code);
+    if (found != d_code_object_cache.end()) {
+        return found->second;
+    }
+    auto name = python_stack_capture::copyUnicodeRaw(code->co_name);
+    auto filename = python_stack_capture::copyUnicodeRaw(code->co_filename);
+#if PY_VERSION_HEX >= 0x030A0000
+    auto* linetable = reinterpret_cast<PyBytesObject*>(code->co_linetable);
+#else
+    auto* linetable = reinterpret_cast<PyBytesObject*>(code->co_lnotab);
+#endif
+    CodeObject metadata{
+            name.c_str(),
+            filename.c_str(),
+            linetable->ob_sval,
+            static_cast<size_t>(linetable->ob_base.ob_size),
+            code->co_firstlineno};
+    return registerCodeObject(code, metadata);
+}
+
+void
+Tracker::refreshRawCodeCache(uint64_t generation)
+{
+    if (d_raw_code_generation != generation) {
+        d_code_object_cache.clear();
+        d_raw_code_generation = generation;
+    }
+}
+
+}  // namespace memray::tracking_api
