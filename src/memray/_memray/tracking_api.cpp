@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cerrno>
+#include <cstring>
 #include <stdio.h>
 
 #ifdef __linux__
@@ -15,7 +16,6 @@
 
 #include <algorithm>
 #include <mutex>
-#include <type_traits>
 #include <unistd.h>
 
 #include "capture_lifetime.h"
@@ -32,6 +32,46 @@ using namespace memray::exception;
 using namespace std::chrono_literals;
 
 namespace {
+
+static std::string
+copyUnicodeRaw(PyObject* object)
+{
+    // Read the immutable canonical Unicode data. Do not create a UTF-8 cache.
+    auto* ascii = reinterpret_cast<PyASCIIObject*>(object);
+    const int kind = ascii->state.kind;
+    const void* data = ascii->state.compact
+                               ? static_cast<void*>(
+                                         reinterpret_cast<char*>(object)
+                                         + (ascii->state.ascii ? sizeof(PyASCIIObject)
+                                                               : sizeof(PyCompactUnicodeObject)))
+                               : reinterpret_cast<PyUnicodeObject*>(object)->data.any;
+    if (ascii->state.ascii) {
+        return std::string(static_cast<const char*>(data), ascii->length);
+    }
+    std::string result;
+    result.reserve(ascii->length);
+    for (Py_ssize_t i = 0; i < ascii->length; ++i) {
+        uint32_t cp = kind == 1   ? static_cast<const uint8_t*>(data)[i]
+                      : kind == 2 ? static_cast<const uint16_t*>(data)[i]
+                                  : static_cast<const uint32_t*>(data)[i];
+        if (cp < 0x80) {
+            result.push_back(cp);
+        } else if (cp < 0x800) {
+            result.push_back(0xc0 | (cp >> 6));
+            result.push_back(0x80 | (cp & 0x3f));
+        } else if (cp < 0x10000) {
+            result.push_back(0xe0 | (cp >> 12));
+            result.push_back(0x80 | ((cp >> 6) & 0x3f));
+            result.push_back(0x80 | (cp & 0x3f));
+        } else {
+            result.push_back(0xf0 | (cp >> 18));
+            result.push_back(0x80 | ((cp >> 12) & 0x3f));
+            result.push_back(0x80 | ((cp >> 6) & 0x3f));
+            result.push_back(0x80 | (cp & 0x3f));
+        }
+    }
+    return result;
+}
 
 #ifdef __linux__
 std::string
@@ -786,38 +826,45 @@ Tracker::getSurvivingObjects()
 }
 
 code_object_id_t
-Tracker::registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj)
+Tracker::registerCodeObject(PyCodeObject* code_ptr)
 {
     auto it = d_code_object_cache.find(code_ptr);
     if (it != d_code_object_cache.end()) {
         return it->second;
     }
-
-    // New code object - register it
-    code_object_id_t code_id = d_next_code_object_id++;
+    auto name = copyUnicodeRaw(code_ptr->co_name);
+    auto filename = copyUnicodeRaw(code_ptr->co_filename);
+#if PY_VERSION_HEX >= 0x030A0000
+    auto* linetable = reinterpret_cast<PyBytesObject*>(code_ptr->co_linetable);
+#else
+    auto* linetable = reinterpret_cast<PyBytesObject*>(code_ptr->co_lnotab);
+#endif
+    const auto code_id = d_next_code_object_id++;
     d_code_object_cache[code_ptr] = code_id;
-
-    // Write the code object record
+    // Names historically stop at the first NUL.
+    name.resize(std::strlen(name.c_str()));
+    filename.resize(std::strlen(filename.c_str()));
     pycode_map_val_t code_record{
             code_id,
             CodeObjectInfo{
-                    code_obj.function_name,
-                    code_obj.filename,
-                    std::string(code_obj.linetable, code_obj.linetable_size),
-                    code_obj.firstlineno}};
-
+                    std::move(name),
+                    std::move(filename),
+                    std::string(linetable->ob_sval, linetable->ob_base.ob_size),
+                    code_ptr->co_firstlineno}};
     if (!d_writer->writeRecord(code_record)) {
         std::cerr << "memray: Failed to write code object record, deactivating tracking" << std::endl;
         deactivate();
     }
-
     return code_id;
 }
 
 void
-Tracker::forgetCodeObject(PyCodeObject* code)
+Tracker::refreshRawCodeCache(uint64_t generation)
 {
-    d_code_object_cache.erase(code);
+    if (d_raw_code_generation != generation) {
+        d_code_object_cache.clear();
+        d_raw_code_generation = generation;
+    }
 }
 
 void
@@ -834,7 +881,7 @@ Tracker::codeObjectDestroyed(PyCodeObject* code)
     RecursionGuard guard;
     std::unique_lock<TrackerMutex> lock(*s_mutex);
     if (auto* tracker = Tracker::getTracker()) {
-        tracker->forgetCodeObject(code);
+        tracker->d_code_object_cache.erase(code);
     }
 }
 

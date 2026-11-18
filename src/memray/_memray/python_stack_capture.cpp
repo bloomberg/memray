@@ -269,13 +269,9 @@ struct TlbcCache
     std::unordered_map<PyCodeObject*, uintptr_t> bases;
 };
 
-MEMRAY_FAST_TLS static thread_local TlbcCache* t_tlbc;
-
-static TlbcCache*
-getTlbcCache(PyThreadState* ts)
+static void
+refreshTlbcCache(TlbcCache& cache, PyThreadState* ts)
 {
-    if (!t_tlbc) return nullptr;
-    auto& cache = *t_tlbc;
     const auto generation = s_code_identity_generation.load(std::memory_order_acquire);
     if (cache.thread != ts || cache.thread_id != ts->id || cache.generation != generation) {
         cache.bases.clear();
@@ -283,11 +279,10 @@ getTlbcCache(PyThreadState* ts)
         cache.thread_id = ts->id;
         cache.generation = generation;
     }
-    return &cache;
 }
 
 static uintptr_t
-captureBytecodeBase(CaptureFrame* frame, PyThreadState* ts, uintptr_t known_base = 0)
+captureBytecodeBase(CaptureFrame* frame, PyThreadState* ts, TlbcCache& cache, uintptr_t known_base = 0)
 {
     auto* code = captureFrameCode(frame);
     if (frame->tlbc_index == 0) {
@@ -297,13 +292,11 @@ captureBytecodeBase(CaptureFrame* frame, PyThreadState* ts, uintptr_t known_base
     // previous thread's bytecode. Read that entry for this capture only. A
     // foreign index is not protected by the current thread's lifetime.
     const bool own_index = frame->tlbc_index == reinterpret_cast<_PyThreadStateImpl*>(ts)->tlbc_index;
-    TlbcCache* cache = nullptr;
     if (own_index) {
         if (known_base) return known_base;
-        cache = getTlbcCache(ts);
-        if (!cache) return 0;
-        const auto found = cache->bases.find(code);
-        if (found != cache->bases.end()) return found->second;
+        refreshTlbcCache(cache, ts);
+        const auto found = cache.bases.find(code);
+        if (found != cache.bases.end()) return found->second;
     }
     auto read_base = [&] {
         auto* table = __atomic_load_n(&code->co_tlbc, __ATOMIC_ACQUIRE);
@@ -323,7 +316,7 @@ captureBytecodeBase(CaptureFrame* frame, PyThreadState* ts, uintptr_t known_base
         capture_lifetime::TlbcReadGuard guard;
         base = read_base();
     }
-    if (base && cache) cache->bases[code] = base;
+    if (base && own_index) cache.bases[code] = base;
     return base;
 }
 
@@ -386,46 +379,6 @@ captureFrameEntry(CaptureFrame* frame)
 #else
     return true;
 #endif
-}
-
-static std::string
-copyUnicodeRaw(PyObject* object)
-{
-    // Read the immutable canonical Unicode data. Do not create a UTF-8 cache.
-    auto* ascii = reinterpret_cast<PyASCIIObject*>(object);
-    const int kind = ascii->state.kind;
-    const void* data = ascii->state.compact
-                               ? static_cast<void*>(
-                                         reinterpret_cast<char*>(object)
-                                         + (ascii->state.ascii ? sizeof(PyASCIIObject)
-                                                               : sizeof(PyCompactUnicodeObject)))
-                               : reinterpret_cast<PyUnicodeObject*>(object)->data.any;
-    if (ascii->state.ascii) {
-        return std::string(static_cast<const char*>(data), ascii->length);
-    }
-    std::string result;
-    result.reserve(ascii->length);
-    for (Py_ssize_t i = 0; i < ascii->length; ++i) {
-        uint32_t cp = kind == 1   ? static_cast<const uint8_t*>(data)[i]
-                      : kind == 2 ? static_cast<const uint16_t*>(data)[i]
-                                  : static_cast<const uint32_t*>(data)[i];
-        if (cp < 0x80) {
-            result.push_back(cp);
-        } else if (cp < 0x800) {
-            result.push_back(0xc0 | (cp >> 6));
-            result.push_back(0x80 | (cp & 0x3f));
-        } else if (cp < 0x10000) {
-            result.push_back(0xe0 | (cp >> 12));
-            result.push_back(0x80 | ((cp >> 6) & 0x3f));
-            result.push_back(0x80 | (cp & 0x3f));
-        } else {
-            result.push_back(0xf0 | (cp >> 18));
-            result.push_back(0x80 | ((cp >> 12) & 0x3f));
-            result.push_back(0x80 | ((cp >> 6) & 0x3f));
-            result.push_back(0x80 | (cp & 0x3f));
-        }
-    }
-    return result;
 }
 
 static std::atomic<unsigned int> s_generation{};
@@ -517,9 +470,6 @@ destroyStackCache(void* pointer)
     RecursionGuard guard;
     t_cache = nullptr;
     t_cache_destroyed = true;
-#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
-    t_tlbc = nullptr;
-#endif
     delete static_cast<StackCache*>(pointer);
 }
 
@@ -540,9 +490,6 @@ getStackCache()
             throw std::runtime_error("Failed to store the Python stack cache");
         }
         t_cache = cache.release();
-#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
-        t_tlbc = &t_cache->tlbc;
-#endif
     }
     return *t_cache;
 }
@@ -872,15 +819,13 @@ emit(Tracker& tracker)
             if (reuse_marker_suffix()) break;
             continue;
         }
-        const auto code_id = same_code ? previous->code_object_id : tracker.registerRawCodeObject(code);
+        const auto code_id = same_code ? previous->code_object_id : tracker.registerCodeObject(code);
         uintptr_t base = 0;
 #if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
         if (same_thread && previous && code_id == previous->code_object_id) {
             base = previous->bytecode_base;
         }
-        // Cold bases can be read under the allocator lifetime guard, so no
-        // search through earlier snapshots is needed when depth changes.
-        base = captureBytecodeBase(frame, ts, base);
+        base = captureBytecodeBase(frame, ts, cache.tlbc, base);
 #endif
         const int offset = captureFrameOffset(frame, base);
         if (!captureFrameComplete(frame, offset)) {
@@ -970,39 +915,3 @@ emit(Tracker& tracker)
 }
 
 }  // namespace memray::tracking_api::python_stack_capture
-
-namespace memray::tracking_api {
-
-code_object_id_t
-Tracker::registerRawCodeObject(PyCodeObject* code)
-{
-    auto found = d_code_object_cache.find(code);
-    if (found != d_code_object_cache.end()) {
-        return found->second;
-    }
-    auto name = python_stack_capture::copyUnicodeRaw(code->co_name);
-    auto filename = python_stack_capture::copyUnicodeRaw(code->co_filename);
-#if PY_VERSION_HEX >= 0x030A0000
-    auto* linetable = reinterpret_cast<PyBytesObject*>(code->co_linetable);
-#else
-    auto* linetable = reinterpret_cast<PyBytesObject*>(code->co_lnotab);
-#endif
-    CodeObject metadata{
-            name.c_str(),
-            filename.c_str(),
-            linetable->ob_sval,
-            static_cast<size_t>(linetable->ob_base.ob_size),
-            code->co_firstlineno};
-    return registerCodeObject(code, metadata);
-}
-
-void
-Tracker::refreshRawCodeCache(uint64_t generation)
-{
-    if (d_raw_code_generation != generation) {
-        d_code_object_cache.clear();
-        d_raw_code_generation = generation;
-    }
-}
-
-}  // namespace memray::tracking_api

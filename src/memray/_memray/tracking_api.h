@@ -387,11 +387,9 @@ class Tracker
     bool popFrames(uint32_t count);
 
     // code object registration
-    code_object_id_t registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj);
-    code_object_id_t registerRawCodeObject(PyCodeObject* code);
+    code_object_id_t registerCodeObject(PyCodeObject* code);
     void refreshRawCodeCache(uint64_t generation);
     static void codeObjectDestroyed(PyCodeObject* code);
-    void forgetCodeObject(PyCodeObject* code);
 
     // Interface to activate/deactivate the tracking
     static bool isActive();
