@@ -2,8 +2,93 @@
 
 #include <exception>
 #include <limits>
+#include <stdexcept>
+#ifdef __linux__
+#    include <sys/uio.h>
+#    include <unistd.h>
+#elif defined(__APPLE__)
+#    include <mach/mach.h>
+#    include <mach/mach_vm.h>
+#endif
 
 namespace memray::compat {
+
+size_t
+copyReadableMemory(void* destination, const void* source, size_t size)
+{
+#ifdef __APPLE__
+    mach_vm_size_t copied = 0;
+    const auto result = mach_vm_read_overwrite(
+            mach_task_self(),
+            reinterpret_cast<mach_vm_address_t>(source),
+            size,
+            reinterpret_cast<mach_vm_address_t>(destination),
+            &copied);
+    return result == KERN_SUCCESS ? copied : 0;
+#elif defined(__linux__)
+    iovec local{destination, size};
+    iovec remote{const_cast<void*>(source), size};
+    const auto copied = process_vm_readv(getpid(), &local, 1, &remote, 1, 0);
+    return copied > 0 ? static_cast<size_t>(copied) : 0;
+#else
+    return 0;
+#endif
+}
+
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX >= 0x030E0000
+extern "C" void
+_PyEval_StopTheWorld(PyInterpreterState*);
+extern "C" void
+_PyEval_StartTheWorld(PyInterpreterState*);
+#endif
+
+void
+withStoppedWorld(void (*callback)(void*), void* context)
+{
+#if defined(Py_GIL_DISABLED) && PY_VERSION_HEX < 0x030E0000
+    // Python 3.13 does not export its direct stop-the-world functions. This
+    // public visitor stops the current interpreter and holds the runtime's
+    // interpreter-list lock. Stop after the first live object. The callback
+    // must not modify the mimalloc heaps that CPython is traversing.
+    struct Invocation
+    {
+        void (*callback)(void*);
+        void* context;
+        bool invoked{};
+        std::exception_ptr error;
+    } invocation{callback, context, false, {}};
+    PyUnstable_GC_VisitObjects(
+            [](PyObject*, void* argument) {
+                auto& call = *static_cast<Invocation*>(argument);
+                if (!call.invoked) {
+                    call.invoked = true;
+                    try {
+                        call.callback(call.context);
+                    } catch (...) {
+                        call.error = std::current_exception();
+                    }
+                }
+                return 0;
+            },
+            &invocation);
+    if (invocation.error) std::rethrow_exception(invocation.error);
+    if (!invocation.invoked) {
+        throw std::runtime_error("Cannot stop Python: no GC objects are available");
+    }
+#elif defined(Py_GIL_DISABLED)
+    auto* interp = PyThreadState_GetInterpreter(PyThreadState_Get());
+    _PyEval_StopTheWorld(interp);
+    try {
+        callback(context);
+    } catch (...) {
+        _PyEval_StartTheWorld(interp);
+        throw;
+    }
+    _PyEval_StartTheWorld(interp);
+#else
+    callback(context);
+#endif
+}
 
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg)

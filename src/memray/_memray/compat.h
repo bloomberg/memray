@@ -7,7 +7,16 @@
 #include <cassert>
 #include <string>
 
+#if PY_VERSION_HEX >= 0x030E0000 && PY_VERSION_HEX < 0x03100000 && !defined(Py_DEBUG)                   \
+        && !defined(Py_GIL_DISABLED)
+#    define MEMRAY_WITH_FRAME_MARKERS
+#endif
+
 namespace memray::compat {
+
+// Return the copied byte count, or zero if the address cannot be read.
+size_t
+copyReadableMemory(void* destination, const void* source, size_t size);
 
 inline int
 isPythonFinalizing()
@@ -136,6 +145,18 @@ startTheWorld(PyInterpreterState*)
 
 void
 setprofileAllThreads(Py_tracefunc func, PyObject* arg);
+
+// Stops the current interpreter on free-threaded builds. The callback must
+// not allocate Python-managed memory or start another stop-the-world event.
+void
+withStoppedWorld(void (*callback)(void*), void* context);
+
+template<typename Callback>
+void
+withStoppedWorld(Callback callback)
+{
+    withStoppedWorld([](void* context) { (*static_cast<Callback*>(context))(); }, &callback);
+}
 
 // For Python 3.11 and later, return the version of the running interpreter.
 // For earlier versions, return the interpreter version used to build Memray.

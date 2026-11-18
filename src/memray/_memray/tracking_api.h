@@ -81,6 +81,13 @@ class TrackerMutex
 using TrackerMutex = std::mutex;
 #endif
 
+inline bool
+sameAllocator(const PyMemAllocatorEx& left, const PyMemAllocatorEx& right)
+{
+    return left.ctx == right.ctx && left.malloc == right.malloc && left.calloc == right.calloc
+           && left.realloc == right.realloc && left.free == right.free;
+}
+
 bool
 getRSSFromProcStatus(const std::string& proc_status, size_t* rss_in_bytes);
 
@@ -140,6 +147,18 @@ struct RecursionGuard
     }
 #endif
 };
+
+thread_id_t
+allocateThreadId();
+
+struct PymallocAllocatorContext
+{
+    const PyMemAllocatorEx original;
+    std::atomic<bool> active{};
+};
+
+bool
+unwrapPymallocAllocator(PyMemAllocatorEx* allocator);
 
 // Trace function interface
 
@@ -422,6 +441,9 @@ class Tracker
 
     // code object registration
     code_object_id_t registerCodeObject(PyCodeObject* code_ptr, const CodeObject& code_obj);
+    code_object_id_t registerRawCodeObject(PyCodeObject* code);
+    void refreshRawCodeCache(uint64_t generation);
+    static void codeObjectDestroyed(PyCodeObject* code);
     void forgetCodeObject(PyCodeObject* code);
 
     // Interface to activate/deactivate the tracking
@@ -488,6 +510,7 @@ class Tracker
     std::unique_ptr<BackgroundThread> d_background_thread;
 
     std::unordered_map<PyCodeObject*, code_object_id_t> d_code_object_cache;
+    uint64_t d_raw_code_generation{};
     code_object_id_t d_next_code_object_id{1};
     std::unordered_map<uint64_t, std::string> d_cached_thread_names;
     std::unordered_set<PyObject*> d_tracked_objects;
