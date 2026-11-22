@@ -49,6 +49,76 @@ it to by supplying the ``-f`` / ``--force`` option.
 Note that new fields may be added to the JSON output over time, though we'll
 try to avoid removing existing fields.
 
+JSON fields
+~~~~~~~~~~~
+
+The top-level object contains:
+
+``total_num_allocations``
+    The number of allocations performed. Deallocations are not counted.
+
+``total_bytes_allocated``
+    The total number of bytes requested by those allocations.
+
+``allocation_size_histogram``
+    A list of bins, each with ``min_bytes``, ``max_bytes`` and ``count``. Both
+    bounds are inclusive, and ``count`` is the number of allocations whose size
+    falls within the bin.
+
+``allocator_type_distribution``
+    The number of allocations performed by each allocator (for example
+    ``MALLOC`` or ``PYMALLOC_MALLOC``), sorted from most to least used.
+
+``top_allocations_by_size`` / ``top_allocations_by_count``
+    The locations that allocated the most memory, or performed the most
+    allocations, as ``function:file:line`` strings with a ``size`` or ``count``.
+
+``top_modules_by_allocation_size`` / ``top_modules_by_allocation_count``
+    The same rankings grouped by module, each entry with ``module``,
+    ``num_allocations`` and ``total_bytes``.
+
+``metadata``
+    Information about the tracked process and the capture file, described below.
+
+The ``metadata`` object contains:
+
+``start_time`` / ``end_time``
+    When tracking started and stopped.
+
+``total_allocations``
+    The number of allocation records in the capture file. Memray uses the same
+    record type for allocations and deallocations, so this counts both, and is
+    usually close to twice ``total_num_allocations``. It describes the capture
+    file rather than the tracked program.
+
+``total_frames``
+    The number of Python frame records in the capture file. This is a
+    statistic about Memray's file format, not a count of distinct functions or
+    frame objects in the tracked program.
+
+``peak_memory``
+    The highest heap memory usage seen while tracking was active, in bytes.
+    Heap memory usage at any moment is the total size of all allocations made
+    since tracking started that have not yet been freed.
+
+``command_line`` / ``pid`` / ``main_thread_id``
+    The command that was tracked, its process ID, and the ID of its main thread.
+
+``python_allocator``
+    The Python memory allocator in use (for example ``pymalloc``).
+
+``has_native_traces``
+    Whether the capture includes native (C/C++) stack traces, as enabled by
+    ``memray run --native``.
+
+``trace_python_allocators``
+    Whether allocations made through Python's own allocators were tracked
+    individually, as enabled by ``memray run --trace-python-allocators``.
+
+``file_format``
+    ``0`` for a capture containing every allocation, or ``1`` for an aggregated
+    capture produced by ``memray run --aggregate``.
+
 CLI Reference
 -------------
 
