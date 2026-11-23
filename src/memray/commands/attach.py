@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import importlib.machinery
 import os
 import pathlib
 import platform
@@ -11,7 +12,6 @@ import signal
 import socket
 import subprocess
 import sys
-import sysconfig
 import tempfile
 import textwrap
 import threading
@@ -133,25 +133,11 @@ elif {mode!r} == "FOR_DURATION":
 
 def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
     """Execute a file in a running Python process using a debugger."""
-    # The injecter is a limited-API extension, so its filename carries an ABI
-    # tag. That tag is normally "abi3", but free-threaded builds get their own
-    # stable ABI ("abi3t") starting in 3.15 (PEP 803). Earlier free-threaded
-    # builds (e.g. 3.14t) still use "abi3".
-    free_threaded = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
-    if free_threaded and sys.version_info >= (3, 15):
-        abi = "abi3t"
-    else:
-        abi = "abi3"
-
     parent_dir = pathlib.Path(memray._memray.__file__).parent
-    possible_injecters = []
-
-    soabi_platform = sysconfig.get_config_var("SOABI_PLATFORM")
-    if soabi_platform is not None:
-        # abi3 extension filenames may contain multiarch tuples in 3.15+
-        possible_injecters.append(parent_dir / f"_inject.{abi}-{soabi_platform}.so")
-
-    possible_injecters.append(parent_dir / f"_inject.{abi}.so")
+    possible_injecters = [
+        parent_dir / f"_inject{suffix}"
+        for suffix in importlib.machinery.EXTENSION_SUFFIXES
+    ]
 
     for injecter in possible_injecters:
         if injecter.exists():
