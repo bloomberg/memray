@@ -7,6 +7,7 @@ import runpy
 import socket
 import subprocess
 import sys
+import tempfile
 import textwrap
 from contextlib import closing
 from contextlib import suppress
@@ -131,10 +132,12 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
         "-c",
         f"from memray.commands.run import _child_process;_child_process({arguments})",
     ]
-    with contextlib.suppress(KeyboardInterrupt):
+    # stderr goes to a file, not a pipe: nobody reads a pipe until the TUI
+    # exits, so a child that logs more than the pipe buffer would block.
+    with contextlib.suppress(KeyboardInterrupt), tempfile.TemporaryFile("w+") as stderr:
         with subprocess.Popen(
             tracked_app_cmd,
-            stderr=subprocess.PIPE,
+            stderr=stderr,
             stdout=subprocess.DEVNULL,
             text=True,
         ) as process:
@@ -147,8 +150,8 @@ def _run_child_process_and_attach(args: argparse.Namespace) -> None:
                 raise error from None
             process.terminate()
             if process.returncode:
-                if process.stderr:
-                    print(process.stderr.read(), file=sys.stderr)
+                stderr.seek(0)
+                print(stderr.read(), file=sys.stderr)
                 raise (MemrayCommandError(exit_code=process.returncode))
 
 

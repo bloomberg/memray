@@ -1820,6 +1820,57 @@ class TestLiveSubcommand:
         # THEN
         assert server.returncode == 0
 
+    def test_live_tracking_with_lots_of_stderr_output(self, tmp_path):
+        # GIVEN
+        # The tracked program holds the write end of this FIFO open until it
+        # exits, so EOF on the read end tells us that it has fully exited and
+        # that its exit code is available to `memray run` once we quit the TUI.
+        fifo = tmp_path / "fifo"
+        os.mkfifo(fifo)
+        program_file = tmp_path / "file.py"
+        program_file.write_text(
+            textwrap.dedent(
+                f"""\
+                import sys
+                fifo = open({str(fifo)!r}, "w")
+                for i in range(5000):
+                    print(f"line {{i}} " + "x" * 40, file=sys.stderr)
+                fifo.write("done")
+                fifo.flush()
+                sys.exit(1)
+                """
+            )
+        )
+        server = subprocess.Popen(
+            [sys.executable, "-m", "memray", "run", "--live", str(program_file)],
+            stdin=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        reader = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+
+        # WHEN
+        try:
+            output = b""
+            deadline = time.monotonic() + TIMEOUT
+            while time.monotonic() < deadline:
+                time.sleep(0.1)
+                data = os.read(reader, 1024)
+                output += data
+                if output and not data:
+                    break  # the program wrote to the FIFO, then closed it
+            _, stderr = server.communicate(b"q", timeout=TIMEOUT)
+        except subprocess.TimeoutExpired:
+            server.kill()
+            raise
+        finally:
+            os.close(reader)
+
+        # THEN
+        assert output == b"done"
+        assert server.returncode != 0
+        assert b"line 4999 " in stderr
+
 
 class TestTransformSubCommands:
     def test_report_detects_missing_input(self):
