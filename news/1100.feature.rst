@@ -1,0 +1,1 @@
+Speed up flame graph generation for large captures by computing the source line, escaped location and the "interesting" flag of each frame only once per report.
