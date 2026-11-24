@@ -1518,20 +1518,8 @@ void
 Tracker::registerPymallocHooks() const noexcept
 {
     assert(d_trace_python_allocators);
-    PyMemAllocatorEx alloc;
-
-    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    if (alloc.free == intercept::pymalloc_hooks(PYMEM_DOMAIN_RAW).free) {
-        // Nothing to do; our hooks are already installed.
-        return;
-    }
-
-    // Our hooks keep the original ctx, so a thread that reads a partially
-    // updated allocator struct never pairs a hook with a ctx it can't handle.
     for (auto domain : {PYMEM_DOMAIN_RAW, PYMEM_DOMAIN_MEM, PYMEM_DOMAIN_OBJ}) {
-        PyMem_GetAllocator(domain, &intercept::s_orig_pymalloc_allocators[domain]);
-        alloc = intercept::pymalloc_hooks(domain);
-        PyMem_SetAllocator(domain, &alloc);
+        hooks::registerPymallocHook(domain);
     }
 }
 
@@ -1540,7 +1528,7 @@ Tracker::unregisterPymallocHooks() const noexcept
 {
     assert(d_trace_python_allocators);
     for (auto domain : {PYMEM_DOMAIN_RAW, PYMEM_DOMAIN_MEM, PYMEM_DOMAIN_OBJ}) {
-        PyMem_SetAllocator(domain, &intercept::s_orig_pymalloc_allocators[domain]);
+        hooks::unregisterPymallocHook(domain);
     }
 }
 

@@ -119,7 +119,7 @@ ensureArrowHooksAreValid()
 
 namespace memray::intercept {
 
-PyMemAllocatorEx s_orig_pymalloc_allocators[3];
+static PyMemAllocatorEx s_orig_pymalloc_allocators[3];
 
 template<PyMemAllocatorDomain D>
 static void*
@@ -193,7 +193,7 @@ make_pymalloc_hooks() noexcept
             pymalloc_free<D>};
 }
 
-PyMemAllocatorEx
+static PyMemAllocatorEx
 pymalloc_hooks(PyMemAllocatorDomain domain) noexcept
 {
     switch (domain) {
@@ -597,3 +597,30 @@ pyreftracer(PyObject* obj, compat::RefTracerEvent event, void* data) noexcept
 }
 
 }  // namespace memray::intercept
+
+namespace memray::hooks {
+
+void
+registerPymallocHook(PyMemAllocatorDomain domain) noexcept
+{
+    PyMemAllocatorEx alloc;
+    PyMem_GetAllocator(domain, &alloc);
+    if (alloc.free == intercept::pymalloc_hooks(domain).free) {
+        // Nothing to do; our hooks are already installed.
+        return;
+    }
+
+    // Our hooks keep the original ctx, so a thread that reads a partially
+    // updated allocator struct never pairs a hook with a ctx it can't handle.
+    intercept::s_orig_pymalloc_allocators[domain] = alloc;
+    alloc = intercept::pymalloc_hooks(domain);
+    PyMem_SetAllocator(domain, &alloc);
+}
+
+void
+unregisterPymallocHook(PyMemAllocatorDomain domain) noexcept
+{
+    PyMem_SetAllocator(domain, &intercept::s_orig_pymalloc_allocators[domain]);
+}
+
+}  // namespace memray::hooks
