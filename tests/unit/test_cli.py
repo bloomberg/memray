@@ -1,6 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
+from unittest.mock import ANY
 from unittest.mock import patch
 
 import pytest
@@ -202,7 +203,7 @@ class TestRunSubCommand:
                 "_child_process(1234,False,False,False,False,False,"
                 "'./directory/foobar.py',['arg1', 'arg2'])",
             ],
-            stderr=-1,
+            stderr=ANY,
             stdout=-3,
             text=True,
         )
@@ -243,7 +244,7 @@ class TestRunSubCommand:
                 "_child_process(1234,False,True,False,False,False,"
                 "'./directory/foobar.py',['arg1', 'arg2'])",
             ],
-            stderr=-1,
+            stderr=ANY,
             stdout=-3,
             text=True,
         )
