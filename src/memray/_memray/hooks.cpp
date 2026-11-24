@@ -119,27 +119,31 @@ ensureArrowHooksAreValid()
 
 namespace memray::intercept {
 
-void*
-pymalloc_malloc(void* ctx, size_t size) noexcept
+PyMemAllocatorEx s_orig_pymalloc_allocators[3];
+
+template<PyMemAllocatorDomain D>
+static void*
+pymalloc_malloc(void*, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto& alloc = s_orig_pymalloc_allocators[D];
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
-        ptr = alloc->malloc(alloc->ctx, size);
+        ptr = alloc.malloc(alloc.ctx, size);
     }
     tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::PYMALLOC_MALLOC);
     return ptr;
 }
 
-void*
-pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
+template<PyMemAllocatorDomain D>
+static void*
+pymalloc_realloc(void*, void* ptr, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto& alloc = s_orig_pymalloc_allocators[D];
     void* ret;
     {
         tracking_api::RecursionGuard guard;
-        ret = alloc->realloc(alloc->ctx, ptr, size);
+        ret = alloc.realloc(alloc.ctx, ptr, size);
     }
     if (ret) {
         if (ptr) {
@@ -150,29 +154,55 @@ pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
     return ret;
 }
 
-void*
-pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept
+template<PyMemAllocatorDomain D>
+static void*
+pymalloc_calloc(void*, size_t nelem, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto& alloc = s_orig_pymalloc_allocators[D];
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
-        ptr = alloc->calloc(alloc->ctx, nelem, size);
+        ptr = alloc.calloc(alloc.ctx, nelem, size);
     }
     tracking_api::Tracker::trackAllocation(ptr, nelem * size, hooks::Allocator::PYMALLOC_CALLOC);
     return ptr;
 }
 
-void
-pymalloc_free(void* ctx, void* ptr) noexcept
+template<PyMemAllocatorDomain D>
+static void
+pymalloc_free(void*, void* ptr) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto& alloc = s_orig_pymalloc_allocators[D];
     {
         tracking_api::RecursionGuard guard;
-        alloc->free(alloc->ctx, ptr);
+        alloc.free(alloc.ctx, ptr);
     }
     if (ptr) {
         tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::PYMALLOC_FREE);
+    }
+}
+
+template<PyMemAllocatorDomain D>
+static PyMemAllocatorEx
+make_pymalloc_hooks() noexcept
+{
+    return {s_orig_pymalloc_allocators[D].ctx,
+            pymalloc_malloc<D>,
+            pymalloc_calloc<D>,
+            pymalloc_realloc<D>,
+            pymalloc_free<D>};
+}
+
+PyMemAllocatorEx
+pymalloc_hooks(PyMemAllocatorDomain domain) noexcept
+{
+    switch (domain) {
+        case PYMEM_DOMAIN_RAW:
+            return make_pymalloc_hooks<PYMEM_DOMAIN_RAW>();
+        case PYMEM_DOMAIN_MEM:
+            return make_pymalloc_hooks<PYMEM_DOMAIN_MEM>();
+        default:
+            return make_pymalloc_hooks<PYMEM_DOMAIN_OBJ>();
     }
 }
 

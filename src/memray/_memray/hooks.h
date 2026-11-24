@@ -264,14 +264,10 @@ prctl(int option, ...) noexcept;
 PyGILState_STATE
 PyGILState_Ensure() noexcept;
 
-void*
-pymalloc_malloc(void* ctx, size_t size) noexcept;
-void*
-pymalloc_realloc(void* ctx, void* ptr, size_t new_size) noexcept;
-void*
-pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept;
-void
-pymalloc_free(void* ctx, void* ptr) noexcept;
+extern PyMemAllocatorEx s_orig_pymalloc_allocators[3];
+
+PyMemAllocatorEx
+pymalloc_hooks(PyMemAllocatorDomain domain) noexcept;
 
 int
 pyreftracer(PyObject*, compat::RefTracerEvent event, void* data) noexcept;

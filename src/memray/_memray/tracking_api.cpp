@@ -1514,13 +1514,6 @@ Tracker::getTracker()
     return s_instance;
 }
 
-static struct
-{
-    PyMemAllocatorEx raw;
-    PyMemAllocatorEx mem;
-    PyMemAllocatorEx obj;
-} s_orig_pymalloc_allocators;
-
 void
 Tracker::registerPymallocHooks() const noexcept
 {
@@ -1528,33 +1521,27 @@ Tracker::registerPymallocHooks() const noexcept
     PyMemAllocatorEx alloc;
 
     PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    if (alloc.free == &intercept::pymalloc_free) {
+    if (alloc.free == intercept::pymalloc_hooks(PYMEM_DOMAIN_RAW).free) {
         // Nothing to do; our hooks are already installed.
         return;
     }
 
-    alloc.malloc = intercept::pymalloc_malloc;
-    alloc.calloc = intercept::pymalloc_calloc;
-    alloc.realloc = intercept::pymalloc_realloc;
-    alloc.free = intercept::pymalloc_free;
-    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
-    PyMem_GetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
-    PyMem_GetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
-    alloc.ctx = &s_orig_pymalloc_allocators.raw;
-    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    alloc.ctx = &s_orig_pymalloc_allocators.mem;
-    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &alloc);
-    alloc.ctx = &s_orig_pymalloc_allocators.obj;
-    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &alloc);
+    // Our hooks keep the original ctx, so a thread that reads a partially
+    // updated allocator struct never pairs a hook with a ctx it can't handle.
+    for (auto domain : {PYMEM_DOMAIN_RAW, PYMEM_DOMAIN_MEM, PYMEM_DOMAIN_OBJ}) {
+        PyMem_GetAllocator(domain, &intercept::s_orig_pymalloc_allocators[domain]);
+        alloc = intercept::pymalloc_hooks(domain);
+        PyMem_SetAllocator(domain, &alloc);
+    }
 }
 
 void
 Tracker::unregisterPymallocHooks() const noexcept
 {
     assert(d_trace_python_allocators);
-    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
-    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
-    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
+    for (auto domain : {PYMEM_DOMAIN_RAW, PYMEM_DOMAIN_MEM, PYMEM_DOMAIN_OBJ}) {
+        PyMem_SetAllocator(domain, &intercept::s_orig_pymalloc_allocators[domain]);
+    }
 }
 
 // Trace Function interface
