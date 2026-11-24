@@ -1,3 +1,4 @@
+#include <atomic>
 #include <cassert>
 #include <cstdio>
 #include <mutex>
@@ -119,13 +120,14 @@ ensureArrowHooksAreValid()
 
 namespace memray::intercept {
 
-static PyMemAllocatorEx s_orig_pymalloc_allocators[3];
+template<PyMemAllocatorDomain D>
+static PyMemAllocatorEx s_orig_pymalloc_allocator;
 
 template<PyMemAllocatorDomain D>
 static void*
 pymalloc_malloc(void*, size_t size) noexcept
 {
-    auto& alloc = s_orig_pymalloc_allocators[D];
+    auto& alloc = s_orig_pymalloc_allocator<D>;
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
@@ -139,7 +141,7 @@ template<PyMemAllocatorDomain D>
 static void*
 pymalloc_realloc(void*, void* ptr, size_t size) noexcept
 {
-    auto& alloc = s_orig_pymalloc_allocators[D];
+    auto& alloc = s_orig_pymalloc_allocator<D>;
     void* ret;
     {
         tracking_api::RecursionGuard guard;
@@ -158,7 +160,7 @@ template<PyMemAllocatorDomain D>
 static void*
 pymalloc_calloc(void*, size_t nelem, size_t size) noexcept
 {
-    auto& alloc = s_orig_pymalloc_allocators[D];
+    auto& alloc = s_orig_pymalloc_allocator<D>;
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
@@ -172,37 +174,13 @@ template<PyMemAllocatorDomain D>
 static void
 pymalloc_free(void*, void* ptr) noexcept
 {
-    auto& alloc = s_orig_pymalloc_allocators[D];
+    auto& alloc = s_orig_pymalloc_allocator<D>;
     {
         tracking_api::RecursionGuard guard;
         alloc.free(alloc.ctx, ptr);
     }
     if (ptr) {
         tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::PYMALLOC_FREE);
-    }
-}
-
-template<PyMemAllocatorDomain D>
-static PyMemAllocatorEx
-make_pymalloc_hooks() noexcept
-{
-    return {s_orig_pymalloc_allocators[D].ctx,
-            pymalloc_malloc<D>,
-            pymalloc_calloc<D>,
-            pymalloc_realloc<D>,
-            pymalloc_free<D>};
-}
-
-static PyMemAllocatorEx
-pymalloc_hooks(PyMemAllocatorDomain domain) noexcept
-{
-    switch (domain) {
-        case PYMEM_DOMAIN_RAW:
-            return make_pymalloc_hooks<PYMEM_DOMAIN_RAW>();
-        case PYMEM_DOMAIN_MEM:
-            return make_pymalloc_hooks<PYMEM_DOMAIN_MEM>();
-        default:
-            return make_pymalloc_hooks<PYMEM_DOMAIN_OBJ>();
     }
 }
 
@@ -600,27 +578,44 @@ pyreftracer(PyObject* obj, compat::RefTracerEvent event, void* data) noexcept
 
 namespace memray::hooks {
 
-void
-registerPymallocHook(PyMemAllocatorDomain domain) noexcept
+template<PyMemAllocatorDomain D>
+static void
+registerPymallocHook() noexcept
 {
     PyMemAllocatorEx alloc;
-    PyMem_GetAllocator(domain, &alloc);
-    if (alloc.free == intercept::pymalloc_hooks(domain).free) {
+    PyMem_GetAllocator(D, &alloc);
+    if (alloc.free == intercept::pymalloc_free<D>) {
         // Nothing to do; our hooks are already installed.
         return;
     }
 
+    intercept::s_orig_pymalloc_allocator<D> = alloc;
+    // Make the saved allocator visible before our hooks are.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+
     // Our hooks keep the original ctx, so a thread that reads a partially
     // updated allocator struct never pairs a hook with a ctx it can't handle.
-    intercept::s_orig_pymalloc_allocators[domain] = alloc;
-    alloc = intercept::pymalloc_hooks(domain);
-    PyMem_SetAllocator(domain, &alloc);
+    alloc.malloc = intercept::pymalloc_malloc<D>;
+    alloc.calloc = intercept::pymalloc_calloc<D>;
+    alloc.realloc = intercept::pymalloc_realloc<D>;
+    alloc.free = intercept::pymalloc_free<D>;
+    PyMem_SetAllocator(D, &alloc);
 }
 
 void
-unregisterPymallocHook(PyMemAllocatorDomain domain) noexcept
+registerPymallocHooks() noexcept
 {
-    PyMem_SetAllocator(domain, &intercept::s_orig_pymalloc_allocators[domain]);
+    registerPymallocHook<PYMEM_DOMAIN_RAW>();
+    registerPymallocHook<PYMEM_DOMAIN_MEM>();
+    registerPymallocHook<PYMEM_DOMAIN_OBJ>();
+}
+
+void
+unregisterPymallocHooks() noexcept
+{
+    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &intercept::s_orig_pymalloc_allocator<PYMEM_DOMAIN_RAW>);
+    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &intercept::s_orig_pymalloc_allocator<PYMEM_DOMAIN_MEM>);
+    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &intercept::s_orig_pymalloc_allocator<PYMEM_DOMAIN_OBJ>);
 }
 
 }  // namespace memray::hooks

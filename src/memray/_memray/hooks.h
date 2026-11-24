@@ -151,10 +151,10 @@ void
 ensureArrowHooksAreValid();
 
 void
-registerPymallocHook(PyMemAllocatorDomain domain) noexcept;
+registerPymallocHooks() noexcept;
 
 void
-unregisterPymallocHook(PyMemAllocatorDomain domain) noexcept;
+unregisterPymallocHooks() noexcept;
 
 // Allocators are roughly ordered by the likelihood of any given allocation
 // record using them. The allocators assigned 1 to 7 have a more compact

@@ -883,7 +883,7 @@ Tracker::Tracker(
         registerReferenceTrackingHooks();
     }
     if (d_trace_python_allocators) {
-        registerPymallocHooks();
+        hooks::registerPymallocHooks();
     }
     d_background_thread = std::make_unique<BackgroundThread>(d_writer, memory_interval);
     d_background_thread->start();
@@ -915,7 +915,7 @@ Tracker::~Tracker()
 
         if (d_trace_python_allocators) {
             std::scoped_lock lock(*s_mutex);
-            unregisterPymallocHooks();
+            hooks::unregisterPymallocHooks();
         }
 
         PythonStackTracker::removeProfileHooks();
@@ -1512,24 +1512,6 @@ Tracker*
 Tracker::getTracker()
 {
     return s_instance;
-}
-
-void
-Tracker::registerPymallocHooks() const noexcept
-{
-    assert(d_trace_python_allocators);
-    for (auto domain : {PYMEM_DOMAIN_RAW, PYMEM_DOMAIN_MEM, PYMEM_DOMAIN_OBJ}) {
-        hooks::registerPymallocHook(domain);
-    }
-}
-
-void
-Tracker::unregisterPymallocHooks() const noexcept
-{
-    assert(d_trace_python_allocators);
-    for (auto domain : {PYMEM_DOMAIN_RAW, PYMEM_DOMAIN_MEM, PYMEM_DOMAIN_OBJ}) {
-        hooks::unregisterPymallocHook(domain);
-    }
 }
 
 // Trace Function interface
