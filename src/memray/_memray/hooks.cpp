@@ -236,6 +236,8 @@ realloc(void* ptr, size_t size) noexcept
             tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
         }
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::REALLOC);
+    } else if (ptr != nullptr && size == 0) {
+        tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
     }
     return ret;
 }

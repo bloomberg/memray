@@ -1,0 +1,1 @@
+Fix ``realloc(ptr, 0)`` on glibc being left out of the capture. glibc frees the block and returns ``NULL``, so it was reported as a leak by ``--leaks``.
