@@ -2,6 +2,7 @@ import collections
 import datetime
 import mmap
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -186,6 +187,73 @@ def test_intercepting_free_aligned_sized(tmp_path):
         if event.address == alloc.address and event.allocator == AllocatorType.FREE
     ]
     assert len(frees) >= 1
+
+
+@pytest.mark.skipif(
+    platform.libc_ver()[0] != "glibc",
+    reason="Only glibc frees the block and returns NULL for realloc(ptr, 0)",
+)
+def test_realloc_to_zero_size_is_tracked_as_free(tmp_path):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        res = allocator.realloc(0)
+
+    # THEN
+    assert not res
+    reader = FileReader(output)
+    allocations = list(reader.get_allocation_records())
+    mallocs = [
+        event
+        for event in allocations
+        if event.size == 1 and event.allocator == AllocatorType.MALLOC
+    ]
+    assert len(mallocs) == 1
+    (malloc,) = mallocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == malloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) == 1
+    leaks = [
+        event
+        for event in reader.get_leaked_allocation_records()
+        if event.address == malloc.address
+    ]
+    assert not leaks
+
+
+def test_failed_realloc_keeps_original_block(tmp_path):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        res = allocator.realloc(sys.maxsize + 1)
+
+    # THEN
+    assert not res
+    allocations = list(FileReader(output).get_allocation_records())
+    mallocs = [
+        event
+        for event in allocations
+        if event.size == 1 and event.allocator == AllocatorType.MALLOC
+    ]
+    assert len(mallocs) == 1
+    (malloc,) = mallocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == malloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert not frees
 
 
 @pytest.mark.parametrize("domain", PYMALLOC_DOMAINS)
