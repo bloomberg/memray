@@ -1,1 +1,1 @@
-Fix ``realloc(ptr, 0)`` on glibc being left out of the capture. glibc frees the block and returns ``NULL``, so it was reported as a leak by ``--leaks``.
+Fix ``realloc(ptr, 0)`` being left out of the capture when it frees the block and returns ``NULL``, as glibc does. The block was reported as a leak by ``--leaks``. Following POSIX, a ``NULL`` return is treated as a free only when ``realloc`` did not set ``errno``.

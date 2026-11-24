@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cerrno>
 #include <cstdio>
 #include <mutex>
 #include <unordered_set>
@@ -227,18 +228,22 @@ realloc(void* ptr, size_t size) noexcept
     assert(MEMRAY_ORIG(realloc));
 
     void* ret;
+    int saved_errno = errno;
+    errno = 0;
     {
         tracking_api::RecursionGuard guard;
         ret = MEMRAY_ORIG(realloc)(ptr, size);
     }
+    int realloc_errno = errno;
     if (ret) {
         if (ptr != nullptr) {
             tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
         }
         tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::REALLOC);
-    } else if (ptr != nullptr && size == 0) {
+    } else if (ptr != nullptr && realloc_errno == 0) {
         tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
     }
+    errno = realloc_errno ? realloc_errno : saved_errno;
     return ret;
 }
 
