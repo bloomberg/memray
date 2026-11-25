@@ -235,7 +235,7 @@ def test_failed_realloc_keeps_original_block(tmp_path):
 
     # WHEN
     with Tracker(output):
-        res = allocator.realloc(sys.maxsize + 1)
+        res = allocator.realloc(sys.maxsize * 2 + 1)
 
     # THEN
     assert not res
