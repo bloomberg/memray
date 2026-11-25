@@ -1,0 +1,1 @@
+HTTPS ``DEBUGINFOD_URLS`` now work correctly on Debian, Ubuntu, and other non-RHEL distros, and ``SSL_CERT_FILE`` and ``SSL_CERT_DIR`` environment variables are now honored as well.

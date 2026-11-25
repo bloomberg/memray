@@ -196,19 +196,27 @@ before-all = [
   "curl -LO https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VERS/openssl-$OPENSSL_VERS.tar.gz",
   "tar xf ./openssl-$OPENSSL_VERS.tar.gz",
   "cd openssl-$OPENSSL_VERS",
+  # Search Debian/Ubuntu/SUSE/Arch's hashed cert dir as well as RHEL's.
+  # RHEL itself is covered by the default cert file, $OPENSSLDIR/cert.pem.
+  # The grep fails the build if the sed stops matching in a future release.
+  '''sed -i 's|^#define X509_CERT_DIR OPENSSLDIR "/certs"$|#define X509_CERT_DIR "/etc/ssl/certs:/etc/pki/tls/certs"|' include/internal/common.h''',
+  '''grep -q '^#define X509_CERT_DIR "/etc/ssl/certs:/etc/pki/tls/certs"$' include/internal/common.h''',
   "./Configure --prefix=/usr/local --libdir=lib --openssldir=/etc/pki/tls shared no-tests",
   "make -j$(nproc)",
   "make install_sw",
 
   # Build the latest curl from source. The rpath lets this curl find the
   # libraries above without changing which ones the system tools (yum and
-  # the system curl) load, so the downloads below use this curl.
+  # the system curl) load, so the downloads below use this curl. Instead of
+  # compiling in the build host's CA bundle path, which only exists on
+  # RHEL-like distros, use OpenSSL's default CA locations (configured above),
+  # which also honor SSL_CERT_FILE and SSL_CERT_DIR.
   "cd /",
   "CURL_VERS=8.23.0",
   "curl -LO https://curl.se/download/curl-$CURL_VERS.tar.bz2",
   "tar xf ./curl-$CURL_VERS.tar.bz2",
   "cd curl-$CURL_VERS",
-  "LDFLAGS=-Wl,-rpath,/usr/local/lib ./configure --with-openssl=/usr/local --without-libpsl",
+  "LDFLAGS=-Wl,-rpath,/usr/local/lib ./configure --with-openssl=/usr/local --without-libpsl --without-ca-bundle --without-ca-path --with-ca-fallback",
   "make install",
 
   # Build the latest zstd from source
