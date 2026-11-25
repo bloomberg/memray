@@ -883,7 +883,7 @@ Tracker::Tracker(
         registerReferenceTrackingHooks();
     }
     if (d_trace_python_allocators) {
-        registerPymallocHooks();
+        hooks::registerPymallocHooks();
     }
     d_background_thread = std::make_unique<BackgroundThread>(d_writer, memory_interval);
     d_background_thread->start();
@@ -915,7 +915,7 @@ Tracker::~Tracker()
 
         if (d_trace_python_allocators) {
             std::scoped_lock lock(*s_mutex);
-            unregisterPymallocHooks();
+            hooks::unregisterPymallocHooks();
         }
 
         PythonStackTracker::removeProfileHooks();
@@ -1512,49 +1512,6 @@ Tracker*
 Tracker::getTracker()
 {
     return s_instance;
-}
-
-static struct
-{
-    PyMemAllocatorEx raw;
-    PyMemAllocatorEx mem;
-    PyMemAllocatorEx obj;
-} s_orig_pymalloc_allocators;
-
-void
-Tracker::registerPymallocHooks() const noexcept
-{
-    assert(d_trace_python_allocators);
-    PyMemAllocatorEx alloc;
-
-    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    if (alloc.free == &intercept::pymalloc_free) {
-        // Nothing to do; our hooks are already installed.
-        return;
-    }
-
-    alloc.malloc = intercept::pymalloc_malloc;
-    alloc.calloc = intercept::pymalloc_calloc;
-    alloc.realloc = intercept::pymalloc_realloc;
-    alloc.free = intercept::pymalloc_free;
-    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
-    PyMem_GetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
-    PyMem_GetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
-    alloc.ctx = &s_orig_pymalloc_allocators.raw;
-    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    alloc.ctx = &s_orig_pymalloc_allocators.mem;
-    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &alloc);
-    alloc.ctx = &s_orig_pymalloc_allocators.obj;
-    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &alloc);
-}
-
-void
-Tracker::unregisterPymallocHooks() const noexcept
-{
-    assert(d_trace_python_allocators);
-    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
-    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
-    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
 }
 
 // Trace Function interface

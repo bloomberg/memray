@@ -1,3 +1,4 @@
+#include <atomic>
 #include <cassert>
 #include <cerrno>
 #include <cstdio>
@@ -120,27 +121,32 @@ ensureArrowHooksAreValid()
 
 namespace memray::intercept {
 
-void*
-pymalloc_malloc(void* ctx, size_t size) noexcept
+template<PyMemAllocatorDomain D>
+static PyMemAllocatorEx s_orig_pymalloc_allocator;
+
+template<PyMemAllocatorDomain D>
+static void*
+pymalloc_malloc(void*, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto& alloc = s_orig_pymalloc_allocator<D>;
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
-        ptr = alloc->malloc(alloc->ctx, size);
+        ptr = alloc.malloc(alloc.ctx, size);
     }
     tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::PYMALLOC_MALLOC);
     return ptr;
 }
 
-void*
-pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
+template<PyMemAllocatorDomain D>
+static void*
+pymalloc_realloc(void*, void* ptr, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto& alloc = s_orig_pymalloc_allocator<D>;
     void* ret;
     {
         tracking_api::RecursionGuard guard;
-        ret = alloc->realloc(alloc->ctx, ptr, size);
+        ret = alloc.realloc(alloc.ctx, ptr, size);
     }
     if (ret) {
         if (ptr) {
@@ -151,26 +157,28 @@ pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
     return ret;
 }
 
-void*
-pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept
+template<PyMemAllocatorDomain D>
+static void*
+pymalloc_calloc(void*, size_t nelem, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto& alloc = s_orig_pymalloc_allocator<D>;
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
-        ptr = alloc->calloc(alloc->ctx, nelem, size);
+        ptr = alloc.calloc(alloc.ctx, nelem, size);
     }
     tracking_api::Tracker::trackAllocation(ptr, nelem * size, hooks::Allocator::PYMALLOC_CALLOC);
     return ptr;
 }
 
-void
-pymalloc_free(void* ctx, void* ptr) noexcept
+template<PyMemAllocatorDomain D>
+static void
+pymalloc_free(void*, void* ptr) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto& alloc = s_orig_pymalloc_allocator<D>;
     {
         tracking_api::RecursionGuard guard;
-        alloc->free(alloc->ctx, ptr);
+        alloc.free(alloc.ctx, ptr);
     }
     if (ptr) {
         tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::PYMALLOC_FREE);
@@ -576,3 +584,47 @@ pyreftracer(PyObject* obj, compat::RefTracerEvent event, void* data) noexcept
 }
 
 }  // namespace memray::intercept
+
+namespace memray::hooks {
+
+template<PyMemAllocatorDomain D>
+static void
+registerPymallocHook() noexcept
+{
+    PyMemAllocatorEx alloc;
+    PyMem_GetAllocator(D, &alloc);
+    if (alloc.free == intercept::pymalloc_free<D>) {
+        // Nothing to do; our hooks are already installed.
+        return;
+    }
+
+    intercept::s_orig_pymalloc_allocator<D> = alloc;
+    // Make the saved allocator visible before our hooks are.
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+
+    // Our hooks keep the original ctx, so a thread that reads a partially
+    // updated allocator struct never pairs a hook with a ctx it can't handle.
+    alloc.malloc = intercept::pymalloc_malloc<D>;
+    alloc.calloc = intercept::pymalloc_calloc<D>;
+    alloc.realloc = intercept::pymalloc_realloc<D>;
+    alloc.free = intercept::pymalloc_free<D>;
+    PyMem_SetAllocator(D, &alloc);
+}
+
+void
+registerPymallocHooks() noexcept
+{
+    registerPymallocHook<PYMEM_DOMAIN_RAW>();
+    registerPymallocHook<PYMEM_DOMAIN_MEM>();
+    registerPymallocHook<PYMEM_DOMAIN_OBJ>();
+}
+
+void
+unregisterPymallocHooks() noexcept
+{
+    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &intercept::s_orig_pymalloc_allocator<PYMEM_DOMAIN_RAW>);
+    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &intercept::s_orig_pymalloc_allocator<PYMEM_DOMAIN_MEM>);
+    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &intercept::s_orig_pymalloc_allocator<PYMEM_DOMAIN_OBJ>);
+}
+
+}  // namespace memray::hooks

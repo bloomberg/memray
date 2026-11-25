@@ -150,6 +150,12 @@ ensureAllHooksAreValid();
 void
 ensureArrowHooksAreValid();
 
+void
+registerPymallocHooks() noexcept;
+
+void
+unregisterPymallocHooks() noexcept;
+
 // Allocators are roughly ordered by the likelihood of any given allocation
 // record using them. The allocators assigned 1 to 7 have a more compact
 // representation within capture files. 0 must remain unassigned (it's used as
@@ -263,15 +269,6 @@ prctl(int option, ...) noexcept;
 
 PyGILState_STATE
 PyGILState_Ensure() noexcept;
-
-void*
-pymalloc_malloc(void* ctx, size_t size) noexcept;
-void*
-pymalloc_realloc(void* ctx, void* ptr, size_t new_size) noexcept;
-void*
-pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept;
-void
-pymalloc_free(void* ctx, void* ptr) noexcept;
 
 int
 pyreftracer(PyObject*, compat::RefTracerEvent event, void* data) noexcept;
