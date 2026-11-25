@@ -235,13 +235,15 @@ realloc(void* ptr, size_t size) noexcept
         ret = MEMRAY_ORIG(realloc)(ptr, size);
     }
     int realloc_errno = errno;
-    if (ret) {
-        if (ptr != nullptr) {
-            tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
-        }
-        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::REALLOC);
-    } else if (ptr != nullptr && realloc_errno == 0) {
+    // A NULL return for a zero size request with errno untouched means the
+    // allocator freed the block (glibc does this). Any other NULL return is a
+    // failure that leaves the original block untouched.
+    bool freed_on_zero_size = !ret && size == 0 && realloc_errno == 0;
+    if (ptr != nullptr && (ret || freed_on_zero_size)) {
         tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::FREE);
+    }
+    if (ret) {
+        tracking_api::Tracker::trackAllocation(ret, size, hooks::Allocator::REALLOC);
     }
     errno = realloc_errno ? realloc_errno : saved_errno;
     return ret;
