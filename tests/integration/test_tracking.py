@@ -188,6 +188,85 @@ def test_intercepting_free_aligned_sized(tmp_path):
     assert len(frees) >= 1
 
 
+def test_realloc_to_zero_size_is_tracked_as_free(tmp_path):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        res = allocator.realloc(0)
+
+    # Some libcs (glibc) free the block and return NULL for realloc(ptr, 0),
+    # while others (musl, macOS) return a new minimum-size block. Free that
+    # block outside of tracking so that it doesn't add records to the capture.
+    if res:
+        allocator.free()
+
+    # THEN
+    reader = FileReader(output)
+    allocations = list(reader.get_allocation_records())
+    mallocs = [
+        event
+        for event in allocations
+        if event.size == 1 and event.allocator == AllocatorType.MALLOC
+    ]
+    assert len(mallocs) == 1
+    (malloc,) = mallocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == malloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert len(frees) == 1
+
+    reallocs = [
+        event for event in allocations if event.allocator == AllocatorType.REALLOC
+    ]
+    if res:
+        assert len(reallocs) == 1
+        assert reallocs[0].size == 0
+    else:
+        assert not reallocs
+
+    leaks = [
+        event
+        for event in reader.get_leaked_allocation_records()
+        if event.address == malloc.address and event.allocator == AllocatorType.MALLOC
+    ]
+    assert not leaks
+
+
+def test_failed_realloc_keeps_original_block(tmp_path):
+    # GIVEN
+    allocator = MemoryAllocator()
+    output = tmp_path / "test.bin"
+
+    # WHEN
+    with Tracker(output):
+        res = allocator.realloc(sys.maxsize * 2 + 1)
+    allocator.free()
+
+    # THEN
+    assert not res
+    allocations = list(FileReader(output).get_allocation_records())
+    mallocs = [
+        event
+        for event in allocations
+        if event.size == 1 and event.allocator == AllocatorType.MALLOC
+    ]
+    assert len(mallocs) == 1
+    (malloc,) = mallocs
+
+    frees = [
+        event
+        for event in allocations
+        if event.address == malloc.address and event.allocator == AllocatorType.FREE
+    ]
+    assert not frees
+
+
 @pytest.mark.parametrize("domain", PYMALLOC_DOMAINS)
 @pytest.mark.parametrize(["allocator_func", "allocator_type"], PYMALLOC_ALLOCATORS)
 def test_simple_pymalloc_allocation_tracking(
