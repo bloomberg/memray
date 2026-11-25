@@ -84,15 +84,12 @@ def _frame_info(stack_frame: StackFrame, confidential_files: str) -> FrameInfo:
 
 def create_framegraph_node_from_stack_frame(
     stack_frame: StackFrame,
+    *,
     thread_id: str,
     import_system: bool = False,
     confidential_files: str = "default",
-    frame_info_cache: Optional[Dict[StackFrame, FrameInfo]] = None,
+    frame_info_cache: Dict[StackFrame, FrameInfo],
 ) -> FrameNodeDict:
-    # The same frame shows up in many nodes, so callers building a whole
-    # tree pass a cache that lives for one report.
-    if frame_info_cache is None:
-        frame_info_cache = {}
     info = frame_info_cache.get(stack_frame)
     if info is None:
         info = _frame_info(stack_frame, confidential_files)
@@ -158,6 +155,7 @@ class FlameGraphReporter:
     @classmethod
     def generate_frames(
         cls,
+        *,
         stack_it: Iterable[Tuple[int, PythonStackElement]],
         frames: List[FrameNodeDict],
         node_index_by_key: Dict[Tuple[int, StackFrame, str], int],
@@ -165,7 +163,7 @@ class FlameGraphReporter:
         inverted: bool,
         interval_list: List[Tuple[int, Optional[int], int, int, int]],
         confidential_files: str = "default",
-        frame_info_cache: Optional[Dict[StackFrame, FrameInfo]] = None,
+        frame_info_cache: Dict[StackFrame, FrameInfo],
     ) -> None:
         current_frame_id = 0
         current_frame = frames[0]
