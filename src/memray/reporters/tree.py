@@ -25,6 +25,7 @@ from textual.color import Gradient
 from textual.containers import Grid
 from textual.containers import Horizontal
 from textual.containers import Vertical
+from textual.css.query import NoMatches
 from textual.dom import DOMNode
 from textual.reactive import reactive
 from textual.screen import Screen
@@ -98,7 +99,11 @@ class FrameDetailScreen(Widget):
         if not self.__is_mounted or self.frame is None:
             return
 
-        text = self.query_one("#textarea", TextArea)
+        try:
+            text = self.query_one("#textarea", TextArea)
+        except NoMatches:
+            # At teardown, children are pruned before workers are cancelled.
+            return
 
         if self.frame.location is None or self.frame.location == ROOT_NODE:
             text.clear()
