@@ -1,0 +1,1 @@
+Fix ``memray stats`` crashing on captures with no allocations or with only 0- or 1-byte allocations, and its allocation size histogram counting some sizes in a bin whose reported range excluded them. The last bin's upper bound is now exactly the largest allocation size.
