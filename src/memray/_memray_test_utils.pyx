@@ -116,8 +116,12 @@ cdef class MemoryAllocator:
 
     def realloc(self, size_t size):
         self.ptr = malloc(1)
-        self.ptr = realloc(self.ptr, size)
-        return self.ptr != NULL
+        cdef void* new_ptr = realloc(self.ptr, size)
+        # On failure the original block is still valid, so keep it so that it
+        # can be freed. A NULL return for a zero size means it was freed.
+        if new_ptr != NULL or size == 0:
+            self.ptr = new_ptr
+        return new_ptr != NULL
 
     def posix_memalign(self, size_t size):
         rc = posix_memalign(&self.ptr, sizeof(void*), size)
