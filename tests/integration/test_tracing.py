@@ -297,13 +297,16 @@ def test_profile_function_is_restored_after_tracking(tmpdir):
 
     # WHEN
 
-    sys.setprofile(profilefunc)
+    previous = sys.getprofile()
+    try:
+        sys.setprofile(profilefunc)
+        with Tracker(output):
+            assert sys.getprofile() is profilefunc
 
-    with Tracker(output):
-        assert sys.getprofile() != profilefunc
-
-    # THEN
-    assert sys.getprofile() == profilefunc
+        # THEN
+        assert sys.getprofile() is profilefunc
+    finally:
+        sys.setprofile(previous)
 
 
 def test_initial_tracking_frames_are_correctly_populated(tmpdir):
@@ -899,7 +902,7 @@ def test_cython_frame_in_pre_existing_thread_stack_when_restarting_tracking(tmp_
 def test_allocation_after_unsetting_profile_function(tmp_path):
     """After tracking starts, unset the profile function then allocate.
 
-    Make sure that the stack for the allocation is unknown.
+    Make sure that both allocations retain their live stacks.
     """
     # GIVEN
     allocator = MemoryAllocator()
@@ -935,13 +938,13 @@ def test_allocation_after_unsetting_profile_function(tmp_path):
         "func",
         "test_allocation_after_unsetting_profile_function",
     ]
-    assert alloc2_funcs == []
+    assert alloc2_funcs == alloc1_funcs
 
 
 def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
     """In a thread, unset the profile function then allocate.
 
-    Make sure that the stack for the allocation is unknown.
+    Make sure that both allocations retain their live stacks.
     """
     # GIVEN
     allocator = MemoryAllocator()
@@ -975,7 +978,7 @@ def test_allocation_in_thread_after_unsetting_profile_function(tmp_path):
     alloc2_funcs = [frame[0] for frame in second.stack_trace()]
 
     assert alloc1_funcs[:2] == ["valloc", "func"]
-    assert alloc2_funcs == []
+    assert alloc2_funcs == alloc1_funcs
 
 
 class TestMmap:
@@ -1018,7 +1021,7 @@ class TestMmap:
         # GIVEN / WHEN
         output = Path(tmpdir) / "test.bin"
 
-        def custom_trace_fn():  # pragma: no cover
+        def custom_trace_fn(frame, event, arg):  # pragma: no cover
             pass
 
         try:

@@ -3,6 +3,7 @@
 #include <mutex>
 #include <unordered_set>
 
+#include "greenlet_adapter.h"
 #include "hooks.h"
 #include "tracking_api.h"
 
@@ -122,26 +123,36 @@ namespace memray::intercept {
 void*
 pymalloc_malloc(void* ctx, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto* context = static_cast<tracking_api::PymallocAllocatorContext*>(ctx);
+    const auto& alloc = context->original;
+    if (!context->active.load(std::memory_order_acquire)) {
+        return alloc.malloc(alloc.ctx, size);
+    }
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
-        ptr = alloc->malloc(alloc->ctx, size);
+        ptr = alloc.malloc(alloc.ctx, size);
     }
-    tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::PYMALLOC_MALLOC);
+    if (context->active.load(std::memory_order_acquire)) {
+        tracking_api::Tracker::trackAllocation(ptr, size, hooks::Allocator::PYMALLOC_MALLOC);
+    }
     return ptr;
 }
 
 void*
 pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto* context = static_cast<tracking_api::PymallocAllocatorContext*>(ctx);
+    const auto& alloc = context->original;
+    if (!context->active.load(std::memory_order_acquire)) {
+        return alloc.realloc(alloc.ctx, ptr, size);
+    }
     void* ret;
     {
         tracking_api::RecursionGuard guard;
-        ret = alloc->realloc(alloc->ctx, ptr, size);
+        ret = alloc.realloc(alloc.ctx, ptr, size);
     }
-    if (ret) {
+    if (ret && context->active.load(std::memory_order_acquire)) {
         if (ptr) {
             tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::PYMALLOC_FREE);
         }
@@ -153,25 +164,36 @@ pymalloc_realloc(void* ctx, void* ptr, size_t size) noexcept
 void*
 pymalloc_calloc(void* ctx, size_t nelem, size_t size) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto* context = static_cast<tracking_api::PymallocAllocatorContext*>(ctx);
+    const auto& alloc = context->original;
+    if (!context->active.load(std::memory_order_acquire)) {
+        return alloc.calloc(alloc.ctx, nelem, size);
+    }
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
-        ptr = alloc->calloc(alloc->ctx, nelem, size);
+        ptr = alloc.calloc(alloc.ctx, nelem, size);
     }
-    tracking_api::Tracker::trackAllocation(ptr, nelem * size, hooks::Allocator::PYMALLOC_CALLOC);
+    if (context->active.load(std::memory_order_acquire)) {
+        tracking_api::Tracker::trackAllocation(ptr, nelem * size, hooks::Allocator::PYMALLOC_CALLOC);
+    }
     return ptr;
 }
 
 void
 pymalloc_free(void* ctx, void* ptr) noexcept
 {
-    auto* alloc = (PyMemAllocatorEx*)ctx;
+    auto* context = static_cast<tracking_api::PymallocAllocatorContext*>(ctx);
+    const auto& alloc = context->original;
+    if (!context->active.load(std::memory_order_acquire)) {
+        alloc.free(alloc.ctx, ptr);
+        return;
+    }
     {
         tracking_api::RecursionGuard guard;
-        alloc->free(alloc->ctx, ptr);
+        alloc.free(alloc.ctx, ptr);
     }
-    if (ptr) {
+    if (ptr && context->active.load(std::memory_order_acquire)) {
         tracking_api::Tracker::trackDeallocation(ptr, 0, hooks::Allocator::PYMALLOC_FREE);
     }
 }
@@ -405,8 +427,10 @@ dlopen(const char* filename, int flag) noexcept
     }
     if (ret) {
         tracking_api::Tracker::invalidate_module_cache();
-        if (filename && nullptr != strstr(filename, "/_greenlet.")) {
-            tracking_api::Tracker::beginTrackingGreenlets();
+        // A custom extension loader can rename the greenlet library.
+        // NOLOAD only obtains a handle to an existing mapping.
+        if (!(flag & RTLD_NOLOAD)) {
+            tracking_api::greenlet_adapter::markModuleLoaded();
         }
     }
     return ret;
@@ -423,7 +447,10 @@ dlclose(void* handle) noexcept
         ret = MEMRAY_ORIG(dlclose)(handle);
     }
     tracking_api::NativeTrace::flushCache();
-    if (!ret) tracking_api::Tracker::invalidate_module_cache();
+    if (!ret) {
+        tracking_api::Tracker::invalidate_module_cache();
+        tracking_api::greenlet_adapter::markModuleLoaded();
+    }
     return ret;
 }
 
@@ -550,14 +577,6 @@ prctl(int option, ...) noexcept
     return ret;
 }
 #endif
-
-PyGILState_STATE
-PyGILState_Ensure() noexcept
-{
-    PyGILState_STATE ret = MEMRAY_ORIG(PyGILState_Ensure)();
-    tracking_api::install_trace_function();
-    return ret;
-}
 
 int
 pyreftracer(PyObject* obj, compat::RefTracerEvent event, void* data) noexcept

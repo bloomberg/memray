@@ -268,24 +268,6 @@ struct CodeObjectInfo
 
 using pycode_map_val_t = std::pair<code_object_id_t, CodeObjectInfo>;
 
-// Structure to represent code object information
-struct CodeObject
-{
-    const char* function_name;
-    const char* filename;
-    const char* linetable;
-    size_t linetable_size;
-    int firstlineno;
-};
-
-struct RawFrame
-{
-    PyCodeObject* code;
-    CodeObject code_info;
-    bool is_entry_frame;
-    int instruction_offset;
-};
-
 struct FramePush
 {
     Frame frame;
