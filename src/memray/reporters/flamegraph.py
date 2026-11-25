@@ -34,6 +34,8 @@ from memray.reporters.frame_tools import source_line_from_frame
 from memray.reporters.templates import render_report
 
 PythonStackElement = Tuple[str, str, int]
+# name, escaped (function, filename, lineno), interesting
+FrameInfo = Tuple[str, Tuple[str, str, int], bool]
 MAX_STACKS = int(sys.getrecursionlimit() // 2.5)
 
 T = TypeVar("T")
@@ -70,24 +72,36 @@ class FlameGraphNodeDict(TypedDict):
     import_system: List[int]
 
 
+def _frame_info(stack_frame: StackFrame, confidential_files: str) -> FrameInfo:
+    function, filename, lineno = stack_frame
+    return (
+        source_line_from_frame(stack_frame, confidential_files),
+        (html.escape(function), html.escape(filename), lineno),
+        is_frame_interesting(stack_frame)
+        and not is_frame_from_import_system(stack_frame),
+    )
+
+
 def create_framegraph_node_from_stack_frame(
     stack_frame: StackFrame,
+    *,
     thread_id: str,
     import_system: bool = False,
     confidential_files: str = "default",
+    frame_info_cache: Dict[StackFrame, FrameInfo],
 ) -> FrameNodeDict:
-    function, filename, lineno = stack_frame
-    name = source_line_from_frame(stack_frame, confidential_files)
+    info = frame_info_cache.get(stack_frame)
+    if info is None:
+        info = _frame_info(stack_frame, confidential_files)
+        frame_info_cache[stack_frame] = info
+    name, location, interesting = info
     return {
         "name": name,
-        "location": (html.escape(function), html.escape(filename), lineno),
+        "location": location,
         "value": 0,
         "children": [],
         "n_allocations": 0,
-        "interesting": (
-            is_frame_interesting(stack_frame)
-            and not is_frame_from_import_system(stack_frame)
-        ),
+        "interesting": interesting,
         "thread_id": thread_id,
         "import_system": import_system,
     }
@@ -141,6 +155,7 @@ class FlameGraphReporter:
     @classmethod
     def generate_frames(
         cls,
+        *,
         stack_it: Iterable[Tuple[int, PythonStackElement]],
         frames: List[FrameNodeDict],
         node_index_by_key: Dict[Tuple[int, StackFrame, str], int],
@@ -148,6 +163,7 @@ class FlameGraphReporter:
         inverted: bool,
         interval_list: List[Tuple[int, Optional[int], int, int, int]],
         confidential_files: str = "default",
+        frame_info_cache: Dict[StackFrame, FrameInfo],
     ) -> None:
         current_frame_id = 0
         current_frame = frames[0]
@@ -179,6 +195,7 @@ class FlameGraphReporter:
                         import_system=is_import_system,
                         thread_id=record["thread_name"],
                         confidential_files=confidential_files,
+                        frame_info_cache=frame_info_cache,
                     )
                 )
             current_frame_id = node_index_by_key[node_key]
@@ -260,6 +277,8 @@ class FlameGraphReporter:
         node_index_by_key: Dict[NodeKey, int] = {}
         inverted_no_imports_node_index_by_key: Dict[NodeKey, int] = {}
 
+        frame_info_cache: Dict[StackFrame, FrameInfo] = {}
+
         unique_threads: Set[str] = set()
         for record in allocations:
             thread_name = html.escape(format_thread_name(record))
@@ -299,6 +318,7 @@ class FlameGraphReporter:
                     inverted=inverted,
                     interval_list=interval_list,
                     confidential_files=confidential_files,
+                    frame_info_cache=frame_info_cache,
                 )
             else:
                 # inverted flamegraph tree with all nodes
@@ -310,6 +330,7 @@ class FlameGraphReporter:
                     inverted=inverted,
                     interval_list=interval_list,
                     confidential_files=confidential_files,
+                    frame_info_cache=frame_info_cache,
                 )
 
                 # inverted flamegraph tree without import system nodes
@@ -321,6 +342,7 @@ class FlameGraphReporter:
                     inverted=inverted,
                     interval_list=no_imports_interval_list,
                     confidential_files=confidential_files,
+                    frame_info_cache=frame_info_cache,
                 )
 
         all_strings = StringRegistry()
