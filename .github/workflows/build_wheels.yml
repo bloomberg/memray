@@ -177,7 +177,7 @@ jobs:
       # so we instead add a job that depends on the two matrix jobs,
       # and we mark this job as required instead. This job doesn't do
       # any work, it just lets us better manage our required checks.
-      - if: "!success()"
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
         run: echo "Some builds failed" && exit 1
       - run: echo "All builds succeeded!"
 
