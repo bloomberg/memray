@@ -1238,32 +1238,29 @@ class TestLeaks:
 
     def test_thread_allocations_multiple_threads(self, tmpdir, file_format):
         # GIVEN
-        def allocating_function(allocator, amount, stop_flag):
+        def allocating_function(allocator, amount, barrier):
             allocator.posix_memalign(amount)
             allocator.posix_memalign(amount)
-            # We need a barrier as pthread might reuse the same thread ID if the first thread
-            # finishes before the other one starts
-            stop_flag.wait()
+            # Don't let either thread exit (freeing its thread state) before
+            # both have allocated, or the high water mark may not contain both.
+            barrier.wait(30)
 
         # WHEN
         alloc1 = MemoryAllocator()
-        stop_flag1 = threading.Event()
         alloc2 = MemoryAllocator()
-        stop_flag2 = threading.Event()
+        barrier = threading.Barrier(2)
         output = Path(tmpdir) / "test.bin"
         with Tracker(output, file_format=file_format):
             t1 = threading.Thread(
-                target=allocating_function, args=(alloc1, 2048, stop_flag1)
+                target=allocating_function, args=(alloc1, 2048, barrier)
             )
             t1.start()
             t2 = threading.Thread(
-                target=allocating_function, args=(alloc2, 2048, stop_flag2)
+                target=allocating_function, args=(alloc2, 2048, barrier)
             )
             t2.start()
 
-            stop_flag1.set()
             t1.join()
-            stop_flag2.set()
             t2.join()
 
         # THEN
