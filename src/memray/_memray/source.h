@@ -61,6 +61,22 @@ class SocketSource : public Source
     std::atomic<bool> d_is_open{false};
 };
 
+// Wraps a Source, reading from it in large chunks and serving reads from the
+// buffered data, to minimize the number of virtual calls and system calls.
+//
+// Depending on the kind of Source being wrapped, data may be buffered more
+// than once before reaching this buffer:
+//   - SocketSource has no buffer of its own; we recv() directly into ours.
+//   - An uncompressed FileSource reads through a std::ifstream. Since we
+//     always request BUFFER_SIZE bytes, which is larger than the ifstream's
+//     own buffer, the standard library can bypass its buffer and read
+//     directly into ours. Only smaller reads (e.g. at the very end of the
+//     readable portion of the file) are double buffered.
+//   - A compressed FileSource reads compressed data from the std::ifstream
+//     into the LZ4 decompressor's source buffer, decompresses it into the
+//     decompressor's destination buffer, and copies it from there into ours.
+//     Both LZ4 buffers are sized to match BUFFER_SIZE so that each refill of
+//     our buffer needs only a small number of reads and decompression calls.
 class BufferedSource
 {
   public:
