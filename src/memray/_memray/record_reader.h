@@ -96,8 +96,7 @@ class RecordReader
 
     // Data members
     mutable std::mutex d_mutex;
-    memray::io::BufferedSource d_buffered_source;
-    memray::io::BufferedSource* d_input;
+    memray::io::BufferedSource d_input;
     const bool d_track_stacks;
     const bool d_track_object_lifetimes;
     HeaderRecord d_header;
