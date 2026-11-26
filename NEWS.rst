@@ -8,6 +8,54 @@ Changelog
 
 .. towncrier release notes start
 
+memray 1.21.0 (2026-11-26)
+--------------------------
+
+Features
+~~~~~~~~
+
+- Memray now only imports ``rich``, ``textual``, and ``jinja2`` when generating a report that needs them. This reduces the startup time of commands that don't generate reports, like ``memray run`` and ``memray attach``. (#994)
+- Speed up flame graph generation for large captures by computing the source line, escaped location and the "interesting" flag of each frame only once per report. (#1100)
+- Improve allocation tracking performance under multithreaded contention on glibc Linux by using an adaptive mutex for the Tracker lock. (#1035)
+- Reduce the time and memory needed to generate temporary-allocation reports from large capture files. (#1009)
+- Shrink a capture file down to fit the written data when tracking ends gracefully, dropping any overallocation. Additionally, bound the maximum overallocation to 4 MiB. (#1012)
+- Speed up reading uncompressed capture files for sessions where tracking did not end gracefully. (#1008)
+- Track individual allocations made by Apache Arrow 25.0 and newer when it uses mimalloc on Linux. (#943)
+
+
+Bug Fixes
+~~~~~~~~~
+
+- Thread names were not being properly escaped when generating the HTML output, which could lead to issues if a thread name contained HTML special characters. (#1068)
+- Ensure function names, file names, and thread names are never interpreted as markup in Textual TUIs. (#1068)
+- Ensure Memray never writes over a file that already exists while compressing, instead writing to a temp file and atomically renaming it to the target file name once compression is complete. This prevents data loss in case of interruptions during the compression process, and ensures we don't overwrite arbitrary files if the target file is a symlink. (#1104)
+- Our Linux wheels now bundle curl 8.23.0 and OpenSSL 3.5, instead of curl 8.7.1 and the end-of-life OpenSSL 1.0.2 or 1.1.1 from the manylinux images, which have known vulnerabilities. (#1062)
+- ``memray transform csv`` now keeps allocations separated by thread instead of merging them across threads, so the ``tid`` and ``thread_name`` columns always identify the thread that performed each allocation. This was always the documented behavior, but the implementation didn't match the documentation. Other ``memray transform`` formats continue to merge allocations across threads. (#996)
+- HTTPS ``DEBUGINFOD_URLS`` now work correctly on Debian, Ubuntu, and other non-RHEL distros, and ``SSL_CERT_FILE`` and ``SSL_CERT_DIR`` environment variables are now honored as well. (#1109)
+- Fix ``memray attach`` when Memray is built from source for the latest release candidates of Python 3.15. (#1014)
+- Fix ``realloc(ptr, 0)`` not being recorded as freeing ``ptr`` when the allocator returns ``NULL`` after freeing the object, like glibc does, rather than a new distinct pointer, like most other malloc implementations do. (#1097)
+- Fix a ``WorkerFailed`` error that could occur in the ``tree`` reporter if the tree was still being updated when the app began shutting down. (#1107)
+- Fix a race that could corrupt the capture file when a thread that was already running when tracking started resumes executing Python code while other threads are allocating memory. (#1032)
+- Fix a deadlock in Greenlet support in free-threaded Python builds. (#1033)
+- Fix the live mode TUI showing only the first thread's allocations until merging was toggled, even though it starts in merged mode. (#1050)
+- Fix the live mode TUI sometimes never showing that the tracked process disconnected, or showing an outdated final snapshot, when the process exited while a snapshot was being fetched. (#1075)
+- Fix ``memray run --live`` freezing the tracked program once it has written more than 64 KiB to stderr. (#1098)
+- Fix ``memray stats`` crashing on captures with no allocations or with only 0- or 1-byte allocations, and its allocation size histogram counting some sizes in a bin whose reported range excluded them. The last bin's upper bound is now exactly the largest allocation size. (#1076)
+- Treat every directory on ``sys.path`` whose name is ``site-packages`` as a site-packages directory for the purposes of deciding whether code came from an installed package. (#1081)
+- Show a clear error instead of a traceback, and stop leaving empty output files behind, when a report that needs every allocation is requested for an aggregated capture file. (#1084)
+- Fix a crash that could occur when tracking with ``--trace-python-allocators`` started or stopped while other threads were allocating memory, most often in free-threaded Python builds. (#1095)
+- Use the public ``PyEval_SetProfileAllThreads`` API on Python 3.12, rather than walking the interpreter's thread list ourselves and calling a private CPython function for each thread state. (#1000)
+- Avoid unnecessary native stack unwinding for object destruction events when tracking object lifetimes. (#1020)
+- Prevent unbounded memory allocation when reading native segments from a malformed capture file. (#1005)
+- Handle other types of capture file corruption more gracefully. (#1010)
+
+
+Improved Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Document the fields in the JSON output of ``memray stats``, including how the ``total_allocations`` and ``total_frames`` metadata fields differ from ``total_num_allocations``. (#807)
+
+
 memray 1.20.0 (2026-08-07)
 --------------------------
 

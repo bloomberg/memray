@@ -1,1 +1,0 @@
-Fix a crash that could occur when tracking with ``--trace-python-allocators`` started or stopped while other threads were allocating memory, most often in free-threaded Python builds.

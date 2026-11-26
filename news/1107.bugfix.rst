@@ -1,1 +1,0 @@
-Fix a ``WorkerFailed`` error that could occur in the ``tree`` reporter if the tree was still being updated when the app began shutting down.
