@@ -34,7 +34,12 @@ FileSource::FileSource(const std::string& file_name)
     d_raw_stream->seekg(0, std::ios::beg);
 
     if (0 == memcmp(lz4_magic, file_magic, sizeof(lz4_magic))) {
-        d_stream = std::make_shared<lz4_stream::istream>(*d_raw_stream);
+        // The default LZ4 buffer sizes are only 256 bytes, which would take
+        // many reads and decompression calls to fill one BufferedSource
+        // buffer. Size them to match so refills don't defeat the buffering.
+        using lz4_istream =
+                lz4_stream::basic_istream<BufferedSource::BUFFER_SIZE, BufferedSource::BUFFER_SIZE>;
+        d_stream = std::make_shared<lz4_istream>(*d_raw_stream);
     } else {
         d_stream = d_raw_stream;
         findReadableSize();

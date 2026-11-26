@@ -64,6 +64,8 @@ class SocketSource : public Source
 class BufferedSource
 {
   public:
+    static constexpr size_t BUFFER_SIZE = 64 * 1024;
+
     explicit BufferedSource(std::unique_ptr<Source> unbuffered_source);
     ~BufferedSource();
     void close();
@@ -73,7 +75,6 @@ class BufferedSource
 
   private:
     size_t refillBuffer();
-    static constexpr size_t BUFFER_SIZE = 64 * 1024;
     std::unique_ptr<Source> d_unbuffered_source;
     std::array<char, BUFFER_SIZE> d_buffer;
     std::atomic<bool> d_is_open{false};
