@@ -1,4 +1,6 @@
+#include <cstddef>
 #include <cstring>
+#include <dlfcn.h>
 #include <set>
 #include <string>
 #include <sys/mman.h>
@@ -19,7 +21,33 @@ struct elf_patcher_context_t
     bool restore_original;
     std::set<std::string>& patched;
     const std::string& self_so_name;
+    uintptr_t morecore_hook;
 };
+
+// glibc < 2.34 calls `__morecore` with the arena lock held, so tracking an
+// mmap made from a custom hook (libhugetlbfs) would re-enter malloc and deadlock.
+uintptr_t
+custom_morecore_hook() noexcept
+{
+    using morecore_t = void* (*)(ptrdiff_t);
+    auto* hook = static_cast<morecore_t*>(dlsym(RTLD_DEFAULT, "__morecore"));
+    if (!hook || !*hook || *hook == dlsym(RTLD_DEFAULT, "__default_morecore")) {
+        return 0;
+    }
+    return reinterpret_cast<uintptr_t>(*hook);
+}
+
+bool
+contains_address(const dl_phdr_info* info, uintptr_t address) noexcept
+{
+    for (auto phdr = info->dlpi_phdr, end = phdr + info->dlpi_phnum; phdr != end; ++phdr) {
+        const uintptr_t start = info->dlpi_addr + phdr->p_vaddr;
+        if (phdr->p_type == PT_LOAD && start <= address && address - start < phdr->p_memsz) {
+            return true;
+        }
+    }
+    return false;
+}
 
 }  // namespace
 
@@ -189,6 +217,13 @@ phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noe
         return 0;
     }
 
+    if (!context.restore_original && context.morecore_hook
+        && contains_address(info, context.morecore_hook))
+    {
+        LOG(INFO) << "Not patching " << info->dlpi_name << " as it provides the morecore hook";
+        return 0;
+    }
+
     LOG(INFO) << "Patching symbols for " << info->dlpi_name;
 
     for (auto phdr = info->dlpi_phdr, end = phdr + info->dlpi_phnum; phdr != end; ++phdr) {
@@ -208,14 +243,14 @@ phdrs_callback(dl_phdr_info* info, [[maybe_unused]] size_t size, void* data) noe
 void
 SymbolPatcher::overwrite_symbols() noexcept
 {
-    elf_patcher_context_t context{false, symbols, self_so_name};
+    elf_patcher_context_t context{false, symbols, self_so_name, custom_morecore_hook()};
     dl_iterate_phdr(&phdrs_callback, (void*)&context);
 }
 
 void
 SymbolPatcher::restore_symbols() noexcept
 {
-    elf_patcher_context_t context{true, symbols, self_so_name};
+    elf_patcher_context_t context{true, symbols, self_so_name, 0};
     dl_iterate_phdr(&phdrs_callback, (void*)&context);
 }
 

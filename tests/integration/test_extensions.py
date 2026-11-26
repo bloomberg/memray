@@ -1,3 +1,5 @@
+import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -15,6 +17,56 @@ HERE = Path(__file__).parent
 TEST_MULTITHREADED_EXTENSION = HERE / "multithreaded_extension"
 TEST_MISBEHAVING_EXTENSION = HERE / "misbehaving_extension"
 TEST_RPATH_EXTENSION = HERE / "rpath_extension"
+MORECORE_MOCK = HERE / "morecore_mock.c"
+
+
+@pytest.mark.skipif(
+    sys.platform != "linux" or platform.libc_ver()[0] != "glibc",
+    reason="requires glibc",
+)
+@pytest.mark.parametrize("file_format", ["ALL_ALLOCATIONS", "AGGREGATED_ALLOCATIONS"])
+def test_morecore_callback_mmap_does_not_deadlock(tmp_path, file_format):
+    library = tmp_path / "morecore_mock.so"
+    subprocess.run(
+        [
+            "gcc",
+            "-shared",
+            "-fPIC",
+            "-pthread",
+            str(MORECORE_MOCK),
+            "-o",
+            str(library),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    script = """
+import ctypes
+import threading
+
+import memray
+
+trigger = ctypes.CDLL(None).trigger_morecore
+trigger.restype = None
+with memray.Tracker(
+    'capture.bin',
+    native_traces=True,
+    file_format=memray.FileFormat.{file_format},
+):
+    thread = threading.Thread(target=trigger)
+    thread.start()
+    thread.join()
+""".format(file_format=file_format)
+    env = os.environ | {"LD_PRELOAD": str(library)}
+    subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=tmp_path,
+        env=env,
+        timeout=10,
+        check=True,
+        capture_output=True,
+    )
 
 
 @pytest.mark.valgrind

@@ -1,0 +1,1 @@
+Fix a deadlock on glibc older than 2.34 when a library such as ``libhugetlbfs`` installs a custom ``__morecore`` hook that calls ``mmap`` while the allocator holds its lock. Memray no longer intercepts calls made by the library that provides the hook.
