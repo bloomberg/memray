@@ -1975,7 +1975,10 @@ class TestLiveSubcommand:
             deadline = time.monotonic() + TIMEOUT
             while time.monotonic() < deadline:
                 time.sleep(0.1)
-                data = os.read(reader, 1024)
+                try:
+                    data = os.read(reader, 1024)
+                except BlockingIOError:
+                    continue  # the program has the FIFO open but hasn't written yet
                 output += data
                 if output and not data:
                     break  # the program wrote to the FIFO, then closed it
