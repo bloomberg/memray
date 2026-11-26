@@ -1,1 +1,0 @@
-Our Linux wheels now bundle curl 8.23.0 and OpenSSL 3.5, instead of curl 8.7.1 and the end-of-life OpenSSL 1.0.2 or 1.1.1 from the manylinux images, which have known vulnerabilities.

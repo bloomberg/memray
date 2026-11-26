@@ -1,1 +1,0 @@
-Document the fields in the JSON output of ``memray stats``, including how the ``total_allocations`` and ``total_frames`` metadata fields differ from ``total_num_allocations``.

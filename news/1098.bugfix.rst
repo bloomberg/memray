@@ -1,1 +1,0 @@
-Fix ``memray run --live`` freezing the tracked program once it has written more than about 64 KiB to stderr.
