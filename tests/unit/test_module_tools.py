@@ -95,6 +95,22 @@ def test_extract_module_name_and_type_site_packages(resolver):
     assert "pytest" in name
 
 
+def test_extract_module_name_and_type_sys_path(tmp_path, monkeypatch):
+    site_packages = tmp_path / "site-packages"
+    package = site_packages / "example"
+    package.mkdir(parents=True)
+    module = package / "__init__.py"
+    module.touch()
+
+    monkeypatch.syspath_prepend(str(site_packages))
+
+    resolver = ModuleResolver(get_python_path_info())
+    name, mtype = resolver.extract_module_name_and_type(str(module))
+
+    assert name == "example"
+    assert mtype == "site-packages"
+
+
 def test_extract_module_name_and_type_project(resolver):
     _, mtype = resolver.extract_module_name_and_type(__file__)
     assert mtype in ("project", "unknown")
